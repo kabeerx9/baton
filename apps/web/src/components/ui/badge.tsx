@@ -1,7 +1,10 @@
 "use client";
 
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
+import {
+  mergeProps,
+  renderElement,
+  type PartProps,
+} from "@ui-sdk/react/primitive";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/cn";
@@ -38,7 +41,9 @@ const badgeVariants = cva(
   },
 );
 
-interface BadgeProps extends useRender.ComponentProps<"span"> {
+// These wrappers take plain class strings: no call site passes a state function.
+interface BadgeProps extends Omit<PartProps<"span">, "className"> {
+  className?: string;
   variant?: VariantProps<typeof badgeVariants>["variant"];
   size?: VariantProps<typeof badgeVariants>["size"];
 }
@@ -49,11 +54,7 @@ function Badge({ className, variant, size, render, ...props }: BadgeProps) {
     "data-slot": "badge",
   };
 
-  return useRender({
-    defaultTagName: "span",
-    props: mergeProps<"span">(defaultProps, props),
-    render,
-  });
+  return renderElement("span", mergeProps(defaultProps, props), render);
 }
 
-export { Badge, badgeVariants };
+export { Badge };

@@ -1,15 +1,19 @@
 "use client";
 
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
+import {
+  mergeProps,
+  renderElement,
+  type PartProps,
+} from "@ui-sdk/react/primitive";
 
 import { cn } from "@/lib/cn";
 
-function Label({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<"label">) {
+// This wrapper takes a plain class string: no call site passes a state function.
+interface LabelProps extends Omit<PartProps<"label">, "className"> {
+  className?: string;
+}
+
+function Label({ className, render, ...props }: LabelProps) {
   const defaultProps = {
     className: cn(
       "inline-flex items-center gap-2 text-base/4.5 sm:text-sm/4 font-medium text-foreground",
@@ -18,11 +22,7 @@ function Label({
     "data-slot": "label",
   };
 
-  return useRender({
-    defaultTagName: "label",
-    props: mergeProps<"label">(defaultProps, props),
-    render,
-  });
+  return renderElement("label", mergeProps(defaultProps, props), render);
 }
 
 export { Label };
