@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useDeleteTask } from "@/hooks/mutations/task/use-delete-task";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
+import { notifyChangeRequested } from "@/lib/notify-change-requested";
 import { toast } from "@/lib/toast";
 
 type TaskDeleteDialogProps = {
@@ -54,7 +55,7 @@ export default function TaskDeleteDialog({
       // A delete by someone outside the task only opens a request: the task
       // stays, so the caller must not leave the page.
       if (result.outcome === "requested") {
-        toast.info(t("tasks:delete.requested"));
+        notifyChangeRequested(result.task);
         return;
       }
       toast.success(t("tasks:delete.success"), { icon: Trash2Icon });

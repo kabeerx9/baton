@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   deleteTask: vi.fn(),
   error: vi.fn(),
   info: vi.fn(),
+  notifyRequested: vi.fn(),
   success: vi.fn(),
 }));
 
@@ -40,6 +41,9 @@ vi.mock("@/hooks/use-workspace-permission", () => ({
     canDeleteTasks: mocks.canDeleteTasks,
     isCheckingPermissions: false,
   }),
+}));
+vi.mock("@/lib/notify-change-requested", () => ({
+  notifyChangeRequested: mocks.notifyRequested,
 }));
 vi.mock("@/lib/toast", () => ({
   toast: { error: mocks.error, info: mocks.info, success: mocks.success },
@@ -133,7 +137,7 @@ describe("TaskDeleteDialog", () => {
     await confirmDeletion();
 
     await waitFor(() =>
-      expect(mocks.info).toHaveBeenCalledWith("tasks:delete.requested"),
+      expect(mocks.notifyRequested).toHaveBeenCalledWith({ id: "task-1" }),
     );
     expect(mocks.success).not.toHaveBeenCalled();
     expect(onDeleted).not.toHaveBeenCalled();

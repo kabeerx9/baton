@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { invalidateMyWork } from "@/lib/invalidate-my-work";
 import updateTaskStatus from "@/fetchers/task/update-task-status";
+import { notifyChangeRequested } from "@/lib/notify-change-requested";
 import { isPerTaskRelationQuery } from "@/lib/relation-query-keys";
 import type Task from "@/types/task";
 
@@ -9,7 +10,8 @@ export function useUpdateTaskStatus() {
 
   return useMutation({
     mutationFn: (task: Task) => updateTaskStatus(task.id, task),
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      if (result.outcome === "requested") notifyChangeRequested(result.task);
       invalidateMyWork(queryClient);
       queryClient.invalidateQueries({
         queryKey: ["task", variables.id],
