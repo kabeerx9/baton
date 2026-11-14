@@ -1,103 +1,69 @@
 "use client";
 
-import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
+import {
+  HoverCard as HoverCardPrimitive,
+  HoverCardContent as HoverCardContentPrimitive,
+  HoverCardTrigger as HoverCardTriggerPrimitive,
+} from "@ui-sdk/react/hover-card";
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { POPUP_RESET } from "./popup-reset";
 
-const PreviewCardDelays = React.createContext<{
-  openDelay?: number;
-  closeDelay?: number;
-}>({});
-
-function PreviewCard({
+function HoverCard({
   closeDelay,
   openDelay,
   ...props
-}: PreviewCardPrimitive.Root.Props & {
+}: React.ComponentProps<typeof HoverCardPrimitive> & {
   openDelay?: number;
-  closeDelay?: number;
 }) {
-  const delays = React.useMemo(
-    () => ({ openDelay, closeDelay }),
-    [openDelay, closeDelay],
-  );
   return (
-    <PreviewCardDelays.Provider value={delays}>
-      <PreviewCardPrimitive.Root {...props} />
-    </PreviewCardDelays.Provider>
+    <HoverCardPrimitive closeDelay={closeDelay} delay={openDelay} {...props} />
   );
 }
 
-function PreviewCardTrigger({
+function HoverCardTrigger({
   asChild = false,
   children,
   render,
-  delay,
-  closeDelay,
   ...props
-}: PreviewCardPrimitive.Trigger.Props & { asChild?: boolean }) {
-  const rootDelays = React.useContext(PreviewCardDelays);
-  const resolvedRender =
-    asChild && React.isValidElement(children) ? children : render;
+}: React.ComponentProps<typeof HoverCardTriggerPrimitive> & {
+  asChild?: boolean;
+}) {
+  const resolvedRender = (
+    asChild && React.isValidElement(children) ? children : render
+  ) as React.ComponentProps<typeof HoverCardTriggerPrimitive>["render"];
 
   return (
-    <PreviewCardPrimitive.Trigger
-      data-slot="preview-card-trigger"
-      delay={delay ?? rootDelays.openDelay}
-      closeDelay={closeDelay ?? rootDelays.closeDelay}
-      render={resolvedRender}
-      {...props}
-    >
+    <HoverCardTriggerPrimitive render={resolvedRender} {...props}>
       {asChild ? undefined : children}
-    </PreviewCardPrimitive.Trigger>
+    </HoverCardTriggerPrimitive>
   );
 }
 
-function PreviewCardPopup({
-  className,
-  children,
+function HoverCardContent({
   align = "center",
+  children,
+  className,
   side = "top",
   sideOffset = 4,
-  anchor,
   ...props
-}: PreviewCardPrimitive.Popup.Props & {
-  align?: PreviewCardPrimitive.Positioner.Props["align"];
-  side?: PreviewCardPrimitive.Positioner.Props["side"];
-  sideOffset?: PreviewCardPrimitive.Positioner.Props["sideOffset"];
-  anchor?: PreviewCardPrimitive.Positioner.Props["anchor"];
-}) {
+}: React.ComponentProps<typeof HoverCardContentPrimitive>) {
   return (
-    <PreviewCardPrimitive.Portal>
-      <PreviewCardPrimitive.Positioner
-        align={align}
-        anchor={anchor}
-        className="z-50"
-        data-slot="preview-card-positioner"
-        side={side}
-        sideOffset={sideOffset}
-      >
-        <PreviewCardPrimitive.Popup
-          className={cn(
-            "relative flex w-64 origin-(--transform-origin) text-balance rounded-lg border bg-popover not-dark:bg-clip-padding p-4 text-popover-foreground text-sm shadow-lg/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-            className,
-          )}
-          data-slot="preview-card-content"
-          {...props}
-        >
-          {children}
-        </PreviewCardPrimitive.Popup>
-      </PreviewCardPrimitive.Positioner>
-    </PreviewCardPrimitive.Portal>
+    <HoverCardContentPrimitive
+      align={align}
+      className={cn(
+        POPUP_RESET,
+        "relative flex w-64 origin-(--transform-origin) text-balance rounded-lg border bg-popover not-dark:bg-clip-padding p-4 text-popover-foreground text-sm shadow-lg/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+        className,
+      )}
+      side={side}
+      sideOffset={sideOffset}
+      {...props}
+    >
+      {children}
+    </HoverCardContentPrimitive>
   );
 }
 
-export {
-  PreviewCard,
-  PreviewCard as HoverCard,
-  PreviewCardPopup,
-  PreviewCardPopup as HoverCardContent,
-  PreviewCardTrigger,
-  PreviewCardTrigger as HoverCardTrigger,
-};
+export { HoverCard, HoverCardContent, HoverCardTrigger };
