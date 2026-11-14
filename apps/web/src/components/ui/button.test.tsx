@@ -187,3 +187,36 @@ describe("Button added behavior (UI SDK port only)", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 });
+
+describe("Button disabled parity (passes on the Base UI wrapper)", () => {
+  it("keeps a disabled native button out of the Tab order and ignores clicks", () => {
+    const onClick = vi.fn();
+    render(
+      <Button disabled onClick={onClick}>
+        Save
+      </Button>,
+    );
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeDisabled();
+    expect(button.matches(":disabled")).toBe(true);
+    // The dimming comes from `disabled:`, which needs a native disabled control.
+    expect(button.className).toContain("disabled:opacity-64");
+
+    fireEvent.click(button);
+
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("keeps a disabled render link's href and native anchor behaviour", () => {
+    render(
+      <Button disabled render={<a href="/reports" />}>
+        Reports
+      </Button>,
+    );
+
+    const link = screen.getByRole("link", { name: "Reports" });
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("href", "/reports");
+  });
+});

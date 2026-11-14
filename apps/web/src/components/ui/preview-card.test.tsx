@@ -224,3 +224,30 @@ describe("HoverCard event containment", () => {
     });
   });
 });
+
+describe("HoverCard disabled parity (passes on the Base UI wrapper)", () => {
+  it("keeps a disabled trigger out of the Tab order and closed on press", () => {
+    render(
+      <HoverCard closeDelay={DELAY} openDelay={DELAY}>
+        <HoverCardTrigger
+          render={
+            <button disabled type="button">
+              BATON-1
+            </button>
+          }
+        />
+        <HoverCardContent>Preview body</HoverCardContent>
+      </HoverCard>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "BATON-1" });
+    expect(trigger).toBeDisabled();
+    expect(trigger.hasAttribute("tabindex")).toBe(false);
+
+    trigger.focus();
+    expect(trigger).not.toHaveFocus();
+
+    fireEvent.click(trigger);
+    expect(screen.queryByText("Preview body")).not.toBeInTheDocument();
+  });
+});

@@ -82,3 +82,42 @@ describe("CheckboxGroup", () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 });
+
+// A control is out of the Tab order when the wrapper marks it natively disabled
+// or removes it from the sequence. Base UI used `tabindex="-1"` on a span; UI
+// SDK uses a native disabled button. Both must count as skipped.
+function skippedByTab(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("tabindex") === "-1"
+  );
+}
+
+describe("CheckboxGroup disabled parity (passes on the Base UI wrapper)", () => {
+  it("disables every checkbox inside a disabled group", () => {
+    const onValueChange = vi.fn();
+    render(
+      <CheckboxGroup
+        aria-label="Projects"
+        disabled
+        onValueChange={onValueChange}
+      >
+        <Checkbox aria-label="Alpha" value="alpha" />
+        <Checkbox aria-label="Beta" value="beta" />
+      </CheckboxGroup>,
+    );
+
+    const group = screen.getByRole("group", { name: "Projects" });
+    expect(group).toHaveAttribute("data-disabled");
+
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      expect(checkbox).toHaveAttribute("aria-disabled", "true");
+      expect(checkbox).toHaveAttribute("data-disabled");
+      expect(skippedByTab(checkbox)).toBe(true);
+      expect(checkbox.className).toContain("data-disabled:opacity-64");
+      fireEvent.click(checkbox);
+    }
+
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+});

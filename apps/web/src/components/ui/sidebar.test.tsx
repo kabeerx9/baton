@@ -216,3 +216,59 @@ describe("Sidebar native buttons in a form", () => {
     );
   });
 });
+
+// A control is out of the Tab order when the wrapper marks it natively disabled
+// or removes it from the sequence.
+function skippedByTab(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("tabindex") === "-1"
+  );
+}
+
+describe("Sidebar disabled parity (passes on the Base UI wrapper)", () => {
+  it("keeps disabled menu buttons out of the Tab order and ignores clicks", () => {
+    const onClick = vi.fn();
+    render(
+      <SidebarProvider>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton disabled onClick={onClick}>
+              Inbox
+            </SidebarMenuButton>
+            <SidebarMenuAction disabled>More</SidebarMenuAction>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarProvider>,
+    );
+
+    const button = screen.getByRole("button", { name: "Inbox" });
+    expect(button).toBeDisabled();
+    expect(skippedByTab(button)).toBe(true);
+    // Both wrappers dim disableable sidebar controls with `disabled:`.
+    expect(button.className).toContain("disabled:opacity-50");
+
+    const action = screen.getByRole("button", { name: "More" });
+    expect(action).toBeDisabled();
+    expect(skippedByTab(action)).toBe(true);
+
+    fireEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("keeps a link-rendered menu button's href when disabled", () => {
+    render(
+      <SidebarProvider>
+        <SidebarMenuButton disabled render={<a href="/settings" />}>
+          Settings
+        </SidebarMenuButton>
+      </SidebarProvider>,
+    );
+
+    // An anchor has no disabled state; both wrappers pass the attribute through
+    // and the link keeps working. Only the type is narrowed to the button tag.
+    const link = screen.getByRole("link", { name: "Settings" });
+    expect(link).toHaveAttribute("href", "/settings");
+    expect(link).toHaveAttribute("disabled");
+  });
+});
