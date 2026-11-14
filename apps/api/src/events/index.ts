@@ -1,9 +1,18 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { EventEmitter } from "node:events";
+import type { Channel } from "../utils/request-channel";
 
 const EVENTS = new EventEmitter();
 EVENTS.setMaxListeners(100);
-export const eventContext = new AsyncLocalStorage<{ initiatorId: string }>();
+export const eventContext = new AsyncLocalStorage<{
+  initiatorId: string;
+  channel?: Channel | null;
+}>();
+
+/** The channel of the request this code runs for; null outside a request. */
+export function currentChannel(): Channel | null {
+  return eventContext.getStore()?.channel ?? null;
+}
 
 export type EventPayload<T = unknown> = {
   type: string;

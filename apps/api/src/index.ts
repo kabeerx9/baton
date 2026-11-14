@@ -60,6 +60,7 @@ import getAvatar from "./user/controllers/get-avatar";
 import { apiKeyRejection } from "./utils/api-key-rejection";
 import { applyApiKeyHeaders } from "./utils/apply-api-key-headers";
 import { authenticateApiRequest } from "./utils/authenticate-api-request";
+import { type AuthMethod, channelFor } from "./utils/request-channel";
 import { requireIntegrationProviderEnabled } from "./instance-settings/require-integration-provider-enabled";
 import { authorizeAssetAccess } from "./utils/authorize-asset-access";
 import { getInvitationDetails } from "./utils/check-registration-allowed";
@@ -116,6 +117,7 @@ type ApiVariables = {
     apiKey?: ApiKey;
     apiKeyHeaders?: Record<string, string>;
     workspaceId?: string;
+    authMethod?: AuthMethod;
   };
 };
 
@@ -569,7 +571,10 @@ export function createApp() {
         const windowId = c.req.header("X-Baton-Window-Id");
         const userId = c.get("userId");
         const initiatorId = windowId ? `${userId}:${windowId}` : userId;
-        return await eventContext.run({ initiatorId }, next);
+        return await eventContext.run(
+          { initiatorId, channel: channelFor(c.get("authMethod")) },
+          next,
+        );
       } catch (error) {
         if (!(error instanceof HTTPException)) {
           console.error("API authentication failed:", error);

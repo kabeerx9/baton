@@ -1,4 +1,5 @@
 import { HTTPException } from "hono/http-exception";
+import { isReservedActivityType } from "./reserved-activity-types";
 import { subscribeToEvent } from "../events";
 import {
   apiRouter,
@@ -93,7 +94,7 @@ const createActivityRoute = createRoute({
   responses: {
     200: jsonResponse("The created activity", activitySchema),
     400: errorResponse(
-      "Invalid body, or comment activity submitted through the generic endpoint",
+      "Invalid body, or a comment or other server-written activity type submitted through the generic endpoint",
     ),
     403: errorResponse(
       "No access to the project, or missing task:update permission",
@@ -209,6 +210,11 @@ const activity = apiRouter()
     if (type === "comment") {
       throw new HTTPException(400, {
         message: "Use the comment endpoint to create comments",
+      });
+    }
+    if (isReservedActivityType(type)) {
+      throw new HTTPException(400, {
+        message: `Activity type "${type}" is written by the server only`,
       });
     }
     return c.json(

@@ -179,7 +179,7 @@ describe("activity attribution", () => {
         taskId: task.id,
         userId: impersonated.user.id,
         message: `note-${randomUUID()}`,
-        type: "created",
+        type: "note",
       }),
     });
 
@@ -187,6 +187,17 @@ describe("activity attribution", () => {
     const activity = await response.json();
     expect(activity.userId).toBe(user.id);
     expect(activity.userId).not.toBe(impersonated.user.id);
+
+    // Server-written audit types cannot be forged; a "created" row would
+    // otherwise pass as the task's creator in history.
+    for (const type of ["created", "create", "status_changed"]) {
+      const forged = await app.request("/api/activity/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: task.id, message: null, type }),
+      });
+      expect(forged.status).toBe(400);
+    }
   });
 });
 

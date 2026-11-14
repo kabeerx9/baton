@@ -1,5 +1,6 @@
 import db from "../../database";
 import { activityTable } from "../../database/schema";
+import { currentChannel } from "../../events";
 
 async function createActivity(
   taskId: string,
@@ -16,6 +17,7 @@ async function createActivity(
       userId,
       content,
       eventData: eventData ?? null,
+      channel: currentChannel(),
     })
     .returning();
   return activity;

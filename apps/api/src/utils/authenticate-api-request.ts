@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { apiKeyRejection } from "./api-key-rejection";
 import { getUserSession } from "./get-user-session";
 import { type ApiKeyRateLimit, rateLimitHeaders } from "./rate-limit-headers";
+import type { AuthMethod } from "./request-channel";
 import { verifyApiKey } from "./verify-api-key";
 
 // User is tagged on Sentry's isolation scope; the per-request isolation
@@ -73,6 +74,7 @@ type VerifiedApiKey = Extract<
 >;
 
 function setApiKeyContext(c: Context, { key, rateLimit }: VerifiedApiKey) {
+  c.set("authMethod", "api_key" satisfies AuthMethod);
   c.set("userId", key.userId);
   c.set("userEmail", "");
   c.set("user", null);
@@ -114,6 +116,7 @@ export async function authenticateApiRequest(c: Context): Promise<void> {
     }
     const sessionResult = await getSessionFromBearerOnlyHeaders(c);
     if (sessionResult?.user && sessionResult.session) {
+      c.set("authMethod", "bearer" satisfies AuthMethod);
       c.set("user", sessionResult.user);
       c.set("session", sessionResult.session);
       c.set("userId", sessionResult.user.id);
@@ -134,6 +137,7 @@ export async function authenticateApiRequest(c: Context): Promise<void> {
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
+  c.set("authMethod", "cookie" satisfies AuthMethod);
   attachUserToScope(sessionResult.user.id);
 }
 

@@ -2,6 +2,7 @@ import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Session, User } from "better-auth/types";
 import { apiErrorSchema } from "./errors/api-error-schema";
 import { validationHook } from "./errors/validation-error";
+import type { AuthMethod } from "./utils/request-channel";
 
 export { createRoute } from "@hono/zod-openapi";
 export { z };
@@ -19,6 +20,7 @@ export type BaseVariables = {
   user: User | null;
   session: Session | null;
   apiKey?: ApiKey;
+  authMethod?: AuthMethod;
 };
 
 // createRoute({ middleware }) registers middleware BEFORE the request

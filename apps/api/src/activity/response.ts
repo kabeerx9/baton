@@ -16,6 +16,10 @@ export const activitySchema = z
       description:
         "Type-specific payload, e.g. { oldStatus, newStatus } for status_changed. Null for plain comments.",
     }),
+    channel: z.enum(["web", "agent"]).nullable().openapi({
+      description:
+        "How the person acted: web (browser session) or agent (API key or MCP token). Null for system events and older activity.",
+    }),
     externalUserName: z.string().nullable().openapi({
       description: "Set when the activity was imported from another tool.",
     }),
@@ -45,6 +49,7 @@ export const workspaceActivityListSchema = z.array(
           "Plain-text preview of the stored content, at most 240 characters: the comment body, or the description older system events carry instead of eventData.",
       }),
       userId: z.string().nullable(),
+      channel: z.enum(["web", "agent"]).nullable(),
       userName: z.string().nullable(),
       userImage: z.string().nullable(),
       externalUserName: z.string().nullable(),

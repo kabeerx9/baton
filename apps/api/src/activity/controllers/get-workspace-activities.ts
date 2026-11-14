@@ -42,6 +42,7 @@ async function getWorkspaceActivities(workspaceId: string, userId: string) {
       createdAt: activityTable.createdAt,
       content: activityTable.content,
       eventData: activityTable.eventData,
+      channel: activityTable.channel,
       userId: activityTable.userId,
       userName: userTable.name,
       userImage: userTable.image,
