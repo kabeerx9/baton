@@ -129,10 +129,11 @@ export default async function reorderTasks(
       if (actor.kind === "person") {
         const workspaceId = (await projectWorkspaceId(tx, projectId)) ?? "";
         const grants = await loadPersonGrants(tx, workspaceId, actor);
-        for (const { locked } of moving) {
+        for (const { locked, status } of moving) {
           const consent = decideConsent(
             "status",
             await consentFactsWith(tx, locked, actor.userId, grants),
+            { from: locked.status, to: status },
           );
           if (consent.kind === "request")
             throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });

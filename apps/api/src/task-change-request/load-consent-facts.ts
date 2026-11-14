@@ -145,6 +145,7 @@ export async function consentFactsWith(
     feature: await isFeature(database, task.id),
     canUpdate: grants.can({ task: ["update"] }),
     canDelete: grants.can({ task: ["delete"] }),
+    canAssign: grants.can({ task: ["assign"] }),
   };
 }
 
@@ -162,6 +163,7 @@ export async function loadConsentFacts(
       feature: false,
       canUpdate: false,
       canDelete: false,
+      canAssign: false,
     };
   const grants = await loadPersonGrants(database, workspaceId, person);
   return {

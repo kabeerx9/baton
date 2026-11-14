@@ -59,8 +59,9 @@ async function refusalsFor(
   tx: DbOrTx,
   actor: TaskActor,
   workspaceId: string,
-  tasks: ConsentTask[],
+  tasks: (ConsentTask & { status?: string })[],
   change: TaskChangeKind,
+  to?: string,
 ) {
   const refusals = new Map<string, string>();
   if (actor.kind !== "person") return refusals;
@@ -69,6 +70,9 @@ async function refusalsFor(
     const consent = decideConsent(
       change,
       await consentFactsWith(tx, task, actor.userId, grants),
+      to !== undefined && task.status !== undefined
+        ? { from: task.status, to }
+        : undefined,
     );
     if (consent.kind === "request") refusals.set(task.id, NOT_INVOLVED_MESSAGE);
     else if (consent.kind === "deny") refusals.set(task.id, consent.message);
@@ -209,6 +213,7 @@ async function bulkUpdateTasks({
           workspaceId,
           changing,
           "status",
+          value,
         );
         // "Cannot finish while blocked" holds on bulk paths too.
         for (const task of changing) {
@@ -467,10 +472,14 @@ async function bulkUpdateTasks({
         refusals = await refusalsFor(tx, actor, workspaceId, locked, "delete");
         const deleting = foundIds.filter((id) => !refusals.has(id));
         if (deleting.length === 0) return { rowCount: 0 };
+        // The delete below sets their stored task_id to null; send the
+        // requesters rows that match, or the notifications are dropped.
         for (const id of deleting)
           effects.push(
             ...finishedEffects(
-              await cancelPendingRequests(tx, id, "task_deleted"),
+              (await cancelPendingRequests(tx, id, "task_deleted")).map(
+                (request) => ({ ...request, taskId: null }),
+              ),
               userId,
             ),
           );

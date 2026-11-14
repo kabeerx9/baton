@@ -7,6 +7,7 @@ const outsider: ConsentFacts = {
   feature: false,
   canUpdate: true,
   canDelete: false,
+  canAssign: true,
 };
 
 describe("decideConsent", () => {
@@ -30,6 +31,27 @@ describe("decideConsent", () => {
     expect(decideConsent("delete", { ...outsider, canDelete: true }).kind).toBe(
       "request",
     );
+  });
+
+  it("needs task:update to ask for a delete, as accept re-checks", () => {
+    expect(
+      decideConsent("delete", {
+        ...outsider,
+        canUpdate: false,
+        canDelete: true,
+      }).kind,
+    ).toBe("deny");
+  });
+
+  it("needs task:assign before involvement for any reassignment", () => {
+    for (const facts of [
+      { ...outsider, involved: true, canAssign: false },
+      { ...outsider, bypass: true, canAssign: false },
+    ])
+      expect(decideConsent("assign", facts)).toMatchObject({
+        kind: "deny",
+        message: "Missing task:assign permission",
+      });
   });
 
   it("lets an outsider edit fields but notifies the involved people", () => {
@@ -58,8 +80,20 @@ describe("decideConsent", () => {
 
   it("applies a feature's own status directly but still guards its deletion", () => {
     const feature = { ...outsider, feature: true };
-    expect(decideConsent("status", feature).kind).toBe("apply");
+    const move = { from: "to-do", to: "in-progress" };
+    expect(decideConsent("status", feature, move).kind).toBe("apply");
     expect(decideConsent("delete", feature).kind).toBe("request");
+  });
+
+  it("turns an outsider's archive or unarchive of a feature into a request", () => {
+    const feature = { ...outsider, feature: true };
+    for (const move of [
+      { from: "to-do", to: "archived" },
+      { from: "archived", to: "in-progress" },
+    ])
+      expect(decideConsent("status", feature, move).kind).toBe("request");
+    // Without the move, the feature exception never applies.
+    expect(decideConsent("status", feature).kind).toBe("request");
   });
 });
 

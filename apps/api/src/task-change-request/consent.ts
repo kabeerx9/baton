@@ -23,7 +23,20 @@ export type ConsentFacts = {
   feature: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  canAssign: boolean;
 };
+
+/** The status move a "status" change makes. */
+export type StatusMove = { from: string; to: string };
+
+/**
+ * Archiving hides a task and stops it blocking anything, even for a
+ * feature, whose other statuses are unused. So archive and unarchive never
+ * take the feature exception.
+ */
+export function togglesArchive(move: StatusMove) {
+  return (move.from === "archived") !== (move.to === "archived");
+}
 
 export type Consent =
   | { kind: "apply"; notifyInvolved: boolean }
@@ -33,15 +46,26 @@ export type Consent =
 export const OUTSIDER_REASSIGN_MESSAGE =
   "Only the task's creator, its assignee or a workspace admin can change who it is assigned to.";
 
+/**
+ * `move` is required for the feature exception: without it a status change
+ * is judged as for a plain task (the safe default).
+ */
 export function decideConsent(
   change: TaskChangeKind,
   facts: ConsentFacts,
+  move?: StatusMove,
 ): Consent {
   const consents = facts.involved || facts.bypass;
   switch (change) {
     case "edit":
       return { kind: "apply", notifyInvolved: !consents };
     case "assign":
+      if (!facts.canAssign)
+        return {
+          kind: "deny",
+          status: 403,
+          message: "Missing task:assign permission",
+        };
       return consents
         ? { kind: "apply", notifyInvolved: false }
         : { kind: "deny", status: 403, message: OUTSIDER_REASSIGN_MESSAGE };
@@ -52,8 +76,9 @@ export function decideConsent(
           status: 403,
           message: "Missing task:update permission",
         };
-      // A feature's column comes from its tasks; its own status is unused.
-      if (consents || facts.feature)
+      // A feature's column comes from its tasks; its own status is unused,
+      // except archived.
+      if (consents || (facts.feature && move && !togglesArchive(move)))
         return { kind: "apply", notifyInvolved: false };
       return { kind: "request" };
     case "delete":
@@ -65,7 +90,9 @@ export function decideConsent(
               status: 403,
               message: "Missing task:delete permission",
             };
-      return facts.canUpdate || facts.canDelete
+      // Asking needs task:update, the same permission accept and the
+      // timeout job re-check for the requester.
+      return facts.canUpdate
         ? { kind: "request" }
         : {
             kind: "deny",

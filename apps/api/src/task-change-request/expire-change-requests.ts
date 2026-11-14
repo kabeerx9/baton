@@ -67,6 +67,7 @@ export async function timeOutRequest(requestId: string): Promise<Outcome> {
         tx,
         task.projectId,
         request.kind,
+        request.baseStatus,
         request.targetStatus,
       ));
     if (!task || !applies) {

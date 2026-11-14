@@ -177,7 +177,10 @@ async function moveTask({
     if (actor.kind === "person" && (statusChanges || dropsAssignee)) {
       const facts = await loadConsentFacts(tx, locked, actor);
       if (statusChanges) {
-        const consent = decideConsent("status", facts);
+        const consent = decideConsent("status", facts, {
+          from: locked.status,
+          to: resolvedColumn.slug,
+        });
         if (consent.kind === "deny") throw consentError(consent);
         if (consent.kind === "request")
           throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });

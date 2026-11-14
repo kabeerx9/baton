@@ -29,16 +29,22 @@ export const NOT_INVOLVED_MESSAGE =
 
 /**
  * Whether an unanswered request applies after 24 hours: only a status change
- * into a known, non-final column. Final columns, archiving, deletion and any
- * unknown target expire instead.
+ * into a known, non-final column. Final columns, archiving, unarchiving,
+ * deletion and any unknown target expire instead.
  */
 export async function appliesOnTimeout(
   database: DbOrTx,
   projectId: string,
   kind: string,
+  baseStatus: string,
   targetStatus: string | null,
 ) {
-  if (kind !== "status" || !targetStatus || targetStatus === "archived")
+  if (
+    kind !== "status" ||
+    !targetStatus ||
+    targetStatus === "archived" ||
+    baseStatus === "archived"
+  )
     return false;
   return (await columnFinality(database, projectId, targetStatus)) === false;
 }
@@ -67,6 +73,7 @@ export async function openRequestWithEffects(
           database,
           input.task.projectId,
           input.kind,
+          input.task.status,
           input.targetStatus,
         ),
       },
