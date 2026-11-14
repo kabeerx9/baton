@@ -1,4 +1,10 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { pendingOn } from "@/components/board/model";
 import {
@@ -53,6 +59,51 @@ describe("PendingIndicator", () => {
     const label = screen.getByRole("img").getAttribute("aria-label") ?? "";
     expect(label).toContain("tasks:changeRequest.pendingDelete");
     expect(label).toContain("tasks:changeRequest.someone");
+  });
+
+  it("keeps a click on the tooltip away from the card link around it", async () => {
+    const onCardClick = vi.fn();
+    const { container } = render(
+      <a
+        href="/elsewhere"
+        onClick={(event) => {
+          event.preventDefault();
+          onCardClick();
+        }}
+      >
+        <span>Card title</span>
+        <PendingIndicator request={request} requesterName="Rohan" />
+      </a>,
+    );
+
+    // Base UI opens on mouseenter, UI SDK on pointerenter; the tooltip waits
+    // 600ms after the pointer rests on the trigger.
+    const marker = screen.getByRole("img");
+    fireEvent.pointerOver(marker, { pointerType: "mouse" });
+    fireEvent.pointerEnter(marker, { pointerType: "mouse" });
+    fireEvent.mouseOver(marker);
+    fireEvent.mouseEnter(marker);
+    fireEvent.mouseMove(marker, { movementX: 5, movementY: 5 });
+
+    const content = await waitFor(
+      () => {
+        const open = [
+          ...document.querySelectorAll('[data-slot="tooltip-content"]'),
+        ].find((element) => element.hasAttribute("data-open"));
+        if (!open) throw new Error("tooltip did not open");
+        return open;
+      },
+      { timeout: 2500 },
+    );
+
+    // The popup renders in a container outside the link, and a click on it
+    // stops there instead of reaching the card.
+    expect(container.querySelector("a")?.contains(content)).toBe(false);
+    fireEvent.click(content);
+    expect(onCardClick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Card title"));
+    expect(onCardClick).toHaveBeenCalledTimes(1);
   });
 });
 
