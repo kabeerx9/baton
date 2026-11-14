@@ -638,6 +638,34 @@ describe("Menu on UI SDK", () => {
     expect(openTask).not.toHaveBeenCalled();
   });
 
+  it("returns focus to the trigger after a selection, although the trigger never had focus", async () => {
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <Menu>
+          <MenuTrigger>Status</MenuTrigger>
+          <MenuPopup>
+            <MenuItem>Done</MenuItem>
+          </MenuPopup>
+        </Menu>
+      </>,
+    );
+    // Focus sits on another control and a bare click opens the menu, as a
+    // click does in Safari or a test: the trigger is never focused.
+    screen.getByRole("button", { name: "Elsewhere" }).focus();
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
+    await waitFor(() => expect(openMenus()).toHaveLength(1));
+    await waitFor(() =>
+      expect(openMenus()[0]?.contains(document.activeElement)).toBe(true),
+    );
+
+    press(screen.getByRole("menuitem", { name: "Done" }));
+    await expectClosed();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Status" })).toHaveFocus(),
+    );
+  });
+
   it("does not hold the menu open for a handler that returns a promise", async () => {
     render(
       <Menu>

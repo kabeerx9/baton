@@ -24,7 +24,18 @@ import { cn } from "@/lib/cn";
 import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
-const Menu = MenuPrimitive;
+/** The trigger that last asked this menu to open, so the content can name it. */
+const OpenerContext =
+  React.createContext<React.RefObject<Element | null> | null>(null);
+
+function Menu(props: React.ComponentProps<typeof MenuPrimitive>) {
+  const opener = React.useRef<Element | null>(null);
+  return (
+    <OpenerContext.Provider value={opener}>
+      <MenuPrimitive {...props} />
+    </OpenerContext.Provider>
+  );
+}
 
 /** The part's props with plain `children`: no part here takes a render function. */
 type Plain<T> = Omit<T, "children"> & { children?: React.ReactNode };
@@ -42,8 +53,22 @@ function MenuTrigger({
       ? children
       : render;
 
+  const opener = React.useContext(OpenerContext);
+  const remember =
+    <E extends React.SyntheticEvent>(handler?: (event: E) => void) =>
+    (event: E) => {
+      handler?.(event);
+      if (opener) opener.current = event.currentTarget as Element;
+    };
+
   return (
-    <MenuTriggerPrimitive render={resolvedRender} {...props}>
+    <MenuTriggerPrimitive
+      render={resolvedRender}
+      {...props}
+      onClick={remember(props.onClick)}
+      onKeyDown={remember(props.onKeyDown)}
+      onPointerDown={remember(props.onPointerDown)}
+    >
       {asChild ? undefined : children}
     </MenuTriggerPrimitive>
   );
@@ -90,10 +115,17 @@ function MenuPopup({
   sideOffset = 4,
   ...props
 }: ContentProps) {
+  const opener = React.useContext(OpenerContext);
   return (
     <MenuContentShell
       align={align}
       as={MenuContentPrimitive}
+      // UI SDK returns focus to the element focused before the menu opened
+      // when the opener was not a recognised press: the card link for a status
+      // menu opened by a bare click, and in Safari, where a click does not
+      // focus a button. The menu button pattern, and Base UI, return to the
+      // trigger. The default "trigger" setting does not do this, so name it.
+      finalFocus={() => opener?.current as HTMLElement | null}
       side={side}
       sideOffset={sideOffset}
       {...props}
