@@ -128,6 +128,32 @@ describe("containPopupEvents", () => {
     expect(ancestor).not.toHaveBeenCalled();
   });
 
+  it("contains a render element's own handlers, also when they prevent the default", () => {
+    const ancestor = vi.fn();
+    const own = vi.fn((event: React.MouseEvent) => event.preventDefault());
+
+    const contained = containPopupEvents({
+      render: <div data-testid="rendered" onClick={own} />,
+    });
+    render(<div onClick={ancestor}>{contained.render}</div>);
+    fireEvent.click(screen.getByTestId("rendered"));
+
+    expect(own).toHaveBeenCalledTimes(1);
+    expect(ancestor).not.toHaveBeenCalled();
+  });
+
+  it("contains a render element that brings no handler of its own", () => {
+    const ancestor = vi.fn();
+
+    const contained = containPopupEvents({
+      render: <div data-testid="rendered" />,
+    });
+    render(<div onClick={ancestor}>{contained.render}</div>);
+    fireEvent.click(screen.getByTestId("rendered"));
+
+    expect(ancestor).not.toHaveBeenCalled();
+  });
+
   it("lets the event through when containment is off", () => {
     const ancestor = vi.fn();
 

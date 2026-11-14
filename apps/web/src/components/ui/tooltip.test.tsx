@@ -1,3 +1,6 @@
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
+   The ancestor div and the render element stand in for a clickable card around
+   a popup; they are probes, not interactive UI. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -298,5 +301,33 @@ describe("Tooltip event containment", () => {
         return content;
       },
     });
+  });
+
+  // UI SDK runs a `render` element's handlers after the part's and skips the
+  // part's handler when the element prevents the default, so the wrapper must
+  // contain that element too.
+  it("contains a click on a render element that prevents the default", async () => {
+    const ancestor = vi.fn();
+
+    render(
+      <div onClick={ancestor}>
+        <Tooltip delay={0}>
+          <TooltipTrigger>Waiting</TooltipTrigger>
+          <TooltipContent
+            render={<div onClick={(event) => event.preventDefault()} />}
+          >
+            Rendered detail
+          </TooltipContent>
+        </Tooltip>
+      </div>,
+    );
+    await openByHover(screen.getByRole("button", { name: "Waiting" }));
+
+    const content = shownTooltip();
+    if (!content) throw new Error("the tooltip did not open");
+    expect(content).toHaveAttribute("data-slot", "tooltip-content");
+
+    fireEvent.click(content);
+    expect(ancestor).not.toHaveBeenCalled();
   });
 });

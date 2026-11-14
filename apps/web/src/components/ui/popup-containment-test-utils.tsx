@@ -34,6 +34,7 @@ type PointerMock = ReturnType<
 type KeyboardMock = ReturnType<
   typeof vi.fn<React.KeyboardEventHandler<HTMLDivElement>>
 >;
+type AnyMock = { mockClear: () => void };
 
 type Spies = {
   onClick: MouseMock;
@@ -51,6 +52,17 @@ function spies(): Spies {
     onContextMenu: vi.fn<React.MouseEventHandler<HTMLDivElement>>(),
     onKeyDown: vi.fn<React.KeyboardEventHandler<HTMLDivElement>>(),
   };
+}
+
+/**
+ * Drops what the opener left behind. Opening is a real interaction on an
+ * element inside the probe: a menu opens on a click, a context menu on a right
+ * click, and a keyboard opener types. Those calls are allowed, and only what
+ * happens after the popup is open says whether containment holds.
+ */
+function reset(target: Spies, ...others: AnyMock[]) {
+  for (const spy of Object.values(target)) spy.mockClear();
+  for (const other of others) other.mockClear();
 }
 
 /**
@@ -90,6 +102,8 @@ export async function expectPopupContainment(
       </div>,
     );
     await popupCase.open();
+    reset(contained, documentKeyDown, controlClick, contentClick);
+
     const content = popupCase.content();
     expect(content.isConnected, "the popup content is in the page").toBe(true);
     const controlElement = document.querySelector("[data-popup-control]");
@@ -100,23 +114,47 @@ export async function expectPopupContainment(
     // Keys are never contained: the popup's own keys, the shortcut registry
     // and Escape all listen on document.
     fireEvent.keyDown(controlElement, { key: "a" });
-    expect(contained.onKeyDown).toHaveBeenCalledTimes(1);
-    expect(documentKeyDown).toHaveBeenCalledTimes(1);
+    expect(
+      contained.onKeyDown,
+      "a key inside the content must reach the ancestor",
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      documentKeyDown,
+      "a key inside the content must reach document listeners",
+    ).toHaveBeenCalledTimes(1);
 
     // A press and a context click inside the content stay there.
     fireEvent.pointerDown(controlElement, { pointerType: "mouse" });
-    expect(contained.onPointerDown).not.toHaveBeenCalled();
+    expect(
+      contained.onPointerDown,
+      "a pointer press inside the content reached its ancestor",
+    ).not.toHaveBeenCalled();
     fireEvent.mouseDown(controlElement);
-    expect(contained.onMouseDown).not.toHaveBeenCalled();
+    expect(
+      contained.onMouseDown,
+      "a mouse press inside the content reached its ancestor",
+    ).not.toHaveBeenCalled();
     fireEvent.contextMenu(controlElement);
-    expect(contained.onContextMenu).not.toHaveBeenCalled();
+    expect(
+      contained.onContextMenu,
+      "a context click inside the content reached its ancestor",
+    ).not.toHaveBeenCalled();
 
     // The control and the content keep their own click handlers, and
     // `preventDefault()` in the content's handler does not skip containment.
     fireEvent.click(controlElement);
-    expect(controlClick).toHaveBeenCalledTimes(1);
-    expect(contentClick).toHaveBeenCalledTimes(1);
-    expect(contained.onClick).not.toHaveBeenCalled();
+    expect(
+      controlClick,
+      "a click must still run the control's own handler",
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      contentClick,
+      "a click must still run the content's own handler",
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      contained.onClick,
+      "a click inside the content reached its ancestor",
+    ).not.toHaveBeenCalled();
   } finally {
     document.removeEventListener("keydown", documentKeyDown);
     cleanup();
@@ -134,10 +172,15 @@ export async function expectPopupContainment(
       </div>,
     );
     await popupCase.open();
+    reset(withBackdrop);
+
     const backdrop = popupCase.backdrop();
     expect(backdrop, "the dialog renders a backdrop").not.toBeNull();
     fireEvent.click(backdrop as Element);
-    expect(withBackdrop.onClick).not.toHaveBeenCalled();
+    expect(
+      withBackdrop.onClick,
+      "a click on the backdrop reached its ancestor",
+    ).not.toHaveBeenCalled();
     cleanup();
   }
 
@@ -153,7 +196,12 @@ export async function expectPopupContainment(
     </div>,
   );
   await popupCase.open();
+  reset(optedOut);
+
   fireEvent.click(popupCase.content());
-  expect(optedOut.onClick).toHaveBeenCalledTimes(1);
+  expect(
+    optedOut.onClick,
+    "containEvents={false} must let the click through to the ancestor",
+  ).toHaveBeenCalledTimes(1);
   cleanup();
 }

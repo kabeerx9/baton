@@ -1,4 +1,4 @@
-import type * as React from "react";
+import * as React from "react";
 
 // UI SDK renders popup content in place, so a React event from inside it also
 // reaches any onClick on the component that holds the popup: a board card
@@ -39,10 +39,40 @@ function warnIfNativelyNested(element: Element) {
   );
 }
 
+/** The contained handlers for one element. The caller's handler runs first. */
+function containedHandlers(
+  source: Record<string, unknown>,
+): Record<string, unknown> {
+  const handlers: Record<string, unknown> = {};
+  for (const name of CONTAINED) {
+    const own = source[name];
+    const call =
+      typeof own === "function"
+        ? (own as (event: React.SyntheticEvent) => void)
+        : undefined;
+    handlers[name] = (event: React.SyntheticEvent) => {
+      call?.(event);
+      warnIfNativelyNested(event.currentTarget);
+      event.stopPropagation();
+    };
+  }
+  return handlers;
+}
+
 /**
  * Props for a popup content or backdrop part. The caller's handler runs first,
  * then containment, so an opt-out composition cannot skip it: this is not
  * built with `mergeProps`, where a `preventDefault()` would.
+ *
+ * A `render` element needs the same wrapper. UI SDK merges its handlers after
+ * the part's props: they run first, and one that calls `preventDefault()`
+ * skips the part's handler. Containment on the props alone would then never
+ * run, and `render={<div onClick={(event) => event.preventDefault()} />}`
+ * would leak. So the element is cloned with the same contained handlers, and
+ * every wrapper gets both cases by passing its props through here once.
+ *
+ * A `render` function gets the part's props and must spread them; its returned
+ * element's own handlers are not merged, so there it needs its own containment.
  *
  * `data-popup` marks the subtree for `isFromPopup`.
  */
@@ -53,15 +83,11 @@ export function containPopupEvents<P extends Record<string, unknown>>(
   const next: Record<string, unknown> = { ...props, "data-popup": "" };
   if (!enabled) return next as P;
 
-  for (const name of CONTAINED) {
-    const own = props[name] as
-      | ((event: React.SyntheticEvent) => void)
-      | undefined;
-    next[name] = (event: React.SyntheticEvent) => {
-      own?.(event);
-      warnIfNativelyNested(event.currentTarget);
-      event.stopPropagation();
-    };
+  Object.assign(next, containedHandlers(props));
+
+  const render = props.render;
+  if (React.isValidElement<Record<string, unknown>>(render)) {
+    next.render = React.cloneElement(render, containedHandlers(render.props));
   }
   return next as P;
 }
