@@ -78,13 +78,18 @@ describe("shouldLeaveOnEscape", () => {
     );
   });
 
-  it.each(["toast-popup", "tooltip-popup"])("ignores a visible %s", (slot) => {
-    const popup = document.createElement("div");
-    popup.dataset.slot = slot;
-    document.body.append(popup);
+  it.each(["toast-popup", "tooltip-popup", "toast", "tooltip-content"])(
+    "ignores a visible %s",
+    (slot) => {
+      const popup = document.createElement("div");
+      popup.dataset.slot = slot;
+      document.body.append(popup);
 
-    expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(true);
-  });
+      expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(
+        true,
+      );
+    },
+  );
 
   it.each([
     "dialog-popup",
@@ -97,6 +102,14 @@ describe("shouldLeaveOnEscape", () => {
     "popover-popup",
     "command-dialog-popup",
     "preview-card-content",
+    "dialog-content",
+    "alert-dialog-content",
+    "menu-content",
+    "select-content",
+    "combobox-content",
+    "autocomplete-content",
+    "popover-content",
+    "hover-card-content",
   ])("leaves Escape to an open %s", (slot) => {
     const popup = document.createElement("div");
     popup.dataset.slot = slot;

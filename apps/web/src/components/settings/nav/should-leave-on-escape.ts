@@ -16,6 +16,15 @@ const OVERLAY_SELECTOR = [
   '[data-slot="popover-popup"]',
   '[data-slot="command-dialog-popup"]',
   '[data-slot="preview-card-content"]',
+  // UI SDK names. Keep both lists until the Base UI wrappers are gone.
+  '[data-slot="dialog-content"]',
+  '[data-slot="alert-dialog-content"]',
+  '[data-slot="menu-content"]',
+  '[data-slot="select-content"]',
+  '[data-slot="combobox-content"]',
+  '[data-slot="autocomplete-content"]',
+  '[data-slot="popover-content"]',
+  '[data-slot="hover-card-content"]',
 ].join(",");
 
 function hasOpenOverlay(root: ParentNode) {

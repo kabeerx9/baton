@@ -1,3 +1,4 @@
+@layer ui-sdk;
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
@@ -96,7 +97,14 @@ input:-webkit-autofill:active {
   [data-slot="sheet-popup"],
   [data-slot="sidebar"][data-mobile="true"],
   [data-slot="toast"],
-  [data-slot="toast-popup"] {
+  [data-slot="toast-popup"],
+  /* UI SDK names. Keep both lists until the Base UI wrappers are gone. */
+  [data-slot="popover-content"],
+  [data-slot="select-content"],
+  [data-slot="menu-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"] {
     transition-property: opacity !important;
   }
 

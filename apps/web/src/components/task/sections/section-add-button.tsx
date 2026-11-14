@@ -10,7 +10,7 @@ export function SectionAddButton({
     <button
       type="button"
       className={cn(
-        "flex size-6.5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-accent",
+        "flex size-6.5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-accent data-open:bg-accent",
         className,
       )}
       {...props}
