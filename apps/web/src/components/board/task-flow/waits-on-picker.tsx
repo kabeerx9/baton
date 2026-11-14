@@ -36,17 +36,9 @@ export function WaitsOnPicker({
       }}
     >
       <CommandDialogPopup aria-label={t("workspace:board.waitsOn.pickerLabel")}>
-        <Command
-          items={candidates}
-          itemToStringValue={(item: unknown) => {
-            const { key, title } = item as WaitsOnCandidate;
-            return `${key} ${title}`;
-          }}
-        >
+        <Command query={query} onQueryChange={setQuery}>
           <CommandInput
             placeholder={t("workspace:board.waitsOn.searchPlaceholder")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
           />
           <CommandPanel>
             <CommandEmpty>
@@ -55,11 +47,11 @@ export function WaitsOnPicker({
               </p>
             </CommandEmpty>
             <CommandList>
-              {(item: WaitsOnCandidate) => (
+              {candidates.map((item) => (
                 <CommandItem
                   key={item.id}
                   value={`${item.key} ${item.title}`}
-                  onClick={() => onPick(item.id)}
+                  onSelect={() => onPick(item.id)}
                   className="flex items-center gap-3 py-2"
                 >
                   <StatusIcon status={item.status} size={13} />
@@ -68,7 +60,7 @@ export function WaitsOnPicker({
                   </span>
                   <span className="flex-1 truncate text-sm">{item.title}</span>
                 </CommandItem>
-              )}
+              ))}
             </CommandList>
           </CommandPanel>
         </Command>
