@@ -2,6 +2,7 @@
    The ancestor elements stand in for a clickable card or row around a popup;
    they are probes, not interactive UI. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import * as React from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -664,6 +665,45 @@ describe("Menu on UI SDK", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Status" })).toHaveFocus(),
     );
+  });
+
+  it("keeps focus on a real element when the menu opens and closes without a trigger press", async () => {
+    function Controlled() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">
+            Shortcut
+          </button>
+          <Menu onOpenChange={setOpen} open={open}>
+            <MenuTrigger>Switch</MenuTrigger>
+            <MenuPopup>
+              <MenuItem>Workspace</MenuItem>
+            </MenuPopup>
+          </Menu>
+        </>
+      );
+    }
+    render(<Controlled />);
+    const shortcut = screen.getByRole("button", { name: "Shortcut" });
+    shortcut.focus();
+    // The trigger is never pressed, as with a keyboard shortcut that sets state.
+    fireEvent.click(shortcut);
+    await waitFor(() => expect(openMenus()).toHaveLength(1));
+    // Focus may or may not move into a menu opened from state; either way the
+    // close below must not leave it on the body.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    await expectClosed();
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).not.toBeNull();
+    expect([
+      screen.getByRole("button", { name: "Shortcut" }),
+      screen.getByRole("button", { name: "Switch" }),
+    ]).toContain(document.activeElement);
   });
 
   it("does not hold the menu open for a handler that returns a promise", async () => {

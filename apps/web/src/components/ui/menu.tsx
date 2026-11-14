@@ -125,7 +125,7 @@ function MenuPopup({
       // menu opened by a bare click, and in Safari, where a click does not
       // focus a button. The menu button pattern, and Base UI, return to the
       // trigger. The default "trigger" setting does not do this, so name it.
-      finalFocus={() => opener?.current as HTMLElement | null}
+      finalFocus={() => (opener?.current as HTMLElement | null) ?? undefined}
       side={side}
       sideOffset={sideOffset}
       {...props}
@@ -336,14 +336,17 @@ function MenuSubTrigger({
 
 function MenuSubPopup({
   align = "start",
+  alignOffset,
   sideOffset = 0,
   ...props
 }: ContentProps) {
-  // UI SDK lines a submenu's first item up with its trigger by default, so no
-  // alignOffset is set here.
+  // The content has a 1px border and the list p-1, so -5 lines the first item
+  // up with its trigger. UI SDK's own default lines up the content's edge, which
+  // left the first item 4px low.
   return (
     <MenuContentShell
       align={align}
+      alignOffset={alignOffset ?? (align !== "center" ? -5 : undefined)}
       as={MenuSubContentPrimitive}
       sideOffset={sideOffset}
       {...props}
