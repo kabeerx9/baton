@@ -3,6 +3,7 @@ import { schema } from "../database";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import { projectAccessCondition } from "../project-access/project-access-condition";
 import { hasInstanceAdminRole } from "../utils/instance-admin-role";
+import { isBanActive } from "../utils/user-ban";
 import {
   type PermissionMap,
   rolesAllow,
@@ -26,7 +27,9 @@ const BYPASS_ROLES = new Set(["owner", "admin"]);
  * What a person may do in a workspace: current stored role permissions (or
  * the instance-admin grant), narrowed by the API key scope; and whether a
  * membership role is a bypass role. Instance admins who are not members get
- * the permissions but no bypass.
+ * the permissions but no bypass. A banned account (an active ban, as API
+ * authentication checks it) holds nothing, whatever credential it used:
+ * accept and the timeout then cancel its requests.
  */
 export async function loadPersonGrants(
   database: DbOrTx,
@@ -37,6 +40,8 @@ export async function loadPersonGrants(
     .select({
       memberRole: schema.workspaceUserTable.role,
       userRole: schema.userTable.role,
+      banned: schema.userTable.banned,
+      banExpires: schema.userTable.banExpires,
     })
     .from(schema.userTable)
     .leftJoin(
@@ -48,9 +53,10 @@ export async function loadPersonGrants(
     )
     .where(eq(schema.userTable.id, person.userId))
     .limit(1);
-  const roles = splitRoles(row?.memberRole);
-  const member = row?.memberRole != null;
-  const instanceAdmin = hasInstanceAdminRole(row?.userRole);
+  const available = row !== undefined && !isBanActive(row);
+  const roles = available ? splitRoles(row.memberRole) : [];
+  const member = available && row.memberRole != null;
+  const instanceAdmin = available && hasInstanceAdminRole(row.userRole);
   const stored =
     roles.length === 0
       ? []
