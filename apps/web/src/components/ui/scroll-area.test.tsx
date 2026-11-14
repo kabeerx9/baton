@@ -173,3 +173,53 @@ describe("ScrollArea", () => {
     expect(horizontal).not.toHaveAttribute("data-visible");
   });
 });
+
+// Added behavior, approved by the coordinator: UI SDK drops the viewport's own
+// tab stop once it holds focusable content. Base UI always made an overflowing
+// viewport a tab stop. This block documents the new behavior, not a parity gap.
+describe("added behavior: the viewport's tab stop", () => {
+  function tabStops(): HTMLElement[] {
+    return [
+      ...document.querySelectorAll<HTMLElement>(
+        "button, a[href], input, select, textarea, [tabindex]",
+      ),
+    ].filter(
+      (element) => element.tabIndex >= 0 && !element.matches(":disabled"),
+    );
+  }
+
+  it("makes an overflowing viewport with nothing focusable a tab stop", async () => {
+    render(
+      <ScrollArea>
+        <p>plain content</p>
+      </ScrollArea>,
+    );
+
+    measure({ y: 200 });
+
+    await waitFor(() => expect(viewport()).toHaveAttribute("tabindex", "0"));
+    expect(tabStops()).toEqual([viewport()]);
+  });
+
+  it("leaves Tab to a focusable child instead of the viewport", async () => {
+    render(
+      <ScrollArea>
+        <button type="button">open</button>
+      </ScrollArea>,
+    );
+
+    measure({ y: 200 });
+
+    await waitFor(() => expect(viewport()).toHaveAttribute("data-overflow-y"));
+    expect(viewport()).not.toHaveAttribute("tabindex");
+
+    // jsdom does not run the browser's own Tab navigation, so check the order
+    // it would walk: the button is the first stop and the viewport is none.
+    const button = document.querySelector("button");
+    if (!button) throw new Error("the button did not render");
+    expect(tabStops()).toEqual([button]);
+
+    button.focus();
+    expect(button).toHaveFocus();
+  });
+});

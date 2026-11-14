@@ -35,6 +35,7 @@ function ScrollArea({
       scrollHideDelay={0}
       {...props}
     >
+      {/* Intentional: UI SDK drops the viewport's tab stop when it holds focusable content. */}
       <ScrollAreaViewport
         className={cn(
           "h-full overscroll-y-contain rounded-[inherit] outline-none transition-shadows focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-overflow-x:overscroll-x-contain",
