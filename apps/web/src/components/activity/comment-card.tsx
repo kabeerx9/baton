@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import CommentEditor from "@/components/activity/comment-editor";
 import { GithubIcon } from "@/components/icons/github-icon";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
+import { AgentBadge } from "@/components/common/agent-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ type CommentCardProps = {
   importedBy?: string;
   externalSource?: string | null;
   externalUrl?: string | null;
+  channel?: "web" | "agent" | null;
 };
 
 export default function CommentCard({
@@ -60,6 +62,7 @@ export default function CommentCard({
   externalSource,
   externalUrl,
   importedBy,
+  channel,
 }: CommentCardProps) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
@@ -154,6 +157,7 @@ export default function CommentCard({
                 <span className="font-medium text-[13px] text-foreground transition-colors hover:text-foreground/80">
                   {user?.name}
                 </span>
+                {channel === "agent" && <AgentBadge />}
               </div>
             </HoverCardTrigger>
             <HoverCardContent className="w-64 p-3">

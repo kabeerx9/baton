@@ -5,6 +5,7 @@ import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-worksp
 import { formatDateMedium, formatRelativeTime } from "@/lib/format";
 import { getInitials } from "@/lib/get-initials";
 import { getPriorityLabel, getStatusLabel } from "@/lib/i18n/domain";
+import { AgentBadge } from "@/components/common/agent-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   HoverCard,
@@ -25,6 +26,8 @@ type ActivityItem = {
   taskId: string;
   externalUserName?: string | null;
   externalUserAvatar?: string | null;
+  /** How the person acted. Only an agent is marked. */
+  channel?: "web" | "agent" | null;
   externalSource?: string | null;
   externalUrl?: string | null;
 };
@@ -463,6 +466,7 @@ function Activity({
             }
             externalSource={activity.externalSource}
             externalUrl={activity.externalUrl}
+            channel={activity.channel}
           />
         </TimelineContent>
       </TimelineItem>
@@ -485,6 +489,11 @@ function Activity({
       </span>
       <TimelineContent className="min-w-0 flex-1 text-[13px] text-foreground leading-5">
         <UserHoverName user={user || null} fallbackName={actorName} />{" "}
+        {activity.channel === "agent" && (
+          <span className="mr-1 inline-flex align-middle">
+            <AgentBadge />
+          </span>
+        )}
         {renderActivityContent({
           activity,
           workspaceUsers: workspaceUsers as WorkspaceUser[] | undefined,
