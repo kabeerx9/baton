@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { type FormEvent, type KeyboardEvent, useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   Collapsible,
@@ -30,6 +30,17 @@ function Details({
 
 function trigger() {
   return screen.getByRole("button", { name: "Details" });
+}
+
+// A native button activates on Enter (from keydown) or Space (from keyup) and
+// then fires a click, unless that key event was canceled. jsdom has no default
+// actions, so this replays the one browser rule the test depends on: a
+// preventDefault on the key press suppresses the click, as it does in a browser.
+function pressKey(element: HTMLElement, key: "Enter" | " ") {
+  const pressed = fireEvent.keyDown(element, { key });
+  if (key === " ") fireEvent.keyUp(element, { key });
+  if (pressed) fireEvent.click(element);
+  return pressed;
 }
 
 describe("Collapsible", () => {
@@ -63,28 +74,58 @@ describe("Collapsible", () => {
     expect(onOpenChange.mock.calls[1][0]).toBe(false);
   });
 
-  it("toggles from native button activation and keeps focus on the trigger", async () => {
-    render(<Details />);
+  it("activates on Enter and Space without submitting its form", async () => {
+    const onSubmit = vi.fn((event: FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Details />
+        <button type="submit">Submit</button>
+      </form>,
+    );
     const button = trigger();
-    // Enter and Space reach a real button as a click from the browser; jsdom
-    // does not synthesize it, so the test sends the same pair.
     expect(button.tagName).toBe("BUTTON");
     expect(button).toHaveAttribute("type", "button");
     button.focus();
+    expect(button).toHaveFocus();
 
     await act(async () => {
-      fireEvent.keyDown(button, { key: "Enter" });
-      fireEvent.click(button);
+      pressKey(button, "Enter");
     });
     expect(button).toHaveAttribute("aria-expanded", "true");
     expect(button).toHaveFocus();
 
     await act(async () => {
-      fireEvent.keyUp(button, { key: " " });
-      fireEvent.click(button);
+      pressKey(button, " ");
     });
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(button).toHaveFocus();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    // Negative control: the same press does submit from a submit button, so
+    // the zero above comes from the trigger's type, not from a test that
+    // cannot fail.
+    await act(async () => {
+      pressKey(screen.getByRole("button", { name: "Submit" }), "Enter");
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not open when the key press is canceled", async () => {
+    const onKeyDown = vi.fn((event: KeyboardEvent) => event.preventDefault());
+    render(
+      <Collapsible>
+        <CollapsibleTrigger onKeyDown={onKeyDown}>Details</CollapsibleTrigger>
+        <CollapsiblePanel>Order #4189 shipped</CollapsiblePanel>
+      </Collapsible>,
+    );
+    const button = trigger();
+
+    await act(async () => {
+      expect(pressKey(button, "Enter")).toBe(false);
+    });
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Order #4189 shipped")).toBeNull();
   });
 
   it("stays open while a controlled prop does not change", async () => {
@@ -141,12 +182,16 @@ describe("Collapsible", () => {
     expect(screen.getByText("Order #4189 shipped")).toBeInTheDocument();
   });
 
-  it("does not open while disabled", async () => {
+  it("renders a native disabled trigger and blocks focus and activation", async () => {
     render(<Details disabled />);
     const button = trigger();
 
+    expect(button).toBeDisabled();
+    button.focus();
+    expect(button).not.toHaveFocus();
+
     await act(async () => {
-      fireEvent.click(button);
+      pressKey(button, "Enter");
     });
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Order #4189 shipped")).toBeNull();

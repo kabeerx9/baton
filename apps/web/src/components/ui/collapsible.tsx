@@ -24,8 +24,17 @@ type CollapsiblePanelProps = Omit<
   "className"
 > & { className?: string };
 
-function Collapsible(props: CollapsibleProps) {
-  return <CollapsibleRoot {...props} />;
+// UI SDK marks a disabled trigger with aria-disabled and keeps it focusable.
+// Base UI rendered a native disabled button, so carry the root's disabled state
+// down to the trigger and let it set the attribute itself.
+const DisabledContext = React.createContext(false);
+
+function Collapsible({ disabled, ...props }: CollapsibleProps) {
+  return (
+    <DisabledContext.Provider value={Boolean(disabled)}>
+      <CollapsibleRoot disabled={disabled} {...props} />
+    </DisabledContext.Provider>
+  );
 }
 
 function CollapsibleTrigger({
@@ -33,8 +42,10 @@ function CollapsibleTrigger({
   className,
   children,
   render,
+  disabled,
   ...props
 }: CollapsibleTriggerProps) {
+  const rootDisabled = React.useContext(DisabledContext);
   const resolvedRender =
     asChild && React.isValidElement<Record<string, unknown>>(children)
       ? children
@@ -43,6 +54,14 @@ function CollapsibleTrigger({
   return (
     <CollapsibleTriggerPart
       className={cn("cursor-pointer", className)}
+      // The part's own button forwards unknown props, so this becomes the
+      // native disabled attribute. A caller-supplied element keeps Base UI's
+      // nativeButton={false} behavior and only carries aria-disabled.
+      disabled={
+        resolvedRender
+          ? disabled
+          : Boolean(disabled || rootDisabled) || undefined
+      }
       render={resolvedRender}
       {...props}
     >

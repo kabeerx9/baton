@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { type FormEvent, type KeyboardEvent, useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   Accordion,
@@ -19,15 +19,18 @@ function Sections({
   defaultValue,
   onValueChange,
   disabledValue,
+  disabled,
 }: {
   multiple?: boolean;
   defaultValue?: string[];
   onValueChange?: (value: string | string[]) => void;
   disabledValue?: string;
+  disabled?: boolean;
 }) {
   return (
     <Accordion
       defaultValue={defaultValue}
+      disabled={disabled}
       multiple={multiple}
       onValueChange={onValueChange}
     >
@@ -47,6 +50,17 @@ function Sections({
 
 function trigger(name: string) {
   return screen.getByRole("button", { name });
+}
+
+// A native button activates on Enter (from keydown) or Space (from keyup) and
+// then fires a click, unless that key event was canceled. jsdom has no default
+// actions, so this replays the one browser rule the test depends on: a
+// preventDefault on the key press suppresses the click, as it does in a browser.
+function pressKey(element: HTMLElement, key: "Enter" | " ") {
+  const pressed = fireEvent.keyDown(element, { key });
+  if (key === " ") fireEvent.keyUp(element, { key });
+  if (pressed) fireEvent.click(element);
+  return pressed;
 }
 
 describe("Accordion", () => {
@@ -120,7 +134,7 @@ describe("Accordion", () => {
     expect(screen.getByText("Second section")).toBeInTheDocument();
   });
 
-  it("reports the open items in onValueChange", async () => {
+  it("reports the open items as an array in both modes", async () => {
     const multiple = vi.fn();
     const single = vi.fn();
     const { unmount } = render(<Sections multiple onValueChange={multiple} />);
@@ -129,17 +143,71 @@ describe("Accordion", () => {
       fireEvent.click(trigger("Two"));
     });
     expect(multiple).toHaveBeenCalledTimes(1);
-    expect(multiple.mock.calls[0][0]).toContain("two");
+    expect(Array.isArray(multiple.mock.calls[0][0])).toBe(true);
+    expect(multiple.mock.calls[0][0]).toEqual(["two"]);
     unmount();
 
     render(<Sections onValueChange={single} />);
     await act(async () => {
       fireEvent.click(trigger("Two"));
     });
-    // Base UI reports a bare value when only one item may be open; UI SDK
-    // reports the array in both modes. Normalize to compare the contract.
-    const reported = single.mock.calls[0][0] as string | string[];
-    expect(Array.isArray(reported) ? reported : [reported]).toEqual(["two"]);
+    expect(single).toHaveBeenCalledTimes(1);
+    expect(Array.isArray(single.mock.calls[0][0])).toBe(true);
+    expect(single.mock.calls[0][0]).toEqual(["two"]);
+  });
+
+  it("activates on Enter and Space without submitting its form", async () => {
+    const onSubmit = vi.fn((event: FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Sections />
+        <button type="submit">Submit</button>
+      </form>,
+    );
+    const button = trigger("One");
+    button.focus();
+    expect(button).toHaveFocus();
+
+    await act(async () => {
+      pressKey(button, "Enter");
+    });
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveFocus();
+
+    await act(async () => {
+      pressKey(button, " ");
+    });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    // Negative control: the same press does submit from a submit button, so
+    // the zero above comes from the trigger's type, not from a test that
+    // cannot fail.
+    await act(async () => {
+      pressKey(screen.getByRole("button", { name: "Submit" }), "Enter");
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not open an item when the key press is canceled", async () => {
+    const onKeyDown = vi.fn((event: KeyboardEvent) => event.preventDefault());
+    render(
+      <Accordion>
+        <AccordionItem value="one">
+          <AccordionTrigger onKeyDown={onKeyDown}>One</AccordionTrigger>
+          <AccordionPanel>First section</AccordionPanel>
+        </AccordionItem>
+      </Accordion>,
+    );
+    const button = trigger("One");
+
+    await act(async () => {
+      expect(pressKey(button, "Enter")).toBe(false);
+    });
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("First section")).toBeNull();
   });
 
   it("follows a controlled value", async () => {
@@ -175,15 +243,36 @@ describe("Accordion", () => {
     expect(screen.queryByText("Second section")).toBeNull();
   });
 
-  it("does not open a disabled item", async () => {
+  it("renders a native disabled trigger for a disabled item", async () => {
     render(<Sections disabledValue="two" />);
     const button = trigger("Two");
 
+    expect(button).toBeDisabled();
+    button.focus();
+    expect(button).not.toHaveFocus();
+
     await act(async () => {
-      fireEvent.click(button);
+      pressKey(button, "Enter");
     });
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Second section")).toBeNull();
+  });
+
+  it("disables every trigger when the accordion is disabled", async () => {
+    render(<Sections disabled />);
+
+    for (const item of items) {
+      const button = trigger(item.label);
+      expect(button).toBeDisabled();
+      button.focus();
+      expect(button).not.toHaveFocus();
+    }
+
+    await act(async () => {
+      pressKey(trigger("One"), "Enter");
+    });
+    expect(trigger("One")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("First section")).toBeNull();
   });
 
   it("keeps the shared slot names and marks the open trigger", async () => {

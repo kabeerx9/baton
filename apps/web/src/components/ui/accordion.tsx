@@ -8,7 +8,7 @@ import {
   AccordionTrigger as AccordionTriggerPart,
 } from "@ui-sdk/react/accordion";
 import { ChevronDownIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/cn";
 
 type AccordionProps = React.ComponentProps<typeof AccordionRoot>;
@@ -34,24 +34,40 @@ type AccordionPanelProps = Omit<
   children?: React.ReactNode;
 };
 
-function Accordion(props: AccordionProps) {
-  return <AccordionRoot {...props} />;
+// UI SDK marks a disabled trigger with aria-disabled and keeps it focusable.
+// Base UI rendered a native disabled button for a disabled accordion or item,
+// so carry both levels of disabled state down to the trigger.
+const RootDisabledContext = React.createContext(false);
+const ItemDisabledContext = React.createContext(false);
+
+function Accordion({ disabled, ...props }: AccordionProps) {
+  return (
+    <RootDisabledContext.Provider value={Boolean(disabled)}>
+      <AccordionRoot disabled={disabled} {...props} />
+    </RootDisabledContext.Provider>
+  );
 }
 
-function AccordionItem({ className, ...props }: AccordionItemProps) {
+function AccordionItem({ disabled, ...props }: AccordionItemProps) {
+  const rootDisabled = React.useContext(RootDisabledContext);
+
   return (
-    <AccordionItemPart
-      className={cn("border-b last:border-b-0", className)}
-      {...props}
-    />
+    <ItemDisabledContext.Provider value={Boolean(disabled || rootDisabled)}>
+      <AccordionItemPart disabled={disabled} {...props} />
+    </ItemDisabledContext.Provider>
   );
 }
 
 function AccordionTrigger({
   className,
   children,
+  disabled,
+  render,
   ...props
 }: AccordionTriggerProps) {
+  const itemDisabled = React.useContext(ItemDisabledContext);
+  const isDisabled = Boolean(disabled || itemDisabled);
+
   return (
     <AccordionHeader className="flex">
       <AccordionTriggerPart
@@ -59,6 +75,12 @@ function AccordionTrigger({
           "flex flex-1 cursor-pointer items-start justify-between gap-4 rounded-md py-4 text-left font-medium text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-64 data-open:*:data-[slot=accordion-indicator]:rotate-180",
           className,
         )}
+        disabled={disabled}
+        // The trigger reads `disabled` itself, so it never reaches the element.
+        // Rendering the default button as an element lets the native disabled
+        // attribute through; a caller's own render keeps Base UI's behavior and
+        // only carries aria-disabled.
+        render={render ?? (isDisabled ? <button disabled /> : undefined)}
         {...props}
       >
         {children}
