@@ -87,7 +87,7 @@ const focusedId = () =>
 const press = (el: Element, key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(el, { key, ...init });
 
-type Layout = "wide" | "narrow";
+type Layout = "wide" | "narrow" | "single";
 /** jsdom has no layout. Place each card where a 4 or 2 column grid would. */
 function layout(kind: Layout) {
   const sections = [...document.querySelectorAll("section")];
@@ -96,9 +96,20 @@ function layout(kind: Layout) {
       "a[data-slot='board-nav-card']",
     );
     cards.forEach((el, row) => {
-      const left = kind === "wide" ? column * 300 : (column % 2) * 300;
+      const left =
+        kind === "wide"
+          ? column * 300
+          : kind === "single"
+            ? 0
+            : (column % 2) * 300;
       const top =
-        (kind === "wide" ? 0 : Math.floor(column / 2) * 400) + 40 + row * 100;
+        (kind === "wide"
+          ? 0
+          : kind === "single"
+            ? column * 400
+            : Math.floor(column / 2) * 400) +
+        40 +
+        row * 100;
       el.getBoundingClientRect = () =>
         ({
           left,
@@ -112,6 +123,21 @@ function layout(kind: Layout) {
         }) as DOMRect;
     });
   });
+}
+
+/** How many times the live region was given text. */
+function countAnnouncements() {
+  const region = document.querySelector("[data-ui-sdk-announcer='']")!;
+  let count = 0;
+  const observer = new MutationObserver((records) => {
+    for (const record of records)
+      for (const node of record.addedNodes) if (node.textContent) count += 1;
+  });
+  observer.observe(region, { childList: true });
+  return {
+    count: () => count,
+    stop: () => observer.disconnect(),
+  };
 }
 
 const announced = () =>
@@ -165,6 +191,60 @@ describe("tab stop and inner controls", () => {
 });
 
 describe("arrow keys on the real board", () => {
+  it("one column: down and up walk every card in order", () => {
+    render(board(TASKS));
+    layout("single");
+    link(1).focus();
+    const seen: (string | undefined)[] = [];
+    for (let i = 0; i < 5; i++) {
+      press(document.activeElement!, "ArrowDown");
+      seen.push(focusedId());
+    }
+    expect(seen).toEqual(["t-2", "t-3", "t-4", "t-5", "t-6"]);
+    press(link(6), "ArrowRight");
+    expect(focusedId()).toBe("t-6");
+    press(link(6), "ArrowUp");
+    expect(focusedId()).toBe("t-5");
+  });
+
+  it("keeps the page's default arrow at an edge, and prevents it when focus moves", () => {
+    render(board(TASKS));
+    layout("wide");
+    const arrow = (el: Element, key: string) => {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    link(1).focus();
+    // Mid-column: the card moves focus, so the key is used.
+    expect(arrow(link(1), "ArrowDown")).toBe(true);
+    expect(focusedId()).toBe("t-2");
+    // Bottom of the column: nothing below, the page may scroll.
+    expect(arrow(link(2), "ArrowDown")).toBe(false);
+    expect(focusedId()).toBe("t-2");
+    // Top of the column and the left edge too.
+    expect(arrow(link(1), "ArrowUp")).toBe(false);
+    expect(arrow(link(1), "ArrowLeft")).toBe(false);
+    // Alt+arrow still reaches the registry for the moveTask shortcuts.
+    const handler = vi.fn();
+    document.addEventListener("keydown", handler);
+    arrow(link(2), "ArrowDown");
+    expect(handler).toHaveBeenCalledTimes(0);
+    link(2).dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        altKey: true,
+        bubbles: true,
+      }),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+    document.removeEventListener("keydown", handler);
+  });
+
   it.each(["wide", "narrow"] as const)("%s layout follows the grid", (kind) => {
     render(board(TASKS));
     layout(kind);
@@ -305,6 +385,7 @@ describe("focus recovery after realtime updates", () => {
     const view = render(board(TASKS));
     layout("wide");
     link(3).focus();
+    const heard = countAnnouncements();
     view.rerender(
       board(TASKS.map((t) => (t.id === "t-3" ? task(3, "review") : t))),
     );
@@ -314,6 +395,10 @@ describe("focus recovery after realtime updates", () => {
       screen.getByRole("heading", { name: "In review" }).id,
     );
     await waitFor(() => expect(announced()).toBe("T-3 moved to In review"));
+    // Exactly one report: a duplicate would announce twice.
+    await new Promise((r) => setTimeout(r, 250));
+    expect(heard.count()).toBe(1);
+    heard.stop();
   });
 
   it("lands on the card now at the same place when the focused card is removed", async () => {

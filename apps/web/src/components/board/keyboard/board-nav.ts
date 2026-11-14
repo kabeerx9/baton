@@ -134,6 +134,19 @@ const boardNav = definePrimitive({
       /** Arrow, Home and End on a card link. */
       keydown(event: KeyboardEvent, el: HTMLElement) {
         roving.keydown(event, el);
+        // A plain arrow that moved nothing (an edge) must keep its default,
+        // so the page scrolls. The shortcut registry binds the arrows to
+        // nextTask and previousTask and prevents the default, so keep the
+        // press from reaching it. j and k still do.
+        if (
+          !event.defaultPrevented &&
+          event.key.startsWith("Arrow") &&
+          !event.altKey &&
+          !event.ctrlKey &&
+          !event.metaKey
+        ) {
+          event.stopPropagation();
+        }
       },
       /**
        * Move one card up or down from the card that holds `target`.
