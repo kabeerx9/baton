@@ -12,13 +12,28 @@ type SwitchProps = Omit<
   className?: string;
 };
 
-function Switch({ className, ...props }: SwitchProps) {
+function Switch({ className, onKeyDown, ...props }: SwitchProps) {
   return (
     <SwitchRoot
       className={cn(
         "inline-flex h-[calc(var(--thumb-size)+2px)] w-[calc(var(--thumb-size)*2-2px)] shrink-0 items-center rounded-full p-px outline-none transition-[background-color,box-shadow] duration-200 [--thumb-size:--spacing(5)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-checked:bg-primary data-unchecked:bg-input data-disabled:opacity-64 sm:[--thumb-size:--spacing(4)]",
         className,
       )}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        // Base UI activated the switch on Enter and kept its form from
+        // submitting. UI SDK submits the form and leaves the switch alone, so
+        // press it after the caller's handler had its say.
+        if (
+          event.defaultPrevented ||
+          event.key !== "Enter" ||
+          event.target !== event.currentTarget
+        ) {
+          return;
+        }
+        event.preventDefault();
+        event.currentTarget.click();
+      }}
       {...props}
     >
       <SwitchThumb

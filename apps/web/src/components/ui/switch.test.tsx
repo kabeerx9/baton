@@ -13,6 +13,19 @@ function pressSpace(element: HTMLElement) {
   }
 }
 
+// Both wrapper versions activate on the Enter keydown themselves, so no native
+// click is supplied here.
+function pressEnter(element: HTMLElement) {
+  fireEvent.keyDown(element, { key: "Enter" });
+  fireEvent.keyUp(element, { key: "Enter" });
+}
+
+function formSubmitSpy() {
+  return vi.fn((event: { preventDefault: () => void }) => {
+    event.preventDefault();
+  });
+}
+
 describe("Switch", () => {
   it("is a labelled switch with an off state", () => {
     render(
@@ -61,6 +74,58 @@ describe("Switch", () => {
         .getByRole("switch", { name: "Enabled" })
         .getAttribute("aria-checked"),
     ).toBe("true");
+  });
+
+  it("toggles on Enter without submitting its form", () => {
+    const onSubmit = formSubmitSpy();
+    const onCheckedChange = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Switch aria-label="Enabled" onCheckedChange={onCheckedChange} />
+        <button type="submit">Save</button>
+      </form>,
+    );
+    const control = screen.getByRole("switch", { name: "Enabled" });
+    control.focus();
+
+    pressEnter(control);
+
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(onCheckedChange.mock.calls[0]?.[0]).toBe(true);
+    expect(control.getAttribute("aria-checked")).toBe("true");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("toggles once with Space in a form and does not submit", () => {
+    const onSubmit = formSubmitSpy();
+    const onCheckedChange = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Switch aria-label="Enabled" onCheckedChange={onCheckedChange} />
+        <button type="submit">Save</button>
+      </form>,
+    );
+    const control = screen.getByRole("switch", { name: "Enabled" });
+    control.focus();
+
+    pressSpace(control);
+
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(onCheckedChange.mock.calls[0]?.[0]).toBe(true);
+    expect(control.getAttribute("aria-checked")).toBe("true");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("toggles on Enter outside a form", () => {
+    const onCheckedChange = vi.fn();
+    render(<Switch aria-label="Enabled" onCheckedChange={onCheckedChange} />);
+    const control = screen.getByRole("switch", { name: "Enabled" });
+    control.focus();
+
+    pressEnter(control);
+
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(control.getAttribute("aria-checked")).toBe("true");
   });
 
   it("follows a controlled checked prop", () => {

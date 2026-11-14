@@ -13,6 +13,12 @@ function pressSpace(element: HTMLElement) {
   }
 }
 
+function formSubmitSpy() {
+  return vi.fn((event: { preventDefault: () => void }) => {
+    event.preventDefault();
+  });
+}
+
 describe("Checkbox", () => {
   it("is a labelled checkbox with an off state", () => {
     render(<Checkbox aria-label="Select row" />);
@@ -68,6 +74,61 @@ describe("Checkbox", () => {
     const indicator = control.querySelector('[data-slot="checkbox-indicator"]');
     expect(indicator).not.toBeNull();
     expect(indicator?.getAttribute("data-unchecked")).not.toBeNull();
+  });
+
+  it("submits on Enter without toggling, like Base UI", async () => {
+    const onSubmit = formSubmitSpy();
+    const onCheckedChange = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Checkbox aria-label="Select row" onCheckedChange={onCheckedChange} />
+        <button type="submit">Save</button>
+      </form>,
+    );
+    const control = screen.getByRole("checkbox", { name: "Select row" });
+    control.focus();
+
+    fireEvent.keyDown(control, { key: "Enter" });
+    fireEvent.keyUp(control, { key: "Enter" });
+    // Base UI submits from a microtask after the keydown.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(control.getAttribute("aria-checked")).toBe("false");
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a mixed state when indeterminate", () => {
+    render(<Checkbox aria-label="Select all" indeterminate />);
+
+    const control = screen.getByRole("checkbox", { name: "Select all" });
+    expect(control.getAttribute("aria-checked")).toBe("mixed");
+    expect(control.getAttribute("data-indeterminate")).not.toBeNull();
+    expect(
+      control
+        .querySelector('[data-slot="checkbox-indicator"] path')
+        ?.getAttribute("d"),
+    ).toBe("M5.252 12h13.496");
+  });
+
+  it("keeps a controlled mixed state until the caller changes it", () => {
+    const onCheckedChange = vi.fn();
+    render(
+      <Checkbox
+        aria-label="Select all"
+        checked={false}
+        indeterminate
+        onCheckedChange={onCheckedChange}
+      />,
+    );
+    const control = screen.getByRole("checkbox", { name: "Select all" });
+    expect(control.getAttribute("aria-checked")).toBe("mixed");
+
+    fireEvent.click(control);
+
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(onCheckedChange.mock.calls[0]?.[0]).toBe(true);
+    expect(control.getAttribute("aria-checked")).toBe("mixed");
   });
 
   it("follows a controlled checked prop", () => {
