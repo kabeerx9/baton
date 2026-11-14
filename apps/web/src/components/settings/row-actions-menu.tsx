@@ -49,7 +49,7 @@ export function RowActionsMenu({ label, actions }: RowActionsMenuProps) {
             <Fragment key={action.id}>
               {startsDestructive ? <MenuSeparator /> : null}
               <MenuItem
-                closeOnClick
+                closeOnSelect
                 disabled={action.disabled}
                 variant={action.destructive ? "destructive" : undefined}
                 onClick={action.onSelect}
