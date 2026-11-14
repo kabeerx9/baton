@@ -1,37 +1,51 @@
 "use client";
 
-import { Field as FieldPrimitive } from "@base-ui/react/field";
+import {
+  Field as FieldRoot,
+  FieldDescription as FieldDescriptionPart,
+  FieldError as FieldErrorPart,
+  FieldLabel as FieldLabelPart,
+} from "@ui-sdk/react/field";
+import type * as React from "react";
 
 import { cn } from "@/lib/cn";
 
-function Field({ className, ...props }: FieldPrimitive.Root.Props) {
+// These wrappers take a plain class string: no call site passes a state function.
+type WithClassName<T> = Omit<T, "className"> & { className?: string };
+
+// UI SDK marks a radio group or checkbox group invalid, not each radio or
+// checkbox inside it, and the Radio and Checkbox wrappers color their error
+// state from their own aria-invalid. So an invalid field paints them itself.
+// Tailwind reads these as whole strings, so each class is written out.
+const GROUPED_CONTROL_ERROR =
+  "data-invalid:**:data-[slot=radio]:border-destructive/36 data-invalid:**:data-[slot=radio]:focus-visible:border-destructive/64 data-invalid:**:data-[slot=radio]:focus-visible:ring-destructive/48 data-invalid:**:data-[slot=checkbox]:border-destructive/36 data-invalid:**:data-[slot=checkbox]:focus-visible:border-destructive/64 data-invalid:**:data-[slot=checkbox]:focus-visible:ring-destructive/48";
+
+function Field({
+  className,
+  ...props
+}: WithClassName<React.ComponentProps<typeof FieldRoot>>) {
   return (
-    <FieldPrimitive.Root
-      className={cn("flex flex-col items-start gap-2", className)}
-      data-slot="field"
+    <FieldRoot
+      className={cn(
+        "flex flex-col items-start gap-2",
+        GROUPED_CONTROL_ERROR,
+        className,
+      )}
       {...props}
     />
   );
 }
 
-function FieldLabel({ className, ...props }: FieldPrimitive.Label.Props) {
+function FieldLabel({
+  className,
+  ...props
+}: WithClassName<React.ComponentProps<typeof FieldLabelPart>>) {
   return (
-    <FieldPrimitive.Label
+    <FieldLabelPart
       className={cn(
         "inline-flex items-center gap-2 font-medium text-base/4.5 text-foreground sm:text-sm/4",
         className,
       )}
-      data-slot="field-label"
-      {...props}
-    />
-  );
-}
-
-function FieldItem({ className, ...props }: FieldPrimitive.Item.Props) {
-  return (
-    <FieldPrimitive.Item
-      className={cn("flex", className)}
-      data-slot="field-item"
       {...props}
     />
   );
@@ -40,35 +54,25 @@ function FieldItem({ className, ...props }: FieldPrimitive.Item.Props) {
 function FieldDescription({
   className,
   ...props
-}: FieldPrimitive.Description.Props) {
+}: WithClassName<React.ComponentProps<typeof FieldDescriptionPart>>) {
   return (
-    <FieldPrimitive.Description
+    <FieldDescriptionPart
       className={cn("text-muted-foreground text-xs", className)}
-      data-slot="field-description"
       {...props}
     />
   );
 }
 
-function FieldError({ className, ...props }: FieldPrimitive.Error.Props) {
+function FieldError({
+  className,
+  ...props
+}: WithClassName<React.ComponentProps<typeof FieldErrorPart>>) {
   return (
-    <FieldPrimitive.Error
+    <FieldErrorPart
       className={cn("text-destructive-foreground text-xs", className)}
-      data-slot="field-error"
       {...props}
     />
   );
 }
 
-const FieldControl = FieldPrimitive.Control;
-const FieldValidity = FieldPrimitive.Validity;
-
-export {
-  Field,
-  FieldControl,
-  FieldDescription,
-  FieldError,
-  FieldItem,
-  FieldLabel,
-  FieldValidity,
-};
+export { Field, FieldDescription, FieldError, FieldLabel };

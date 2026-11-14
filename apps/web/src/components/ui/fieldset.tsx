@@ -1,26 +1,31 @@
 "use client";
 
-import { Fieldset as FieldsetPrimitive } from "@base-ui/react/fieldset";
+import { FieldLegend, FieldSet } from "@ui-sdk/react/field";
+import type * as React from "react";
 
 import { cn } from "@/lib/cn";
 
-function Fieldset({ className, ...props }: FieldsetPrimitive.Root.Props) {
+type WithClassName<T> = Omit<T, "className"> & { className?: string };
+
+function Fieldset({
+  className,
+  ...props
+}: WithClassName<React.ComponentProps<typeof FieldSet>>) {
   return (
-    <FieldsetPrimitive.Root
+    <FieldSet
       className={cn("flex w-full max-w-64 flex-col gap-6", className)}
-      data-slot="fieldset"
       {...props}
     />
   );
 }
+
 function FieldsetLegend({
   className,
   ...props
-}: FieldsetPrimitive.Legend.Props) {
+}: WithClassName<React.ComponentProps<typeof FieldLegend>>) {
   return (
-    <FieldsetPrimitive.Legend
+    <FieldLegend
       className={cn("font-semibold text-foreground", className)}
-      data-slot="fieldset-legend"
       {...props}
     />
   );

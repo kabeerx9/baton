@@ -1,15 +1,17 @@
 "use client";
 
-import { Input as InputPrimitive } from "@base-ui/react/input";
-import type { useRender } from "@base-ui/react/use-render";
+import { Input as InputPrimitive } from "@ui-sdk/react/input";
 import type * as React from "react";
 
 import { cn } from "@/lib/cn";
 
+// `className` styles the control wrapper, as before. UI SDK's Input and its
+// `onValueChange(value, details)` carry over; native `onChange` still works.
 type InputProps = Omit<
-  InputPrimitive.Props & React.RefAttributes<HTMLInputElement>,
-  "size"
+  React.ComponentProps<typeof InputPrimitive>,
+  "size" | "className"
 > & {
+  className?: string;
   size?: "sm" | "default" | "lg" | number;
   unstyled?: boolean;
   nativeInput?: boolean;
@@ -50,7 +52,7 @@ function Input({
           className={inputClassName}
           data-slot="input"
           size={typeof size === "number" ? size : undefined}
-          {...(props as useRender.ElementProps<"input">)}
+          {...(props as React.ComponentProps<"input">)}
         />
       ) : (
         <InputPrimitive
