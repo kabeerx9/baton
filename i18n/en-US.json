@@ -2815,7 +2815,13 @@
 				"review": "In review",
 				"done": "Done"
 			},
-			"empty": "No tasks"
+			"empty": "No tasks",
+			"nav": {
+				"label": "Board. Use the arrow keys to move between tasks.",
+				"position": "{{column}}, {{index}} of {{count}}",
+				"moved": "{{key}} moved to {{column}}",
+				"removed": "{{key}} is no longer on the board"
+			}
 		},
 		"archived": {
 			"title": "Workspace archived",
