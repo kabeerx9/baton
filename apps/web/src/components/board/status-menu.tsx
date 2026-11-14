@@ -20,6 +20,7 @@ export function StatusMenu({
   blocked,
   size = 14,
   label,
+  tabIndex,
 }: {
   taskId: string;
   status: Status;
@@ -27,6 +28,8 @@ export function StatusMenu({
   size?: number;
   /** Shown next to the icon when given. */
   label?: string;
+  /** -1 takes the trigger out of the tab order (a board card has one tab stop). */
+  tabIndex?: number;
 }) {
   const setStatus = useSetStatus();
   return (
@@ -37,6 +40,7 @@ export function StatusMenu({
             type="button"
             aria-label={`Status: ${STATUS_LABEL[status]}. Change status`}
             disabled={setStatus.isPending}
+            tabIndex={tabIndex}
             className="relative inline-flex shrink-0 items-center gap-1.5 rounded-md p-0.5 outline-none transition-colors duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 touch-hitbox"
           />
         }

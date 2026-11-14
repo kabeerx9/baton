@@ -10,9 +10,12 @@ const EASE = [0.23, 1, 0.32, 1] as const;
 export function CardTree({
   boardTask,
   lanes,
+  tabIndex,
 }: {
   boardTask: BoardTask;
   lanes: Lane[];
+  /** Passed to each task's status button. */
+  tabIndex?: number;
 }) {
   const reduce = useReducedMotion();
   const { t } = useTranslation();
@@ -46,6 +49,7 @@ export function CardTree({
               status={task.status}
               blocked={blocked}
               size={13}
+              tabIndex={tabIndex}
             />
             <span
               className={`min-w-0 flex-1 truncate ${task.status === "done" ? "text-muted-foreground" : ""}`}
