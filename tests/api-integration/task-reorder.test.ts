@@ -28,6 +28,7 @@ describe("atomic card reordering", () => {
         priority: "urgent",
         status: "to-do",
         position: 3,
+        createdBy: user.id,
       })
       .returning();
     const result = await reorderTasks(

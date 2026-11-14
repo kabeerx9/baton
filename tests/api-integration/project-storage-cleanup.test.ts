@@ -133,7 +133,7 @@ it("does not delete an object referenced by a newly finalized live asset", async
 it.each(["single", "bulk"])(
   "recovers queued attachments after %s task deletion",
   async (mode) => {
-    const { workspace, user } = await createWorkspaceMember();
+    const { workspace, user } = await createWorkspaceMember({ role: "admin" });
     const { project } = await createProjectFixture({
       workspaceId: workspace.id,
     });

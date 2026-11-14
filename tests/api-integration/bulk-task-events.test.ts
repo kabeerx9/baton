@@ -31,7 +31,13 @@ describe("bulk task event snapshots", () => {
           userId: user.id,
           number: 1,
         },
-        { projectId: project.id, title: "Queued", status: "to-do", number: 2 },
+        {
+          projectId: project.id,
+          title: "Queued",
+          status: "to-do",
+          number: 2,
+          createdBy: user.id,
+        },
       ])
       .returning();
     await bulkUpdateTasks({

@@ -73,6 +73,7 @@ async function fixture(separateAssignee = false) {
       title: "Notified task",
       userId: assignee.user.id,
       status: "to-do",
+      createdBy: actor.user.id,
     })
     .returning();
   await db.insert(schema.userNotificationPreferenceTable).values({

@@ -24,8 +24,18 @@ it("validates every destination before committing any project", async () => {
   const tasks = await db
     .insert(schema.taskTable)
     .values([
-      { projectId: a.project.id, title: "a", status: "to-do" },
-      { projectId: b.project.id, title: "b", status: "to-do" },
+      {
+        projectId: a.project.id,
+        title: "a",
+        status: "to-do",
+        createdBy: user.id,
+      },
+      {
+        projectId: b.project.id,
+        title: "b",
+        status: "to-do",
+        createdBy: user.id,
+      },
     ])
     .returning();
   await expect(
@@ -49,8 +59,18 @@ it("commits every project before publishing successful status changes", async ()
   const tasks = await db
     .insert(schema.taskTable)
     .values([
-      { projectId: a.project.id, title: "a", status: "to-do" },
-      { projectId: b.project.id, title: "b", status: "to-do" },
+      {
+        projectId: a.project.id,
+        title: "a",
+        status: "to-do",
+        createdBy: user.id,
+      },
+      {
+        projectId: b.project.id,
+        title: "b",
+        status: "to-do",
+        createdBy: user.id,
+      },
     ])
     .returning();
   publish.mockImplementation(async () => {
@@ -86,7 +106,12 @@ it("uses the locked prior status when a concurrent edit rewrites a no-op snapsho
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
   const [task] = await db
     .insert(schema.taskTable)
-    .values({ projectId: project.id, title: "concurrent", status: "to-do" })
+    .values({
+      projectId: project.id,
+      title: "concurrent",
+      status: "to-do",
+      createdBy: user.id,
+    })
     .returning();
   const transaction = db.transaction.bind(db);
   vi.spyOn(getDatabase(), "transaction").mockImplementationOnce(

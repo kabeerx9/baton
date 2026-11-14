@@ -31,6 +31,7 @@ it("full updates store title history, assignment events and reset reminders toge
       priority: "low",
       dueDate: due,
       position: 0,
+      createdBy: user.id,
     })
     .returning();
   await db
@@ -248,7 +249,7 @@ it("validates status and assignment without a second pool client inside the muta
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
   const [task] = await db
     .insert(schema.taskTable)
-    .values({ projectId: project.id, title: "pool safety" })
+    .values({ projectId: project.id, title: "pool safety", createdBy: user.id })
     .returning();
   let locked = false;
   const select = getDatabase().select.bind(getDatabase());

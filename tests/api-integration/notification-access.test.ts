@@ -72,6 +72,7 @@ async function fixture() {
       columnId: columns.todo.id,
       title: "Private task",
       userId: member.user.id,
+      createdBy: actor.user.id,
     })
     .returning();
   return { actor, outsider, member, project, task };

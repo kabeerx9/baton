@@ -35,6 +35,7 @@ async function setup() {
       status: "to-do",
       number: 1,
       position: 1,
+      createdBy: member.user.id,
     })
     .returning();
   const { app } = createApp();

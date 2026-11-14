@@ -150,7 +150,7 @@ describe("API integration: subtask counters", () => {
   });
 
   it("returns zero for empty tasks and reflects completion, reopening, unlinking, and deletion", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const { project } = await createProjectFixture({
       workspaceId: member.workspace.id,
     });
@@ -229,7 +229,7 @@ describe("API integration: subtask counters", () => {
     });
   });
   it("refreshes a parent board when a child in another project is completed or deleted", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const parentProject = await createProjectFixture({
       workspaceId: member.workspace.id,
     });
@@ -486,7 +486,7 @@ describe("subtask counter mutation paths", () => {
     },
   );
   it("refreshes same-project parents in other windows after child deletion", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const { project } = await createProjectFixture({
       workspaceId: member.workspace.id,
     });

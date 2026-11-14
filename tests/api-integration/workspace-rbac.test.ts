@@ -127,12 +127,37 @@ describe("API integration: workspace RBAC enforcement", () => {
       expect(persisted).toBeUndefined();
     });
 
-    it("blocks a member from deleting a task (member role lacks task:delete)", async () => {
+    it("turns a member's delete into a request (member role lacks task:delete)", async () => {
       const member = await createWorkspaceMember({ role: "member" });
       const { project, columns } = await createProjectFixture({
         workspaceId: member.workspace.id,
       });
       const task = await seedTask(project.id, columns.todo.id);
+
+      mockAuthenticatedSession(member.user);
+      const { app } = createApp();
+
+      const response = await app.request(`/api/task/${task.id}`, {
+        method: "DELETE",
+      });
+      expect(response.status).toBe(202);
+      await expect(response.json()).resolves.toMatchObject({
+        outcome: "requested",
+        request: { kind: "delete", state: "pending" },
+      });
+
+      const stillThere = await db.query.taskTable.findFirst({
+        where: eq(schema.taskTable.id, task.id),
+      });
+      expect(stillThere).toBeDefined();
+    });
+
+    it("blocks an involved member from deleting a task (member role lacks task:delete)", async () => {
+      const member = await createWorkspaceMember({ role: "member" });
+      const { project, columns } = await createProjectFixture({
+        workspaceId: member.workspace.id,
+      });
+      const task = await seedTask(project.id, columns.todo.id, member.user.id);
 
       mockAuthenticatedSession(member.user);
       const { app } = createApp();
@@ -196,8 +221,8 @@ describe("API integration: workspace RBAC enforcement", () => {
         });
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toMatchObject({
-          id: task.id,
-          status,
+          outcome: "applied",
+          task: { id: task.id, status },
         });
 
         const deletedTask = await db.query.taskTable.findFirst({

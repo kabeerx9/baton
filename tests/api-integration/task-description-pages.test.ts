@@ -87,9 +87,12 @@ describe("large task descriptions", () => {
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      status: "in-progress",
-      description: null,
-      descriptionDeferred: true,
+      outcome: "applied",
+      task: {
+        status: "in-progress",
+        description: null,
+        descriptionDeferred: true,
+      },
     });
     expect(
       (
@@ -105,8 +108,8 @@ describe("large task descriptions", () => {
     });
     expect(cleared.status).toBe(200);
     expect(await cleared.json()).toMatchObject({
-      description: "",
-      descriptionDeferred: false,
+      outcome: "applied",
+      task: { description: "", descriptionDeferred: false },
     });
     expect(
       (

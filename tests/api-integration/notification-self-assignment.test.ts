@@ -34,7 +34,12 @@ async function fixture() {
   });
   const [task] = await db
     .insert(schema.taskTable)
-    .values({ projectId: project.id, title: "Assigned task", status: "to-do" })
+    .values({
+      projectId: project.id,
+      title: "Assigned task",
+      status: "to-do",
+      createdBy: actor.user.id,
+    })
     .returning();
   return { actor, teammate, task };
 }
