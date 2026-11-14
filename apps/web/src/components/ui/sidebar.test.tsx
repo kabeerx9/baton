@@ -183,3 +183,36 @@ describe("Sidebar parts", () => {
     expect(action).toContain("data-open:opacity-100");
   });
 });
+
+describe("Sidebar native buttons in a form", () => {
+  it.each([
+    [
+      "SidebarGroupAction",
+      <SidebarGroupAction key="a">Btn</SidebarGroupAction>,
+    ],
+    ["SidebarMenuButton", <SidebarMenuButton key="b">Btn</SidebarMenuButton>],
+    ["SidebarMenuAction", <SidebarMenuAction key="c">Btn</SidebarMenuAction>],
+  ])("%s has type=button and does not submit the form", (_name, part) => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <SidebarProvider>
+        <form onSubmit={onSubmit}>{part}</form>
+      </SidebarProvider>,
+    );
+    const button = screen.getByRole("button", { name: "Btn" });
+    expect(button).toHaveAttribute("type", "button");
+    fireEvent.click(button);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("has no type when render replaces the element", () => {
+    render(
+      <SidebarProvider>
+        <SidebarMenuButton render={<a href="/x" />}>Link</SidebarMenuButton>
+      </SidebarProvider>,
+    );
+    expect(screen.getByRole("link", { name: "Link" })).not.toHaveAttribute(
+      "type",
+    );
+  });
+});

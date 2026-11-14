@@ -442,6 +442,7 @@ function SidebarGroupAction({
     ),
     "data-sidebar": "group-action",
     "data-slot": "sidebar-group-action",
+    type: render ? undefined : "button",
   };
 
   return renderElement("button", mergeProps(defaultProps, props), render);
@@ -525,6 +526,7 @@ function SidebarMenuButton({
     "data-sidebar": "menu-button",
     "data-size": size,
     "data-slot": "sidebar-menu-button",
+    type: render ? undefined : "button",
   };
 
   const buttonElement = renderElement(
@@ -578,6 +580,7 @@ function SidebarMenuAction({
     ),
     "data-sidebar": "menu-action",
     "data-slot": "sidebar-menu-action",
+    type: render ? undefined : "button",
   };
 
   return renderElement("button", mergeProps(defaultProps, props), render);

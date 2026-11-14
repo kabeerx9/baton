@@ -28,7 +28,7 @@ async function renderWithRouter(ui: React.ReactElement) {
   return router;
 }
 
-describe("Button", () => {
+describe("Button parity (passes on the Base UI wrapper)", () => {
   it("renders a native button with type=button and runs onClick", () => {
     const onClick = vi.fn();
     render(<Button onClick={onClick}>Save</Button>);
@@ -113,19 +113,6 @@ describe("Button", () => {
     expect(link).toHaveAttribute("data-slot", "button");
   });
 
-  it("blocks the default action of a disabled plain link", () => {
-    const onClick = vi.fn();
-    render(
-      <Button disabled onClick={onClick} render={<a href="/somewhere" />}>
-        Off
-      </Button>,
-    );
-    const link = screen.getByText("Off");
-    expect(link).toHaveAttribute("aria-disabled", "true");
-    // fireEvent returns false when the click's default action was prevented.
-    expect(fireEvent.click(link)).toBe(false);
-  });
-
   it("accepts a render function and merges className", () => {
     render(
       <Button
@@ -182,5 +169,21 @@ describe("Button", () => {
       await router.load();
     });
     expect(router.state.location.pathname).toBe("/");
+  });
+});
+
+describe("Button added behavior (UI SDK port only)", () => {
+  it("blocks the default action of a disabled plain link", () => {
+    const onClick = vi.fn();
+    render(
+      <Button disabled onClick={onClick} render={<a href="/somewhere" />}>
+        Off
+      </Button>,
+    );
+    const link = screen.getByText("Off");
+    expect(link).toHaveAttribute("aria-disabled", "true");
+    // fireEvent returns false when the click's default action was prevented.
+    expect(fireEvent.click(link)).toBe(false);
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

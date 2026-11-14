@@ -70,6 +70,7 @@ export function Button({
   children,
   loading = false,
   disabled: disabledProp,
+  onClick,
   ...props
 }: ButtonProps): React.ReactElement {
   const isDisabled = Boolean(loading || disabledProp);
@@ -99,7 +100,13 @@ export function Button({
     type: typeValue,
   };
 
-  return renderElement("button", mergeProps(defaultProps, props), render);
+  // A native disabled button never fires click; a disabled rendered element
+  // must not run the caller's handler either.
+  return renderElement(
+    "button",
+    mergeProps(defaultProps, props, isDisabled ? {} : { onClick }),
+    render,
+  );
 }
 
 function preventClick(event: React.MouseEvent) {
