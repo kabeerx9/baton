@@ -192,4 +192,95 @@ describe("two-connection races", () => {
       1,
     );
   });
+
+  it("cancels a due request whose workspace is archived while it waits", async () => {
+    const f = await changeRequestFixture();
+    const requestId = await requestStatus(f.outsider, f.task.id, "in-progress");
+    await makeDue(requestId);
+    holder = await getDatabasePool().connect();
+    await holder.query("BEGIN");
+    await holder.query(
+      "UPDATE workspace SET archived_at = now() WHERE id = $1",
+      [f.workspace.id],
+    );
+
+    const timingOut = timeOutRequest(requestId);
+    await waitForLockWaiters();
+    await holder.query("COMMIT");
+
+    expect(await timingOut).toBe("cancelled");
+    expect(await readRequest(requestId)).toMatchObject({
+      state: "cancelled",
+      reason: "workspace_archived",
+    });
+    expect((await readTask(f.task.id))?.status).toBe("to-do");
+  });
+
+  it("lets a request and a reorder that holds the project both finish", async () => {
+    const f = await changeRequestFixture();
+    holder = await getDatabasePool().connect();
+    await holder.query("BEGIN");
+    // A reorder's order: the project first, then its tasks.
+    await holder.query("SELECT id FROM project WHERE id = $1 FOR UPDATE", [
+      f.project.id,
+    ]);
+
+    const asking = setStatus(f.outsider, f.task.id, "in-progress");
+    await waitForLockWaiters();
+    // The request waits on the project, so it holds no task lock yet.
+    await holder.query("SELECT id FROM task WHERE id = $1 FOR UPDATE", [
+      f.task.id,
+    ]);
+    await holder.query("UPDATE task SET position = 7 WHERE id = $1", [
+      f.task.id,
+    ]);
+    await holder.query("COMMIT");
+
+    const response = await asking;
+    expect(response.status).toBe(202);
+    expect((await readTask(f.task.id))?.position).toBe(7);
+    expect((await readRequest((await response.json()).request.id))?.state).toBe(
+      "pending",
+    );
+  });
+
+  it("lets only one of two requests on different tasks pass the hourly limit", async () => {
+    const f = await changeRequestFixture();
+    const tasks = await db
+      .insert(schema.taskTable)
+      .values(
+        Array.from({ length: 11 }, (_, index) => ({
+          projectId: f.project.id,
+          columnId: f.columns.todo.id,
+          title: `Task ${index + 2}`,
+          status: "to-do",
+          number: index + 2,
+          position: index + 2,
+          createdBy: f.creator.id,
+        })),
+      )
+      .returning();
+    for (const task of tasks.slice(0, 9))
+      await requestStatus(f.outsider, task.id, "in-progress");
+
+    holder = await getDatabasePool().connect();
+    await holder.query("BEGIN");
+    await holder.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`task-change-request:${f.workspace.id}:${f.outsider.id}`],
+    );
+    const asking = Promise.all(
+      tasks
+        .slice(9)
+        .map((task) => setStatus(f.outsider, task.id, "in-progress")),
+    );
+    await waitForLockWaiters(2);
+    await holder.query("COMMIT");
+
+    const statuses = (await asking).map((response) => response.status).sort();
+    expect(statuses).toEqual([202, 429]);
+    expect(await db.select().from(schema.taskChangeRequestTable)).toHaveLength(
+      10,
+    );
+  });
 });

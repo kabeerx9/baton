@@ -22,7 +22,8 @@ vi.mock("../../apps/api/src/events", async (original) => {
 beforeEach(resetTestDatabase);
 
 async function fixture() {
-  const actor = await createWorkspaceMember();
+  // Reassignment needs task:assign, which plain members lack.
+  const actor = await createWorkspaceMember({ role: "admin" });
   const teammate = await createWorkspaceMember();
   await db.insert(schema.workspaceUserTable).values({
     workspaceId: actor.workspace.id,

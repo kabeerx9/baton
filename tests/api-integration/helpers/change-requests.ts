@@ -1,4 +1,5 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { vi } from "vite-plus/test";
 import type { User } from "better-auth/types";
 import db, { schema } from "../../../apps/api/src/database";
 import { createApp } from "../../../apps/api/src/index";
@@ -109,4 +110,44 @@ export async function makeDue(requestId: string) {
       expiresAt: sql`(now() AT TIME ZONE 'utc') - interval '1 minute'`,
     })
     .where(eq(schema.taskChangeRequestTable.id, requestId));
+}
+
+/** Creates an API key for `userId`; no permissions means the user's own. */
+export async function createKey(
+  userId: string,
+  permissions?: Record<string, string[]>,
+) {
+  const { auth } = await import("../../../apps/api/src/auth");
+  const created = await auth.api.createApiKey({
+    body: { userId, name: "Change request test", permissions },
+  });
+  return { id: created.id, key: created.key };
+}
+
+/** Sends requests to a fresh app with an API key and no session. */
+export function withKey(key: string) {
+  vi.restoreAllMocks();
+  const { app } = createApp();
+  return (path: string, init: RequestInit = {}) =>
+    app.request(path, {
+      ...init,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        ...init.headers,
+      },
+    });
+}
+
+/** Notifications a user got about change request outcomes. */
+export async function outcomeNotifications(userId: string) {
+  return db
+    .select()
+    .from(schema.notificationTable)
+    .where(
+      and(
+        eq(schema.notificationTable.userId, userId),
+        eq(schema.notificationTable.type, "task_change_request_finished"),
+      ),
+    );
 }

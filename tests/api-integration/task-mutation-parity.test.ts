@@ -19,7 +19,9 @@ beforeEach(async () => {
 });
 afterEach(() => vi.restoreAllMocks());
 it("full updates store title history, assignment events and reset reminders together", async () => {
-  const { user, workspace } = await createWorkspaceMember();
+  const { user, workspace } = await createWorkspaceMember({
+    role: "admin",
+  });
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
   const due = new Date("2030-01-01");
   const [task] = await db
@@ -245,7 +247,9 @@ it.each(["single", "bulk"])(
 );
 
 it("validates status and assignment without a second pool client inside the mutation transaction", async () => {
-  const { user, workspace } = await createWorkspaceMember();
+  const { user, workspace } = await createWorkspaceMember({
+    role: "admin",
+  });
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
   const [task] = await db
     .insert(schema.taskTable)

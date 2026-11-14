@@ -32,6 +32,7 @@ import { reviewSyncResume } from "../../apps/api/src/integration-sync/controller
 import { updateExternalLink } from "../../apps/api/src/plugins/github/services/link-manager";
 import deleteLabel from "../../apps/api/src/label/controllers/delete-label";
 import { resetTestDatabase } from "./helpers/database";
+import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 import {
   createProjectFixture,
   createWorkspaceMember,
@@ -1253,6 +1254,55 @@ describe.each(["github"] as const)("%s label-filtered sync", (type) => {
       expect(await canSyncTask(f.task.id, f.integration.id)).toBe(true);
     },
   );
+
+  it("records the person who started a provider adoption", async () => {
+    const f = await setup(type);
+    const initiator = await addWorkspaceMember(f.workspace.id, "admin");
+    await f.assign();
+    await reconcileTaskSync(f.project.id, f.task.id);
+    const link = (await db.query.externalLinkTable.findMany())[0]!;
+    await db
+      .update(schema.taskTable)
+      .set({ status: f.columns.done.slug, columnId: f.columns.done.id })
+      .where(eq(schema.taskTable.id, f.task.id));
+    await updateExternalLink(link.id, {
+      metadata: { syncFilterPaused: true },
+    });
+    mocks.read.mockResolvedValue({
+      title: "Repository title",
+      description: "Repository body",
+      state: "open",
+      updatedAt: "remote-time",
+      labels: [],
+    });
+    const review = await reviewSyncResume(
+      f.project.id,
+      type,
+      link.id,
+      f.workspace.id,
+    );
+    await resumeSync(
+      f.project.id,
+      type,
+      link.id,
+      review.token,
+      "provider",
+      f.workspace.id,
+      initiator.id,
+    );
+    const activities = await db
+      .select()
+      .from(schema.activityTable)
+      .where(eq(schema.activityTable.taskId, f.task.id));
+    expect(activities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "title_changed",
+          userId: initiator.id,
+        }),
+      ]),
+    );
+  });
 
   it.each(["baton", "provider"] as const)(
     "preserves unreviewed fields after resuming with %s and accepts later label changes",

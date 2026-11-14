@@ -444,6 +444,11 @@ describe("notification recipient boundaries", () => {
       ]),
     );
     expect(tasks.some((row) => row.userId === outsider.user.id)).toBe(false);
+    // Reassignment needs task:assign under the task lock, which members lack.
+    await db
+      .update(schema.workspaceUserTable)
+      .set({ role: "admin" })
+      .where(eq(schema.workspaceUserTable.userId, actor.user.id));
     await expect(
       updateAssignee({
         id: task.id,
