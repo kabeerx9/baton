@@ -17,7 +17,8 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 // J0 smoke test: UI SDK popups open in jsdom with the stubs in setup.ts, under
-// strict mode and the React Compiler transform that the web app uses.
+// strict mode. vitest.config.ts loads no React Compiler, so this test does not
+// cover it; compiler compatibility was checked in the J0 browser spike.
 describe("UI SDK in jsdom", () => {
   it("opens a Dialog, moves focus into it and returns focus on close", async () => {
     render(
