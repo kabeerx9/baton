@@ -654,6 +654,15 @@ export const taskTable = pgTable(
     priority: text("priority").default("low").notNull(),
     startDate: timestamp("start_date", { mode: "date" }),
     dueDate: timestamp("due_date", { mode: "date" }),
+    // The person who created the task. Null for tasks from integrations and
+    // for older tasks whose creator could not be recovered.
+    createdBy: text("created_by").references(() => userTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    // Bumped by a database trigger on every status change, from any writer.
+    // A change request records it and applies only while it is unchanged.
+    statusGeneration: integer("status_generation").default(0).notNull(),
     createdAt: timestamp("created_at", { mode: "date" })
       .default(utcNow)
       .notNull(),
@@ -664,6 +673,7 @@ export const taskTable = pgTable(
   },
   (table) => [
     index("task_projectId_idx").on(table.projectId),
+    index("task_createdBy_idx").on(table.createdBy),
     index("task_project_scheduled_id_idx")
       .on(table.projectId, table.id)
       .where(
@@ -673,6 +683,73 @@ export const taskTable = pgTable(
     index("task_assigneeId_idx").on(table.userId),
     index("task_columnId_idx").on(table.columnId),
     unique("task_project_number_unique").on(table.projectId, table.number),
+  ],
+);
+
+// A request to change a task's status, or to delete it, made by someone who
+// is not involved in the task. One pending request per task at most. Rows
+// outlive their task (task_id becomes null) so outcomes stay readable.
+export const taskChangeRequestTable = pgTable(
+  "task_change_request",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    taskId: text("task_id").references(() => taskTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    projectId: text("project_id").references(() => projectTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    taskKey: text("task_key").notNull(),
+    taskTitle: text("task_title").notNull(),
+    requestedBy: text("requested_by").references(() => userTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    channel: text("channel").$type<"web" | "agent">(),
+    // "status" or "delete". Text, so later kinds need no migration.
+    kind: text("kind").notNull(),
+    targetStatus: text("target_status"),
+    baseStatus: text("base_status").notNull(),
+    baseGeneration: integer("base_generation").notNull(),
+    state: text("state").notNull().default("pending"),
+    decidedBy: text("decided_by").references(() => userTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    decidedChannel: text("decided_channel").$type<"web" | "agent">(),
+    decidedAt: timestamp("decided_at", { mode: "date" }),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("task_change_request_one_pending_idx")
+      .on(table.taskId)
+      .where(sql`${table.state} = 'pending'`),
+    index("task_change_request_due_idx")
+      .on(table.expiresAt)
+      .where(sql`${table.state} = 'pending'`),
+    index("task_change_request_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index("task_change_request_requested_by_idx").on(
+      table.requestedBy,
+      table.createdAt,
+    ),
+    index("task_change_request_task_idx").on(table.taskId),
   ],
 );
 
@@ -738,6 +815,9 @@ export const activityTable = pgTable(
     }),
     content: text("content"),
     eventData: jsonb("event_data"),
+    // How the person acted: "web" (session cookie) or "agent" (API key or
+    // bearer token). Null for system events and older activity.
+    channel: text("channel").$type<"web" | "agent">(),
     externalUserName: text("external_user_name"),
     externalUserAvatar: text("external_user_avatar"),
     externalSource: text("external_source"),
