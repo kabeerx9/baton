@@ -3,12 +3,16 @@ import createActivities from "../activity/controllers/create-activities";
 import { schema } from "../database";
 import type { DbOrTx } from "./db-or-tx";
 import { cancelPendingRequestsFor } from "../task-change-request/cancel-pending";
+import type { ChangeRequestRow } from "../task-change-request/response";
 import { projectAccessCondition } from "./project-access-condition";
 
 export async function unassignInaccessibleTasks(
   database: DbOrTx,
   change: { workspaceId: string; userId: string; actorId: string },
-): Promise<{ id: string; projectId: string }[]> {
+): Promise<{
+  unassigned: { id: string; projectId: string }[];
+  cancelled: ChangeRequestRow[];
+}> {
   const unassigned = await database
     .update(schema.taskTable)
     .set({ userId: null })
@@ -37,7 +41,7 @@ export async function unassignInaccessibleTasks(
     });
 
   // A new assignee changes who must consent: open requests no longer hold.
-  await cancelPendingRequestsFor(
+  const cancelled = await cancelPendingRequestsFor(
     database,
     unassigned.map((task) => task.id),
     "task_changed",
@@ -54,5 +58,5 @@ export async function unassignInaccessibleTasks(
     database,
   );
 
-  return unassigned;
+  return { unassigned, cancelled };
 }

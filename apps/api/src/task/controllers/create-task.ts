@@ -1,4 +1,9 @@
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 import { extractAssetIds } from "../../storage/cleanup-assets";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
@@ -75,6 +80,7 @@ async function createTask({
     ),
   });
 
+  const cancelled: ChangeRequestRow[] = [];
   const createdTask = await db.transaction(async (tx) => {
     const taskNumber = await claimTaskNumber(projectId, tx);
     const nextPosition = await nextTaskPosition(
@@ -147,7 +153,9 @@ async function createTask({
         relationType: "subtask",
       });
       // The parent is now a feature; its own status no longer counts.
-      await cancelPendingRequests(tx, parentTaskId, "became_feature");
+      cancelled.push(
+        ...(await cancelPendingRequests(tx, parentTaskId, "became_feature")),
+      );
     }
 
     return task;
@@ -159,6 +167,9 @@ async function createTask({
     });
   }
 
+  await dispatchRequestEffects(
+    finishedEffects(cancelled, currentUserId ?? null),
+  );
   await publishEvent("task.created", {
     ...createdTask,
     taskId: createdTask.id,

@@ -5,6 +5,11 @@ import { updateExternalLink } from "../../plugins/github/services/link-manager";
 import { withSyncLease } from "../../plugins/sync/lease";
 import { SyncLeaseBusyError } from "../../plugins/sync/lease-busy-error";
 import { publishTaskMutation } from "../../task/controllers/task-mutation-effects";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 import { applySyncResume } from "./apply-resume";
 import { lockResumeScope } from "./lock-resume-scope";
 import { reviewSyncResume } from "./review-resume";
@@ -18,6 +23,7 @@ export async function resumeSync(
   token: string,
   source: "baton" | "provider",
   authorizedWorkspaceId: string,
+  initiatorId: string | null = null,
 ) {
   try {
     return await withSyncLease(`sync-resume:${linkId}`, () =>
@@ -28,6 +34,7 @@ export async function resumeSync(
         token,
         source,
         authorizedWorkspaceId,
+        initiatorId,
       ),
     );
   } catch (error) {
@@ -44,6 +51,7 @@ async function resumeWithLease(
   token: string,
   source: "baton" | "provider",
   authorizedWorkspaceId: string,
+  initiatorId: string | null,
 ) {
   // Provider latency must not retain a pooled connection or block local edits.
   const initial = await reviewSyncResume(
@@ -65,7 +73,8 @@ async function resumeWithLease(
     | undefined;
   let providerWritten = false;
   let updatedAt: string | null = null;
-  let adoption: Awaited<ReturnType<typeof applySyncResume>>;
+  let adoption: Awaited<ReturnType<typeof applySyncResume>>["adoption"];
+  let cancelled: ChangeRequestRow[] = [];
   const validate = async (tx: Parameters<typeof lockResumeScope>[4]) => {
     await lockResumeScope(
       projectId,
@@ -115,7 +124,16 @@ async function resumeWithLease(
     }
     await db.transaction(async (tx) => {
       const review = await validate(tx);
-      adoption = await applySyncResume(review, provider, source, updatedAt, tx);
+      const applied = await applySyncResume(
+        review,
+        provider,
+        source,
+        updatedAt,
+        tx,
+        initiatorId,
+      );
+      adoption = applied.adoption;
+      cancelled = applied.cancelled;
     });
   } catch (error) {
     // Dispatch can outlive a failed scope transaction. Observe its result before
@@ -153,11 +171,17 @@ async function resumeWithLease(
       metadata: { syncFilterPaused: true },
     });
   }
+  await dispatchRequestEffects(finishedEffects(cancelled, initiatorId));
   if (adoption)
-    await publishTaskMutation(adoption.before, adoption.after, undefined, {
-      fields: ["title", "description", "status"],
-      sourceIntegrationId: adoption.integrationId,
-    });
+    await publishTaskMutation(
+      adoption.before,
+      adoption.after,
+      initiatorId ?? undefined,
+      {
+        fields: ["title", "description", "status"],
+        sourceIntegrationId: adoption.integrationId,
+      },
+    );
   await publishEvent("task.updated", { projectId, taskId: initial.task.id });
   await publishEvent("project.updated", { projectId });
   if (verificationError) throw verificationError;

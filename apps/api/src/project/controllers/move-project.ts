@@ -19,6 +19,11 @@ import { publishEvent } from "../../events";
 import { grantProjectToRestrictedMember } from "../../project-access/grant-project-to-restricted-member";
 import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
 import { closeProjectConnections } from "../../ws";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 import { findProjectKeyConflict } from "../project-key";
 
 async function moveProject(
@@ -33,6 +38,7 @@ async function moveProject(
     });
   }
 
+  const cancelled: ChangeRequestRow[] = [];
   const { movedProject, unassignedTasks } = await db.transaction(async (tx) => {
     // Use a stable order for both workspaces before locking the project row.
     // This also keeps source reorders from updating a project after it moves.
@@ -203,7 +209,9 @@ async function moveProject(
     }
 
     // Requests carry the old workspace; none of them may apply after a move.
-    await cancelPendingRequestsInProject(tx, id, "task_changed");
+    cancelled.push(
+      ...(await cancelPendingRequestsInProject(tx, id, "task_changed")),
+    );
 
     // Older task moves could leave links owned by a different project.
     await tx
@@ -265,6 +273,7 @@ async function moveProject(
   });
 
   await closeProjectConnections(id);
+  await dispatchRequestEffects(finishedEffects(cancelled, currentUserId));
 
   await publishEvent("integration.sync_labels_changed", { projectId: id });
   await publishEvent("project.updated", { projectId: id });

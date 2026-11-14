@@ -127,6 +127,7 @@ export async function handleIssueClosed(payload: IssueClosedPayload) {
               task.id,
               targetStatus,
               db,
+              afterCommit,
             );
             if (
               statusResult.applied &&

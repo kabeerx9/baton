@@ -1,6 +1,10 @@
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { publishEvent } from "../../events";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
 import { keepHiddenGrants } from "../../project-access/keep-hidden-grants";
 import { listAccessibleProjectIds } from "../../project-access/list-accessible-project-ids";
 import { lockAccessChange } from "../../project-access/lock-access-change";
@@ -24,8 +28,8 @@ async function updateMemberProjectAccess(request: {
     });
   }
 
-  const { access, changedProjectIds, unassigned } = await db.transaction(
-    async (tx) => {
+  const { access, changedProjectIds, unassigned, cancelled } =
+    await db.transaction(async (tx) => {
       const lock = await lockAccessChange(tx, { workspaceId, actorId, userId });
       if (!lock.actorAllowed) {
         throw new HTTPException(403, { message: "Insufficient permissions" });
@@ -72,15 +76,15 @@ async function updateMemberProjectAccess(request: {
           ...[...before].filter((projectId) => !after.has(projectId)),
           ...[...after].filter((projectId) => !before.has(projectId)),
         ],
-        unassigned: await unassignInaccessibleTasks(tx, {
+        ...(await unassignInaccessibleTasks(tx, {
           workspaceId,
           userId,
           actorId,
-        }),
+        })),
       };
-    },
-  );
+    });
 
+  await dispatchRequestEffects(finishedEffects(cancelled, actorId));
   await publishEvent("project_access.updated", {
     workspaceId,
     userId,

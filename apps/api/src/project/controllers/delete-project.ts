@@ -3,6 +3,11 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, assetTable, taskTable } from "../../database/schema";
 import { cancelPendingRequestsInProject } from "../../task-change-request/cancel-pending";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 import { publishEvent } from "../../events";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { getProjectSubtaskParentProjects } from "../../task/get-subtask-parent-projects";
@@ -13,6 +18,7 @@ async function deleteProject(id: string, workspaceId: string) {
 
   const parents = await getProjectSubtaskParentProjects(id);
 
+  const cancelled: ChangeRequestRow[] = [];
   const deletedProject = await db.transaction(async (tx) => {
     // Lock the owner before collecting keys so uploads cannot race the cascade.
     const [project] = await tx
@@ -40,7 +46,13 @@ async function deleteProject(id: string, workspaceId: string) {
       .where(eq(taskTable.projectId, id))
       .orderBy(asc(taskTable.id))
       .for("update");
-    await cancelPendingRequestsInProject(tx, id, "task_deleted");
+    // The cascade below sets their task and project to null.
+    for (const request of await cancelPendingRequestsInProject(
+      tx,
+      id,
+      "task_deleted",
+    ))
+      cancelled.push({ ...request, taskId: null, projectId: null });
     const [deleted] = await tx
       .delete(projectTable)
       .where(
@@ -55,6 +67,7 @@ async function deleteProject(id: string, workspaceId: string) {
     });
   }
 
+  await dispatchRequestEffects(finishedEffects(cancelled, null));
   await publishEvent("subtask-parents.refresh", {
     projects: parents.filter((parent) => parent.projectId !== id),
   });

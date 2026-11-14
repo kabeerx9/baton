@@ -8,6 +8,10 @@ import {
   taskTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
 import { assertProjectAccess } from "../../project-access/assert-project-access";
 import { assertNoBlocksCycle } from "../assert-no-blocks-cycle";
 
@@ -30,116 +34,122 @@ async function createTaskRelation({
     });
   }
 
-  const { relation, sourceTask } = await db.transaction(async (tx) => {
-    // Serialize relation creation with project moves before validating either
-    // workspace. A move must see this relation or this request must see the move.
-    await tx
-      .select({ id: projectTable.id })
-      .from(projectTable)
-      .where(
-        inArray(
-          projectTable.id,
-          tx
-            .select({ projectId: taskTable.projectId })
-            .from(taskTable)
-            .where(inArray(taskTable.id, [sourceTaskId, targetTaskId])),
-        ),
-      )
-      .orderBy(projectTable.id)
-      .for("share");
-    const [sourceTask] = await tx
-      .select({
-        id: taskTable.id,
-        projectId: taskTable.projectId,
-        workspaceId: projectTable.workspaceId,
-      })
-      .from(taskTable)
-      .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-      .where(
-        and(
-          eq(taskTable.id, sourceTaskId),
-          eq(projectTable.workspaceId, workspaceId),
-        ),
-      )
-      .limit(1);
+  const { relation, sourceTask, cancelled } = await db.transaction(
+    async (tx) => {
+      // Serialize relation creation with project moves before validating either
+      // workspace. A move must see this relation or this request must see the move.
+      await tx
+        .select({ id: projectTable.id })
+        .from(projectTable)
+        .where(
+          inArray(
+            projectTable.id,
+            tx
+              .select({ projectId: taskTable.projectId })
+              .from(taskTable)
+              .where(inArray(taskTable.id, [sourceTaskId, targetTaskId])),
+          ),
+        )
+        .orderBy(projectTable.id)
+        .for("share");
+      const [sourceTask] = await tx
+        .select({
+          id: taskTable.id,
+          projectId: taskTable.projectId,
+          workspaceId: projectTable.workspaceId,
+        })
+        .from(taskTable)
+        .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+        .where(
+          and(
+            eq(taskTable.id, sourceTaskId),
+            eq(projectTable.workspaceId, workspaceId),
+          ),
+        )
+        .limit(1);
 
-    if (!sourceTask) {
-      throw new HTTPException(404, { message: "Source task not found" });
-    }
+      if (!sourceTask) {
+        throw new HTTPException(404, { message: "Source task not found" });
+      }
 
-    const [targetTask] = await tx
-      .select({
-        id: taskTable.id,
-        projectId: taskTable.projectId,
-        workspaceId: projectTable.workspaceId,
-      })
-      .from(taskTable)
-      .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-      .where(
-        and(
-          eq(taskTable.id, targetTaskId),
-          eq(projectTable.workspaceId, workspaceId),
-        ),
-      )
-      .limit(1);
+      const [targetTask] = await tx
+        .select({
+          id: taskTable.id,
+          projectId: taskTable.projectId,
+          workspaceId: projectTable.workspaceId,
+        })
+        .from(taskTable)
+        .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+        .where(
+          and(
+            eq(taskTable.id, targetTaskId),
+            eq(projectTable.workspaceId, workspaceId),
+          ),
+        )
+        .limit(1);
 
-    if (!targetTask) {
-      throw new HTTPException(404, { message: "Target task not found" });
-    }
+      if (!targetTask) {
+        throw new HTTPException(404, { message: "Target task not found" });
+      }
 
-    await assertProjectAccess(userId, targetTask.projectId);
+      await assertProjectAccess(userId, targetTask.projectId);
 
-    const existing = await tx
-      .select({ id: taskRelationTable.id })
-      .from(taskRelationTable)
-      .where(
-        and(
-          eq(taskRelationTable.relationType, relationType),
-          or(
-            and(
-              eq(taskRelationTable.sourceTaskId, sourceTaskId),
-              eq(taskRelationTable.targetTaskId, targetTaskId),
-            ),
-            and(
-              eq(taskRelationTable.sourceTaskId, targetTaskId),
-              eq(taskRelationTable.targetTaskId, sourceTaskId),
+      const existing = await tx
+        .select({ id: taskRelationTable.id })
+        .from(taskRelationTable)
+        .where(
+          and(
+            eq(taskRelationTable.relationType, relationType),
+            or(
+              and(
+                eq(taskRelationTable.sourceTaskId, sourceTaskId),
+                eq(taskRelationTable.targetTaskId, targetTaskId),
+              ),
+              and(
+                eq(taskRelationTable.sourceTaskId, targetTaskId),
+                eq(taskRelationTable.targetTaskId, sourceTaskId),
+              ),
             ),
           ),
-        ),
-      )
-      .limit(1);
+        )
+        .limit(1);
 
-    if (existing.length > 0) {
-      throw new HTTPException(409, {
-        message: "This relation already exists",
-      });
-    }
+      if (existing.length > 0) {
+        throw new HTTPException(409, {
+          message: "This relation already exists",
+        });
+      }
 
-    if (relationType === "blocks") {
-      await assertNoBlocksCycle(tx, workspaceId, sourceTaskId, targetTaskId);
-    }
+      if (relationType === "blocks") {
+        await assertNoBlocksCycle(tx, workspaceId, sourceTaskId, targetTaskId);
+      }
 
-    const [relation] = await tx
-      .insert(taskRelationTable)
-      .values({
-        sourceTaskId,
-        targetTaskId,
-        relationType,
-      })
-      .returning();
+      const [relation] = await tx
+        .insert(taskRelationTable)
+        .values({
+          sourceTaskId,
+          targetTaskId,
+          relationType,
+        })
+        .returning();
 
-    if (!relation) {
-      throw new HTTPException(500, {
-        message: "Failed to create task relation",
-      });
-    }
-    // A task that gets a subtask becomes a feature: its own status stops
-    // counting, so an open status request on it no longer holds.
-    if (relationType === "subtask")
-      await cancelPendingRequests(tx, sourceTaskId, "became_feature");
+      if (!relation) {
+        throw new HTTPException(500, {
+          message: "Failed to create task relation",
+        });
+      }
+      // A task that gets a subtask becomes a feature: its own status stops
+      // counting, so an open status request on it no longer holds.
+      const cancelled =
+        relationType === "subtask"
+          ? await cancelPendingRequests(tx, sourceTaskId, "became_feature")
+          : [];
 
-    return { relation, sourceTask };
-  });
+      return { relation, sourceTask, cancelled };
+    },
+  );
+
+  await dispatchRequestEffects(finishedEffects(cancelled, userId ?? null));
 
   await publishEvent("task-relation.created", {
     ...relation,

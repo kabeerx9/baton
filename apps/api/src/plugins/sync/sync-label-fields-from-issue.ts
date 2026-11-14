@@ -103,7 +103,12 @@ async function applyLabelFields(
       }
 
       if (status) {
-        const result = await updateTaskStatus(link.taskId, status, tx);
+        const result = await updateTaskStatus(
+          link.taskId,
+          status,
+          tx,
+          afterCommit,
+        );
         if (result.applied && result.before.status !== result.after.status)
           afterCommit(() =>
             publishEvent("task.status_changed", {

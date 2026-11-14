@@ -130,6 +130,7 @@ export async function handleIssueReopened(payload: IssueReopenedPayload) {
               task.id,
               targetStatus,
               db,
+              afterCommit,
             );
             if (
               statusResult.applied &&

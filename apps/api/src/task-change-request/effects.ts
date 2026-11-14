@@ -79,8 +79,9 @@ async function notifyPerson(
   type: string,
   title: string,
   content: string,
+  options: { historyFallback?: boolean } = {},
 ) {
-  const notification = await createNotification({
+  const message = {
     userId,
     type,
     title,
@@ -93,8 +94,20 @@ async function notifyPerson(
       targetStatus: request.targetStatus,
       state: request.state,
     },
-    ...resource(request),
-  });
+  };
+  // An outcome belongs to the requester's history, which outlives their
+  // access to the task (deleted, moved, hidden). When the task resource is
+  // refused, it is filed under the request's workspace instead; the
+  // message carries only the request's own snapshot.
+  const notification =
+    (await createNotification({ ...message, ...resource(request) })) ??
+    (options.historyFallback && request.taskId
+      ? await createNotification({
+          ...message,
+          resourceId: request.workspaceId,
+          resourceType: "workspace",
+        })
+      : null);
   if (!notification || !slackConfig()) return;
   const url = await taskUrl(request.taskId);
   const link = url
@@ -141,6 +154,7 @@ async function dispatch(effect: RequestEffect) {
           "task_change_request_finished",
           outcomeTitle(superseded),
           outcomeBody(superseded),
+          { historyFallback: true },
         );
       await publishRequestUpdated(request);
       return;
@@ -154,6 +168,7 @@ async function dispatch(effect: RequestEffect) {
           "task_change_request_finished",
           outcomeTitle(request),
           outcomeBody(request),
+          { historyFallback: true },
         );
       await publishRequestUpdated(request);
       return;

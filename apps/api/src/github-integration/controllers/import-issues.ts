@@ -1,5 +1,10 @@
 import { statusWrite } from "../../task-change-request/apply-task-change";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 import { confirmedFieldLabels } from "../../plugins/sync/field-labels";
 import { acceptsIssue, readSyncRules } from "../../plugins/sync/rules";
 import { canSyncTask } from "../../plugins/sync/eligibility";
@@ -233,6 +238,7 @@ export async function importIssues(projectId: string, runId?: string) {
         string,
         { type: ImportEvent; taskId: string }
       >();
+      const cancelled: ChangeRequestRow[] = [];
       run = await db.transaction(async (tx) => {
         const [currentProject] = await tx
           .select()
@@ -270,6 +276,7 @@ export async function importIssues(projectId: string, runId?: string) {
             for (const type of types)
               notifications.set(`${type}:${taskId}`, { type, taskId });
           },
+          cancelled,
           admitted,
           scopeLabels,
         );
@@ -288,6 +295,7 @@ export async function importIssues(projectId: string, runId?: string) {
       });
       // Each bounded page is durable before other clients refresh, including
       // continuation pages that change labels, comments or linked resources.
+      await dispatchRequestEffects(finishedEffects(cancelled, null));
       for (const { type, taskId } of notifications.values())
         await publishEvent(type, { projectId, taskId });
       await publishEvent("project.updated", { projectId });
@@ -334,6 +342,7 @@ async function applyPage(
   project: typeof projectTable.$inferSelect,
   config: GitHubConfig,
   announce: (taskId: string, ...types: ImportEvent[]) => void,
+  cancelled: ChangeRequestRow[],
   admitted = true,
   scopeLabels: unknown = [],
 ) {
@@ -358,7 +367,13 @@ async function applyPage(
       finishIssue(state);
       return;
     }
-    const task = await importIssue(tx, issue, integrationId, project.id);
+    const task = await importIssue(
+      tx,
+      issue,
+      integrationId,
+      project.id,
+      cancelled,
+    );
     if (!task) {
       state.skipped++;
       finishIssue(state);
@@ -489,7 +504,9 @@ async function applyPage(
       // A manual import is a bypass for consent; a status it changes still
       // ends any open change request on the task.
       if (statusUpdate && statusUpdate.status !== task.status)
-        await cancelPendingRequests(tx, task.id, "task_changed");
+        cancelled.push(
+          ...(await cancelPendingRequests(tx, task.id, "task_changed")),
+        );
     }
     current.prioritySeen ||= labels.some((label) =>
       label.name.startsWith("priority:"),
@@ -550,6 +567,7 @@ async function importIssue(
   issue: ImportedIssue,
   integrationId: string,
   projectId: string,
+  cancelled: ChangeRequestRow[],
 ): Promise<{ id: string; result: "imported" | "updated" } | null> {
   const link = await findLink(tx, integrationId, "issue", issue.number);
   const priority = extractIssuePriority(issue.labels.nodes);
@@ -581,7 +599,9 @@ async function importIssue(
       .where(and(eq(taskTable.id, task.id), eq(taskTable.projectId, projectId)))
       .returning({ id: taskTable.id, status: taskTable.status });
     if (updated && updated.status !== task.status)
-      await cancelPendingRequests(tx, task.id, "task_changed");
+      cancelled.push(
+        ...(await cancelPendingRequests(tx, task.id, "task_changed")),
+      );
     return updated ? { id: updated.id, result: "updated" } : null;
   }
   const number = await claimTaskNumber(projectId, tx);

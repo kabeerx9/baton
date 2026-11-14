@@ -17,6 +17,7 @@ import {
 import type { reviewSyncResume } from "./review-resume";
 import { statusWrite } from "../../task-change-request/apply-task-change";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 
 export async function applySyncResume(
   review: Awaited<ReturnType<typeof reviewSyncResume>>,
@@ -24,7 +25,10 @@ export async function applySyncResume(
   source: "baton" | "provider",
   updatedAt: string | null,
   tx: Parameters<typeof recordTaskMutation>[0],
+  /** The person who started the resume, for the audit trail. */
+  initiatorId: string | null = null,
 ) {
+  const cancelled: ChangeRequestRow[] = [];
   const { task, link } = review;
   let adoption:
     | { before: TaskBefore; after: TaskBefore; integrationId: string }
@@ -56,6 +60,7 @@ export async function applySyncResume(
     // Person-started, but it needs integration management permission, so it
     // is a bypass for consent. Like other integration writes it skips the
     // blocker rule; it still bumps the generation and ends open requests.
+    // The activity names the person who started it.
     const [after] = await tx
       .update(taskTable)
       .set({
@@ -67,8 +72,10 @@ export async function applySyncResume(
       .where(eq(taskTable.id, task.id))
       .returning();
     if (after && after.status !== task.status)
-      await cancelPendingRequests(tx, task.id, "task_changed");
-    await recordTaskMutation(tx, task, after!);
+      cancelled.push(
+        ...(await cancelPendingRequests(tx, task.id, "task_changed")),
+      );
+    await recordTaskMutation(tx, task, after!, initiatorId ?? undefined);
     adoption = {
       before: task,
       after: after!,
@@ -125,5 +132,5 @@ export async function applySyncResume(
       tx,
     );
   }
-  return adoption;
+  return { adoption, cancelled };
 }

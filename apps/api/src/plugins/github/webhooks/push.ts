@@ -166,6 +166,7 @@ export async function handlePush(payload: PushPayload) {
             task.id,
             targetStatus,
             database,
+            afterCommit,
           );
           if (
             statusResult.applied &&

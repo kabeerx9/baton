@@ -12,6 +12,10 @@ import { extractTaskLinks } from "../utils/task-references";
 import type { IntegrationDatabase } from "./integration-task-scope";
 import { activeIntegrationCondition } from "../../active-integration-condition";
 import { applyTaskChange } from "../../../task-change-request/apply-task-change";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../../task-change-request/effects";
 import type { TaskTransaction } from "../../../task/controllers/with-locked-task";
 
 export type TaskRow = InferSelectModel<typeof taskTable>;
@@ -68,13 +72,26 @@ export async function findTaskById(
  * cancels any pending change request on the task, in the caller's
  * transaction.
  */
+/**
+ * Sets a status from GitHub, as a system writer. A pending change request
+ * on the task is cancelled; its requester is told through `afterCommit`
+ * (the caller's post-commit queue), or right after this function's own
+ * transaction when it opens one.
+ */
 export async function updateTaskStatus(
   taskId: string,
   newStatus: string,
   database: IntegrationDatabase = db,
+  afterCommit?: (effect: () => Promise<void>) => void,
 ): Promise<UpdateTaskStatusResult> {
-  if (database === db)
-    return db.transaction((tx) => updateTaskStatus(taskId, newStatus, tx));
+  if (database === db) {
+    const effects: Array<() => Promise<void>> = [];
+    const result = await db.transaction((tx) =>
+      updateTaskStatus(taskId, newStatus, tx, (effect) => effects.push(effect)),
+    );
+    for (const effect of effects) await effect();
+    return result;
+  }
   const tx = database as TaskTransaction;
   const task = await tx.query.taskTable.findFirst({
     where: eq(taskTable.id, taskId),
@@ -106,6 +123,11 @@ export async function updateTaskStatus(
     { kind: "status", status: newStatus },
   );
   if (!result.ok || result.kind !== "status") return { applied: false };
+  const cancelled = result.cancelled;
+  if (cancelled.length)
+    afterCommit?.(() =>
+      dispatchRequestEffects(finishedEffects(cancelled, null)),
+    );
 
   return { applied: true, before: task, after: result.after };
 }

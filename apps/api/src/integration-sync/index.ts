@@ -223,6 +223,7 @@ export default apiRouter<BaseVariables & { workspaceId: string }>()
         token,
         source,
         c.get("workspaceId"),
+        c.get("userId"),
       ),
       200,
     );

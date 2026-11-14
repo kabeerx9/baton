@@ -118,7 +118,7 @@ export async function writeInboundTaskField(
       value === "closed" ? "done" : "to-do",
       tx,
     );
-    const result = await updateTaskStatus(link.taskId, status, tx);
+    const result = await updateTaskStatus(link.taskId, status, tx, afterCommit);
     if (result.applied && result.before.status !== result.after.status)
       afterCommit(() =>
         publishEvent("task.status_changed", {

@@ -128,6 +128,7 @@ export async function handlePullRequestOpened(payload: PROpenedPayload) {
           task.id,
           targetStatus,
           database,
+          afterCommit,
         );
         if (
           statusResult.applied &&

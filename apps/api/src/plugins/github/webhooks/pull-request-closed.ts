@@ -117,6 +117,7 @@ export async function handlePullRequestClosed(payload: PRClosedPayload) {
               task.id,
               targetStatus,
               database,
+              afterCommit,
             );
             if (
               statusResult.applied &&
