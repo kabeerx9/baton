@@ -90,19 +90,15 @@ describe("ScrollArea", () => {
 
     measure({ y: 200 });
 
-    await waitFor(() =>
-      expect(viewport()).toHaveAttribute("data-has-overflow-y"),
-    );
-    expect(viewport()).not.toHaveAttribute("data-has-overflow-x");
-    expect(root()).toHaveAttribute("data-has-overflow-y");
-    expect(root()).not.toHaveAttribute("data-has-overflow-x");
+    await waitFor(() => expect(viewport()).toHaveAttribute("data-overflow-y"));
+    expect(viewport()).not.toHaveAttribute("data-overflow-x");
+    expect(root()).toHaveAttribute("data-overflow-y");
+    expect(root()).not.toHaveAttribute("data-overflow-x");
 
     measure({ x: 200, y: 200 });
 
-    await waitFor(() =>
-      expect(viewport()).toHaveAttribute("data-has-overflow-x"),
-    );
-    expect(root()).toHaveAttribute("data-has-overflow-x");
+    await waitFor(() => expect(viewport()).toHaveAttribute("data-overflow-x"));
+    expect(root()).toHaveAttribute("data-overflow-x");
   });
 
   it("keeps the caller's className on the root and fills it", () => {
@@ -147,7 +143,7 @@ describe("ScrollArea", () => {
         <div>content</div>
       </ScrollArea>,
     );
-    expect(viewport()).not.toHaveClass("data-has-overflow-y:pe-2.5");
+    expect(viewport()).not.toHaveClass("data-overflow-y:pe-2.5");
     unmount();
 
     render(
@@ -156,24 +152,24 @@ describe("ScrollArea", () => {
       </ScrollArea>,
     );
 
-    expect(viewport()).toHaveClass("data-has-overflow-y:pe-2.5");
-    expect(viewport()).toHaveClass("data-has-overflow-x:pb-2.5");
+    expect(viewport()).toHaveClass("data-overflow-y:pe-2.5");
+    expect(viewport()).toHaveClass("data-overflow-x:pb-2.5");
   });
 
   it("shows the scrollbars while the pointer is over the area", async () => {
     await renderBothAxes();
 
     const [vertical, horizontal] = scrollbars();
-    expect(vertical).not.toHaveAttribute("data-hovering");
+    expect(vertical).not.toHaveAttribute("data-visible");
 
     fireEvent.pointerEnter(root(), { pointerType: "mouse" });
 
-    await waitFor(() => expect(vertical).toHaveAttribute("data-hovering"));
-    expect(horizontal).toHaveAttribute("data-hovering");
+    await waitFor(() => expect(vertical).toHaveAttribute("data-visible"));
+    expect(horizontal).toHaveAttribute("data-visible");
 
     fireEvent.pointerLeave(root(), { pointerType: "mouse" });
 
-    await waitFor(() => expect(vertical).not.toHaveAttribute("data-hovering"));
-    expect(horizontal).not.toHaveAttribute("data-hovering");
+    await waitFor(() => expect(vertical).not.toHaveAttribute("data-visible"));
+    expect(horizontal).not.toHaveAttribute("data-visible");
   });
 });
