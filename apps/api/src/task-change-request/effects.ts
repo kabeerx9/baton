@@ -99,8 +99,9 @@ async function notifyPerson(
   // access to the task (deleted, moved, hidden). When the task resource is
   // refused, it is filed under the request's workspace instead; the
   // message carries only the request's own snapshot.
+  const direct = await createNotification({ ...message, ...resource(request) });
   const notification =
-    (await createNotification({ ...message, ...resource(request) })) ??
+    direct ??
     (options.historyFallback && request.taskId
       ? await createNotification({
           ...message,
@@ -109,7 +110,9 @@ async function notifyPerson(
         })
       : null);
   if (!notification || !slackConfig()) return;
-  const url = await taskUrl(request.taskId);
+  // Link the task only when the recipient could be told about it directly.
+  // A history notice must not reveal where a moved or hidden task is now.
+  const url = direct && request.taskId ? await taskUrl(request.taskId) : null;
   const link = url
     ? `\n<${url}|Open ${slackEscape(request.taskKey)} in Baton>`
     : "";
