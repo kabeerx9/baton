@@ -1,6 +1,6 @@
 import db from "../../database";
 import { activityTable } from "../../database/schema";
-import { currentChannel } from "../../events";
+import { currentChannel } from "../../events/context";
 
 async function createActivity(
   taskId: string,

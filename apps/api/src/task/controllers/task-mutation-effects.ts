@@ -6,7 +6,8 @@ import {
   taskTable,
   userTable,
 } from "../../database/schema";
-import { currentChannel, publishEvent } from "../../events";
+import { publishEvent } from "../../events";
+import { currentChannel } from "../../events/context";
 import createNotification from "../../notification/controllers/create-notification";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
 import { getSubtaskParentProjects } from "../get-subtask-parent-projects";
