@@ -1,5 +1,5 @@
 {
-  "id": "fbc4c58a-665e-4606-88ab-99752a3a4cd2",
+  "id": "f72f930b-cd5c-48a2-ba4f-d0ddb7d8bf6d",
   "prevId": "121b47fb-04ce-4bfc-958d-75633b50baf1",
   "version": "7",
   "dialect": "postgresql",
@@ -3097,6 +3097,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "auth_method": {
+          "name": "auth_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "api_key_id": {
+          "name": "api_key_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "kind": {
           "name": "kind",
           "type": "text",
@@ -3303,6 +3315,19 @@
           "tableTo": "user",
           "columnsFrom": [
             "requested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
+        },
+        "task_change_request_api_key_id_apikey_id_fk": {
+          "name": "task_change_request_api_key_id_apikey_id_fk",
+          "tableFrom": "task_change_request",
+          "tableTo": "apikey",
+          "columnsFrom": [
+            "api_key_id"
           ],
           "columnsTo": [
             "id"

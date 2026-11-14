@@ -7,6 +7,8 @@ CREATE TABLE "task_change_request" (
 	"task_title" text NOT NULL,
 	"requested_by" text,
 	"channel" text,
+	"auth_method" text,
+	"api_key_id" text,
 	"kind" text NOT NULL,
 	"target_status" text,
 	"base_status" text NOT NULL,
@@ -27,6 +29,7 @@ ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_task_id_ta
 ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_requested_by_user_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_api_key_id_apikey_id_fk" FOREIGN KEY ("api_key_id") REFERENCES "public"."apikey"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "task_change_request" ADD CONSTRAINT "task_change_request_decided_by_user_id_fk" FOREIGN KEY ("decided_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 CREATE UNIQUE INDEX "task_change_request_one_pending_idx" ON "task_change_request" USING btree ("task_id") WHERE "task_change_request"."state" = 'pending';--> statement-breakpoint
 CREATE INDEX "task_change_request_due_idx" ON "task_change_request" USING btree ("expires_at") WHERE "task_change_request"."state" = 'pending';--> statement-breakpoint

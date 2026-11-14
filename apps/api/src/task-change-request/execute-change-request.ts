@@ -1,5 +1,9 @@
 import { eq, sql } from "drizzle-orm";
-import { taskChangeRequestTable, type taskTable } from "../database/schema";
+import {
+  taskChangeRequestTable,
+  type taskTable,
+  workspaceTable,
+} from "../database/schema";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import type { TaskTransaction } from "../task/controllers/with-locked-task";
 import type { Channel } from "../utils/request-channel";
@@ -14,6 +18,8 @@ import {
 import type { ChangeRequestRow } from "./response";
 import { personActor } from "./actor";
 import { applyTaskChange, type TaskChange } from "./apply-task-change";
+import { togglesArchive } from "./consent";
+import { requesterScope } from "./requester-authority";
 
 type Task = typeof taskTable.$inferSelect;
 
@@ -43,8 +49,10 @@ export async function markRequest(
 /**
  * Why a pending request may no longer apply, or null when it may. Checked
  * under the task lock, before any write: the task is unchanged since the
- * request (status, generation and repo), is still a plain task for a status
- * request, and the requester still holds the permission they asked with.
+ * request (status, generation and repo); a status request on what became a
+ * feature only stands for archive or unarchive; the workspace is not
+ * archived; and the requester still holds task:update through the account
+ * and the credential they asked with.
  */
 async function staleReason(
   database: DbOrTx,
@@ -57,20 +65,47 @@ async function staleReason(
     task.projectId !== request.projectId
   )
     return "task_changed";
-  if (request.kind === "status" && (await isFeature(database, task.id)))
+  if (
+    request.kind === "status" &&
+    !togglesArchive({
+      from: request.baseStatus,
+      to: request.targetStatus ?? "",
+    }) &&
+    (await isFeature(database, task.id))
+  )
     return "became_feature";
   if (!request.requestedBy) return "requester_lost_access";
   const workspaceId = await projectWorkspaceId(database, task.projectId);
   if (workspaceId !== request.workspaceId) return "task_changed";
+  // FOR SHARE waits for an archive in progress (it locks the workspace row
+  // FOR UPDATE and touches no task), then reads its result.
+  const [workspace] = await database
+    .select({ archivedAt: workspaceTable.archivedAt })
+    .from(workspaceTable)
+    .where(eq(workspaceTable.id, workspaceId))
+    .for("share");
+  if (!workspace || workspace.archivedAt) return "workspace_archived";
+  const credential = await requesterScope(database, request);
+  if (!credential.ok) return "credential_revoked";
   const grants = await loadPersonGrants(database, workspaceId, {
     userId: request.requestedBy,
-    scope: null,
+    scope: credential.scope,
   });
   const visible =
     grants.member &&
     (await canSeeTaskProject(database, request.requestedBy, task.projectId));
-  if (!grants.can({ task: ["update"] }) || !visible)
-    return "requester_lost_access";
+  if (!visible) return "requester_lost_access";
+  if (!grants.can({ task: ["update"] })) {
+    // Name the key when the account still allows what its scope refuses.
+    if (credential.scope === null) return "requester_lost_access";
+    const account = await loadPersonGrants(database, workspaceId, {
+      userId: request.requestedBy,
+      scope: null,
+    });
+    return account.can({ task: ["update"] })
+      ? "credential_revoked"
+      : "requester_lost_access";
+  }
   return null;
 }
 
@@ -135,7 +170,12 @@ export async function executeChangeRequest(
             before: task,
             after: applied.after,
           }
-        : { kind: "deleted", request: marked, before: task };
+        : // The delete set the stored task_id to null; match it.
+          {
+            kind: "deleted",
+            request: { ...marked, taskId: null },
+            before: task,
+          };
     });
   } catch (error) {
     if (error instanceof Refusal) return refuse(`refused: ${error.message}`);

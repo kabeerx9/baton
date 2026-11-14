@@ -8,13 +8,15 @@ export type CancelReason =
   | "task_deleted"
   | "became_feature"
   | "requester_lost_access"
+  | "credential_revoked"
+  | "workspace_archived"
   | "refused";
 
 /**
  * Cancels the pending request on a task, in the caller's transaction, and
- * returns it so the requester can be told after commit. The database
- * triggers cancel on any status, repo or assignee change as well; calling
- * this first records a precise reason and lets the caller notify.
+ * returns it so the caller can tell the requester after commit
+ * (`finishedEffects`). There are no database triggers: every writer that
+ * changes a task's status, repo, assignee or existence calls this itself.
  */
 export async function cancelPendingRequests(
   database: DbOrTx,

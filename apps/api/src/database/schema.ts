@@ -717,6 +717,14 @@ export const taskChangeRequestTable = pgTable(
       onUpdate: "cascade",
     }),
     channel: text("channel").$type<"web" | "agent">(),
+    // How the requester signed in. With an API key, accept and the timeout
+    // job re-check that key's current state and scope; the secret is never
+    // stored. A deleted key leaves api_key_id null with auth_method kept.
+    authMethod: text("auth_method").$type<"cookie" | "bearer" | "api_key">(),
+    apiKeyId: text("api_key_id").references(() => apikeyTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     // "status" or "delete". Text, so later kinds need no migration.
     kind: text("kind").notNull(),
     targetStatus: text("target_status"),

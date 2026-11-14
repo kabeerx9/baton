@@ -111,6 +111,8 @@ export async function openChangeRequest(
       taskTitle: task.title,
       requestedBy: actor.userId,
       channel: actor.channel,
+      authMethod: actor.authMethod,
+      apiKeyId: actor.apiKeyId,
       kind,
       targetStatus,
       baseStatus: task.status,
