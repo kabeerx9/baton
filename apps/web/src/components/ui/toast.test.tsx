@@ -140,4 +140,104 @@ describe("toast adapters", () => {
 
     expect(screen.getByTestId("custom-icon")).toBeTruthy();
   });
+
+  it("names the region and each toast", () => {
+    act(() => {
+      toast.success("Saved", { description: "All stored" });
+    });
+
+    expect(screen.getByRole("region", { name: /notifications/i })).toBeTruthy();
+    const root = toasts()[0];
+    const labelledBy = root?.getAttribute("aria-labelledby");
+    expect(labelledBy).toBeTruthy();
+    expect(document.getElementById(labelledBy ?? "")?.textContent).toBe(
+      "Saved",
+    );
+  });
+
+  it("renders the action as a focusable native button", () => {
+    act(() => {
+      toast.info("Archived", { action: { label: "Undo" } });
+    });
+
+    const button = screen.getByRole("button", { name: "Undo" });
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("tabindex")).not.toBe("-1");
+    act(() => button.focus());
+    expect(document.activeElement).toBe(button);
+    // A native button turns Enter and Space into a click unless a handler stops it.
+    const enter = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+    button.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+  });
+
+  it("dismisses a focused toast with Escape", async () => {
+    act(() => {
+      toast.info("Escape me");
+    });
+    const root = toasts()[0] as HTMLElement;
+    act(() => root.focus());
+
+    fireEvent.keyDown(document.activeElement ?? root, { key: "Escape" });
+
+    await gone("Escape me");
+  });
+
+  it("moves focus into the toasts with F6", () => {
+    const before = document.createElement("button");
+    document.body.append(before);
+    before.focus();
+    act(() => {
+      toast.info("Reach me");
+    });
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "F6" });
+    const region = screen.getByRole("region", { name: /notifications/i });
+    expect(region.contains(document.activeElement)).toBe(true);
+
+    before.remove();
+  });
+
+  it("closes a toast after its timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        toast.info("Timed");
+      });
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(toasts()).toHaveLength(1);
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // The live region keeps the text while timers are frozen, so count toasts.
+    await count(0);
+  });
+
+  // UI SDK only: Base UI did not return focus when the last toast closed.
+  it("returns focus to where it came from when the last toast closes", async () => {
+    const before = document.createElement("button");
+    document.body.append(before);
+    before.focus();
+    act(() => {
+      toast.info("Reach me");
+    });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "F6" });
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+
+    await gone("Reach me");
+    expect(document.activeElement).toBe(before);
+    before.remove();
+  });
 });

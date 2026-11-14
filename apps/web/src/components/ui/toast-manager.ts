@@ -40,11 +40,25 @@ function toOptions(options: ToastManagerOptions) {
   };
 }
 
+// An update changes only the fields it names. UI SDK merges with a spread, so a
+// key set to undefined would erase the field: drop the keys the caller left out.
+function toPatch(options: ToastManagerOptions) {
+  const full = toOptions(options);
+  const patch: Partial<typeof full> = {};
+  if ("id" in options) patch.id = full.id;
+  if ("title" in options) patch.title = full.title;
+  if ("description" in options) patch.description = full.description;
+  if ("type" in options) patch.type = full.type;
+  if ("data" in options) patch.data = full.data;
+  if ("actionProps" in options) patch.action = full.action;
+  return patch;
+}
+
 /** The toast API callers use: `add`, `update`, `close`. It wraps one UI SDK toaster. */
 const toastManager = {
   add: (options: ToastManagerOptions) => toaster(toOptions(options)),
   update: (id: string, options: ToastManagerOptions) =>
-    toaster.update(id, toOptions(options)),
+    toaster.update(id, toPatch(options)),
   /** Close one toast by id, or every toast without an id. */
   close: (id?: string) => toaster.dismiss(id),
 };

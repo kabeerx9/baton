@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { toaster, toastManager } from "@/components/ui/toast-manager";
 import { ToastShakeRoot } from "@/components/ui/toast-shake-root";
+import { POPUP_RESET } from "@/components/ui/popup-reset";
 import { cn } from "@/lib/cn";
 import type { ToastIcon } from "@/lib/toast";
 
@@ -126,7 +127,12 @@ function Toasts({ position }: { position: ToastPosition }) {
             )}
             data-position={position}
           >
-            <div className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 group-[:not([data-front],[data-expanded])]/toast:pointer-events-none group-[:not([data-front],[data-expanded])]/toast:opacity-0">
+            <div
+              className={cn(
+                POPUP_RESET,
+                "pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 group-[:not([data-front],[data-expanded])]/toast:pointer-events-none group-[:not([data-front],[data-expanded])]/toast:opacity-0",
+              )}
+            >
               <div className="flex gap-2">
                 {Icon && (
                   <div
