@@ -22,7 +22,11 @@ import {
   requestStatus,
   setStatus,
 } from "./helpers/change-requests";
+import { personActor } from "../../apps/api/src/task-change-request/actor";
+import { decideChangeRequest } from "../../apps/api/src/task-change-request/decide-change-request";
+import deleteAccountData from "../../apps/api/src/user/controllers/delete-account-data";
 import { resetTestDatabase } from "./helpers/database";
+import { createProjectFixture } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 
 // Each test holds a row lock on a second, raw connection to force one
@@ -350,5 +354,112 @@ describe("two-connection races", () => {
       expect(await timingOut).toBe("skipped");
       expect(await readRequest(requestId)).toBeUndefined();
     });
+  });
+
+  it("lets an account deletion of two workspaces and a cross-workspace decision both finish", async () => {
+    // Ids sort A before B, but B is created first, so a plain DELETE that
+    // scans the table reaches B before A.
+    const [b, a] = ["workspace-race-b", "workspace-race-a"];
+    const [owner] = await db
+      .insert(schema.userTable)
+      .values({
+        id: "user-race-owner",
+        email: "owner@race.test",
+        emailVerified: true,
+        name: "Owner",
+      })
+      .returning();
+    for (const id of [b, a]) {
+      await db
+        .insert(schema.workspaceTable)
+        .values({ id, name: id, slug: id, createdAt: new Date() });
+      await db.insert(schema.workspaceUserTable).values({
+        workspaceId: id,
+        userId: owner.id,
+        role: "owner",
+        joinedAt: new Date(),
+      });
+    }
+    // The owner withdrew a request in A; the task's project then moved to B.
+    const { project, columns } = await createProjectFixture({
+      workspaceId: a,
+    });
+    const [task] = await db
+      .insert(schema.taskTable)
+      .values({
+        projectId: project.id,
+        columnId: columns.todo.id,
+        title: "Moved task",
+        status: "to-do",
+        number: 1,
+        createdBy: owner.id,
+      })
+      .returning();
+    const [request] = await db
+      .insert(schema.taskChangeRequestTable)
+      .values({
+        taskId: task.id,
+        workspaceId: a,
+        projectId: project.id,
+        taskKey: "RACE-1",
+        taskTitle: task.title,
+        requestedBy: owner.id,
+        kind: "status",
+        targetStatus: "in-progress",
+        baseStatus: "to-do",
+        baseGeneration: 0,
+        state: "cancelled",
+        reason: "withdrawn",
+        decidedBy: owner.id,
+        decidedAt: new Date(),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      })
+      .returning();
+    await db
+      .update(schema.projectTable)
+      .set({ workspaceId: b })
+      .where(eq(schema.projectTable.id, project.id));
+
+    // A reader of A keeps the deletion from finishing at once.
+    holder = await getDatabasePool().connect();
+    await holder.query("BEGIN");
+    await holder.query("SELECT id FROM workspace WHERE id = $1 FOR SHARE", [a]);
+
+    const deleting = deleteAccountData(owner.id);
+    await waitForLockWaiters();
+    // The replay locks A, then B, both FOR SHARE.
+    const deciding = decideChangeRequest({
+      requestId: request.id,
+      actor: personActor(owner.id),
+      decision: "cancel",
+    });
+    const settled = { done: false };
+    void deciding.finally(() => (settled.done = true)).catch(() => undefined);
+    for (let attempt = 0; attempt < 400 && !settled.done; attempt++) {
+      const { rows } = await getDatabasePool().query<{ waiting: number }>(
+        `SELECT count(*)::int AS waiting FROM pg_stat_activity
+         WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      );
+      if ((rows[0]?.waiting ?? 0) >= 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    await holder.query("COMMIT");
+
+    const failures = (await Promise.allSettled([deciding, deleting]))
+      .filter((result) => result.status === "rejected")
+      .map((result) => {
+        const reason = (result as PromiseRejectedResult).reason as {
+          message?: string;
+          cause?: { message?: string };
+        };
+        return reason?.cause?.message ?? reason?.message ?? String(reason);
+      });
+    expect(failures).toEqual([]);
+    expect(
+      await db
+        .select()
+        .from(schema.workspaceTable)
+        .where(inArray(schema.workspaceTable.id, [a, b])),
+    ).toEqual([]);
   });
 });

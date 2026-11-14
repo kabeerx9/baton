@@ -63,7 +63,26 @@ async function collectMemberships(
   });
 }
 
-export async function deleteAccountData(userId: string, database: DbOrTx = db) {
+/**
+ * Locks the workspaces an account deletion removes, one row at a time in id
+ * order. A multi-row DELETE locks rows in the order its plan visits them,
+ * while change request decisions lock up to two workspaces by id (see
+ * `lockWorkspacesShared`); without this the two can deadlock.
+ */
+async function lockWorkspacesForDeletion(
+  database: DbOrTx,
+  workspaceIds: string[],
+) {
+  for (const id of [...workspaceIds].sort()) {
+    await database
+      .select({ id: workspaceTable.id })
+      .from(workspaceTable)
+      .where(eq(workspaceTable.id, id))
+      .for("update");
+  }
+}
+
+async function deleteAccountRows(userId: string, database: DbOrTx) {
   const plan = planAccountDeletion(await collectMemberships(userId, database));
 
   if (plan.blockedWorkspaceNames.length > 0) {
@@ -73,25 +92,17 @@ export async function deleteAccountData(userId: string, database: DbOrTx = db) {
     });
   }
 
+  const recipients = new Set([userId]);
   if (plan.workspaceIdsToDelete.length > 0) {
     const admins = await database
       .select({ userId: userTable.id })
       .from(userTable)
       .where(instanceAdminRoleSql(userTable.role));
-    const recipients = new Set([
-      userId,
-      ...admins.map((admin) => admin.userId),
-    ]);
+    for (const admin of admins) recipients.add(admin.userId);
+    await lockWorkspacesForDeletion(database, plan.workspaceIdsToDelete);
     await database
       .delete(workspaceTable)
       .where(inArray(workspaceTable.id, plan.workspaceIdsToDelete));
-    for (const workspaceId of plan.workspaceIdsToDelete) {
-      await Promise.all(
-        [...recipients].map((recipient) =>
-          revokeWorkspaceConnections(recipient, workspaceId, { force: true }),
-        ),
-      );
-    }
   }
 
   if (plan.workspaceIdsToLeave.length > 0) {
@@ -103,6 +114,27 @@ export async function deleteAccountData(userId: string, database: DbOrTx = db) {
           inArray(workspaceUserTable.workspaceId, plan.workspaceIdsToLeave),
         ),
       );
+  }
+
+  return { plan, recipients };
+}
+
+/**
+ * Deletes the workspaces an account solely belongs to and leaves the rest.
+ * Runs in the supplied transaction, or in its own; with its own, sockets
+ * are revoked after the commit.
+ */
+export async function deleteAccountData(userId: string, database?: DbOrTx) {
+  const { plan, recipients } = database
+    ? await deleteAccountRows(userId, database)
+    : await db.transaction((tx) => deleteAccountRows(userId, tx));
+
+  for (const workspaceId of plan.workspaceIdsToDelete) {
+    await Promise.all(
+      [...recipients].map((recipient) =>
+        revokeWorkspaceConnections(recipient, workspaceId, { force: true }),
+      ),
+    );
   }
 
   for (const workspaceId of plan.workspaceIdsToLeave) {
