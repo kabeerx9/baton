@@ -240,4 +240,33 @@ describe("toast adapters", () => {
     expect(document.activeElement).toBe(before);
     before.remove();
   });
+
+  it.each([
+    ["undefined", undefined],
+    ["unknown", "mystery"],
+  ])("closes a loading toast after an update with %s type", async (_, type) => {
+    vi.useFakeTimers();
+    try {
+      let id = "";
+      act(() => {
+        id = toastManager.add({ title: "Working", type: "loading" });
+      });
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(toasts()).toHaveLength(1);
+
+      act(() => {
+        toastManager.update(id, { type });
+      });
+      expect(toasts()[0]?.getAttribute("data-type")).toBe("default");
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await count(0);
+  });
 });

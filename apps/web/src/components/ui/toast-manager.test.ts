@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vite-plus/test";
+import { afterEach, expect, it, vi } from "vite-plus/test";
 import { toaster, toastManager } from "@/components/ui/toast-manager";
 
 afterEach(() => toastManager.close());
@@ -65,3 +65,27 @@ it("changes the type on update and keeps the rest", () => {
   expect(next?.title).toBe("Working");
   expect(next?.description).toBe("Step 1");
 });
+
+it.each([
+  ["undefined", undefined],
+  ["unknown", "mystery"],
+])(
+  "updates a loading toast with %s type to default and it closes",
+  (_, type) => {
+    vi.useFakeTimers();
+    try {
+      const id = toastManager.add({ title: "Working", type: "loading" });
+      expect(toaster.toasts().find((t) => t.id === id)?.duration).toBe(
+        Infinity,
+      );
+
+      toastManager.update(id, { type });
+
+      const next = toaster.toasts().find((t) => t.id === id);
+      expect(next?.type).toBe("default");
+      expect(Number.isFinite(next?.duration)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);

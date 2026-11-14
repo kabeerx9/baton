@@ -48,13 +48,16 @@ function toPatch(options: ToastManagerOptions) {
   if ("id" in options) patch.id = full.id;
   if ("title" in options) patch.title = full.title;
   if ("description" in options) patch.description = full.description;
-  if ("type" in options) patch.type = full.type;
+  // An explicit undefined or unknown type means default. Leaving it undefined would
+  // keep the old type, so a loading toast would never close.
+  if ("type" in options) patch.type = full.type ?? "default";
   if ("data" in options) patch.data = full.data;
   if ("actionProps" in options) patch.action = full.action;
   return patch;
 }
 
 /** The toast API callers use: `add`, `update`, `close`. It wraps one UI SDK toaster. */
+// Unlike Base UI, an update restarts the toast countdown.
 const toastManager = {
   add: (options: ToastManagerOptions) => toaster(toOptions(options)),
   update: (id: string, options: ToastManagerOptions) =>
