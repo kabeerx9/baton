@@ -1,5 +1,5 @@
-import { Toast } from "@base-ui/react/toast";
-import { useEffect, useRef } from "react";
+import { Toast } from "@ui-sdk/react/toast";
+import { type ComponentProps, useEffect, useRef } from "react";
 
 const SHAKE: Keyframe[] = [
   { translate: "0 0" },
@@ -16,8 +16,8 @@ const PULSE: Keyframe[] = [{ opacity: 1 }, { opacity: 0.64 }, { opacity: 1 }];
 export function ToastShakeRoot({
   shakeKey,
   ...props
-}: Toast.Root.Props & { shakeKey: unknown }) {
-  const ref = useRef<HTMLDivElement>(null);
+}: ComponentProps<typeof Toast> & { shakeKey: unknown }) {
+  const ref = useRef<HTMLLIElement>(null);
   const previous = useRef(shakeKey);
 
   useEffect(() => {
@@ -32,5 +32,5 @@ export function ToastShakeRoot({
     });
   }, [shakeKey]);
 
-  return <Toast.Root ref={ref} {...props} />;
+  return <Toast ref={ref} {...props} />;
 }
