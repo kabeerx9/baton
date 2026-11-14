@@ -37,10 +37,16 @@ function trigger() {
 // actions, so this replays the one browser rule the test depends on: a
 // preventDefault on the key press suppresses the click, as it does in a browser.
 function pressKey(element: HTMLElement, key: "Enter" | " ") {
-  const pressed = fireEvent.keyDown(element, { key });
-  if (key === " ") fireEvent.keyUp(element, { key });
-  if (pressed) fireEvent.click(element);
-  return pressed;
+  if (key === "Enter") {
+    const pressed = fireEvent.keyDown(element, { key });
+    if (pressed) fireEvent.click(element);
+    return pressed;
+  }
+  // Space activates from keyup, so a canceled keyup suppresses the click.
+  const down = fireEvent.keyDown(element, { key });
+  const up = fireEvent.keyUp(element, { key });
+  if (down && up) fireEvent.click(element);
+  return up;
 }
 
 describe("Collapsible", () => {
@@ -110,11 +116,18 @@ describe("Collapsible", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it("does not open when the key press is canceled", async () => {
-    const onKeyDown = vi.fn((event: KeyboardEvent) => event.preventDefault());
+  it("does not open when a key press is canceled", async () => {
+    const onKeyDown = vi.fn((event: KeyboardEvent) => {
+      if (event.key === "Enter") event.preventDefault();
+    });
+    const onKeyUp = vi.fn((event: KeyboardEvent) => {
+      if (event.key === " ") event.preventDefault();
+    });
     render(
       <Collapsible>
-        <CollapsibleTrigger onKeyDown={onKeyDown}>Details</CollapsibleTrigger>
+        <CollapsibleTrigger onKeyDown={onKeyDown} onKeyUp={onKeyUp}>
+          Details
+        </CollapsibleTrigger>
         <CollapsiblePanel>Order #4189 shipped</CollapsiblePanel>
       </Collapsible>,
     );
@@ -123,7 +136,14 @@ describe("Collapsible", () => {
     await act(async () => {
       expect(pressKey(button, "Enter")).toBe(false);
     });
-    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+
+    // Space activates from keyup, so canceling the keyup alone must stop it.
+    await act(async () => {
+      expect(pressKey(button, " ")).toBe(false);
+    });
+    expect(onKeyDown).toHaveBeenCalledTimes(2);
+    expect(onKeyUp).toHaveBeenCalledTimes(1);
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Order #4189 shipped")).toBeNull();
   });
@@ -195,6 +215,42 @@ describe("Collapsible", () => {
     });
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Order #4189 shipped")).toBeNull();
+  });
+
+  it("renders a native disabled asChild button when the root is disabled", async () => {
+    render(
+      <Collapsible disabled>
+        <CollapsibleTrigger asChild>
+          <button type="button">Details</button>
+        </CollapsibleTrigger>
+        <CollapsiblePanel>Order #4189 shipped</CollapsiblePanel>
+      </Collapsible>,
+    );
+    const button = trigger();
+
+    expect(button).toBeDisabled();
+    button.focus();
+    expect(button).not.toHaveFocus();
+
+    await act(async () => {
+      pressKey(button, "Enter");
+    });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Order #4189 shipped")).toBeNull();
+  });
+
+  it("keeps aria-disabled only when the rendered trigger is not a button", async () => {
+    render(
+      <Collapsible disabled>
+        <CollapsibleTrigger render={<a href="#details">Details</a>} />
+        <CollapsiblePanel>Order #4189 shipped</CollapsiblePanel>
+      </Collapsible>,
+    );
+    const link = screen.getByText("Details").closest("a");
+    expect(link).not.toBeNull();
+
+    expect(link).not.toHaveAttribute("disabled");
+    expect(link).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps the shared slot names", () => {

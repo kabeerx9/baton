@@ -50,15 +50,18 @@ function CollapsibleTrigger({
     asChild && React.isValidElement<Record<string, unknown>>(children)
       ? children
       : render;
+  // The part forwards unknown props to the element it renders, so `disabled`
+  // becomes the native attribute. Base UI rendered an asChild button disabled
+  // too, so pass it for the default button and for a rendered button; a
+  // non-button custom element keeps Base UI's aria-disabled-only behavior.
+  const customElement =
+    React.isValidElement(resolvedRender) && resolvedRender.type !== "button";
 
   return (
     <CollapsibleTriggerPart
       className={cn("cursor-pointer", className)}
-      // The part's own button forwards unknown props, so this becomes the
-      // native disabled attribute. A caller-supplied element keeps Base UI's
-      // nativeButton={false} behavior and only carries aria-disabled.
       disabled={
-        resolvedRender
+        customElement
           ? disabled
           : Boolean(disabled || rootDisabled) || undefined
       }

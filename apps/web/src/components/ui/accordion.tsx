@@ -48,12 +48,16 @@ function Accordion({ disabled, ...props }: AccordionProps) {
   );
 }
 
-function AccordionItem({ disabled, ...props }: AccordionItemProps) {
+function AccordionItem({ className, disabled, ...props }: AccordionItemProps) {
   const rootDisabled = React.useContext(RootDisabledContext);
 
   return (
     <ItemDisabledContext.Provider value={Boolean(disabled || rootDisabled)}>
-      <AccordionItemPart disabled={disabled} {...props} />
+      <AccordionItemPart
+        className={cn("border-b last:border-b-0", className)}
+        disabled={disabled}
+        {...props}
+      />
     </ItemDisabledContext.Provider>
   );
 }
@@ -67,6 +71,20 @@ function AccordionTrigger({
 }: AccordionTriggerProps) {
   const itemDisabled = React.useContext(ItemDisabledContext);
   const isDisabled = Boolean(disabled || itemDisabled);
+  const callerButton =
+    React.isValidElement<{ disabled?: boolean }>(render) &&
+    render.type === "button"
+      ? render
+      : undefined;
+  // The trigger consumes `disabled`, so it never reaches the element. Base UI
+  // rendered a native disabled button for a disabled accordion or item, even
+  // when the caller supplied that button, so render the button ourselves and
+  // let the native attribute through. A non-button custom element keeps Base
+  // UI's aria-disabled-only behavior.
+  const triggerRender =
+    isDisabled && (callerButton || render === undefined)
+      ? React.cloneElement(callerButton ?? <button />, { disabled: true })
+      : render;
 
   return (
     <AccordionHeader className="flex">
@@ -76,11 +94,7 @@ function AccordionTrigger({
           className,
         )}
         disabled={disabled}
-        // The trigger reads `disabled` itself, so it never reaches the element.
-        // Rendering the default button as an element lets the native disabled
-        // attribute through; a caller's own render keeps Base UI's behavior and
-        // only carries aria-disabled.
-        render={render ?? (isDisabled ? <button disabled /> : undefined)}
+        render={triggerRender}
         {...props}
       >
         {children}

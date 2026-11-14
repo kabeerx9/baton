@@ -57,10 +57,16 @@ function trigger(name: string) {
 // actions, so this replays the one browser rule the test depends on: a
 // preventDefault on the key press suppresses the click, as it does in a browser.
 function pressKey(element: HTMLElement, key: "Enter" | " ") {
-  const pressed = fireEvent.keyDown(element, { key });
-  if (key === " ") fireEvent.keyUp(element, { key });
-  if (pressed) fireEvent.click(element);
-  return pressed;
+  if (key === "Enter") {
+    const pressed = fireEvent.keyDown(element, { key });
+    if (pressed) fireEvent.click(element);
+    return pressed;
+  }
+  // Space activates from keyup, so a canceled keyup suppresses the click.
+  const down = fireEvent.keyDown(element, { key });
+  const up = fireEvent.keyUp(element, { key });
+  if (down && up) fireEvent.click(element);
+  return up;
 }
 
 describe("Accordion", () => {
@@ -190,12 +196,19 @@ describe("Accordion", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it("does not open an item when the key press is canceled", async () => {
-    const onKeyDown = vi.fn((event: KeyboardEvent) => event.preventDefault());
+  it("does not open an item when a key press is canceled", async () => {
+    const onKeyDown = vi.fn((event: KeyboardEvent) => {
+      if (event.key === "Enter") event.preventDefault();
+    });
+    const onKeyUp = vi.fn((event: KeyboardEvent) => {
+      if (event.key === " ") event.preventDefault();
+    });
     render(
       <Accordion>
         <AccordionItem value="one">
-          <AccordionTrigger onKeyDown={onKeyDown}>One</AccordionTrigger>
+          <AccordionTrigger onKeyDown={onKeyDown} onKeyUp={onKeyUp}>
+            One
+          </AccordionTrigger>
           <AccordionPanel>First section</AccordionPanel>
         </AccordionItem>
       </Accordion>,
@@ -205,7 +218,14 @@ describe("Accordion", () => {
     await act(async () => {
       expect(pressKey(button, "Enter")).toBe(false);
     });
-    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+
+    // Space activates from keyup, so canceling the keyup alone must stop it.
+    await act(async () => {
+      expect(pressKey(button, " ")).toBe(false);
+    });
+    expect(onKeyDown).toHaveBeenCalledTimes(2);
+    expect(onKeyUp).toHaveBeenCalledTimes(1);
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("First section")).toBeNull();
   });
@@ -258,6 +278,30 @@ describe("Accordion", () => {
     expect(screen.queryByText("Second section")).toBeNull();
   });
 
+  it("keeps a native disabled button when a disabled item renders its trigger as one", async () => {
+    render(
+      <Accordion>
+        <AccordionItem disabled value="one">
+          <AccordionTrigger render={<button type="button" />}>
+            One
+          </AccordionTrigger>
+          <AccordionPanel>First section</AccordionPanel>
+        </AccordionItem>
+      </Accordion>,
+    );
+    const button = trigger("One");
+
+    expect(button).toBeDisabled();
+    button.focus();
+    expect(button).not.toHaveFocus();
+
+    await act(async () => {
+      pressKey(button, "Enter");
+    });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("First section")).toBeNull();
+  });
+
   it("disables every trigger when the accordion is disabled", async () => {
     render(<Sections disabled />);
 
@@ -273,6 +317,25 @@ describe("Accordion", () => {
     });
     expect(trigger("One")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("First section")).toBeNull();
+  });
+
+  it("keeps the item border classes and merges a caller className", () => {
+    render(
+      <Accordion>
+        <AccordionItem value="one">
+          <AccordionTrigger>One</AccordionTrigger>
+          <AccordionPanel>First section</AccordionPanel>
+        </AccordionItem>
+        <AccordionItem className="px-4" value="two">
+          <AccordionTrigger>Two</AccordionTrigger>
+          <AccordionPanel>Second section</AccordionPanel>
+        </AccordionItem>
+      </Accordion>,
+    );
+
+    const items = document.querySelectorAll('[data-slot="accordion-item"]');
+    expect(items[0]).toHaveClass("border-b", "last:border-b-0");
+    expect(items[1]).toHaveClass("border-b", "last:border-b-0", "px-4");
   });
 
   it("keeps the shared slot names and marks the open trigger", async () => {
