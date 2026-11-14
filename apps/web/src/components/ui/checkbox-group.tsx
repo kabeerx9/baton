@@ -1,12 +1,20 @@
 "use client";
 
-import { CheckboxGroup as CheckboxGroupPrimitive } from "@base-ui/react/checkbox-group";
+import { CheckboxGroup as CheckboxGroupRoot } from "@ui-sdk/react/checkbox";
+import type * as React from "react";
 
 import { cn } from "@/lib/cn";
 
-function CheckboxGroup({ className, ...props }: CheckboxGroupPrimitive.Props) {
+type CheckboxGroupProps = Omit<
+  React.ComponentProps<typeof CheckboxGroupRoot>,
+  "className"
+> & {
+  className?: string;
+};
+
+function CheckboxGroup({ className, ...props }: CheckboxGroupProps) {
   return (
-    <CheckboxGroupPrimitive
+    <CheckboxGroupRoot
       className={cn("flex flex-col items-start gap-3", className)}
       {...props}
     />
