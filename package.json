@@ -1,0 +1,39 @@
+{
+  "name": "baton",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vp run -r build",
+    "dev": "vp run build:dependencies && vp run -r --parallel dev",
+    "i18n:check": "node ./scripts/i18n/check.mjs",
+    "i18n:check:fix": "node ./scripts/i18n/check.mjs --fix",
+    "lint": "vp check",
+    "test": "vp run -r test",
+    "test:integration": "vp run -r test:integration",
+    "test:e2e": "pnpm --dir tests/e2e test",
+    "typecheck": "vp run -r typecheck",
+    "prepare": "husky",
+    "format": "vp fmt",
+    "build:dependencies": "vp run --filter \"@baton/web^...\" build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "esbuild": "0.28.2",
+    "husky": "^9.1.7",
+    "linkifyjs": ">=4.4.0",
+    "tar-fs": ">=3.1.3",
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "yaml": "^2.9.0"
+  },
+  "engines": {
+    "node": "^24.15.0 || >=26.0.0"
+  },
+  "packageManager": "pnpm@12.18.0",
+  "version": "2.49.0",
+  "dependencies": {
+    "dotenv-mono": "^1.5.1"
+  }
+}

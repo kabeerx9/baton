@@ -1,0 +1,2859 @@
+{
+	"common": {
+		"appName": "Baton",
+		"actions": {
+			"cancel": "Cancel",
+			"close": "Close",
+			"clearAll": "Clear all",
+			"delete": "Delete",
+			"deleting": "Deleting...",
+			"markAllRead": "Mark all read",
+			"remove": "Remove",
+			"reset": "Reset"
+		},
+		"a11y": {
+			"toggleSidebar": "Toggle sidebar"
+		},
+		"sidebar": {
+			"title": "Sidebar",
+			"mobileDescription": "Displays the mobile sidebar."
+		},
+		"empty": {
+			"loading": "Loading..."
+		},
+		"breadcrumb": {
+			"label": "Breadcrumb",
+			"more": "More"
+		},
+		"people": {
+			"someone": "Someone"
+		},
+		"error": {
+			"title": "Something went wrong",
+			"description": "The page crashed unexpectedly. Refreshing usually fixes it.",
+			"troubleshooting": "Troubleshooting steps:",
+			"tryAgain": "Try again",
+			"viewDeploymentGuide": "View Deployment Guide",
+			"refreshPage": "Refresh Page",
+			"messages": {
+				"cors": "Unable to connect to the server. This might be due to CORS configuration issues.",
+				"network": "Network error. Please check your internet connection and try again.",
+				"auth": "Authentication failed. Please sign in again.",
+				"server": "Server error. Please try again later.",
+				"unknown": "An unexpected error occurred."
+			},
+			"troubleshootingSteps": {
+				"cors": {
+					"checkApiRunning": "Make sure your API server is running",
+					"checkApiUrl": "Check that VITE_API_URL in your frontend .env matches your API server URL",
+					"verifyCorsOrigins": "Verify CORS_ORIGINS in your API .env includes your frontend URL",
+					"checkProtocol": "Ensure both frontend and API are using the same protocol (http/https)",
+					"checkAccessibility": "Check that your API server is accessible from your browser"
+				},
+				"network": {
+					"checkConnection": "Check your internet connection",
+					"verifyApiRunning": "Verify the API server is running and accessible",
+					"tryRefresh": "Try refreshing the page",
+					"checkFirewall": "Check if there are any firewall or proxy issues"
+				}
+			}
+		},
+		"modals": {
+			"createProject": {
+				"title": "Create a new project",
+				"breadcrumbNew": "Create a new project",
+				"workspaceFallback": "WORKSPACE",
+				"description": "Create a new project in your workspace by providing a name, key, and selecting an icon.",
+				"pickIcon": "Pick icon",
+				"searchIcons": "Search icons...",
+				"projectName": "Project name",
+				"keyLabel": "Key:",
+				"keyHint": "Used for ticket IDs (e.g., {{example}}-123)",
+				"createButton": "Create Project",
+				"errorToast": "Failed to create project"
+			},
+			"createWorkspace": {
+				"breadcrumbBaton": "BATON",
+				"title": "Create a new workspace",
+				"description": "Create a new workspace by providing a name for your workspace.",
+				"namePlaceholder": "Workspace name",
+				"descriptionPlaceholder": "Add description...",
+				"createButton": "Create Workspace",
+				"successToast": "Workspace created successfully",
+				"errorToast": "Failed to create workspace"
+			},
+			"createTask": {
+				"breadcrumbTask": "TASK",
+				"selectProject": "Select project",
+				"title": "New Task",
+				"description": "Create a new task by providing a title, description, and other details.",
+				"statusLoadError": "Project statuses couldn’t be loaded.",
+				"taskTitlePlaceholder": "Task title",
+				"descriptionPlaceholder": "Add a description for your task...",
+				"chooseProjectForImages": "Choose a project before uploading images.",
+				"prepareTaskError": "Failed to prepare task",
+				"successCreated": "Task created successfully",
+				"createError": "Failed to create task",
+				"priority": "Priority",
+				"startDate": "Start date",
+				"dueDate": "Due date",
+				"clearStartDate": "Clear start date",
+				"assign": "Assign",
+				"assignUnassigned": "Unassigned",
+				"assignUnassignedTitle": "Unassigned",
+				"labels": "Labels",
+				"searchLabels": "Search labels...",
+				"noLabelsFound": "No labels found",
+				"createLabel": "Create \"{{name}}\"",
+				"chooseColor": "Choose color",
+				"labelCreated": "Label created",
+				"labelCreateError": "Failed to create label",
+				"createMore": "Create more",
+				"createButton": "Create Task",
+				"discardTitle": "Discard task?",
+				"discardDescription": "Your unsaved task details will be lost.",
+				"discardButton": "Discard task",
+				"labelColors": {
+					"stone": "Stone",
+					"slate": "Slate",
+					"lavender": "Lavender",
+					"sage": "Sage",
+					"forest": "Forest",
+					"amber": "Amber",
+					"terracotta": "Terracotta",
+					"rose": "Rose",
+					"crimson": "Crimson",
+					"ocean": "Ocean",
+					"sky": "Sky",
+					"lagoon": "Lagoon",
+					"orchid": "Orchid"
+				}
+			}
+		},
+		"editor": {
+			"link": {
+				"label": "Link URL",
+				"placeholder": "Paste or type a link…",
+				"apply": "Apply link",
+				"remove": "Remove link"
+			}
+		}
+	},
+	"auth": {
+		"signIn": {
+			"pageTitle": "Sign In",
+			"subtitle": {
+				"password": "Use your email and password."
+			},
+			"errors": {
+				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
+				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
+				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account.",
+				"use_a_permanent_email_address_disposable_addresses_cannot_create_accounts_": "Use a permanent email address. Disposable addresses cannot create accounts."
+			},
+			"instanceStatusError": "Couldn't reach the server. Please retry in a moment.",
+			"heading": "Sign in to Baton",
+			"submitPassword": "Sign in",
+			"invitation": {
+				"title": "{{inviterName}} invited you to {{workspaceName}}",
+				"fallbackTitle": "You've been invited",
+				"description": "Sign in with the email that received the invitation. You'll join the workspace right after."
+			},
+			"footer": {
+				"newHere": "New to Baton?",
+				"createAccount": "Create an account",
+				"inviteOnly": "Accounts here are invite-only. Ask an admin for an invitation."
+			}
+		},
+		"providers": {
+			"github": "GitHub"
+		},
+		"forms": {
+			"email": "Email",
+			"password": "Password",
+			"emailPlaceholder": "me@example.com",
+			"passwordPlaceholder": "••••••••",
+			"showPassword": "Show password",
+			"hidePassword": "Hide password",
+			"name": "Name",
+			"namePlaceholder": "Jane Doe",
+			"invalidEmail": "Enter a full email address, like name@company.com.",
+			"nameRequired": "Enter your name.",
+			"passwordRequired": "Enter your password.",
+			"passwordTooShort": "Use at least 8 characters.",
+			"disposableEmail": "Use a permanent email address. Disposable addresses cannot create accounts."
+		},
+		"checkEmail": {
+			"pageTitle": "Check Your Email",
+			"title": "Check your email",
+			"inboxMessage": "We've sent you a temporary login link. Please check your inbox at <email>{{email}}</email>.",
+			"emailFallback": "your email address",
+			"backToLogin": "Back to login"
+		},
+		"signUp": {
+			"pageTitle": "Create Account",
+			"registrationDisabledAlert": "Registration is currently disabled. If you were invited, enter the email address that received the invitation to create your account.",
+			"toggleMessage": "Already have an account?",
+			"toggleLink": "Sign in",
+			"instanceStatusError": "Couldn't reach the server. Please retry in a moment.",
+			"instanceAdminTitle": "Set up your Baton instance",
+			"instanceAdminSubtitle": "This account becomes the instance administrator with full access.",
+			"heading": "Create your account",
+			"submitPassword": "Create account",
+			"failed": "Couldn't create your account. Try again.",
+			"subtitle": {
+				"password": "Add your name, email, and a password to get started."
+			},
+			"invitation": {
+				"description": "Use the email that received the invitation. You'll join the workspace right after."
+			},
+			"verifyEmail": "Check your email to confirm your address, then sign in."
+		},
+		"signInForm": {
+			"failedSignIn": "Failed to sign in",
+			"emailNotVerified": "Confirm your email address first. We sent you a new link."
+		},
+		"invitation": {
+			"pageTitleAccept": "Accept Invitation",
+			"pageTitleError": "Invitation Error",
+			"pageTitleInvalid": "Invalid Invitation",
+			"joinWorkspace": "Join {{workspaceName}}",
+			"createAccount": "Create account",
+			"signIn": "Sign in",
+			"toast": {
+				"acceptFailed": "Failed to accept invitation",
+				"acceptSuccess": "Invitation accepted! Welcome to the team."
+			},
+			"description": "{{inviterName}} invited you to this workspace on Baton.",
+			"invitedBy": "Invited by",
+			"sentTo": "Sent to",
+			"signedInAs": "Signed in as",
+			"expires": "Expires",
+			"notNow": "Not now",
+			"join": "Join workspace",
+			"switchAccount": "Switch account",
+			"goToBaton": "Go to Baton",
+			"mismatch": {
+				"title": "Signed in with a different email",
+				"description": "This invitation was sent to {{invitedEmail}}. You're signed in as {{email}}."
+			},
+			"expired": {
+				"title": "This invitation has expired",
+				"description": "Ask {{inviterName}} to send you a new one for {{workspaceName}}."
+			},
+			"invalid": {
+				"title": "This invitation is no longer valid",
+				"description": "It may have been accepted or canceled. Ask a workspace admin for a new one."
+			},
+			"loadFailed": {
+				"title": "Couldn't load this invitation",
+				"description": "Check your connection and reload the page."
+			}
+		},
+		"onboarding": {
+			"pageTitle": "Welcome to Baton",
+			"workspaceName": "Workspace name",
+			"workspaceNamePlaceholder": "e.g. Acme Inc, My Team",
+			"restrictedTitle": "You need an invitation",
+			"restrictedSubtitle": "Only an instance administrator can create workspaces here. Ask one to invite you, then reload this page.",
+			"restrictedCheckInvitations": "Check invitations",
+			"toast": {
+				"createFailed": "Failed to create workspace"
+			},
+			"validation": {
+				"workspaceNameRequired": "Workspace name is required",
+				"projectNameRequired": "Give your first project a name"
+			},
+			"cloud": {
+				"usageLabel": "Who will use this workspace?",
+				"usageSolo": "Just me",
+				"usageSoloDescription": "Keep track of your own work",
+				"usageTeam": "My team",
+				"usageTeamDescription": "Plan and ship work together",
+				"invite": {
+					"emailLabel": "Teammate email {{index}}",
+					"emailPlaceholder": "teammate@company.com",
+					"addAnother": "Add another",
+					"remove": "Remove email {{index}}",
+					"skip": "Skip for now",
+					"invalidEmail": "Enter a valid email address",
+					"sent_one": "Invitation sent",
+					"sent_other": "{{count}} invitations sent",
+					"failed": "Couldn't invite {{email}}: {{message}}"
+				}
+			},
+			"projectNameDefault": "My first project",
+			"starterTasks": {
+				"drag": {
+					"title": "Drag this card to the next column",
+					"description": "Cards move from column to column as work moves forward. Drag this one to the next column, or open it and change its status."
+				},
+				"details": {
+					"title": "Open this task and add a subtask",
+					"description": "A task can hold a description, subtasks, labels, an assignee and a due date. Add a subtask to this one to try it."
+				},
+				"invite": {
+					"title": "Invite your team",
+					"description": "Baton works best with everyone in it. Open **Members** in the sidebar to invite people by email."
+				},
+				"integrations": {
+					"title": "Connect GitHub, GitLab or Gitea",
+					"description": "Sync issues and move tasks automatically when pull requests are opened and merged. Set it up under **Project settings**."
+				},
+				"create": {
+					"title": "Create your own task",
+					"description": "Use the **+** next to a column name, or press **T** then **C**. Delete these starter tasks whenever you're ready."
+				}
+			},
+			"progress": "Step {{current}} of {{total}}",
+			"continue": "Continue",
+			"signedInAs": "Signed in as {{email}}",
+			"signOut": "Sign out",
+			"workspace": {
+				"title": "Name your workspace",
+				"description": "This is where your projects live. Use your team or company name. You can change it later."
+			},
+			"usage": {
+				"title": "Who's it for?",
+				"description": "We'll set {{name}} up to match. You can always invite people later."
+			},
+			"project": {
+				"title": "Start your first project",
+				"description": "We'll add a few starter tasks to show you around. Rename or delete them anytime.",
+				"label": "Project name",
+				"ticketStart": "Task IDs will start at {{ticket}}."
+			},
+			"invite": {
+				"title": "Bring your team",
+				"description": "They'll get an email to join {{name}}. Skip this if you'd rather look around first.",
+				"label": "Teammate emails",
+				"send_one": "Send {{count}} invite",
+				"send_other": "Send {{count}} invites",
+				"sendNone": "Send invites"
+			},
+			"ready": {
+				"title": "{{name}} is ready",
+				"description": "Here's what we set up. You can change any of it later.",
+				"workspace": "Workspace",
+				"project": "First project",
+				"projectValue_one": "{{name}}, with {{count}} starter task",
+				"projectValue_other": "{{name}}, with {{count}} starter tasks",
+				"invitations": "Invitations",
+				"invitationsValue_one": "Sent to {{count}} person",
+				"invitationsValue_other": "Sent to {{count}} people",
+				"open": "Open {{name}}"
+			},
+			"preview": {
+				"untitled": "Your workspace"
+			}
+		},
+		"profileSetup": {
+			"pageTitle": "Complete Profile",
+			"completeTitle": "Complete your profile",
+			"subtitle": "Please enter your name to get started",
+			"yourName": "Your name",
+			"namePlaceholder": "e.g. John Doe",
+			"saving": "Saving...",
+			"continue": "Continue",
+			"welcome": "Welcome, {{name}}!",
+			"redirecting": "Taking you to your dashboard...",
+			"toast": {
+				"updateSuccess": "Profile updated successfully",
+				"updateFailed": "Failed to update profile"
+			},
+			"validation": {
+				"nameRequired": "Name is required",
+				"nameShort": "Name must be at least 2 characters"
+			}
+		},
+		"passwordReset": {
+			"forgotPassword": "Forgot password?",
+			"requestTitle": "Reset your password",
+			"requestSubtitle": "Enter your email and we’ll send you a password reset link.",
+			"sendLink": "Send reset link",
+			"requestError": "Could not request a reset link. Please try again.",
+			"unavailable": "Password reset is unavailable. Contact your instance administrator.",
+			"configError": "Could not reach the server. Please reload the page to try again.",
+			"resetTitle": "Choose a new password",
+			"newPassword": "New password",
+			"confirmPassword": "Confirm new password",
+			"passwordMismatch": "The passwords do not match.",
+			"passwordLength": "Use between 8 and 128 characters.",
+			"invalidLink": "This reset link is invalid or has expired. Request a new link to continue.",
+			"requestNewLink": "Request a new link",
+			"resetError": "Could not reset your password. Please try again.",
+			"success": "Your password has been reset. Sign in with your new password.",
+			"backToSignIn": "Back to sign in",
+			"sentTitle": "Check your inbox",
+			"sentDescription": "If an account exists for {{email}}, a link to reset your password is on its way. It expires in 1 hour.",
+			"sentHelpTitle": "Didn't get it?",
+			"sentHelpDescription": "Check your spam folder, or request another link in a minute.",
+			"rememberedIt": "Remembered it?",
+			"resetDescription": "Use 8 to 128 characters. Other devices will be signed out.",
+			"updatePassword": "Update password",
+			"changedMind": "Changed your mind?",
+			"invalidLinkTitle": "This link has expired",
+			"successTitle": "Password updated"
+		},
+		"mcp": {
+			"authorize": {
+				"title": "Authorize an MCP client",
+				"description": "It can act as you in every workspace you can access. Only continue if you started this connection.",
+				"client": "Client",
+				"unknownClient": "MCP client",
+				"selfReported": "Self-reported",
+				"redirect": "Sends you back to",
+				"signedInAs": "Signed in as",
+				"deny": "Deny",
+				"allow": "Allow access"
+			},
+			"expired": {
+				"title": "This request has expired",
+				"description": "Go back to your MCP client and connect again."
+			},
+			"signIn": {
+				"title": "Sign in to authorize this client",
+				"description": "You'll come right back here to review it.",
+				"submit": "Sign in"
+			}
+		}
+	},
+	"settings": {
+		"advancedSettings": "Advanced settings",
+		"advancedSettingsDescription": "Shows extra controls, like integration sync rules. Only on this browser.",
+		"syncRules": {
+			"title": "What syncs",
+			"sharedHint": "These rules apply to everyone using this project. Hiding advanced settings does not disable them.",
+			"outgoing": "Baton → repository",
+			"incoming": "Repository → Baton",
+			"outgoingHint": "Choose which Baton tasks can sync. Losing a matching label pauses both directions for an existing task.",
+			"incomingHint": "Choose which issues can be imported or create tasks. Use exact repository label names. Existing links follow the Baton task rule.",
+			"all": "All tasks and issues",
+			"filtered": "Only matching labels",
+			"any": "Any selected label",
+			"every": "All selected labels",
+			"matchLabels": "Label matching",
+			"repositoryLabel": "Repository label name",
+			"addLabel": "Add label",
+			"removeLabel": "Remove {{name}}",
+			"noLabels": "Create workspace labels before configuring a task filter.",
+			"selectLabel": "Select at least one label to preview this rule.",
+			"unavailableLabel": "Unavailable label",
+			"impactTitle": "What will change",
+			"impact": "Matching tasks: {{matching}} / {{total}} · New exports: {{create}} · Links to pause: {{pause}} · Links to review: {{review}}",
+			"preserveHint": "Pausing keeps both records and their link. Resuming requires a comparison; historical comments are never replayed.",
+			"previewing": "Checking sync impact…",
+			"saveError": "Could not apply these rules. The integration or task scope may have changed. Refresh the preview and try again.",
+			"refreshPreview": "Refresh preview",
+			"rulesChanged": "The saved rules changed while you were editing. Your draft is preserved. Review the current rules above before applying it, or load the saved rules.",
+			"loadSavedRules": "Load saved rules",
+			"missingLabels": "A selected workspace label is unavailable. Sync stays paused until the rule is repaired.",
+			"removeMissingLabels": "Remove unavailable labels",
+			"apply": "Apply sync rules",
+			"saved": "Sync rules saved",
+			"loading": "Loading sync rules…",
+			"loadError": "Sync rules could not be loaded.",
+			"advancedHint": "Enable Advanced settings in Preferences to edit these rules.",
+			"paused": "Sync paused",
+			"pausedHint": "Records and links are preserved. Tasks that match again need review before syncing resumes.",
+			"reviewRequired": "Matches the rule · review required",
+			"excluded": "Outside the current rule",
+			"review": "Review and resume",
+			"previous": "Previous",
+			"next": "Next",
+			"reviewTitle": "Review before resuming sync",
+			"reviewHint": "Compare the current title, description and open/closed state. Choose which side to keep for these fields. Labels and historical comments remain unchanged.",
+			"resumeError": "Could not resume. The task, issue or rule may have changed, or the provider is unavailable. Sync remains paused; refresh the comparison.",
+			"refreshComparison": "Refresh comparison",
+			"repository": "Repository",
+			"open": "Open",
+			"closed": "Closed",
+			"noDescription": "No description",
+			"useRepository": "Keep repository values",
+			"useBaton": "Keep Baton values",
+			"exportPending": "Export matching tasks",
+			"inactiveHint": "This integration is paused. No tasks will be exported until it is reactivated.",
+			"allIssues": "All issues",
+			"allTasks": "All tasks",
+			"edit": "Edit",
+			"hidePaused": "Hide",
+			"issuesLabelled": "Issues labelled",
+			"joinAnd": "and",
+			"joinOr": "or",
+			"batonToProvider": "Baton to {{provider}}",
+			"pausedSummary_one": "{{count}} task stopped syncing because it no longer matched the sync rules.",
+			"pausedSummary_other": "{{count}} tasks stopped syncing because they no longer matched the sync rules.",
+			"providerToBaton": "{{provider}} to Baton",
+			"reviewPaused": "Review",
+			"tasksLabelled": "Tasks labelled"
+		},
+		"account": "Account",
+		"administration": "Administration",
+		"information": "Profile",
+		"notifications": "Notifications",
+		"preferences": "Preferences",
+		"apiKeys": "API keys",
+		"adminUsers": {
+			"title": "Users",
+			"subtitle": "Everyone with an account on this Baton instance.",
+			"directoryTitle": "All users",
+			"searchCount_one": "{{count}} matching user",
+			"searchCount_other": "{{count}} matching users",
+			"refreshing": "Refreshing users",
+			"searchPlaceholder": "Search by name or email",
+			"searchLabel": "Search users",
+			"loadError": "Users could not be loaded.",
+			"retry": "Retry",
+			"emptyTitle": "No users found",
+			"emptyDescription": "Try another name or email address.",
+			"clearSearch": "Clear search",
+			"you": "You",
+			"previous": "Previous",
+			"next": "Next",
+			"pagination": "Page {{current}} of {{total}}",
+			"columns": {
+				"user": "User",
+				"role": "Role",
+				"status": "Status",
+				"joined": "Joined",
+				"actions": "Actions",
+				"lastActive": "Last active"
+			},
+			"roles": {
+				"admin": "Admin",
+				"user": "User"
+			},
+			"status": {
+				"active": "Active",
+				"deactivated": "Deactivated"
+			},
+			"actions": {
+				"open": "Actions for {{name}}",
+				"edit": "Edit",
+				"deactivate": "Deactivate",
+				"reactivate": "Reactivate",
+				"sendPasswordReset": "Send password reset link",
+				"sendVerification": "Resend verification email",
+				"markEmailVerified": "Mark email as verified",
+				"security": "Sessions & API keys"
+			},
+			"edit": {
+				"title": "Edit user",
+				"description": "Update this account's identity and instance-wide access.",
+				"name": "Full name",
+				"email": "Email address",
+				"role": "Global role",
+				"selfRoleHint": "You cannot change your own global role.",
+				"save": "Save changes",
+				"saving": "Saving…"
+			},
+			"confirm": {
+				"working": "Working…",
+				"deactivate": {
+					"title": "Deactivate this account?",
+					"description": "{{name}} will be signed out and unable to sign in until an administrator reactivates the account.",
+					"action": "Deactivate account"
+				},
+				"reactivate": {
+					"title": "Reactivate this account?",
+					"description": "{{name}} will be able to sign in and access their workspaces again.",
+					"action": "Reactivate account"
+				},
+				"delete": {
+					"title": "Permanently delete this account?",
+					"description": "This permanently deletes {{name}}, their sessions, memberships, and associated data. This cannot be undone.",
+					"action": "Delete permanently"
+				},
+				"sendPasswordReset": {
+					"title": "Send a password reset link?",
+					"action": "Send link"
+				},
+				"sendVerification": {
+					"title": "Resend the verification email?",
+					"action": "Send email"
+				},
+				"markEmailVerified": {
+					"title": "Mark this email as verified?",
+					"action": "Mark as verified"
+				}
+			},
+			"toast": {
+				"updated": "User updated",
+				"updateError": "Failed to update user",
+				"deactivated": "User deactivated",
+				"reactivated": "User reactivated",
+				"deleted": "User deleted",
+				"actionError": "Failed to update user status",
+				"createdLinkSent": "User created. Password link sent to {{email}}.",
+				"createdNoSmtp": "User created. Set SMTP_HOST to send a password link.",
+				"createdLinkFailed": "User created. Password email failed; retry “Send password reset link”.",
+				"createError": "Failed to create user",
+				"passwordResetSent": "Password reset link sent to {{email}}",
+				"verificationSent": "Verification email sent to {{email}}",
+				"emailVerified": "Email marked as verified",
+				"emailError": "The email could not be sent",
+				"avatarChanged": "Profile picture updated",
+				"avatarRemoved": "Profile picture removed",
+				"avatarError": "Failed to update the profile picture"
+			},
+			"never": "Never",
+			"unverified": "Unverified",
+			"filters": {
+				"label": "Filter users",
+				"status": "Status",
+				"role": "Role",
+				"email": "Email verification",
+				"anyStatus": "Any status",
+				"anyRole": "Any role",
+				"anyEmail": "Any email",
+				"verified": "Verified email",
+				"unverified": "Unverified email",
+				"clear": "Clear filters"
+			},
+			"create": {
+				"open": "Create user",
+				"title": "Create user",
+				"nameRequired": "Enter a name",
+				"submit": "Create user",
+				"creating": "Creating…",
+				"hintNoEmail": "Set SMTP_HOST to send password links."
+			},
+			"details": {
+				"emailStatus": "Email",
+				"verified": "Verified",
+				"notVerified": "Not verified",
+				"signInMethods": "Sign-in methods",
+				"noSignInMethods": "No password or linked account yet",
+				"methods": {
+					"password": "Password"
+				},
+				"uploadAvatar": "Upload",
+				"removeAvatar": "Remove"
+			},
+			"security": {
+				"title": "Sessions & API keys: {{name}}",
+				"sessionsTitle": "Sessions",
+				"sessionsEmpty": "Not signed in anywhere.",
+				"revokeAll": "Sign out everywhere",
+				"revokeAllConfirmTitle": "Sign {{name}} out everywhere?",
+				"revokeAllConfirmDescription": "They'll be signed out everywhere right away.",
+				"revokeAllSelfDescription": "Your other sessions will be signed out right away.",
+				"toastRevokedAll": "Sessions signed out.",
+				"apiKeysTitle": "API keys",
+				"apiKeysEmpty": "No API keys.",
+				"apiKeysLoadError": "Couldn't load API keys.",
+				"lastUsed": "Last used {{time}}",
+				"neverUsed": "Never used",
+				"disabled": "Disabled",
+				"revokeKey": "Revoke",
+				"revokingKey": "Revoking...",
+				"revokeKeyLabel": "Revoke {{name}}",
+				"revokeKeyConfirmTitle": "Revoke {{name}}?",
+				"revokeKeyConfirmDescription": "Requests using this key will fail right away.",
+				"toastKeyRevoked": "API key revoked.",
+				"toastKeyRevokeError": "Couldn't revoke the API key."
+			}
+		},
+		"adminWorkspaces": {
+			"title": "Workspaces",
+			"subtitle": "Every workspace on this Baton instance, including ones you don't belong to.",
+			"directoryTitle": "All workspaces",
+			"searchCount_one": "{{count}} matching workspace",
+			"searchCount_other": "{{count}} matching workspaces",
+			"refreshing": "Refreshing workspaces",
+			"searchPlaceholder": "Search by name or slug",
+			"searchLabel": "Search workspaces",
+			"loadError": "Workspaces could not be loaded.",
+			"retry": "Retry",
+			"emptyTitle": "No workspaces found",
+			"emptyDescription": "Try another name or slug.",
+			"clearSearch": "Clear search",
+			"previous": "Previous",
+			"next": "Next",
+			"pagination": "Page {{current}} of {{total}}",
+			"noOwner": "No owner",
+			"manage": "Manage",
+			"manageLabel": "Manage {{name}}",
+			"columns": {
+				"workspace": "Workspace",
+				"owners": "Owners",
+				"members": "Members",
+				"projects": "Projects",
+				"created": "Created",
+				"actions": "Actions"
+			},
+			"members": {
+				"title": "Members of {{name}}",
+				"description": "Change roles, project access, and ownership, even if you aren't a member of this workspace.",
+				"count_one": "{{count}} member",
+				"count_other": "{{count}} members",
+				"add": "Add member",
+				"loadError": "Members could not be loaded.",
+				"empty": "This workspace has no members.",
+				"roleLabel": "Role for {{name}}",
+				"editAccess": "Change project access for {{name}} ({{access}})",
+				"actions": "Actions for {{name}}",
+				"makeOwner": "Make owner",
+				"remove": "Remove from workspace"
+			},
+			"addMember": {
+				"title": "Add member",
+				"description": "Add an existing user to {{name}}. They can access every project until you limit them.",
+				"user": "User",
+				"userPlaceholder": "Search name or email…",
+				"searching": "Searching users…",
+				"usersError": "Users could not be loaded.",
+				"noUsers": "No users found",
+				"alreadyMember": "Already a member",
+				"role": "Role",
+				"submit": "Add member",
+				"adding": "Adding…"
+			},
+			"confirm": {
+				"working": "Working…",
+				"transfer": {
+					"title": "Make {{name}} the owner?",
+					"description": "{{name}} becomes the only owner of {{workspace}}. Anyone who owns it now becomes an admin.",
+					"action": "Make owner"
+				},
+				"remove": {
+					"title": "Remove {{name}}?",
+					"description": "{{name}} loses access to {{workspace}} and its projects. Their account stays on this instance.",
+					"action": "Remove member"
+				},
+				"archive": {
+					"title": "Archive {{name}}?",
+					"description": "Members will lose access until it's restored.",
+					"action": "Archive workspace"
+				},
+				"restore": {
+					"title": "Restore {{name}}?",
+					"action": "Restore workspace"
+				},
+				"delete": {
+					"title": "Delete {{name}}?",
+					"description": "Its projects, tasks, and files will be permanently deleted.",
+					"typeName": "Type {{name}} to confirm",
+					"action": "Delete workspace"
+				}
+			},
+			"toast": {
+				"added": "Member added",
+				"addError": "Failed to add member",
+				"roleUpdated": "Role updated",
+				"roleError": "Failed to update role",
+				"removed": "Member removed",
+				"removeError": "Failed to remove member",
+				"ownershipTransferred": "Ownership transferred",
+				"transferError": "Failed to transfer ownership",
+				"archived": "Workspace archived",
+				"restored": "Workspace restored",
+				"deleted": "Workspace deleted",
+				"archiveError": "Could not archive workspace",
+				"restoreError": "Could not restore workspace",
+				"deleteError": "Could not delete workspace"
+			},
+			"archived": "Archived",
+			"actions": {
+				"open": "Actions for {{name}}",
+				"archive": "Archive workspace",
+				"restore": "Restore workspace"
+			}
+		},
+		"adminAuditLog": {
+			"title": "Audit log",
+			"directoryTitle": "Recorded actions",
+			"refreshing": "Refreshing audit log",
+			"categoryLabel": "Filter by category",
+			"categories": {
+				"all": "All actions",
+				"email": "Email",
+				"user": "Users",
+				"session": "Sessions",
+				"workspace": "Workspaces",
+				"apiKey": "API keys",
+				"role": "Roles",
+				"instance": "Instance settings",
+				"webhook": "Webhooks"
+			},
+			"loadError": "The audit log could not be loaded.",
+			"retry": "Retry",
+			"emptyTitle": "No actions recorded",
+			"clearFilter": "Show all actions",
+			"previous": "Previous",
+			"next": "Next",
+			"pagination": "Page {{current}} of {{total}}",
+			"unknownActor": "Unknown",
+			"deletedActor": "Account deleted",
+			"mobileSummary": "{{actor}} · {{target}} · {{time}}",
+			"columns": {
+				"action": "Action",
+				"actor": "Administrator",
+				"target": "Target",
+				"time": "Time and IP"
+			},
+			"targetTypes": {
+				"user": "User",
+				"workspace": "Workspace",
+				"role": "Role",
+				"instance": "Instance",
+				"webhook": "Webhook"
+			},
+			"actions": {
+				"emailTestSent": "Sent test email",
+				"userCreated": "Created user",
+				"userUpdated": "Updated user details",
+				"userRoleChanged": "Changed instance role",
+				"userDeactivated": "Deactivated user",
+				"userReactivated": "Reactivated user",
+				"userDeleted": "Deleted user",
+				"userPasswordSet": "Set user password",
+				"userImpersonated": "Signed in as user",
+				"sessionRevoked": "Revoked a session",
+				"sessionRevokedAll": "Revoked all sessions",
+				"workspaceMemberAdded": "Added workspace member",
+				"workspaceMemberRemoved": "Removed workspace member",
+				"workspaceMemberRoleChanged": "Changed workspace member role",
+				"workspaceOwnerTransferred": "Transferred workspace ownership",
+				"userPasswordResetSent": "Sent password reset link",
+				"userVerificationSent": "Sent verification email",
+				"userEmailVerified": "Marked email as verified",
+				"userAvatarChanged": "Changed profile picture",
+				"userAvatarRemoved": "Removed profile picture",
+				"apiKeyRevoked": "Revoked an API key",
+				"workspaceArchived": "Archived workspace",
+				"workspaceRestored": "Restored workspace",
+				"workspaceDeleted": "Deleted workspace",
+				"roleCreated": "Role created",
+				"roleUpdated": "Role updated",
+				"roleDeleted": "Role deleted",
+				"instanceSettingsUpdated": "Updated instance settings",
+				"webhookCreated": "Created webhook",
+				"webhookUpdated": "Updated webhook",
+				"webhookDeleted": "Deleted webhook",
+				"webhookSecretRotated": "Rotated webhook secret"
+			},
+			"fields": {
+				"name": "name",
+				"email": "email",
+				"emailVerified": "email verification",
+				"image": "avatar"
+			},
+			"details": {
+				"change": "{{from}} → {{to}}",
+				"fields": "Changed {{fields}}",
+				"reason": "Reason: {{reason}}",
+				"noRole": "No role",
+				"memberWithRole": "{{member}} as {{role}}",
+				"memberChange": "{{member}}: {{from}} → {{to}}",
+				"createdWithRole": "Role: {{role}}",
+				"sessionCount_one": "{{count}} session",
+				"sessionCount_other": "{{count}} sessions",
+				"workspaceContents": "{{members}} members, {{projects}} projects",
+				"permissionsChanged": "{{added}} permissions added, {{removed}} removed"
+			}
+		},
+		"informationPage": {
+			"pageTitle": "Profile",
+			"title": "Profile",
+			"subtitle": "How you show up to your teammates.",
+			"sectionTitle": "Details",
+			"profilePicture": "Profile picture",
+			"fullName": "Name",
+			"fullNamePlaceholder": "Enter your name",
+			"email": "Email",
+			"updateError": "Failed to update profile",
+			"validation": {
+				"nameRequired": "Name is required",
+				"nameShort": "Name must be at least 2 characters"
+			},
+			"avatar": {
+				"hint": "Square images look best.",
+				"remove": "Remove",
+				"updateSuccess": "Profile picture updated",
+				"updateError": "Failed to update profile picture",
+				"removeSuccess": "Profile picture removed",
+				"removeError": "Failed to remove profile picture",
+				"upload": "Upload"
+			},
+			"deleteAccount": {
+				"sectionTitle": "Danger zone",
+				"title": "Delete account",
+				"description": "Workspaces only you belong to are deleted with your account. Elsewhere, your tasks stay and become unassigned, and your comments are removed.",
+				"modalTitle": "Delete your account?",
+				"modalDescription": "This permanently deletes your account and cannot be undone.",
+				"confirmLabel": "Type {{email}} to confirm",
+				"confirm": "Delete account",
+				"success": "Your account has been deleted",
+				"error": "Failed to delete account",
+				"sessionTooOld": "For security, sign out and sign back in before deleting your account."
+			},
+			"emailHint": "You sign in with this address."
+		},
+		"notificationsPage": {
+			"pageTitle": "Notifications",
+			"title": "Notifications",
+			"subtitle": "What Baton tells you about, and where it reaches you.",
+			"statusConnected": "Connected",
+			"statusPaused": "Paused",
+			"emailTitle": "Email",
+			"accountEmailNoAddress": "No account email available",
+			"saveChanges": "Save changes",
+			"disconnect": "Disconnect",
+			"ntfyTitle": "ntfy",
+			"ntfyDescription": "Publish to an ntfy topic on your phone or desktop.",
+			"serverUrl": "Server URL",
+			"topic": "Topic",
+			"token": "Token",
+			"ntfyServerPlaceholder": "https://ntfy.example.com",
+			"ntfyTopicPlaceholder": "team-alerts",
+			"ntfyTokenPlaceholder": "Only if your server needs one",
+			"ntfyTokenHintConfigured": "A token is already configured ({{masked}}). Enter a new token to replace it.",
+			"ntfyTokenHintOptional": "Use one if your ntfy server requires authentication.",
+			"connectNtfy": "Connect ntfy",
+			"gotifyTitle": "Gotify",
+			"gotifyDescription": "Send notifications to your Gotify server.",
+			"gotifyTokenLabel": "App token",
+			"gotifyServerPlaceholder": "https://gotify.example.com",
+			"gotifyTokenPlaceholder": "Gotify app token",
+			"gotifyTokenHintConfigured": "An app token is already configured ({{masked}}). Enter a new token to replace it.",
+			"gotifyTokenHintRequired": "Required. Use an application token from your Gotify server.",
+			"connectGotify": "Connect Gotify",
+			"webhookTitle": "Custom webhook",
+			"webhookDescription": "Send each notification to your own endpoint as JSON.",
+			"endpointUrl": "Endpoint URL",
+			"signingSecret": "Signing secret",
+			"webhookUrlPlaceholder": "https://example.com/webhooks/baton",
+			"webhookSecretPlaceholder": "Optional shared secret",
+			"webhookSecretHintConfigured": "A signing secret is already configured ({{masked}}). Enter a new one to replace it.",
+			"webhookSecretHintOptional": "Baton signs the request body when a secret is set.",
+			"connectWebhook": "Connect webhook",
+			"eventPreferencesTitle": "Notify me about",
+			"eventPreferencesDescription": "Your own comments, mentions, and status changes never notify you.",
+			"eventTaskAssignments": "Assignments",
+			"eventComments": "Comments and mentions",
+			"eventCommentsHint": "New comments on your tasks, and anyone who @mentions you.",
+			"eventStatusChanges": "Status changes",
+			"eventDueDateReminders": "Due date reminders",
+			"reminderLeadTimeLabel": "Remind me before the due date",
+			"reminderLeadTimeInvalid": "Enter a whole number between 1 and {{max}}.",
+			"allProjects": "All projects",
+			"noProjectsInWorkspace": "No projects available for this workspace yet.",
+			"toastRuleSaveFailed": "Failed to save workspace notification rule",
+			"toastRuleRemoveFailed": "Failed to remove workspace notification rule",
+			"toastPreferencesSaved": "Notification preferences saved",
+			"toastPreferencesSaveFailed": "Failed to save notification preferences",
+			"toastRuleSavedGeneric": "Workspace notification rule saved",
+			"toastRuleRemovedGeneric": "Workspace notification rule removed",
+			"loadFailed": "Notification settings could not be loaded.",
+			"eventTaskAssignmentsHint": "When someone assigns a task to you.",
+			"eventStatusChangesHint": "When one of your tasks moves to another column.",
+			"eventDueDateRemindersHint": "Before one of your tasks is due. Overdue tasks notify you separately.",
+			"reminderLeadTimeUnitLabel": "Reminder unit",
+			"reminderLeadTimeUnitHoursBefore_one": "hour before",
+			"reminderLeadTimeUnitHoursBefore_other": "hours before",
+			"reminderLeadTimeUnitDaysBefore_one": "day before",
+			"reminderLeadTimeUnitDaysBefore_other": "days before",
+			"channelsTitle": "Channels",
+			"channelsDescription": "Notifications always show in Baton. Connect a channel to get them somewhere else too.",
+			"statusOn": "On",
+			"emailToggleLabel": "Send notifications by email",
+			"connect": "Connect",
+			"configure": "Configure",
+			"done": "Done",
+			"connectChannel": "Connect {{channel}}",
+			"configureChannel": "Configure {{channel}}",
+			"optional": "Optional",
+			"sendingLabel": "Sending",
+			"sendingDescription": "Turn off to pause this channel and keep its settings.",
+			"disconnectTitle": "Disconnect {{channel}}?",
+			"disconnectDescription": "Notifications stop going to {{channel}}, and its saved settings are removed.",
+			"disconnecting": "Disconnecting...",
+			"workspacesTitle": "Workspaces",
+			"workspacesDescription": "Choose which workspaces and projects can use your channels.",
+			"statusSending": "Sending",
+			"onlyInBaton": "Only in Baton",
+			"projectCount_one": "{{count}} project",
+			"projectCount_other": "{{count}} projects",
+			"ruleSummary": "{{channels}} · {{projects}}",
+			"setUp": "Set up",
+			"configureWorkspace": "Configure notifications for {{workspaceName}}",
+			"setUpWorkspace": "Set up notifications for {{workspaceName}}",
+			"ruleDialogTitle": "{{workspaceName}} notifications",
+			"ruleDialogDescription": "Where notifications from this workspace can go.",
+			"ruleActiveLabel": "Sending",
+			"ruleActiveDescription": "Turn off to pause this workspace and keep its setup.",
+			"ruleChannels": "Channels",
+			"channelNotConnected": "Not connected",
+			"channelOff": "Off",
+			"ruleProjects": "Projects",
+			"someProjects": "Only some",
+			"save": "Save",
+			"stopSending": "Stop sending",
+			"stopSendingTitle": "Stop sending from {{workspaceName}}?",
+			"stopSendingDescription": "Notifications from this workspace will only show in Baton.",
+			"stopping": "Stopping..."
+		},
+		"preferencesPage": {
+			"title": "Preferences",
+			"subtitle": "How Baton looks and works for you.",
+			"appearanceTitle": "General",
+			"theme": "Theme",
+			"themeLight": "Light",
+			"themeDark": "Dark",
+			"themeSystem": "Match system",
+			"firstDayOfWeek": "First day of the week",
+			"firstDayOfWeekDescription": "Used by calendars and date pickers.",
+			"selectFirstDayOfWeek": "Select first day",
+			"weekStartsOnSunday": "Sunday",
+			"weekStartsOnMonday": "Monday",
+			"weekStartsOnSaturday": "Saturday",
+			"defaultView": "Default view",
+			"defaultViewDescription": "The view projects open in.",
+			"board": "Board",
+			"list": "List",
+			"priorityIcons": "Priority icons",
+			"priorityIconsDescription": "How task priority looks on cards, rows, and menus.",
+			"priorityIconsMarks": "Marks",
+			"priorityIconsClassic": "Classic",
+			"sidebarDefault": "Keep the sidebar open",
+			"sidebarDefaultDescription": "Start with the sidebar expanded.",
+			"displayOptions": "Task details",
+			"displayOptionsDescription": "What shows on cards and rows in your boards and lists.",
+			"taskNumbers": "Task numbers",
+			"assignees": "Assignees",
+			"dueDates": "Due dates",
+			"labels": "Labels",
+			"priority": "Priority",
+			"projectBackgrounds": "Project backgrounds",
+			"projectBackgroundsDescription": "Show the image a project sets behind its board.",
+			"advancedTitle": "Advanced"
+		},
+		"developerPage": {
+			"pageTitle": "API keys",
+			"title": "API keys",
+			"subtitle": "Let scripts, the CLI, and MCP clients use Baton as you.",
+			"unnamedKey": "Unnamed",
+			"newKey": "New key",
+			"keysTitle": "Keys",
+			"keysNote": "A key can do anything you can. Delete keys you no longer use.",
+			"emptyTitle": "No API keys yet",
+			"emptyDescription": "Create a key to use the CLI, an MCP client, or your own scripts.",
+			"loadError": "Could not load API keys. Please try again."
+		},
+		"apiKey": {
+			"createdModal": {
+				"title": "Copy your key",
+				"description": "You won't see it again after you close this.",
+				"copy": "Copy",
+				"copied": "Copied",
+				"done": "Done",
+				"copyError": "Could not copy the key. Select it and copy it manually."
+			},
+			"table": {
+				"deleteConfirmTitle": "Delete “{{name}}”?",
+				"deleteConfirmDescription": "Anything using this key stops working. This can't be undone.",
+				"delete": "Delete key",
+				"deleting": "Deleting…",
+				"toastDeleted": "API key deleted",
+				"toastDeleteError": "Could not delete the API key"
+			},
+			"createDialog": {
+				"title": "New API key",
+				"description": "The key can do anything you can.",
+				"nameLabel": "Name",
+				"namePlaceholder": "My API key",
+				"nameDescription": "So you remember where it's used.",
+				"expirationLabel": "Expires",
+				"expiration1d": "1 day",
+				"expiration7d": "7 days",
+				"expiration30d": "30 days",
+				"expiration90d": "90 days",
+				"expirationNever": "Never",
+				"create": "Create key",
+				"creating": "Creating…",
+				"failedCreate": "Could not create the API key",
+				"validation": {
+					"nameRequired": "Enter a name",
+					"nameShort": "Use at least 3 characters"
+				}
+			},
+			"row": {
+				"created": "Created {{date}}",
+				"expires": "Expires {{date}}",
+				"expired": "Expired {{date}}",
+				"neverExpires": "Never expires",
+				"expiredBadge": "Expired",
+				"actions": "Actions for {{name}}"
+			}
+		},
+		"workspaceGeneral": {
+			"pageTitle": "General Settings",
+			"title": "General",
+			"subtitle": "The name of {{name}} and who owns it.",
+			"workspaceInfoTitle": "Workspace",
+			"nameLabel": "Name",
+			"namePlaceholder": "Enter workspace name",
+			"descriptionLabel": "Description",
+			"descriptionPlaceholder": "What does your team work on?",
+			"dangerZone": "Danger zone",
+			"deleteWorkspace": "Delete workspace",
+			"deleteWorkspaceDescription": "Permanently deletes {{name}}, its projects, and tasks.",
+			"deleteModalTitle": "Delete workspace?",
+			"deleteModalDescription": "This permanently deletes {{name}} and all of its projects and tasks. You can't undo this.",
+			"deleteModalConfirm": "Delete workspace",
+			"toastUpdateError": "Failed to update workspace",
+			"toastDeleted": "Workspace deleted successfully",
+			"toastDeleteError": "Failed to delete workspace",
+			"validation": {
+				"nameRequired": "Workspace name is required",
+				"nameShort": "Workspace name must be at least 2 characters"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Ownership transferred",
+				"toastError": "Failed to transfer ownership",
+				"title": "Transfer ownership",
+				"pickerLabel": "New owner",
+				"noEligibleMembers": "Invite at least one other member before you can transfer ownership.",
+				"pickerHint": "The new owner takes over. You stay on as an admin.",
+				"pickerPlaceholder": "Choose a member",
+				"button": "Transfer",
+				"dialogTitle": "Transfer ownership?",
+				"dialogDescription": "{{name}} will become the sole owner of {{workspace}}. You'll keep admin access but lose owner-only abilities like deleting the workspace or transferring it again.",
+				"transferring": "Transferring…",
+				"confirm": "Transfer ownership"
+			},
+			"ownershipTitle": "Ownership",
+			"ownershipSubtitle": "Only the owner sees this."
+		},
+		"workspaceRoles": {
+			"pageTitle": "Roles",
+			"title": "Roles",
+			"subtitle": "Define which actions members can perform in {{workspaceName}}.",
+			"thisWorkspace": "this workspace",
+			"noAccess": "You need admin or owner permissions to manage workspace roles.",
+			"sectionTitle": "Workspace roles",
+			"sectionSubtitle": "Edit the default roles or add a tailored one. Members keep their assigned role name across edits.",
+			"newRole": "New role",
+			"loading": "Loading…",
+			"loadError": "Failed to load roles.",
+			"emptyTitle": "No roles yet",
+			"emptyDescription": "Default roles will appear here once they're seeded for this workspace.",
+			"defaultBadge": "Default",
+			"permissionCount_one": "{{count}} permission",
+			"permissionCount_other": "{{count}} permissions",
+			"nameLabel": "Name",
+			"nameHint": "Lowercase. Cannot be changed later.",
+			"namePlaceholder": "e.g. reviewer",
+			"discard": "Discard",
+			"createRole": "Create role",
+			"deleteRole": "Delete role",
+			"defaultRoleHelp": "Default role: name is reserved and the row can't be deleted.",
+			"unsavedChanges": "You have unsaved changes",
+			"allChangesSaved": "All changes saved",
+			"saveChanges": "Save changes",
+			"defaultRoleDescriptions": {
+				"viewer": "Can view and comment on tasks.",
+				"member": "Can create and manage tasks and projects.",
+				"admin": "Has full access to the workspace."
+			},
+			"resources": {
+				"project": "Projects",
+				"task": "Tasks",
+				"label": "Labels",
+				"workspace": "Workspace",
+				"organization": "Workspace administration",
+				"member": "Members",
+				"invitation": "Invitations",
+				"team": "Teams",
+				"ac": "Roles and permissions"
+			},
+			"permissions": {
+				"project": {
+					"create": {
+						"label": "Create",
+						"description": "Can create new projects"
+					},
+					"read": {
+						"label": "Read",
+						"description": "Can view projects"
+					},
+					"update": {
+						"label": "Update",
+						"description": "Can edit project settings"
+					},
+					"delete": {
+						"label": "Delete",
+						"description": "Can delete projects"
+					},
+					"share": {
+						"label": "Share",
+						"description": "Can share projects"
+					}
+				},
+				"task": {
+					"create": {
+						"label": "Create",
+						"description": "Can create tasks"
+					},
+					"read": {
+						"label": "Read",
+						"description": "Can view tasks"
+					},
+					"update": {
+						"label": "Update",
+						"description": "Can edit tasks"
+					},
+					"delete": {
+						"label": "Delete",
+						"description": "Can delete tasks"
+					},
+					"assign": {
+						"label": "Assign",
+						"description": "Can assign tasks to members"
+					}
+				},
+				"label": {
+					"create": {
+						"label": "Create",
+						"description": "Can create labels"
+					},
+					"read": {
+						"label": "Read",
+						"description": "Can view labels"
+					},
+					"update": {
+						"label": "Update",
+						"description": "Can edit labels"
+					},
+					"delete": {
+						"label": "Delete",
+						"description": "Can delete labels"
+					}
+				},
+				"workspace": {
+					"read": {
+						"label": "Read",
+						"description": "Can view workspace settings"
+					},
+					"update": {
+						"label": "Update",
+						"description": "Can update workspace settings"
+					},
+					"delete": {
+						"label": "Delete",
+						"description": "Can delete workspace"
+					},
+					"manage_settings": {
+						"label": "Manage Settings",
+						"description": "Can manage workspace settings"
+					}
+				},
+				"organization": {
+					"update": {
+						"label": "Edit workspace administration",
+						"description": "Change workspace settings through the account service."
+					},
+					"delete": {
+						"label": "Delete workspace",
+						"description": "Permanently delete the workspace through the account service."
+					}
+				},
+				"member": {
+					"create": {
+						"label": "Add members",
+						"description": "Add users to this workspace."
+					},
+					"update": {
+						"label": "Change member roles",
+						"description": "Change the roles assigned to workspace members."
+					},
+					"delete": {
+						"label": "Remove members",
+						"description": "Remove users from this workspace."
+					}
+				},
+				"invitation": {
+					"create": {
+						"label": "Invite members",
+						"description": "Send workspace invitations."
+					},
+					"cancel": {
+						"label": "Cancel invitations",
+						"description": "Revoke pending workspace invitations."
+					}
+				},
+				"team": {
+					"create": {
+						"label": "Create teams",
+						"description": "Create teams in this workspace."
+					},
+					"update": {
+						"label": "Edit teams",
+						"description": "Change teams and team membership."
+					},
+					"delete": {
+						"label": "Delete teams",
+						"description": "Delete teams in this workspace."
+					}
+				},
+				"ac": {
+					"create": {
+						"label": "Create roles",
+						"description": "Create workspace roles and assign their permissions."
+					},
+					"read": {
+						"label": "View roles",
+						"description": "Read the workspace roles and their permissions."
+					},
+					"update": {
+						"label": "Change role permissions",
+						"description": "Change role permissions, including administrative access."
+					},
+					"delete": {
+						"label": "Delete roles",
+						"description": "Delete custom workspace roles."
+					}
+				}
+			},
+			"validation": {
+				"nameRequired": "Role name is required",
+				"nameExists": "A role with this name already exists",
+				"permissionRequired": "At least one permission must be selected"
+			},
+			"toast": {
+				"created": "Role created",
+				"createError": "Failed to create role",
+				"updated": "Role updated",
+				"updateError": "Failed to update role",
+				"deleted": "Role deleted",
+				"deleteError": "Failed to delete role"
+			},
+			"deleteDialog": {
+				"title": "Delete role",
+				"description": "This will permanently delete the role \"{{role}}\". Members assigned to this role will lose its permissions."
+			}
+		},
+		"workspaceLabels": {
+			"pageTitle": "Labels",
+			"title": "Labels",
+			"subtitle": "Labels are shared by every project in this workspace.",
+			"createLabel": "Create label",
+			"editLabel": "Edit label",
+			"deleteLabel": "Delete label",
+			"saveLabel": "Save",
+			"nameLabel": "Name",
+			"namePlaceholder": "Label name",
+			"colorLabel": "Color",
+			"createDescription": "Projects in this workspace can add it to their tasks.",
+			"editDescription": "Changes show up on every task with this label.",
+			"deleteConfirmTitle": "Delete “{{name}}”?",
+			"deleteConfirmDescription": "The label is removed from every task that uses it. This can't be undone.",
+			"createSuccess": "Label created",
+			"updateSuccess": "Label updated",
+			"deleteSuccess": "Label deleted",
+			"createError": "Failed to create label",
+			"updateError": "Failed to update label",
+			"deleteError": "Failed to delete label",
+			"nameRequired": "Label name is required",
+			"deletionPending": "Removing from tasks…",
+			"resumeDeletion": "Resume deletion",
+			"subtitleWithWorkspace": "Labels are shared by every project in {{workspaceName}}.",
+			"newLabel": "New label",
+			"sectionTitle": "Workspace labels",
+			"sectionDescription": "Renaming a label or changing its color updates every task that uses it.",
+			"editNamed": "Edit {{name}}",
+			"rowActions": "Actions for {{name}}",
+			"preview": "On a task",
+			"previewPlaceholder": "Label",
+			"resume": "Resume",
+			"emptyTitle": "No labels yet",
+			"emptyDescription": "Add labels to sort and filter tasks across projects.",
+			"loadError": "Could not load labels. Please try again."
+		},
+		"projectGeneral": {
+			"pageTitle": "Project Settings",
+			"title": "General",
+			"subtitle": "The name, key, and look of {{name}}.",
+			"projectInfoTitle": "Project",
+			"iconLabel": "Icon",
+			"iconHint": "Shown in the sidebar and project lists.",
+			"pickIconTitle": "Pick icon",
+			"searchIconsPlaceholder": "Search icons...",
+			"projectNameLabel": "Name",
+			"projectNamePlaceholder": "Project name",
+			"keyLabel": "Key",
+			"keyHint": "Starts every task ID, like {{slug}}-123.",
+			"keyPlaceholder": "PRO",
+			"descriptionLabel": "Description",
+			"descriptionPlaceholder": "What is this project for?",
+			"backgroundLabel": "Board background",
+			"backgroundHint": "An image behind the board. Each person can turn these off.",
+			"backgroundUnavailable": "Image uploads aren't set up on this instance.",
+			"backgroundUpload": "Upload",
+			"backgroundReplace": "Replace",
+			"backgroundRemove": "Remove image",
+			"backgroundUploadSuccess": "Project background updated",
+			"backgroundUploadError": "Failed to update project background",
+			"backgroundRemoveSuccess": "Project background removed",
+			"backgroundRemoveError": "Failed to remove project background",
+			"dangerZone": "Danger zone",
+			"deleteProject": "Delete project",
+			"deleteProjectDescription": "Permanently deletes {{name}} and all of its tasks.",
+			"deleteModalTitle": "Delete project?",
+			"deleteModalDescription": "This permanently deletes {{name}} and all of its tasks. You can't undo this.",
+			"deleteModalConfirm": "Delete project",
+			"toastUpdateError": "Failed to update project",
+			"toastDeleted": "Project deleted successfully",
+			"toastDeleteError": "Failed to delete project",
+			"validation": {
+				"nameRequired": "Project name is required",
+				"keyRequired": "Key is required",
+				"keyMax": "Key must be at most 8 characters",
+				"iconRequired": "Icon is required"
+			},
+			"moveProject": "Move to another workspace",
+			"moveProjectDescription": "Tasks, columns, and labels move with it.",
+			"moveProjectPlaceholder": "Choose a workspace",
+			"moveTargetsError": "Couldn't check which workspaces you can move this project to. Reload to try again.",
+			"moveProjectAction": "Move",
+			"moveModalConfirm": "Move project",
+			"toastMoved": "Project moved successfully",
+			"toastMovedWithUnassigned": "Project moved successfully. {{taskCount}} task(s) were unassigned.",
+			"toastMoveError": "Failed to move project",
+			"tasksTitle": "Tasks",
+			"moveTargetLabel": "Workspace",
+			"moveDialogTitle": "Move to another workspace?",
+			"moveDialogDescription": "Tasks assigned to people outside the new workspace become unassigned, and notification subscriptions for this project are cleared.",
+			"moving": "Moving..."
+		},
+		"projectIntegrations": {
+			"turnedOffByAdmin": "Turned off by an administrator",
+			"pageTitle": "Integrations",
+			"title": "Integrations",
+			"subtitle": "Connect this project to your code host and your team's chat.",
+			"githubSectionSubtitle": "Synchronize tasks with GitHub issues and enable two-way sync.",
+			"codeHostingTitle": "Code hosting",
+			"statusConnected": "Connected",
+			"statusPaused": "Paused",
+			"connect": "Connect",
+			"configure": "Configure",
+			"done": "Done"
+		},
+		"projectWorkflow": {
+			"pageTitle": "Workflow settings",
+			"title": "Workflow",
+			"subtitle": "The columns on your board, and what moves tasks between them.",
+			"columnsTitle": "Columns",
+			"columnsDescription": "Drag to reorder. Tasks in a done column count as completed.",
+			"automationTitle": "Automations",
+			"automationDescription": "Move a linked task when something happens in a connected repository."
+		},
+		"projectSwitcher": {
+			"selectProject": "Select project",
+			"noProjects": "No projects"
+		},
+		"columnEditor": {
+			"toastCreateError": "Failed to create column",
+			"toastRenameError": "Failed to update column",
+			"toastUpdateError": "Failed to update column",
+			"toastDeleteError": "Failed to delete column",
+			"pickIconTitle": "Pick column icon",
+			"searchIconsPlaceholder": "Search icons...",
+			"markDoneAria": "Mark {{name}} as done column",
+			"newColumnPlaceholder": "Column name",
+			"deleteAria": "Delete {{name}} column",
+			"renameAria": "Rename {{name}} column",
+			"columnHeader": "Column",
+			"doneHeader": "Done",
+			"addColumn": "Add column",
+			"dragAria": "Reorder {{name}}",
+			"deleteTitle": "Delete “{{name}}”?",
+			"deleteDescription": "Columns that still have tasks can't be deleted. Move those tasks first.",
+			"deleteConfirm": "Delete column",
+			"reorderError": "Failed to reorder columns"
+		},
+		"githubIntegration": {
+			"toast": {
+				"verifyError": "Failed to verify GitHub installation",
+				"installAppFirst": "Please install the GitHub App on this repository first",
+				"missingPermsDetail": "GitHub App is missing required permissions: {{list}}. Please update the app permissions.",
+				"updated": "GitHub integration updated successfully",
+				"updateError": "Failed to update GitHub integration",
+				"removed": "GitHub integration removed successfully",
+				"removeError": "Failed to remove GitHub integration",
+				"issuesImported": "Issues imported successfully",
+				"importError": "Failed to import issues",
+				"commentOnEnabled": "Baton will comment with a task link on new issues",
+				"commentOnDisabled": "Task link comments on new issues are turned off",
+				"settingsUpdateError": "Failed to update GitHub integration"
+			},
+			"commentTaskLinkTitle": "Comment a Baton link on new issues",
+			"commentTaskLinkHint": "So people on GitHub can jump to the task.",
+			"updatePermissions": "Update permissions",
+			"installGithubApp": "Install GitHub App",
+			"importSectionHint": "Import the repository's open issues as tasks.",
+			"importDisabledHint": "Reconnect the repository to enable importing.",
+			"accountVerificationHint": "Connect your GitHub account to verify that you administer this repository.",
+			"enableGithubSignInHint": "Ask your instance administrator to enable GitHub sign-in.",
+			"reverifyHint": "Reconnect this repository to verify access and resume synchronization.",
+			"resumeImport": "Resume import",
+			"importPaused": "This import has saved progress. You can resume it.",
+			"importSummary": "Created: {{imported}} · Updated: {{updated}} · Skipped: {{skipped}}",
+			"chooseRepositoryDescription": "Issues and pull requests from it will link to tasks here.",
+			"linkAccountDescription": "Proves you can administer the repository.",
+			"linkAccountTitle": "Link your GitHub account",
+			"linkGithub": "Link GitHub",
+			"linked": "Linked",
+			"verifyMissingPermissions": "The Baton GitHub App is missing permissions: {{list}}.",
+			"verifyNotInstalled": "The Baton GitHub App isn't installed on this repository.",
+			"verifyReady": "The Baton GitHub App is installed with the permissions it needs.",
+			"workflowHint": "Move tasks when pull requests open or merge in",
+			"workflowLink": "Workflow"
+		},
+		"gitlabIntegration": {
+			"importPermissionHint": "Importing requires permission to create and update tasks."
+		},
+		"repositoryBrowser": {
+			"title": "Choose a repository",
+			"description": "Repositories the Baton GitHub App can see.",
+			"searchPlaceholder": "Search repositories",
+			"loadError": "Couldn't load repositories.",
+			"tryAgain": "Retry",
+			"emptyTitle": "No repositories yet",
+			"emptyHint": "Install the GitHub App on your repositories to see them here.",
+			"installGithubApp": "Install GitHub App",
+			"noSearchMatchTitle": "No matching repositories",
+			"noSearchMatchHint": "Try a different name or clear the search.",
+			"emptyPageHint": "None on this page. Load more to keep looking.",
+			"loadMore": "Load more",
+			"manageAccess": "Manage app access",
+			"missingOne": "Missing one?",
+			"searching": "Searching…",
+			"updated": "Updated {{time}}",
+			"useRepository": "Use repository"
+		},
+		"tasksImportExport": {
+			"exportTasks": "Export tasks",
+			"importTasks": "Import tasks",
+			"dialogTitle": "Import tasks",
+			"dialogDescription": "Upload a JSON file containing tasks to import into this project.",
+			"expectedFormat": "Expected format:",
+			"dropHint": "Drag and drop your JSON file here",
+			"selectFile": "Select file",
+			"exporting": "Exporting tasks...",
+			"exportSuccess": "Tasks exported successfully",
+			"exportError": "Failed to export tasks",
+			"importing": "Importing tasks...",
+			"importSuccess": "Imported {{count}} tasks successfully",
+			"importPartialError": "Failed to import {{count}} tasks",
+			"importError": "Failed to import tasks",
+			"invalidFormat": "Invalid import file format",
+			"noFileDropped": "No file was dropped",
+			"notJsonFile": "Please upload a JSON file",
+			"exportDescription": "Download every task in this project as a file.",
+			"export": "Export",
+			"importDescription": "Add tasks from a file you exported earlier.",
+			"import": "Import"
+		},
+		"workflowEditor": {
+			"toastError": "Failed to update rule",
+			"events": {
+				"branch_push": "Branch pushed",
+				"pr_opened": "Pull request opened",
+				"pr_merged": "Pull request merged",
+				"issue_opened": "Issue opened",
+				"issue_closed": "Issue closed"
+			},
+			"dontMove": "Don't move",
+			"emptyTitle": "No connected repositories",
+			"emptyDescription": "Automations need a connected GitHub, Gitea, or GitLab repository.",
+			"openIntegrations": "Open integrations"
+		},
+		"externalLinks": {
+			"resources": "Resources",
+			"issue": "Issue",
+			"branch": "Branch",
+			"merged": "Merged",
+			"draft": "Draft",
+			"open": "Open",
+			"addResource": "Add resource",
+			"url": "URL",
+			"titleOptional": "Title (optional)",
+			"cancel": "Cancel",
+			"adding": "Adding...",
+			"empty": "No resources linked to this task.",
+			"remove": "Remove {{title}}",
+			"removeError": "Failed to remove the resource link."
+		},
+		"security": "Security",
+		"securityPage": {
+			"pageTitle": "Security",
+			"title": "Security",
+			"subtitle": "How you sign in to Baton.",
+			"sectionTitle": "Sign-in",
+			"currentPassword": "Current password",
+			"newPassword": "New password",
+			"confirmPassword": "Confirm new password",
+			"currentPasswordPlaceholder": "Enter your current password",
+			"newPasswordPlaceholder": "Enter a new password",
+			"confirmPasswordPlaceholder": "Re-enter your new password",
+			"submit": "Change password",
+			"submitting": "Changing...",
+			"updateSuccess": "Password updated.",
+			"updateError": "Failed to update password.",
+			"noPassword": {
+				"title": "Password change isn't available",
+				"description": "Your account signs in with a different method, so there is no password to change."
+			},
+			"validation": {
+				"currentRequired": "Enter your current password.",
+				"tooShort": "New password must be at least 8 characters.",
+				"confirmRequired": "Confirm your new password.",
+				"mismatch": "Passwords do not match.",
+				"sameAsCurrent": "New password must be different from your current password."
+			},
+			"passwordTitle": "Password",
+			"passwordHint": "Use at least 8 characters you don't use anywhere else.",
+			"changePassword": "Change password",
+			"dialogTitle": "Change password",
+			"dialogDescription": "At least 8 characters, different from the current one.",
+			"sessions": {
+				"title": "Active sessions",
+				"revokeOthers": "Sign out other sessions",
+				"revokeOthersConfirmTitle": "Sign out all other sessions?",
+				"revokeOthersConfirmDescription": "Your other sessions will be signed out right away.",
+				"toastRevokedOthers": "Other sessions signed out."
+			}
+		},
+		"invitationEmailFailed": "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
+		"chatIntegrations": {
+			"disconnect": "Disconnect",
+			"disconnecting": "Disconnecting…",
+			"disconnectTitle": "Disconnect {{provider}}?"
+		},
+		"codeHosting": {
+			"browse": "Browse",
+			"checking": "Checking access…",
+			"chooseRepositoryTitle": "Choose a repository",
+			"connectRepository": "Connect repository",
+			"disconnect": "Disconnect",
+			"disconnectDescription": "Tasks stop syncing with {{target}}. You can connect it again later.",
+			"disconnectTitle": "Disconnect {{provider}}?",
+			"disconnecting": "Disconnecting…",
+			"importIssues": "Import issues",
+			"importTitle": "Import open issues",
+			"importing": "Importing…",
+			"issuesSection": "Issues",
+			"lastImport": "Last import: {{imported}} created, {{updated}} updated, {{skipped}} skipped.",
+			"loadError": "Couldn't load this integration.",
+			"reconnect": "Reconnect",
+			"repositoryPathInvalid": "Enter the repository as owner/name.",
+			"repositoryPathLabel": "Repository",
+			"repositorySection": "Repository",
+			"retry": "Retry"
+		},
+		"shared": {
+			"autosave": "Changes save automatically"
+		},
+		"sessions": {
+			"device": "{{browser}} on {{os}}",
+			"unknownDevice": "Unknown device",
+			"thisDevice": "This device",
+			"lastActive": "Active {{time}}",
+			"signedIn": "Signed in {{date}}",
+			"revoke": "Sign out",
+			"revoking": "Signing out...",
+			"revokeLabel": "Sign out {{device}}",
+			"revokeConfirmTitle": "Sign out {{device}}?",
+			"revokeConfirmDescription": "They'll be signed out right away.",
+			"loadError": "Couldn't load sessions.",
+			"toastRevoked": "Session signed out.",
+			"toastRevokeError": "Couldn't sign out the session."
+		},
+		"adminSystem": {
+			"title": "System",
+			"refresh": "Refresh",
+			"refreshing": "Checking…",
+			"checkedAt": "Checked {{time}}",
+			"loadError": "System status could not be loaded.",
+			"retry": "Retry",
+			"status": {
+				"ok": "Operational",
+				"warning": "Warning",
+				"not_configured": "Not configured",
+				"down": "Down"
+			},
+			"setupStatus": {
+				"ok": "Configured",
+				"warning": "Incomplete",
+				"not_configured": "Not configured",
+				"down": "Down"
+			},
+			"instance": {
+				"title": "Instance",
+				"version": "Baton version",
+				"versionUnknown": "Unknown",
+				"api": "API",
+				"apiDescription": "Up {{uptime}} · Node {{node}}",
+				"database": "Database",
+				"databaseVersion": "PostgreSQL {{version}}",
+				"migrations_one": "{{count}} migration applied",
+				"migrations_other": "{{count}} migrations applied",
+				"latency": "{{ms}} ms",
+				"databaseDown": "Can't reach PostgreSQL ({{code}})",
+				"realtime": "Live updates",
+				"realtimeConnections_one": "{{count}} open connection on this instance",
+				"realtimeConnections_other": "{{count}} open connections on this instance",
+				"realtimeInMemory": "delivered in memory",
+				"realtimeRedis": "shared with other instances through Redis",
+				"realtimeRedisDown": "Redis is down, so only people on this instance get live updates",
+				"realtimeNotStarted": "WebSockets haven't started",
+				"redis": "Redis",
+				"redisNotConfigured": "Set REDIS_URL to share live updates across API instances.",
+				"redisOk": "{{mode}}, reachable",
+				"redisDown": "Can't reach Redis ({{code}})",
+				"redisModes": {
+					"standalone": "Standalone",
+					"sentinel": "Sentinel",
+					"cluster": "Cluster"
+				},
+				"storage": "File storage",
+				"storageNotConfigured": "Set S3_ENDPOINT and S3_BUCKET to turn on uploads.",
+				"storageOk": "Bucket reachable",
+				"storageIncomplete": "Some S3 settings are missing, so uploads are off.",
+				"storageWarning": "Can't check the bucket with these credentials ({{code}}).",
+				"storageDown": "Can't reach the bucket ({{code}})"
+			},
+			"email": {
+				"title": "Email",
+				"smtp": "SMTP",
+				"notConfigured": "Set SMTP_HOST and SMTP_FROM to turn on email.",
+				"ok": "Connected to the mail server",
+				"down": "Can't connect to the mail server ({{code}})",
+				"sendTest": "Test email",
+				"send": "Send test email",
+				"sending": "Sending…"
+			},
+			"signIn": {
+				"title": "Sign-in",
+				"on": "On",
+				"off": "Off",
+				"registration": "Registration",
+				"passwordRegistration": "Sign-up with a password",
+				"workspaceCreation": "Workspace creation"
+			},
+			"integrations": {
+				"title": "Integrations",
+				"available": "Available",
+				"connectedProjects_one": "Connected in {{count}} project",
+				"connectedProjects_other": "Connected in {{count}} projects",
+				"connectedUnknown": "Project count unavailable",
+				"instanceSetup": {
+					"ok": "GitHub App set up",
+					"warning": "Some GitHub App settings are missing",
+					"not_configured": "GitHub App not set up",
+					"down": "GitHub App unavailable"
+				}
+			},
+			"toast": {
+				"testEmailSent": "Test email sent to {{to}}",
+				"testEmailError": "The test email could not be sent."
+			}
+		},
+		"adminOverview": {
+			"title": "Overview",
+			"totalUsers": "Total users",
+			"activeUsers": "Active (30 days)",
+			"disabledUsers": "Disabled users",
+			"workspaces": "Workspaces",
+			"archivedWorkspaces": "Archived",
+			"recentUsers": "Recent users",
+			"recentActions": "Recent administrative actions",
+			"services": "Services",
+			"configurationWarnings": "Configuration warnings",
+			"viewUsers": "View users",
+			"viewAuditLog": "View audit log",
+			"viewSystem": "View system",
+			"noUsers": "No users",
+			"noActions": "No administrative actions",
+			"loadError": "Could not load the overview.",
+			"warnings": {
+				"smtpNotConfigured": "Email is not configured. Set SMTP_HOST and SMTP_FROM.",
+				"smtpUnreachable": "Email is unavailable. Check SMTP settings.",
+				"redisUnreachable": "Redis is unavailable. Check the connection.",
+				"storageIncomplete": "Storage setup is incomplete. Check S3 settings.",
+				"storageUnreachable": "Storage needs attention. Check S3 access.",
+				"registrationWithoutEmail": "Registration is open without email. Configure SMTP or set DISABLE_REGISTRATION=true.",
+				"noSecondAdmin": "Only one administrator has access. Assign a second admin in User management."
+			}
+		},
+		"adminRoles": {
+			"title": "Roles",
+			"create": "New role",
+			"listTitle": "All roles",
+			"loadError": "Roles could not be loaded.",
+			"builtIn": "Built-in",
+			"viewUsers": "View users",
+			"userCount_one": "{{count}} user",
+			"userCount_other": "{{count}} users",
+			"allPermissions": "All permissions",
+			"noPermissions": "No permissions",
+			"permissionCount_one": "{{count}} permission",
+			"permissionCount_other": "{{count}} permissions",
+			"actions": "Actions for {{name}}",
+			"edit": "Edit",
+			"deleteTitle": "Delete {{name}}?",
+			"dialog": {
+				"createTitle": "New role",
+				"editTitle": "Edit role",
+				"name": "Name",
+				"nameHint": "Use 2–32 lowercase letters, digits, or hyphens, starting with a letter.",
+				"create": "Create role",
+				"save": "Save"
+			},
+			"toast": {
+				"created": "Role created",
+				"updated": "Role updated",
+				"deleted": "Role deleted",
+				"error": "The role could not be saved."
+			},
+			"groups": {
+				"users": "Users",
+				"workspaces": "Workspaces",
+				"instance": "Instance"
+			},
+			"permissions": {
+				"usersRead": "View users",
+				"usersCreate": "Create users",
+				"usersUpdate": "Edit users and their roles",
+				"usersDisable": "Deactivate and reactivate users",
+				"usersDelete": "Delete users",
+				"usersCredentials": "Send password reset and verification emails",
+				"usersSessions": "View and end sessions",
+				"usersApiKeys": "View and revoke API keys",
+				"workspacesRead": "View workspaces and members",
+				"workspacesManage": "Manage workspace members",
+				"workspacesArchive": "Archive and restore workspaces",
+				"workspacesDelete": "Delete workspaces",
+				"auditRead": "View the audit log",
+				"systemRead": "View system status",
+				"instanceSettings": "Change instance settings"
+			}
+		},
+		"adminSettings": {
+			"title": "Settings",
+			"loadError": "Couldn't load instance settings.",
+			"general": "General",
+			"instanceName": "Instance name",
+			"save": "Save",
+			"instanceUrl": "Instance URL",
+			"instanceUrlMissing": "Set BATON_CLIENT_URL",
+			"registration": "Registration",
+			"signInProviders": "Sign-in providers",
+			"registrationEnabled": "Open registration",
+			"passwordRegistrationEnabled": "Email and password sign-up",
+			"requireEmailVerification": "Require email verification",
+			"requiresSmtp": "Requires SMTP",
+			"defaultRole": "Default role for new users",
+			"workspaces": "Workspaces",
+			"workspaceCreationRestricted": "Only administrators can create workspaces",
+			"integrations": "Integrations",
+			"lockedByEnv": "Set by {{name}}",
+			"toast": {
+				"saved": "Settings saved",
+				"error": "Couldn't save settings"
+			}
+		},
+		"adminWebhooks": {
+			"title": "Webhooks",
+			"add": "Add webhook",
+			"edit": "Edit webhook",
+			"url": "URL",
+			"categories": "Events",
+			"enabled": "Enabled",
+			"disabled": "Disabled",
+			"actions": "Actions for {{url}}",
+			"deliveries": "Recent deliveries",
+			"sendTest": "Send test",
+			"rotate": "Rotate secret",
+			"rotateTitle": "Rotate signing secret?",
+			"deleteTitle": "Delete webhook?",
+			"secretTitle": "Signing secret — save it now",
+			"signingSecret": "Signing secret",
+			"setup": "Set NOTIFICATION_SECRET_ENCRYPTION_KEY to create webhooks.",
+			"loadError": "Webhooks could not be loaded.",
+			"saveError": "The webhook could not be saved.",
+			"empty": "No webhooks",
+			"noDeliveries": "No deliveries",
+			"testQueued": "Test event queued.",
+			"testEvent": "Test event",
+			"pending": "Pending",
+			"succeeded": "Delivered",
+			"failed": "Failed",
+			"attempts_one": "{{count}} attempt",
+			"attempts_other": "{{count}} attempts",
+			"httpStatus": "HTTP {{status}}",
+			"errors": {
+				"network": "Connection failed",
+				"timeout": "Timed out",
+				"http": "HTTP error",
+				"destination": "Destination blocked",
+				"signing": "Signing failed",
+				"disabled": "Webhook disabled",
+				"interrupted": "Delivery interrupted",
+				"response": "Invalid response"
+			},
+			"save": "Save"
+		}
+	},
+	"navigation": {
+		"commandPalette": {
+			"suggestions": "Suggestions",
+			"commands": "Commands",
+			"projects": "Projects",
+			"search": "Search",
+			"members": "Members",
+			"createTask": "Create task",
+			"createProject": "Create project",
+			"createWorkspace": "Create workspace",
+			"lightTheme": "Light theme",
+			"darkTheme": "Dark theme",
+			"systemTheme": "System theme",
+			"keyboardShortcuts": "Keyboard shortcuts",
+			"inputPlaceholder": "Search for apps and commands...",
+			"empty": "No results found.",
+			"footer": {
+				"navigate": "Navigate",
+				"open": "Open",
+				"close": "Close"
+			}
+		},
+		"sidebar": {
+			"projects": "Repos",
+			"members": "Members",
+			"invitations": "Invitations",
+			"backToBoard": "Back to board",
+			"inbox": "Inbox",
+			"myTasks": "My tasks",
+			"invitePeople": "Invite people"
+		},
+		"projectList": {
+			"addProject": "Add project",
+			"switcherLabel": "Switch project or view"
+		},
+		"search": {
+			"inputPlaceholder": "Search tasks, projects, comments...",
+			"minCharsHint": "Type at least 3 characters to search",
+			"groups": {
+				"task": "Tasks",
+				"project": "Projects",
+				"workspace": "Workspaces",
+				"comment": "Comments",
+				"activity": "Activities",
+				"fallback": "Results"
+			}
+		},
+		"settingsLayout": {
+			"toggleSidebar": "Toggle sidebar"
+		},
+		"userMenu": {
+			"signedOutSuccess": "Signed out successfully",
+			"signOutFailed": "Failed to sign out",
+			"unnamedUser": "User",
+			"settings": "Settings",
+			"signingOut": "Signing out...",
+			"logOut": "Log out"
+		},
+		"workspaceSwitcher": {
+			"workspaces": "Workspaces",
+			"switching": "Switching...",
+			"addWorkspace": "Add workspace",
+			"selectWorkspace": "Select workspace"
+		},
+		"page": {
+			"settingsTitle": "Settings",
+			"backToWorkspace": "Back to Workspace",
+			"settingsWorkspaceTab": "Workspace"
+		},
+		"shortcuts": {
+			"categories": {
+				"general": "General",
+				"navigation": "Navigation",
+				"create": "Create",
+				"views": "Views",
+				"tasks": "Tasks",
+				"list": "Board and list",
+				"inbox": "Inbox",
+				"filters": "Filters",
+				"editor": "Editor"
+			},
+			"items": {
+				"openCommandMenu": "Open command menu",
+				"openSearch": "Search",
+				"openShortcuts": "Keyboard shortcuts",
+				"submit": "Save or submit",
+				"back": "Close or go back",
+				"switchWorkspace": "Switch workspace",
+				"logOut": "Log out",
+				"showDisplayOptions": "Display options",
+				"dismissToasts": "Dismiss all toasts",
+				"toggleSidebar": "Toggle sidebar",
+				"goToHome": "Go to home",
+				"goToInbox": "Go to inbox",
+				"goToMyTasks": "Go to my tasks",
+				"goToProjects": "Go to projects",
+				"goToSettings": "Go to settings",
+				"openTask": "Open task",
+				"openProject": "Open project",
+				"createTask": "Create task",
+				"createProject": "Create project",
+				"deleteTask": "Delete task",
+				"copyTaskUrl": "Copy task URL",
+				"copyBranchName": "Copy branch name",
+				"nextTask": "Next item",
+				"previousTask": "Previous item",
+				"openFocusedTask": "Open focused item",
+				"selectAll": "Select all",
+				"clearSelection": "Clear selection",
+				"changeStatus": "Change status",
+				"changePriority": "Change priority",
+				"assignTask": "Assign",
+				"assignToMe": "Assign to me",
+				"changeLabels": "Change labels",
+				"setDueDate": "Set due date",
+				"removeDueDate": "Remove due date",
+				"renameTask": "Rename",
+				"editDescription": "Edit description",
+				"commentOnTask": "Comment",
+				"moveToProject": "Move to another project",
+				"createSubtask": "Create subtask",
+				"setParent": "Set parent task",
+				"openParent": "Open parent task",
+				"openSubtask": "Open subtask",
+				"markBlockedBy": "Mark as blocked by",
+				"markBlocking": "Mark as blocking",
+				"markRelated": "Mark as related",
+				"addLink": "Add a link",
+				"toggleResources": "Show or hide resources",
+				"copyTaskId": "Copy task ID",
+				"copyTaskTitle": "Copy task title",
+				"copyAsMarkdown": "Copy as Markdown",
+				"peekTask": "Preview focused task",
+				"selectTask": "Select task",
+				"selectGroup": "Select all in group",
+				"copyPageUrl": "Copy page URL",
+				"focusRight": "Next column",
+				"focusLeft": "Previous column",
+				"moveTaskTop": "Move to top of group",
+				"moveTaskUp": "Move up one position",
+				"moveTaskDown": "Move down one position",
+				"moveTaskBottom": "Move to bottom of group",
+				"moveTaskLeft": "Move to previous column",
+				"moveTaskRight": "Move to next column",
+				"toggleGroup": "Collapse or expand group",
+				"toggleAllGroups": "Collapse or expand all groups",
+				"deleteNotification": "Delete notification",
+				"deleteReadNotifications": "Delete all read notifications",
+				"toggleNotificationRead": "Mark as read or unread",
+				"markAllNotificationsRead": "Mark all as read",
+				"addFilter": "Add filter",
+				"clearAllFilters": "Clear all filters",
+				"clearLastFilter": "Clear last filter",
+				"editorBold": "Bold",
+				"editorItalic": "Italic",
+				"editorUnderline": "Underline",
+				"editorStrike": "Strikethrough",
+				"editorAttach": "Attach image or file",
+				"editorInlineCode": "Inline code",
+				"editorLink": "Turn text into link",
+				"editorQuote": "Blockquote",
+				"editorParagraph": "Regular text",
+				"editorHeading1": "Heading 1",
+				"editorHeading2": "Heading 2",
+				"editorHeading3": "Heading 3",
+				"editorChecklist": "Checklist",
+				"editorToggleChecklist": "Toggle checklist item",
+				"editorBulletList": "Bulleted list",
+				"editorNumberedList": "Numbered list",
+				"editorCodeBlock": "Code block",
+				"editorUndo": "Undo",
+				"editorRedo": "Redo"
+			},
+			"title": "Keyboard shortcuts",
+			"searchPlaceholder": "Search by action or key",
+			"results_one": "{{count}} result",
+			"results_other": "{{count}} results",
+			"noResults": "No shortcuts match",
+			"then": "then",
+			"or": "or",
+			"thenEllipsis": "then…"
+		}
+	},
+	"notifications": {
+		"newCount_one": "{{count}} new",
+		"newCount_other": "{{count}} new",
+		"emptyTitle": "No notifications yet",
+		"emptySubtitle": "You'll see updates and activity here.",
+		"clearAll": "Clear all notifications",
+		"clearDialogTitle": "Clear all notifications?",
+		"clearDialogDescription": "This will permanently remove all notifications. You can't undo this action.",
+		"reminderLeadTime": {
+			"minutes_one": "{{count}} minute",
+			"minutes_other": "{{count}} minutes",
+			"hours_one": "{{count}} hour",
+			"hours_other": "{{count}} hours",
+			"days_one": "{{count}} day",
+			"days_other": "{{count}} days"
+		},
+		"events": {
+			"task_created": {
+				"title": "New task created",
+				"content": "Task \"{{taskTitle}}\" was created"
+			},
+			"workspace_created": {
+				"title": "Workspace created",
+				"content": "Your workspace \"{{workspaceName}}\" has been created successfully"
+			},
+			"task_status_changed": {
+				"title": "Task status changed",
+				"content": "Task \"{{taskTitle}}\" status changed from \"{{oldStatus}}\" to \"{{newStatus}}\""
+			},
+			"task_assignee_changed": {
+				"title": "Task assigned to you",
+				"content": "You have been assigned to task: {{taskTitle}}"
+			},
+			"task_mention": {
+				"title": "{{mentionerName}} mentioned you",
+				"content": "{{mentionerName}} mentioned you in: {{taskTitle}}"
+			},
+			"task_comment": {
+				"title": "{{commenterName}} commented on your task",
+				"content": "New comment on {{taskTitle}}: {{commentPreview}}"
+			},
+			"due_date_reminder": {
+				"title": "Task due soon",
+				"content": "{{taskTitle}} is due in {{leadTime}}"
+			},
+			"task_overdue": {
+				"title": "Task overdue",
+				"content": "{{taskTitle}} is past its due date"
+			},
+			"time_entry_created": {
+				"title": "Time tracking started",
+				"contentWithTask": "Time tracking started on task: {{taskTitle}}",
+				"contentWithoutTask": "Time tracking started on a task"
+			}
+		},
+		"inbox": {
+			"pageTitle": "Inbox",
+			"unread": "Unread",
+			"today": "Today",
+			"earlier": "Earlier",
+			"filters": {
+				"label": "Filter notifications",
+				"all": "All",
+				"unread": "Unread",
+				"mentions": "Mentions"
+			},
+			"emptyFilter": "Nothing here",
+			"loadError": "Notifications couldn't be loaded.",
+			"selectPrompt": "Select a notification to read it",
+			"back": "Inbox",
+			"openTask": "Open task",
+			"recentActivity": "Recent activity",
+			"taskUnavailable": "This task is no longer available.",
+			"taskLoadError": "This task couldn’t be loaded.",
+			"actionError": "Couldn't update your inbox. Try again.",
+			"readCleared": "Deleted read notifications"
+		}
+	},
+	"activity": {
+		"assignedToSelf": "assigned the task to themselves",
+		"unassigned": "unassigned the task",
+		"assignedTo": "assigned the task to {{name}}",
+		"changedStatus": "changed status from {{from}} to {{to}}",
+		"changedPriority": "changed priority from {{from}} to {{to}}",
+		"clearedDueDate": "cleared the due date",
+		"setDueDate": "set due date to {{date}}",
+		"changedDueDate": "changed due date from {{from}} to {{to}}",
+		"changedTitle": "changed title from \"{{from}}\" to \"{{to}}\"",
+		"moved": "moved task from \"{{from}}\" to \"{{to}}\"",
+		"movedFromOtherProject": "moved task from another project to \"{{to}}\"",
+		"created": "created this task",
+		"githubUser": "GitHub User",
+		"comment": {
+			"viewGithubProfile": "View GitHub Profile",
+			"commentedOnForge": "commented on {{forge}}",
+			"cannotBeEmpty": "Comment cannot be empty",
+			"mustBeLoggedInToEdit": "You must be logged in to edit comments",
+			"updated": "Comment updated",
+			"failedToUpdate": "Failed to update comment",
+			"edit": "Edit comment",
+			"editPlaceholder": "Edit comment...",
+			"save": "Save",
+			"added": "Comment added",
+			"failedToAdd": "Failed to add comment",
+			"leavePlaceholder": "Leave a comment...",
+			"attachFile": "Attach file",
+			"submitShortcut": "Submit comment",
+			"editor": {
+				"uploadsOnlyOnSavedTasks": "File uploads are only available on saved tasks.",
+				"uploadingFile": "Uploading file...",
+				"imageUploaded": "Image uploaded",
+				"fileAttached": "File attached",
+				"failedToUploadFile": "Failed to upload file",
+				"plaintext": "Plaintext",
+				"autoDetect": "Auto detect",
+				"slashGroupText": "Text",
+				"slashGroupLists": "Lists",
+				"slashGroupInsert": "Insert",
+				"slashParagraph": "Text",
+				"slashHeading": "Heading",
+				"slashBulletList": "Bulleted list",
+				"slashTaskList": "To-do list",
+				"slashOrderedList": "Numbered list",
+				"slashQuote": "Quote",
+				"slashCodeBlock": "Code block",
+				"slashTable": "Table",
+				"slashFile": "File",
+				"searchParagraph": "text paragraph normal",
+				"searchHeading": "heading title h2",
+				"searchBulletList": "list bullet unordered",
+				"searchTaskList": "todo to-do checklist checkbox task list",
+				"searchOrderedList": "list ordered numbered",
+				"searchQuote": "quote blockquote",
+				"searchCodeBlock": "code snippet",
+				"searchTable": "table grid",
+				"searchFile": "file attachment image photo picture upload",
+				"embedErrorInvalidUrl": "Enter a valid URL",
+				"embedErrorYoutubeOnly": "Only YouTube links can be embedded.",
+				"embedVideo": "Embed video",
+				"keepAsLink": "Keep as link",
+				"hintTab": "Tab",
+				"hintEsc": "Esc",
+				"pasteUrl": "Paste URL",
+				"asLink": "As link",
+				"embed": "Embed",
+				"noCommands": "No commands",
+				"ariaCommentContent": "Comment content",
+				"ariaCommentEditor": "Comment editor",
+				"ariaCopyCode": "Copy code",
+				"ariaCopied": "Copied",
+				"copy": "Copy",
+				"copied": "Copied",
+				"dropImageToUpload": "Drop image to upload",
+				"previewImageAlt": "Preview image",
+				"codeLang": {
+					"bash": "Bash",
+					"csharp": "C#",
+					"cpp": "C++",
+					"css": "CSS",
+					"go": "Golang",
+					"graphql": "GraphQL",
+					"html": "HTML",
+					"json": "JSON",
+					"java": "Java",
+					"javascript": "JavaScript",
+					"markdown": "Markdown",
+					"mermaid": "Mermaid",
+					"plaintext": "Plaintext",
+					"python": "Python",
+					"rust": "Rust",
+					"sql": "SQL",
+					"swift": "Swift",
+					"typescript": "TypeScript",
+					"yaml": "YAML"
+				},
+				"table": {
+					"addColumnBefore": "Insert column left",
+					"addColumnAfter": "Insert column right",
+					"deleteColumn": "Delete column",
+					"addRowBefore": "Insert row above",
+					"addRowAfter": "Insert row below",
+					"deleteRow": "Delete row",
+					"deleteTable": "Delete table"
+				},
+				"mermaid": {
+					"renderFailed": "Mermaid diagram couldn't be rendered"
+				}
+			},
+			"importedFrom": "Imported from {{source}}",
+			"importedBy": "Imported by {{name}}"
+		}
+	},
+	"tasks": {
+		"status": {
+			"label": "Status",
+			"to-do": "To Do",
+			"in-progress": "In Progress",
+			"in-review": "In Review",
+			"done": "Done",
+			"archived": "Archived",
+			"planned": "Planned"
+		},
+		"priority": {
+			"label": "Priority",
+			"no-priority": "No priority",
+			"low": "Low",
+			"medium": "Medium",
+			"high": "High",
+			"urgent": "Urgent"
+		},
+		"common": {
+			"selectTask": "Select task",
+			"loadingTask": "Loading task...",
+			"taskNotFound": "Task not found",
+			"taskNotFoundDescription": "The task you are looking for does not exist or has been deleted.",
+			"ticketAmbiguous": "Task ID matches more than one task",
+			"ticketAmbiguousDescription": "{{ticketId}} matches tasks in more than one project in this workspace. Give one of those projects a different key to fix the link.",
+			"ticketNotFoundDescription": "No task with the ID {{ticketId}} exists in this workspace, or you don't have access to it."
+		},
+		"detail": {
+			"activity": "Activity",
+			"noActivity": "No activity found",
+			"titlePlaceholder": "Click to add a title",
+			"addDescription": "Add a description...",
+			"editor": {
+				"ariaLabel": "Task description editor",
+				"placeholder": "Write a description...",
+				"previewImage": "Preview image",
+				"autoDetect": "Auto detect",
+				"copyCode": "Copy code",
+				"copy": "Copy",
+				"copied": "Copied",
+				"attachFile": "Attach file",
+				"dropToUpload": "Drop image to upload",
+				"checkbox": {
+					"markIncomplete": "Mark task as incomplete",
+					"markComplete": "Mark task as complete"
+				},
+				"upload": {
+					"loading": "Uploading file...",
+					"failed": "Failed to upload file",
+					"imageSuccess": "Image uploaded",
+					"fileSuccess": "File attached"
+				},
+				"slash": {
+					"groups": {
+						"text": "Text",
+						"lists": "Lists",
+						"insert": "Insert"
+					},
+					"empty": "No commands",
+					"commands": {
+						"paragraph": "Text",
+						"heading-2": "Heading",
+						"bullet-list": "Bulleted list",
+						"task-list": "To-do list",
+						"ordered-list": "Numbered list",
+						"blockquote": "Quote",
+						"code-block": "Code block",
+						"table": "Table",
+						"file": "File"
+					}
+				},
+				"languages": {
+					"bash": "Bash",
+					"csharp": "C#",
+					"cpp": "C++",
+					"css": "CSS",
+					"clojure": "Clojure",
+					"cypher": "Cypher",
+					"dart": "Dart",
+					"diff": "Diff",
+					"elixir": "Elixir",
+					"excel": "Excel",
+					"go": "Golang",
+					"graphql": "GraphQL",
+					"html": "HTML",
+					"haskell": "Haskell",
+					"json": "JSON",
+					"java": "Java",
+					"javascript": "JavaScript",
+					"kotlin": "Kotlin",
+					"makefile": "Makefile",
+					"markdown": "Markdown",
+					"mermaid": "Mermaid",
+					"ocaml": "OCaml",
+					"php": "PHP",
+					"perl": "Perl",
+					"plaintext": "Plaintext",
+					"python": "Python",
+					"r": "R",
+					"reasonml": "ReasonML",
+					"ruby": "Ruby",
+					"rust": "Rust",
+					"sql": "SQL",
+					"swift": "Swift",
+					"toml": "TOML",
+					"terraform": "Terraform",
+					"typescript": "TypeScript",
+					"xml": "XML",
+					"yaml": "YAML"
+				},
+				"embed": {
+					"choice": {
+						"embedVideo": "Embed video",
+						"keepAsLink": "Keep as link"
+					},
+					"inputPlaceholder": "Paste URL",
+					"embeddedContent": "Embedded content",
+					"asLink": "As link",
+					"submit": "Embed",
+					"errors": {
+						"invalidUrl": "Enter a valid URL",
+						"onlyYoutube": "Only YouTube links can be embedded."
+					},
+					"onlyYoutubeInline": "Only YouTube URLs can be embedded. Use link mode instead."
+				},
+				"mermaid": {
+					"renderFailed": "Mermaid diagram couldn't be rendered"
+				},
+				"image": {
+					"large": "Large",
+					"medium": "Medium",
+					"reset": "Reset size",
+					"resizeHandle": "Resize image",
+					"small": "Small"
+				},
+				"saved": "Saved",
+				"saving": "Saving…",
+				"saveFailed": "Changes could not be saved",
+				"retrySave": "Retry"
+			}
+		},
+		"entity": {
+			"task": "Task"
+		},
+		"relations": {
+			"title": "Relations",
+			"tasksInProject": "Tasks in project",
+			"linkError": "Failed to link task",
+			"empty": "No related tasks",
+			"searchPlaceholder": "Search tasks to link...",
+			"noTasksFound": "No tasks found",
+			"openTask": "Open task",
+			"removeRelation": "Remove relation",
+			"related": "Related",
+			"blocks": "Blocks",
+			"selectTask": "Select a task to link",
+			"blockedBy": "Blocked by",
+			"parentPlaceholder": "Set parent task…"
+		},
+		"subtasks": {
+			"progress": "{{completed}} of {{total}} subtasks completed",
+			"noCompletionColumn": "This project has no matching column for completing or reopening this subtask.",
+			"title": "Sub-tasks",
+			"addAction": "Add"
+		},
+		"properties": {
+			"labels": "Labels",
+			"addLabels": "Add labels",
+			"copyTaskLink": "Copy task link",
+			"copyTaskBranch": "Copy task branch",
+			"taskLinkCopied": "Copied task link",
+			"taskBranchCopied": "Copied branch name",
+			"start": "Start",
+			"startDate": "Start date"
+		},
+		"move": {
+			"title": "Move task",
+			"projectPlaceholder": "Select a project",
+			"statusLabel": "Destination status",
+			"success": "Task moved successfully",
+			"error": "Failed to move task"
+		},
+		"popover": {
+			"assignee": {
+				"unassigned": "Unassigned",
+				"updateError": "Failed to update task assignee"
+			},
+			"status": {
+				"updateError": "Failed to update task status"
+			},
+			"priority": {
+				"updateError": "Failed to update task priority"
+			},
+			"dueDate": {
+				"updateError": "Failed to update task due date",
+				"clear": "Clear date"
+			},
+			"startDate": {
+				"updateError": "Failed to update task start date",
+				"clear": "Clear start date"
+			},
+			"labels": {
+				"searchPlaceholder": "Search labels...",
+				"create": "Create \"{{name}}\"",
+				"chooseColor": "Choose color",
+				"updateError": "Failed to update label",
+				"createSuccess": "Label created and added",
+				"createError": "Failed to create label",
+				"colors": {
+					"stone": "Stone",
+					"slate": "Slate",
+					"lavender": "Lavender",
+					"sage": "Sage",
+					"forest": "Forest",
+					"amber": "Amber",
+					"terracotta": "Terracotta",
+					"rose": "Rose",
+					"crimson": "Crimson",
+					"ocean": "Ocean",
+					"sky": "Sky",
+					"lagoon": "Lagoon",
+					"orchid": "Orchid"
+				}
+			}
+		},
+		"delete": {
+			"title": "Delete Task?",
+			"description": "This will permanently remove the task and all its data. You can't undo this action.",
+			"action": "Delete Task",
+			"success": "Task deleted successfully",
+			"error": "Failed to delete task"
+		},
+		"duplicate": {
+			"success": "Task duplicated successfully",
+			"error": "Failed to duplicate task"
+		},
+		"listView": {
+			"noTasks": "No tasks"
+		},
+		"assignee": {
+			"label": "Assignee",
+			"unassigned": "Unassigned"
+		},
+		"dueDate": {
+			"label": "Due date"
+		},
+		"bulk": {
+			"moreActions": "More actions",
+			"statusPlaceholder": "Change status…",
+			"priorityPlaceholder": "Set priority…",
+			"assigneePlaceholder": "Assign to…"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Insert column left",
+				"addColumnAfter": "Insert column right",
+				"deleteColumn": "Delete column",
+				"addRowBefore": "Insert row above",
+				"addRowAfter": "Insert row below",
+				"deleteRow": "Delete row",
+				"deleteTable": "Delete table"
+			}
+		},
+		"display": {
+			"includeSubtasks": "Include Sub Tasks"
+		},
+		"filterMenu": {
+			"noResults": "No results"
+		},
+		"shortcuts": {
+			"assignedToMe": "Assigned to you",
+			"idCopied": "Copied task ID",
+			"titleCopied": "Copied task title",
+			"markdownCopied": "Copied as Markdown",
+			"copyFailed": "Couldn't copy to the clipboard."
+		},
+		"due": {
+			"today": "Today",
+			"tomorrow": "Tomorrow",
+			"fullDate": "Due {{date}}"
+		},
+		"datePicker": {
+			"dueDatePlaceholder": "Set due date…",
+			"startDatePlaceholder": "Set start date…",
+			"thisWeekend": "This weekend",
+			"nextWeek": "Next week",
+			"pickDate": "Pick a date",
+			"startsOn": "Starts {{date}}",
+			"beforeStart": "{{date}} is before the start date",
+			"afterDue": "{{date}} is after the due date"
+		}
+	},
+	"invitations": {
+		"email": {
+			"subject": "{{inviterName}} invited you to join {{workspaceName}} on {{instanceName}}",
+			"preview": "You're invited to {{workspaceName}} on Baton",
+			"title": "Join {{workspaceName}}",
+			"subtitle": "{{inviterName}} ({{inviterEmail}}) invited you to collaborate in Baton.",
+			"cta": "Accept invitation",
+			"sameEmail": "You can accept with the same email that received this message.",
+			"ignore": "If this wasn't expected, you can safely ignore this email.",
+			"footer": "Baton workspace invitation",
+			"details": {
+				"title": "Invitation details",
+				"sentTo": "Sent to",
+				"instance": "Instance",
+				"role": "Role",
+				"expires": "Expires"
+			}
+		},
+		"pageTitle": "Invitations",
+		"pendingInvitations": "Pending Invitations",
+		"acceptSubtitle": "Accept invitations to join workspaces",
+		"noPendingTitle": "No pending invitations",
+		"noPendingDescription": "You don't have any pending workspace invitations at the moment.",
+		"continueToSetup": "Continue to Setup",
+		"skipForNow": "Skip for now",
+		"table": {
+			"workspace": "Workspace",
+			"invitedBy": "Invited By",
+			"expires": "Expires"
+		},
+		"toast": {
+			"acceptError": "Failed to accept invitation",
+			"acceptSuccess": "Invitation accepted! Welcome to the team.",
+			"rejectError": "Failed to reject invitation",
+			"rejectSuccess": "Invitation rejected"
+		}
+	},
+	"workspace": {
+		"projects": {
+			"pageTitle": "Projects",
+			"createProject": "Create project",
+			"title": "Title",
+			"progress": "Progress",
+			"targetDate": "Target date",
+			"dueDate": "Due date",
+			"status": "Status",
+			"emptyTitle": "No projects yet",
+			"emptyDescription": "Get started by creating your first project.",
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"projectStatus": {
+				"notStarted": "Not started",
+				"complete": "Complete",
+				"inProgress": "In progress"
+			},
+			"noDueDate": "No due date",
+			"reorderError": "Failed to reorder projects",
+			"unavailable": {
+				"noAccessTitle": "You don't have access to this project",
+				"noAccessDescription": "Ask a workspace admin to give you access.",
+				"notFoundTitle": "Project not found",
+				"notFoundDescription": "This project doesn't exist or has been deleted.",
+				"backToWorkspace": "Back to workspace"
+			}
+		},
+		"search": {
+			"pageTitle": "Search",
+			"backToDashboard": "Back to Dashboard",
+			"placeholder": "Search tasks by title or short ID (e.g. DEP-23)...",
+			"hint": "Search across all projects in this workspace. Use short IDs like DEP-23 to find specific tasks.",
+			"searching": "Searching...",
+			"resultsFound_one": "{{count}} result found",
+			"resultsFound_other": "{{count}} results found",
+			"noResultsTitle": "No results found",
+			"noResultsDescription": "Try adjusting your search terms or search for something else",
+			"startTitle": "Start Searching",
+			"startDescription": "Enter a search term to find tasks across all projects",
+			"quickSearchesLabel": "Quick searches:",
+			"suggestionHighPriority": "High priority",
+			"suggestionBug": "Bug",
+			"suggestionFeature": "Feature",
+			"suggestionInProgress": "In progress",
+			"suggestionCompleted": "Completed"
+		},
+		"create": {
+			"pageTitle": "Create Workspace",
+			"heading": "Create a new workspace",
+			"subtitle": "Workspaces are shared environments where teams can work on projects, cycles and issues.",
+			"namePlaceholder": "Enter workspace name",
+			"descriptionLabel": "Description (optional)",
+			"descriptionPlaceholder": "Add a description for your workspace",
+			"required": "Required",
+			"creating": "Creating...",
+			"submit": "Create workspace",
+			"success": "Workspace created successfully",
+			"error": "Failed to create workspace"
+		},
+		"home": {
+			"pageTitle": "Home",
+			"greeting": {
+				"morning": "Good morning",
+				"afternoon": "Good afternoon",
+				"evening": "Good evening"
+			},
+			"newTask": "New task",
+			"week": {
+				"truncated": "The week preview includes only the first {{shown}} of {{total}} assigned tasks.",
+				"more_one": "+{{count}} more",
+				"more_other": "+{{count}} more"
+			},
+			"upNext": {
+				"title": "Up next",
+				"assigned_one": "{{count}} assigned to you",
+				"assigned_other": "{{count}} assigned to you",
+				"viewAll": "View all"
+			},
+			"projects": {
+				"title": "Your projects",
+				"all": "All projects",
+				"loadError": "Projects couldn't be loaded.",
+				"tasks_one": "{{count}} task",
+				"tasks_other": "{{count}} tasks"
+			},
+			"activity": {
+				"title": "Activity",
+				"commented": "commented",
+				"updated": "updated the task",
+				"empty": "Nothing has happened in the last 30 days.",
+				"loadError": "Activity couldn't be loaded."
+			}
+		},
+		"myWork": {
+			"empty": "Nothing assigned to you",
+			"loadError": "Your tasks couldn't be loaded.",
+			"due": {
+				"overdue": "Overdue",
+				"today": "Today",
+				"tomorrow": "Tomorrow",
+				"thisWeek": "This week",
+				"later": "Later",
+				"noDueDate": "No due date"
+			}
+		},
+		"myTasks": {
+			"pageTitle": "My tasks",
+			"emptyDescription": "Tasks assigned to you across this workspace show up here.",
+			"groupBy": {
+				"label": "Group by",
+				"dueDate": "Due date",
+				"project": "Repo"
+			},
+			"noRepo": "No repo",
+			"truncated": "Showing the first {{shown}} of {{total}} tasks.",
+			"waitsOn": "Waits on {{key}}",
+			"waitsOnHidden_one": "Waits on {{count}} task you cannot see",
+			"waitsOnHidden_other": "Waits on {{count}} tasks you cannot see",
+			"waitsOnMore": "+{{count}}"
+		},
+		"board": {
+			"waitsOn": {
+				"title": "Waits on",
+				"neededBy": "Needed by",
+				"add": "Add a task this one waits on",
+				"remove": "Stop waiting on {{key}}",
+				"done": "Done",
+				"empty": "Not waiting on anything.",
+				"pickerLabel": "Choose a task to wait on",
+				"searchPlaceholder": "Search tasks…",
+				"noTasks": "No other tasks to wait on.",
+				"linkError": "Could not link the task."
+			},
+			"newTask": {
+				"createAndAdd": "Create and add tasks"
+			},
+			"addTask": {
+				"waitsOn": "Waits on",
+				"waitsOnHint": "Optional. This task cannot be done before these are.",
+				"linkError_one": "Task added, but {{count}} link failed. Add it from the task page.",
+				"linkError_other": "Task added, but {{count}} links failed. Add them from the task page."
+			},
+			"waiting": {
+				"on": "Waiting on {{list}}",
+				"hidden_one": "Waiting on {{count}} task you cannot see",
+				"hidden_other": "Waiting on {{count}} tasks you cannot see",
+				"hiddenShort": "hidden task"
+			},
+			"done": {
+				"older": "{{count}} older",
+				"seeHistory": "See history"
+			},
+			"statusError": "Could not change the status.",
+			"columns": {
+				"todo": "To do",
+				"doing": "In progress",
+				"review": "In review",
+				"done": "Done"
+			},
+			"empty": "No tasks"
+		},
+		"archived": {
+			"title": "Workspace archived",
+			"description": "Contact an administrator to restore access.",
+			"otherWorkspaces": "Go to workspaces",
+			"manage": "Manage workspaces"
+		}
+	},
+	"team": {
+		"roles": {
+			"owner": "Owner",
+			"admin": "Admin",
+			"member": "Member",
+			"viewer": "Viewer"
+		},
+		"members": {
+			"pageTitle": "Members",
+			"inviteMember": "Invite member",
+			"you": "You"
+		},
+		"invitations": {
+			"pendingBadge": "pending",
+			"expires": "Expires {{date}}",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
+		},
+		"inviteModal": {
+			"title": "Invite Team Member",
+			"emailLabel": "Email",
+			"emailPlaceholder": "colleague@company.com",
+			"sendInvitation": "Send Invitation",
+			"success": "Invitation sent successfully",
+			"error": "Failed to invite team member",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
+		},
+		"membersTable": {
+			"emptyTitle": "No team members yet",
+			"emptyDescription": "Invite your first team member to get started.",
+			"columns": {
+				"name": "Name",
+				"role": "Role",
+				"joined": "Joined",
+				"projects": "Projects"
+			},
+			"ariaInvitationActions": "Invitation actions",
+			"ariaRemoveMember": "Remove member",
+			"removeDialogTitle": "Remove Team Member?",
+			"removeDialogDescription": "Are you sure you want to remove {{name}} from the workspace? This action cannot be undone.",
+			"cancelDialogTitle": "Cancel Invitation?",
+			"cancelDialogDescription": "Are you sure you want to cancel the invitation for {{email}}? This action cannot be undone.",
+			"removeMember": "Remove Member",
+			"cancelInvitation": "Cancel Invitation",
+			"removeSuccess": "Team member removed successfully",
+			"removeError": "Failed to remove team member",
+			"cancelInviteSuccess": "Invitation cancelled successfully",
+			"cancelInviteError": "Failed to cancel invitation",
+			"roleUpdateSuccess": "Role updated",
+			"roleUpdateError": "Failed to update role"
+		},
+		"projectAccess": {
+			"label": "Project access",
+			"description": "Choose which projects this person can see.",
+			"allProjects": "All projects",
+			"allProjectsDescription": "Access every project in this workspace, including new ones.",
+			"allProjectsUnavailable": "Your own access is limited, so you can only give access to selected projects.",
+			"selectedProjects": "Selected projects",
+			"selectedProjectsDescription": "Only access the projects you choose.",
+			"projectsLabel": "Projects",
+			"noProjects": "No projects in this workspace yet.",
+			"archived": "Archived",
+			"selectAtLeastOne": "Choose at least one project.",
+			"projectCount_one": "{{count}} project",
+			"projectCount_other": "{{count}} projects",
+			"editAria": "Change project access for {{name}} ({{access}})",
+			"dialogTitle": "Project access",
+			"dialogDescription": "Choose which projects {{name}} can access.",
+			"save": "Save",
+			"updateSuccess": "Project access updated",
+			"updateError": "Failed to update project access"
+		}
+	}
+}

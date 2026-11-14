@@ -1,0 +1,55 @@
+# DigitalOcean App Platform spec for the tracker.
+# One service (web app + API in one container) and one Postgres database.
+# Create the app with:  doctl apps create --spec .do/app.yaml
+# Then set the SECRET values in the dashboard. See DEPLOY.md.
+name: baton
+region: blr
+
+services:
+  - name: tracker
+    github:
+      repo: kabeerx9/baton
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile.baton
+    http_port: 5173
+    # Keep this at 1. Live updates, the event bus and the scheduler live in the
+    # memory of one process. A second instance needs Redis (REDIS_URL) first.
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 60
+      period_seconds: 30
+    envs:
+      - key: BATON_CLIENT_URL
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: AUTH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      # After the four accounts exist, set this to "true" so nobody else can sign up.
+      - key: DISABLE_REGISTRATION
+        scope: RUN_TIME
+        value: "false"
+      - key: DISABLE_GUEST_ACCESS
+        scope: RUN_TIME
+        value: "true"
+      # Optional: Slack direct messages. Leave unset to keep them off.
+      - key: SLACK_BOT_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: SLACK_DIGEST_CRON
+        scope: RUN_TIME
+        value: "0 10 * * 1-5"
+      - key: SLACK_DIGEST_TZ
+        scope: RUN_TIME
+        value: Asia/Kolkata
+
+databases:
+  - name: db
+    engine: PG
+    production: false

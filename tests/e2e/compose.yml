@@ -1,0 +1,33 @@
+name: baton-browserstack-e2e
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: baton_e2e
+      POSTGRES_USER: baton_e2e
+      POSTGRES_PASSWORD: baton_e2e
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baton_e2e -d baton_e2e"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  baton:
+    image: baton-browserstack:test
+    build:
+      context: ../..
+      dockerfile: Dockerfile.baton
+    ports:
+      - "127.0.0.1:18173:5173"
+    environment:
+      DATABASE_URL: postgresql://baton_e2e:baton_e2e@postgres:5432/baton_e2e
+      AUTH_SECRET: browser-tests-only-not-a-production-secret
+      BATON_CLIENT_URL: http://${BATON_E2E_HOST:-localhost}:18173
+      DISABLE_WORKSPACE_CREATION: "false"
+      DISABLE_REGISTRATION: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy

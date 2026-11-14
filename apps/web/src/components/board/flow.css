@@ -1,0 +1,16 @@
+/* Flowing dash on active "blocks" edges. */
+@keyframes board-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.board-flow {
+  animation: board-flow 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-flow {
+    animation: none;
+  }
+}
