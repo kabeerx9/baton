@@ -50,39 +50,57 @@ for a task under a feature, and `board task` for an item on the board.
 ### Who can change a task
 
 The permission check always comes first: a status change needs `task:update`,
-a direct delete needs `task:delete`, a reassignment needs `task:assign`. Then:
+a direct delete needs `task:delete`, a reassignment needs `task:assign`. An
+API key narrows each permission to its scope. The check runs on every path
+that changes the owner: the assignee route, a full update, the board item
+update and a move that drops the owner. Then:
 
 | Change | Involved, owner or admin | Other member |
 | --- | --- | --- |
 | Status | Applies | Change request (202) |
-| Delete | Applies (needs `task:delete`) | Change request (202), with `task:update` or `task:delete` |
+| Delete | Applies (needs `task:delete`) | Change request (202), needs `task:update` |
 | Assign, unassign | Applies | Refused (403). This includes taking the task yourself. |
 | Title, description, priority, due date, labels | Applies | Applies; involved people get a notification |
-| Status of a feature (rule 3) | Applies | Applies |
+| Status of a feature (rule 3) | Applies | Applies, except archive and unarchive: a change request that expires |
 
 - Bulk, reorder and project move never create a request. They refuse the
   item instead: bulk returns `results` per task, reorder across columns returns
   409, a move that changes the status returns 409.
 - Answering: an involved person, owner or admin with the action's permission
+  (`task:update` for a status request, `task:delete` for a delete request)
   accepts or rejects. Nobody answers their own request. Only the requester
-  cancels (withdraws) it.
+  cancels (withdraws) it. `canAnswer=me` uses the same rule.
+- A repeat of a recorded decision by the same person returns the recorded
+  result. Anyone else, or a different decision, gets 409.
+- Reading a request does not let you read its task. Accept, reject and cancel
+  return `task: null` unless the caller can read the task now (membership,
+  `task:read`, project access).
 - One pending request per task. A second request from anyone supersedes it;
   the same request again returns the existing one. At most 10 new requests
   per workspace per hour (429).
-- Accept re-checks the task. If its status or project changed, it became a
-  feature, or the requester lost access since the request, the request ends
-  `cancelled` with the reason. A blocked task still cannot be finished (rule 5);
+- Accept and the timeout re-check the task and the requester. The request ends
+  `cancelled` with the reason if the task status or project changed, the task
+  became a feature, the requester lost access (`requester_lost_access`), the
+  workspace was archived (`workspace_archived`), or the API key that made the
+  request was disabled, expired, deleted or no longer allows the change
+  (`credential_revoked`). The request stores the key id, never the secret; a
+  request from a session re-checks only the person. A blocked task still cannot be finished (rule 5);
   that refusal also ends the request `cancelled`.
 - No answer in 24 hours: a status request into a non-final, non-archived
   column applies (`applied_on_timeout`, credited to the requester). A request
-  for a final column, archived or a delete expires. The hourly job is
+  for a final column, archive, unarchive or a delete expires. The hourly job is
   `apps/api/src/task-change-request/expire-change-requests.ts`; it runs safely
   on several instances at once.
 - Any direct status change, reassignment, move or delete cancels the pending
   request. Exception: GitHub and other system writers do not check rule 5,
   because GitHub is the source of truth. They still cancel the pending request
   (`applyTaskChange` in `apps/api/src/task-change-request/apply-task-change.ts`).
-- Lock order: projects, then tasks sorted by id, then requests.
+- Every path that cancels a request notifies the requester after commit. If
+  the task is gone or hidden, the notice falls back to the workspace. There
+  are no database triggers.
+- Lock order: projects, then the requester's hourly quota (an advisory lock),
+  then tasks sorted by id, then requests. Paths that open a request use
+  `withLockedProjectTask` in `apps/api/src/task/controllers/with-locked-task.ts`.
 
 States: `pending`, then one of `accepted`, `rejected`, `cancelled`,
 `superseded`, `expired`, `applied_on_timeout`. The transitions are one pure
@@ -121,6 +139,9 @@ treated as final.
 
 Status, delete, full task update and board item update answer 200 with
 `outcome: "applied"`, or 202 with `outcome: "requested"` and the `request`.
+The task routes answer `{ outcome, task }`. The board item update keeps the
+flat board item and adds `outcome` (and `request`) beside its fields; this is
+the board contract.
 Clients read `outcome`, not only the HTTP status. The board, task detail and
 my tasks show `pendingRequest` (or null) on each item.
 

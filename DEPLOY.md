@@ -69,3 +69,8 @@ These were not run against a real App Platform app:
 A push to the deployed branch builds and deploys by itself. Migrations run at start.
 There is no automatic rollback of a migration: take a database backup before a deploy
 that adds one.
+
+Upgrading to migration 0077 (task change requests): stop every old API replica
+before the new one starts. Old replicas do not check consent and do not bump
+`task.status_generation`. The migration also rewrites every task row (it fills
+`task.created_by`), so plan a short write pause on a large database.

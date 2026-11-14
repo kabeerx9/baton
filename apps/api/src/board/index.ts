@@ -170,7 +170,7 @@ const updateByKeyRoute = createRoute({
   tags: ["Board"],
   summary: "Change a task or subtask found by its key",
   description:
-    'Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done. Only the task\'s creator, its owner or a workspace owner or admin may change the owner (403 otherwise). If you are not involved in the task, a status change is not made: the response is 202 with outcome "requested" and the change request. Read `outcome`, not only the HTTP status.',
+    'Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done. An owner change needs task:assign (narrowed by the API key scope) and only the task\'s creator, its owner or a workspace owner or admin may make it (403 otherwise). If you are not involved in the task, a status change is not made: the response is 202 with outcome "requested" and the change request. Read `outcome`, not only the HTTP status. Board contract: unlike the task routes, which answer `{ outcome, task }`, this route answers with the flat board item and adds `outcome` (and `request` on 202) beside its fields.',
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
     requireWorkspacePermission({ task: ["update"] }),
@@ -187,7 +187,10 @@ const updateByKeyRoute = createRoute({
       "The item after the change",
       boardItemFields
         .extend({ outcome: z.literal("applied") })
-        .openapi("BoardItemUpdated"),
+        .openapi("BoardItemUpdated", {
+          description:
+            "The flat board item with `outcome` beside its fields; this is the board contract, not the `{ outcome, task }` wrapper of the task routes.",
+        }),
     ),
     202: jsonResponse(
       "Other changes applied; the status change waits as a request",
@@ -196,10 +199,15 @@ const updateByKeyRoute = createRoute({
           outcome: z.literal("requested"),
           request: changeRequestSchema,
         })
-        .openapi("BoardItemChangeRequested"),
+        .openapi("BoardItemChangeRequested", {
+          description:
+            "The flat board item as it is now, with `outcome` and the pending `request` beside its fields; the item status is unchanged.",
+        }),
     ),
     400: errorResponse("A person or status could not be found"),
-    403: errorResponse("An owner change by someone not involved in the task"),
+    403: errorResponse(
+      "An owner change without task:assign or by someone not involved in the task",
+    ),
     404: errorResponse("No task with that key"),
     409: errorResponse("The item is blocked and cannot be finished"),
     429: errorResponse("Too many change requests in the last hour"),
