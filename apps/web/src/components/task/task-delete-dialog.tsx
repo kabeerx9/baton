@@ -1,5 +1,6 @@
 import type { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import { Trash2Icon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +33,7 @@ export default function TaskDeleteDialog({
   shortcutEnabled = true,
 }: TaskDeleteDialogProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { canDeleteTasks, isCheckingPermissions } = useWorkspacePermission();
   const { mutateAsync: deleteTask, isPending } = useDeleteTask();
   const canDelete = !isCheckingPermissions && canDeleteTasks();
@@ -55,7 +57,7 @@ export default function TaskDeleteDialog({
       // A delete by someone outside the task only opens a request: the task
       // stays, so the caller must not leave the page.
       if (result.outcome === "requested") {
-        notifyChangeRequested(result.task);
+        notifyChangeRequested(queryClient, result.task);
         return;
       }
       toast.success(t("tasks:delete.success"), { icon: Trash2Icon });

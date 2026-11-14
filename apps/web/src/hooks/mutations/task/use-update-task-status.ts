@@ -11,7 +11,8 @@ export function useUpdateTaskStatus() {
   return useMutation({
     mutationFn: (task: Task) => updateTaskStatus(task.id, task),
     onSuccess: (result, variables) => {
-      if (result.outcome === "requested") notifyChangeRequested(result.task);
+      if (result.outcome === "requested")
+        notifyChangeRequested(queryClient, result.task);
       invalidateMyWork(queryClient);
       queryClient.invalidateQueries({
         queryKey: ["task", variables.id],

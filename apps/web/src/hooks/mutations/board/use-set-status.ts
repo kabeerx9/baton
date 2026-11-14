@@ -18,7 +18,8 @@ export function useSetStatus() {
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
       updateTaskStatus(taskId, { status }),
     onSuccess: (result) => {
-      if (result.outcome === "requested") notifyChangeRequested(result.task);
+      if (result.outcome === "requested")
+        notifyChangeRequested(queryClient, result.task);
     },
     onError: (error) => {
       toast.error(

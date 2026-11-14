@@ -68,7 +68,7 @@ describe("useSetStatus", () => {
 
   it("says a request was sent and keeps the shown status when someone outside the task asks", async () => {
     const { hook, client } = setup();
-    const task = { id: "t", assigneeName: "Neha" };
+    const task = { id: "t", userId: "neha" };
     vi.mocked(updateTaskStatus).mockResolvedValue({
       outcome: "requested",
       task,
@@ -76,7 +76,7 @@ describe("useSetStatus", () => {
     await act(async () => {
       await hook.result.current.mutateAsync({ taskId: "t", status: "done" });
     });
-    expect(notifyChangeRequested).toHaveBeenCalledWith(task);
+    expect(notifyChangeRequested).toHaveBeenCalledWith(client, task);
     expect(toast.error).not.toHaveBeenCalled();
     // The board reloads from the server, which still has the old status.
     expect(client.getQueryState(["task-board", "w"])?.isInvalidated).toBe(true);

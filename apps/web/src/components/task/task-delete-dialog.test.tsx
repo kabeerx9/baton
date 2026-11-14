@@ -27,6 +27,9 @@ const mocks = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({}),
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -137,7 +140,9 @@ describe("TaskDeleteDialog", () => {
     await confirmDeletion();
 
     await waitFor(() =>
-      expect(mocks.notifyRequested).toHaveBeenCalledWith({ id: "task-1" }),
+      expect(mocks.notifyRequested).toHaveBeenCalledWith(expect.anything(), {
+        id: "task-1",
+      }),
     );
     expect(mocks.success).not.toHaveBeenCalled();
     expect(onDeleted).not.toHaveBeenCalled();
