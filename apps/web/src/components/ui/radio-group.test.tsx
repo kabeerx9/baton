@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { Label } from "@/components/ui/label";
-import { Radio, RadioGroup } from "@/components/ui/radio-group";
+import { Radio, RadioGroup, RadioPrimitive } from "@/components/ui/radio-group";
 
 function Choices({
   value,
@@ -174,13 +174,68 @@ describe("RadioGroup", () => {
   });
 
   it("disables every radio in a disabled group", () => {
-    render(<Choices disabled value="starter" />);
+    const onValueChange = vi.fn();
+    render(<Choices disabled onValueChange={onValueChange} value="starter" />);
 
     for (const radio of radios()) {
       expect(radio).toHaveAttribute("aria-disabled", "true");
     }
     fireEvent.click(screen.getByRole("radio", { name: "Team" }));
     expect(screen.getByRole("radio", { name: "Starter" })).toBeChecked();
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps Enter from submitting the form from the styled Radio", () => {
+    const onSubmit = vi.fn();
+    const onKeyDown = vi.fn();
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <RadioGroup aria-label="Plan" defaultValue="starter">
+          <Label>
+            <Radio onKeyDown={onKeyDown} value="starter" />
+            Starter
+          </Label>
+        </RadioGroup>
+        <button type="submit">Save</button>
+      </form>,
+    );
+
+    const radio = screen.getByRole("radio", { name: "Starter" });
+    radio.focus();
+    fireEvent.keyDown(radio, { key: "Enter" });
+
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("keeps Enter from submitting the form from RadioPrimitive", () => {
+    const onSubmit = vi.fn();
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <RadioGroup aria-label="Theme" defaultValue="light">
+          <RadioPrimitive aria-label="Light" value="light">
+            <span>Light</span>
+          </RadioPrimitive>
+        </RadioGroup>
+        <button type="submit">Save</button>
+      </form>,
+    );
+
+    const radio = screen.getByRole("radio", { name: "Light" });
+    radio.focus();
+    fireEvent.keyDown(radio, { key: "Enter" });
+
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("shows the indicator only on the checked radio", () => {
