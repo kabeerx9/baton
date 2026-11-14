@@ -8,6 +8,7 @@ import {
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
 const Tooltip = TooltipPrimitive;
@@ -47,8 +48,12 @@ function TooltipPopup({
   sideOffset = 4,
   side = "top",
   children,
+  containEvents = true,
   ...props
-}: React.ComponentProps<typeof TooltipContentPrimitive>) {
+}: React.ComponentProps<typeof TooltipContentPrimitive> & {
+  /** Contain pointer and command events in the content. Keys always pass. */
+  containEvents?: boolean;
+}) {
   // UI SDK owns the content's `hidden` attribute and would overwrite it, so a
   // caller asking for no tooltip (the sidebar while expanded) gets no popup.
   if (hidden) {
@@ -57,18 +62,22 @@ function TooltipPopup({
 
   return (
     <TooltipContentPrimitive
-      align={align}
-      className={cn(
-        POPUP_RESET,
-        "relative flex max-w-(--available-width) origin-(--transform-origin) text-balance rounded-md border bg-popover not-dark:bg-clip-padding px-2 py-1 text-popover-foreground text-xs shadow-md/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-        className,
+      {...containPopupEvents(
+        {
+          align,
+          className: cn(
+            POPUP_RESET,
+            "relative flex max-w-(--available-width) origin-(--transform-origin) text-balance rounded-md border bg-popover not-dark:bg-clip-padding px-2 py-1 text-popover-foreground text-xs shadow-md/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+            className,
+          ),
+          side,
+          sideOffset,
+          children,
+          ...props,
+        },
+        containEvents,
       )}
-      side={side}
-      sideOffset={sideOffset}
-      {...props}
-    >
-      {children}
-    </TooltipContentPrimitive>
+    />
   );
 }
 

@@ -1,6 +1,10 @@
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
+   The ancestor div and the render element stand in for a clickable card around
+   a popup; they are probes, not interactive UI. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { expectPopupContainment } from "./popup-containment-test-utils";
 import {
   Tooltip,
   TooltipContent,
@@ -272,5 +276,58 @@ describe("Tooltip added behavior (UI SDK)", () => {
     await openByHover(trigger);
     expect(shownTooltip()).toBe(content);
     expect(trigger).toHaveAttribute("aria-describedby", content?.id);
+  });
+});
+
+// Section 11: a tooltip can sit inside a board card link, so a click on its
+// content must stop before the link. The helper checks the whole rule.
+describe("Tooltip event containment", () => {
+  it("contains pointer and command events from its content", async () => {
+    await expectPopupContainment({
+      render: ({ containEvents, contentProps, control }) => (
+        <Tooltip delay={0}>
+          <TooltipTrigger>Waiting</TooltipTrigger>
+          <TooltipContent containEvents={containEvents} {...contentProps}>
+            {control}
+          </TooltipContent>
+        </Tooltip>
+      ),
+      open: async () => {
+        await openByHover(screen.getByRole("button", { name: "Waiting" }));
+      },
+      content: () => {
+        const content = shownTooltip();
+        if (!content) throw new Error("the tooltip did not open");
+        return content;
+      },
+    });
+  });
+
+  // UI SDK runs a `render` element's handlers after the part's and skips the
+  // part's handler when the element prevents the default, so the wrapper must
+  // contain that element too.
+  it("contains a click on a render element that prevents the default", async () => {
+    const ancestor = vi.fn();
+
+    render(
+      <div onClick={ancestor}>
+        <Tooltip delay={0}>
+          <TooltipTrigger>Waiting</TooltipTrigger>
+          <TooltipContent
+            render={<div onClick={(event) => event.preventDefault()} />}
+          >
+            Rendered detail
+          </TooltipContent>
+        </Tooltip>
+      </div>,
+    );
+    await openByHover(screen.getByRole("button", { name: "Waiting" }));
+
+    const content = shownTooltip();
+    if (!content) throw new Error("the tooltip did not open");
+    expect(content).toHaveAttribute("data-slot", "tooltip-content");
+
+    fireEvent.click(content);
+    expect(ancestor).not.toHaveBeenCalled();
   });
 });
