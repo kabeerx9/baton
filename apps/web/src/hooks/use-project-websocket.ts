@@ -14,6 +14,7 @@ import getTask from "@/fetchers/task/get-task";
 import getLabelsByTask from "@/fetchers/label/get-labels-by-task";
 import getExternalLinks from "@/fetchers/external-link/get-external-links";
 import type { ResumePreview } from "@/fetchers/integration-sync/types";
+import { invalidateMyWork } from "@/lib/invalidate-my-work";
 import { patchBoardTask } from "@/lib/patch-board-task";
 import { isPerTaskRelationQuery } from "@/lib/relation-query-keys";
 import type { ProjectWithTasks } from "@/types/project";
@@ -147,6 +148,20 @@ export function useProjectWebSocket(projectId: string) {
         queryClient.invalidateQueries({
           queryKey: ["external-links", message.taskId],
         });
+      }
+
+      // A change request opens, ends or is answered as a task update. Its
+      // banner, who may answer it, the activity it records and the My tasks
+      // row all follow the task, so they reload with it.
+      if (message.type === "TASK_UPDATED" && message.taskId) {
+        queryClient.invalidateQueries({
+          queryKey: ["activities", message.taskId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["change-request-answerable", message.taskId],
+        });
+        queryClient.invalidateQueries({ queryKey: ["change-request"] });
+        invalidateMyWork(queryClient);
       }
 
       if (message.type === "COMMENT_UPDATED") {

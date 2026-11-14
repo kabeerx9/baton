@@ -91,6 +91,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("change request realtime", () => {
+  it("reloads the task, its request, its activity and My tasks when a request changes", () => {
+    mocks.getTask.mockResolvedValue({ id: "a", projectId: "p" });
+    renderHook(() => useProjectWebSocket("p"));
+    Socket.current.message("TASK_UPDATED", { taskId: "a" });
+    const keys = mocks.client.invalidateQueries.mock.calls.map(
+      ([filters]) => (filters as { queryKey: unknown[] }).queryKey,
+    );
+    expect(keys).toContainEqual(["task", "a"]);
+    expect(keys).toContainEqual(["task-board"]);
+    expect(keys).toContainEqual(["activities", "a"]);
+    expect(keys).toContainEqual(["change-request-answerable", "a"]);
+    expect(keys).toContainEqual(["change-request"]);
+    expect(keys).toContainEqual(["assigned-tasks"]);
+  });
+});
+
 describe("board realtime races", () => {
   it.each(["TASKS_REORDERED", "PROJECT_UPDATED", "TASK_RELATION_UPDATED"])(
     "discards a task refresh started before %s",
