@@ -361,7 +361,7 @@ describe("Select modal", () => {
     expect(locked()).toBe(false);
 
     await openByClick();
-    expect(locked()).toBe(true);
+    await waitFor(() => expect(locked()).toBe(true));
 
     key(active(), "Escape");
     await waitFor(() => expect(shownListbox()).toBeNull());
