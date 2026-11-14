@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { projectTable, assetTable } from "../../database/schema";
+import { projectTable, assetTable, taskTable } from "../../database/schema";
+import { cancelPendingRequestsInProject } from "../../task-change-request/cancel-pending";
 import { publishEvent } from "../../events";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { getProjectSubtaskParentProjects } from "../../task/get-subtask-parent-projects";
@@ -31,6 +32,15 @@ async function deleteProject(id: string, workspaceId: string) {
       ...assets.map((asset) => asset.objectKey),
       ...(project.backgroundObjectKey ? [project.backgroundObjectKey] : []),
     ]);
+    // Lock order: project, tasks, then change requests. The repo's open
+    // requests end as cancelled and keep their history after the cascade.
+    await tx
+      .select({ id: taskTable.id })
+      .from(taskTable)
+      .where(eq(taskTable.projectId, id))
+      .orderBy(asc(taskTable.id))
+      .for("update");
+    await cancelPendingRequestsInProject(tx, id, "task_deleted");
     const [deleted] = await tx
       .delete(projectTable)
       .where(

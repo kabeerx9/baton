@@ -22,7 +22,11 @@ import {
   assertValidTaskStatus,
 } from "../validate-task-fields";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
-import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import {
+  cancelPendingRequests,
+  cancelPendingRequestsFor,
+} from "../../task-change-request/cancel-pending";
+import { statusWrite } from "../../task-change-request/apply-task-change";
 import {
   decideConsent,
   type TaskChangeKind,
@@ -238,7 +242,7 @@ async function bulkUpdateTasks({
           const changed = await tx
             .update(taskTable)
             .set({
-              status: value,
+              ...statusWrite(value),
               columnId: destinations.get(projectId) ?? null,
             })
             .where(
@@ -393,6 +397,19 @@ async function bulkUpdateTasks({
           "assign",
         );
         const allowed = locked.filter((task) => !refusals.has(task.id));
+        // A new assignee changes who must consent: open requests end.
+        effects.push(
+          ...finishedEffects(
+            await cancelPendingRequestsFor(
+              tx,
+              allowed
+                .filter((task) => task.userId !== assigneeId)
+                .map((task) => task.id),
+              "task_changed",
+            ),
+            userId,
+          ),
+        );
         if (allowed.length)
           await tx
             .update(taskTable)
@@ -406,6 +423,7 @@ async function bulkUpdateTasks({
         return allowed;
       });
       updatedCount = before.length;
+      await dispatchRequestEffects(effects);
       for (const task of before)
         await publishTaskMutation(
           task,

@@ -4,7 +4,7 @@ import type { taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { publishTaskMutation } from "./task-mutation-effects";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
-import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import { applyTaskChange } from "../../task-change-request/apply-task-change";
 import { decideConsent } from "../../task-change-request/consent";
 import {
   dispatchRequestEffects,
@@ -17,10 +17,6 @@ import {
   openRequestWithEffects,
 } from "../../task-change-request/request-change";
 import type { ChangeRequestRow } from "../../task-change-request/response";
-import {
-  checkStatusChange,
-  writeStatus,
-} from "../../task-change-request/status-change";
 import { getValidTaskStatuses } from "../validate-task-fields";
 
 type Task = typeof taskTable.$inferSelect;
@@ -76,27 +72,18 @@ async function updateTaskStatus({
         }
       }
 
-      const check = await checkStatusChange(
-        tx,
-        existingTask,
+      const applied = await applyTaskChange(tx, actor, existingTask, {
+        kind: "status",
         status,
-        currentUserId,
-      );
-      if (!check.ok)
-        throw new HTTPException(check.status, { message: check.message });
-      if (status !== existingTask.status)
-        effects.push(
-          ...finishedEffects(
-            await cancelPendingRequests(tx, id, "task_changed"),
-            currentUserId,
-          ),
-        );
-      const updatedTask = await writeStatus(tx, id, status, check.columnId);
-      if (!updatedTask) {
+      });
+      if (!applied.ok)
+        throw new HTTPException(applied.status, { message: applied.message });
+      if (applied.kind !== "status")
         throw new HTTPException(500, {
           message: "Failed to update task status",
         });
-      }
+      effects.push(...finishedEffects(applied.cancelled, currentUserId));
+      const updatedTask = applied.after;
       return { outcome: "applied", task: updatedTask };
     },
   );

@@ -21,6 +21,7 @@ import {
 } from "../../task-change-request/load-consent-facts";
 import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
 import { checkStatusChange } from "../../task-change-request/status-change";
+import { statusWrite } from "../../task-change-request/apply-task-change";
 
 type Reorder = { id: string; position: number; status?: string };
 export default async function reorderTasks(
@@ -163,7 +164,7 @@ export default async function reorderTasks(
       .update(taskTable)
       .set({
         position: sql`changes.position`,
-        status: sql`coalesce(changes.status, ${taskTable.status})`,
+        ...statusWrite(sql`coalesce(changes.status, ${taskTable.status})`),
         columnId: sql`case when changes.status is null then ${taskTable.columnId} else changes.column_id end`,
       })
       .from(

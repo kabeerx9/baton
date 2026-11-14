@@ -7,6 +7,7 @@ import { Cron } from "croner";
 import { checkDueDateReminders } from "./due-date-reminders";
 import { slackConfig } from "../slack-dm/config";
 import { sendMorningDigests } from "../slack-dm/digest";
+import { expireChangeRequests } from "../task-change-request/expire-change-requests";
 
 const jobs: Cron[] = [];
 
@@ -79,6 +80,14 @@ export function initializeScheduler(): void {
     new Cron(
       "*/5 * * * *",
       withCheckIn("due-date-reminders", checkDueDateReminders),
+    ),
+  );
+  // Unanswered change requests apply or expire 24 hours after they were made.
+  jobs.push(
+    new Cron(
+      "17 * * * *",
+      { protect: true },
+      withCheckIn("task-change-request-timeouts", expireChangeRequests),
     ),
   );
   // The Slack digest exists only when a bot token is set.

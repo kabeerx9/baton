@@ -1,3 +1,4 @@
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
@@ -132,6 +133,10 @@ async function createTaskRelation({
         message: "Failed to create task relation",
       });
     }
+    // A task that gets a subtask becomes a feature: its own status stops
+    // counting, so an open status request on it no longer holds.
+    if (relationType === "subtask")
+      await cancelPendingRequests(tx, sourceTaskId, "became_feature");
 
     return { relation, sourceTask };
   });

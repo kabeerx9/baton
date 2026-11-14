@@ -54,6 +54,7 @@ import { getPrivateObject } from "./storage/s3";
 import task from "./task";
 import taskRelation from "./task-relation";
 import board from "./board";
+import taskChangeRequest from "./task-change-request";
 import slackDm from "./slack-dm";
 import user from "./user";
 import getAvatar from "./user/controllers/get-avatar";
@@ -618,6 +619,10 @@ export function createApp() {
   );
   const taskRelationApi = api.route("/task-relation", taskRelation);
   const boardApi = api.route("/board", board);
+  const taskChangeRequestApi = api.route(
+    "/task-change-request",
+    taskChangeRequest,
+  );
   const slackDmApi = api.route("/slack-dm", slackDm);
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
@@ -749,6 +754,7 @@ export function createApp() {
     taskApi,
     taskRelationApi,
     boardApi,
+    taskChangeRequestApi,
     slackDmApi,
     userApi,
     adminApi,
@@ -865,6 +871,7 @@ const {
   taskApi,
   taskRelationApi,
   boardApi,
+  taskChangeRequestApi,
   slackDmApi,
   userApi,
   adminApi,
@@ -897,6 +904,7 @@ export type AppType =
   | typeof githubIntegrationApi
   | typeof taskRelationApi
   | typeof boardApi
+  | typeof taskChangeRequestApi
   | typeof slackDmApi
   | typeof externalLinkApi
   | typeof workflowRuleApi

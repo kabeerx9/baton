@@ -124,6 +124,8 @@ async function importTasks(
           .values({
             projectId,
             userId: assigneeId ?? null,
+            // An imported task belongs to the person who imported it.
+            createdBy: currentUserId || null,
             title: taskData.title,
             status,
             columnId: column?.id ?? null,

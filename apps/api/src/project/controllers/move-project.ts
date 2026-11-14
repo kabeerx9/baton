@@ -1,3 +1,4 @@
+import { cancelPendingRequestsInProject } from "../../task-change-request/cancel-pending";
 import { and, eq, inArray, isNotNull, max, notInArray, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import createActivities from "../../activity/controllers/create-activities";
@@ -200,6 +201,9 @@ async function moveProject(
           );
       }
     }
+
+    // Requests carry the old workspace; none of them may apply after a move.
+    await cancelPendingRequestsInProject(tx, id, "task_changed");
 
     // Older task moves could leave links owned by a different project.
     await tx

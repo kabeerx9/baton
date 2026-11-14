@@ -77,7 +77,7 @@ export async function loadPersonGrants(
 }
 
 /** True when the person can still see the task's repo (board tasks: always). */
-async function canSeeTaskProject(
+export async function canSeeTaskProject(
   database: DbOrTx,
   userId: string,
   projectId: string,

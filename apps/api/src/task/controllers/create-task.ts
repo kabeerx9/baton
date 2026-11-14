@@ -1,3 +1,4 @@
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { extractAssetIds } from "../../storage/cleanup-assets";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
@@ -88,6 +89,7 @@ async function createTask({
       .values({
         projectId,
         userId: normalizedUserId ?? null,
+        createdBy: currentUserId || null,
         title: title || "",
         status: resolvedStatus,
         columnId: column?.id ?? null,
@@ -144,6 +146,8 @@ async function createTask({
         targetTaskId: task.id,
         relationType: "subtask",
       });
+      // The parent is now a feature; its own status no longer counts.
+      await cancelPendingRequests(tx, parentTaskId, "became_feature");
     }
 
     return task;

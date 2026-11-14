@@ -660,8 +660,9 @@ export const taskTable = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    // Bumped by a database trigger on every status change, from any writer.
-    // A change request records it and applies only while it is unchanged.
+    // Bumped on every status change, by every writer (see statusWrite in
+    // task-change-request/apply-task-change.ts). A change request records it
+    // and applies only while it is unchanged.
     statusGeneration: integer("status_generation").default(0).notNull(),
     createdAt: timestamp("created_at", { mode: "date" })
       .default(utcNow)

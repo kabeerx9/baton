@@ -1,3 +1,4 @@
+import { pendingRequestsInWorkspace } from "../../task-change-request/pending-summaries";
 import { and, asc, eq, inArray, isNull, not, sql } from "drizzle-orm";
 import db from "../../database";
 import {
@@ -191,12 +192,15 @@ async function getBoard(workspaceId: string, userId: string) {
     ...children.filter((c) => !c.isCompleted).map((c) => c.id),
   ]);
   const blockers = summarizeBlockers(blockLinks, openIds);
+  const pending = await pendingRequestsInWorkspace(workspaceId);
   const tasks = items.map((task) => ({
     ...task,
     ...(blockers.get(task.id) ?? NO_BLOCKERS),
+    pendingRequest: pending.get(task.id) ?? null,
     subtasks: task.subtasks.map((subtask) => ({
       ...subtask,
       ...(blockers.get(subtask.id) ?? NO_BLOCKERS),
+      pendingRequest: pending.get(subtask.id) ?? null,
     })),
   }));
 

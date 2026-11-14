@@ -9,6 +9,7 @@ import {
 import { publishEvent } from "../../events";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { applyTaskChange } from "../../task-change-request/apply-task-change";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { decideConsent } from "../../task-change-request/consent";
 import {
@@ -129,9 +130,13 @@ async function deleteTask(
         return { kind: "requested" as const, request: opened.request };
       }
     }
-    const { deleted, cancelled } = await deleteLockedTask(tx, locked);
-    effects.push(...finishedEffects(cancelled, currentUserId));
-    return { kind: "deleted" as const, deleted };
+    const applied = await applyTaskChange(tx, actor, locked, {
+      kind: "delete",
+    });
+    if (!applied.ok)
+      throw new HTTPException(applied.status, { message: applied.message });
+    effects.push(...finishedEffects(applied.cancelled, currentUserId));
+    return { kind: "deleted" as const, deleted: applied.before };
   });
 
   await dispatchRequestEffects(effects);

@@ -1,0 +1,207 @@
+import { eq } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
+import db from "../database";
+import { taskChangeRequestTable, type taskTable } from "../database/schema";
+import { ApiError } from "../errors/api-error";
+import { publishEvent } from "../events";
+import {
+  publishTaskDeleted,
+  taskRelationsOf,
+} from "../task/controllers/delete-task";
+import { publishTaskMutation } from "../task/controllers/task-mutation-effects";
+import { lockTask } from "../task/controllers/with-locked-task";
+import type { PersonActor } from "./actor";
+import { decideAnswer } from "./consent";
+import { dispatchRequestEffects, type RequestEffect } from "./effects";
+import {
+  type Decider,
+  type Execution,
+  executeChangeRequest,
+  markRequest,
+} from "./execute-change-request";
+import { type RequestEvent, transition } from "./lifecycle";
+import { consentFactsWith, loadPersonGrants } from "./load-consent-facts";
+import type { ChangeRequestRow } from "./response";
+
+type Task = typeof taskTable.$inferSelect;
+export type Decision = "accept" | "reject" | "cancel";
+
+const EVENTS: Record<Decision, RequestEvent> = {
+  accept: { type: "accept" },
+  reject: { type: "reject" },
+  cancel: { type: "cancel" },
+};
+
+export async function findChangeRequest(id: string) {
+  const [row] = await db
+    .select()
+    .from(taskChangeRequestTable)
+    .where(eq(taskChangeRequestTable.id, id))
+    .limit(1);
+  return row;
+}
+
+/** Publishes the task events an applied request owes, after commit. */
+export async function publishExecution(
+  execution: Execution,
+  actorId: string | null,
+  relations: Awaited<ReturnType<typeof taskRelationsOf>>,
+) {
+  if (execution.kind === "applied") {
+    await publishTaskMutation(
+      execution.before,
+      execution.after,
+      actorId ?? undefined,
+      {
+        fields: ["status"],
+      },
+    );
+    if (
+      execution.before.status === execution.after.status &&
+      execution.before.columnId !== execution.after.columnId
+    )
+      await publishEvent("task.updated", {
+        taskId: execution.after.id,
+        projectId: execution.after.projectId,
+        userId: actorId,
+      });
+  } else if (execution.kind === "deleted") {
+    await publishTaskDeleted(execution.before, relations, actorId);
+  }
+}
+
+/**
+ * Accept, reject or withdraw a request. Lock order: the task, then the
+ * request. Repeating a decision returns the recorded outcome; a different
+ * recorded outcome is a 409. A refused accept (stale task, blocked, lost
+ * access) still commits: the request ends cancelled with the reason.
+ */
+export async function decideChangeRequest({
+  requestId,
+  actor,
+  decision,
+}: {
+  requestId: string;
+  actor: PersonActor;
+  decision: Decision;
+}): Promise<{ request: ChangeRequestRow; task: Task | null }> {
+  const found = await findChangeRequest(requestId);
+  if (!found) throw new HTTPException(404, { message: "Request not found" });
+  const relations =
+    decision === "accept" && found.kind === "delete" && found.taskId
+      ? await taskRelationsOf(found.taskId)
+      : [];
+  const decider: Decider = { userId: actor.userId, channel: actor.channel };
+  const effects: RequestEffect[] = [];
+  const done: { execution: Execution | null } = { execution: null };
+
+  const result = await db.transaction(async (tx) => {
+    const task = found.taskId
+      ? ((await lockTask(tx, found.taskId)) ?? null)
+      : null;
+    const [request] = await tx
+      .select()
+      .from(taskChangeRequestTable)
+      .where(eq(taskChangeRequestTable.id, requestId))
+      .for("update");
+    if (!request)
+      throw new HTTPException(404, { message: "Request not found" });
+
+    const step = transition(request.state, EVENTS[decision]);
+    if (step.kind === "replay") return { request, task };
+    if (step.kind === "conflict")
+      throw new ApiError(409, {
+        message: `This request is already ${step.state.replaceAll("_", " ")}.`,
+        code: "REQUEST_DECIDED",
+      });
+
+    if (decision === "cancel") {
+      if (request.requestedBy !== actor.userId)
+        throw new ApiError(403, {
+          message: "Only the person who made the request can withdraw it.",
+          code: "NOT_REQUESTER",
+        });
+      const cancelled = await markRequest(
+        tx,
+        request.id,
+        "cancelled",
+        decider,
+        "withdrawn",
+      );
+      effects.push({
+        type: "finished",
+        request: cancelled,
+        actorId: actor.userId,
+      });
+      return { request: cancelled, task };
+    }
+
+    if (!task) {
+      // The task is gone; the delete trigger should already have ended it.
+      const cancelled = await markRequest(
+        tx,
+        request.id,
+        "cancelled",
+        decider,
+        "task_deleted",
+      );
+      effects.push({
+        type: "finished",
+        request: cancelled,
+        actorId: actor.userId,
+      });
+      return { request: cancelled, task };
+    }
+
+    const kind = request.kind === "delete" ? "delete" : "status";
+    const grants = await loadPersonGrants(tx, request.workspaceId, actor);
+    const facts = await consentFactsWith(tx, task, actor.userId, grants);
+    const answer = decideAnswer(kind, {
+      ...facts,
+      isRequester: request.requestedBy === actor.userId,
+    });
+    if (!answer.ok)
+      throw new ApiError(403, {
+        message: answer.message,
+        code: "CANNOT_ANSWER",
+      });
+
+    if (decision === "reject") {
+      const rejected = await markRequest(tx, request.id, "rejected", decider);
+      effects.push({
+        type: "finished",
+        request: rejected,
+        actorId: actor.userId,
+      });
+      return { request: rejected, task };
+    }
+
+    const execution = await executeChangeRequest(
+      tx,
+      request,
+      task,
+      "accepted",
+      decider,
+    );
+    done.execution = execution;
+    effects.push({
+      type: "finished",
+      request: execution.request,
+      actorId: actor.userId,
+    });
+    return {
+      request: execution.request,
+      task:
+        execution.kind === "applied"
+          ? execution.after
+          : execution.kind === "deleted"
+            ? null
+            : task,
+    };
+  });
+
+  if (done.execution)
+    await publishExecution(done.execution, actor.userId, relations);
+  await dispatchRequestEffects(effects);
+  return result;
+}

@@ -11,6 +11,8 @@ import { extractTaskLinks } from "../utils/task-references";
 
 import type { IntegrationDatabase } from "./integration-task-scope";
 import { activeIntegrationCondition } from "../../active-integration-condition";
+import { applyTaskChange } from "../../../task-change-request/apply-task-change";
+import type { TaskTransaction } from "../../../task/controllers/with-locked-task";
 
 export type TaskRow = InferSelectModel<typeof taskTable>;
 
@@ -59,12 +61,22 @@ export async function findTaskById(
   });
 }
 
+/**
+ * The integration status setter: a system write through `applyTaskChange`.
+ * It skips consent and the blocker rule (GitHub is the source of truth for
+ * what was merged or closed) but still bumps the status generation and
+ * cancels any pending change request on the task, in the caller's
+ * transaction.
+ */
 export async function updateTaskStatus(
   taskId: string,
   newStatus: string,
   database: IntegrationDatabase = db,
 ): Promise<UpdateTaskStatusResult> {
-  const task = await database.query.taskTable.findFirst({
+  if (database === db)
+    return db.transaction((tx) => updateTaskStatus(taskId, newStatus, tx));
+  const tx = database as TaskTransaction;
+  const task = await tx.query.taskTable.findFirst({
     where: eq(taskTable.id, taskId),
   });
 
@@ -72,37 +84,30 @@ export async function updateTaskStatus(
     return { applied: false };
   }
 
-  let columnId: string | null = null;
-
-  const column = await database.query.columnTable.findFirst({
-    where: and(
-      eq(columnTable.projectId, task.projectId),
-      eq(columnTable.slug, newStatus),
-    ),
-  });
-
-  if (column) {
-    columnId = column.id;
-  } else if (!NON_COLUMN_STATUSES.has(newStatus)) {
+  if (
+    !NON_COLUMN_STATUSES.has(newStatus) &&
+    !(await tx.query.columnTable.findFirst({
+      where: and(
+        eq(columnTable.projectId, task.projectId),
+        eq(columnTable.slug, newStatus),
+      ),
+    }))
+  ) {
     console.warn(
       `[GitHub] Skipping status update for task ${taskId}: column "${newStatus}" not found in project ${task.projectId}`,
     );
     return { applied: false };
   }
 
-  const [after] = await database
-    .update(taskTable)
-    .set({ status: newStatus, columnId })
-    .where(
-      and(eq(taskTable.id, taskId), eq(taskTable.projectId, task.projectId)),
-    )
-    .returning();
+  const result = await applyTaskChange(
+    tx,
+    { kind: "system", userId: null },
+    task,
+    { kind: "status", status: newStatus },
+  );
+  if (!result.ok || result.kind !== "status") return { applied: false };
 
-  if (!after) {
-    return { applied: false };
-  }
-
-  return { applied: true, before: task, after };
+  return { applied: true, before: task, after: result.after };
 }
 
 export async function isTaskInFinalState(

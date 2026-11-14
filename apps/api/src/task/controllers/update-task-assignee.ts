@@ -12,6 +12,12 @@ import { decideConsent } from "../../task-change-request/consent";
 import { loadConsentFacts } from "../../task-change-request/load-consent-facts";
 import { consentError } from "../../task-change-request/request-change";
 import { notifyRemovedAssignee } from "./notify-removed-assignee";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+} from "../../task-change-request/effects";
+import type { ChangeRequestRow } from "../../task-change-request/response";
 
 async function updateTaskAssignee({
   id,
@@ -24,6 +30,7 @@ async function updateTaskAssignee({
   currentUserId: string;
   actor?: TaskActor;
 }) {
+  const cancelled: ChangeRequestRow[] = [];
   const { before: existingTask, after: updatedTask } = await withLockedTask(
     id,
     async (tx, existingTask) => {
@@ -56,6 +63,8 @@ async function updateTaskAssignee({
         .set({ userId: nextAssigneeId })
         .where(eq(taskTable.id, id))
         .returning();
+      // A new assignee changes who must consent: open requests no longer hold.
+      cancelled.push(...(await cancelPendingRequests(tx, id, "task_changed")));
 
       if (!updatedTask) {
         throw new HTTPException(500, {
@@ -71,6 +80,7 @@ async function updateTaskAssignee({
     fields: ["userId"],
   });
   await notifyRemovedAssignee(existingTask, updatedTask, currentUserId);
+  await dispatchRequestEffects(finishedEffects(cancelled, currentUserId));
 
   return updatedTask;
 }

@@ -20,6 +20,7 @@ import { findBlockedMessage } from "../assert-not-blocked";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { decideConsent } from "../../task-change-request/consent";
+import { statusWrite } from "../../task-change-request/apply-task-change";
 import {
   dispatchRequestEffects,
   finishedEffects,
@@ -208,7 +209,7 @@ async function moveTask({
       .update(taskTable)
       .set({
         projectId: destinationProjectId,
-        status: resolvedColumn.slug,
+        ...statusWrite(resolvedColumn.slug),
         columnId: resolvedColumn.id,
         number: nextTaskNumber,
         position: nextPosition,

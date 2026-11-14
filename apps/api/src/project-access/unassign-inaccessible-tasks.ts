@@ -2,6 +2,7 @@ import { and, eq, inArray, not } from "drizzle-orm";
 import createActivities from "../activity/controllers/create-activities";
 import { schema } from "../database";
 import type { DbOrTx } from "./db-or-tx";
+import { cancelPendingRequestsFor } from "../task-change-request/cancel-pending";
 import { projectAccessCondition } from "./project-access-condition";
 
 export async function unassignInaccessibleTasks(
@@ -34,6 +35,13 @@ export async function unassignInaccessibleTasks(
       id: schema.taskTable.id,
       projectId: schema.taskTable.projectId,
     });
+
+  // A new assignee changes who must consent: open requests no longer hold.
+  await cancelPendingRequestsFor(
+    database,
+    unassigned.map((task) => task.id),
+    "task_changed",
+  );
 
   await createActivities(
     unassigned.map((task) => ({

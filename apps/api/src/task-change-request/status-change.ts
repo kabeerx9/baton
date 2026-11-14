@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { columnTable, taskTable } from "../database/schema";
+import { columnTable } from "../database/schema";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import { findBlockedMessage } from "../task/assert-not-blocked";
 import { getValidTaskStatuses } from "../task/validate-task-fields";
@@ -58,18 +58,4 @@ export async function columnFinality(
     )
     .limit(1);
   return column ? column.isFinal : null;
-}
-
-export async function writeStatus(
-  database: DbOrTx,
-  taskId: string,
-  status: string,
-  columnId: string | null,
-) {
-  const [after] = await database
-    .update(taskTable)
-    .set({ status, columnId })
-    .where(eq(taskTable.id, taskId))
-    .returning();
-  return after;
 }

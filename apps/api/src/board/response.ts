@@ -1,5 +1,6 @@
 import { nullableResponseTimestamp, responseTimestamp, z } from "../openapi";
 import { hiddenBlockersSchema, waitsOnSchema } from "../task/response";
+import { pendingRequestSchema } from "../task-change-request/response";
 
 const assigneeSchema = z
   .object({ id: z.string(), name: z.string(), image: z.string().nullable() })
@@ -35,6 +36,7 @@ const boardTaskBaseSchema = z.object({
   }),
   waitsOn: waitsOnSchema,
   hiddenBlockers: hiddenBlockersSchema,
+  pendingRequest: pendingRequestSchema,
 });
 
 export const subtaskSchema = boardTaskBaseSchema

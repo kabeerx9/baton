@@ -1,3 +1,5 @@
+import { statusWrite } from "../../task-change-request/apply-task-change";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { confirmedFieldLabels } from "../../plugins/sync/field-labels";
 import { acceptsIssue, readSyncRules } from "../../plugins/sync/rules";
 import { canSyncTask } from "../../plugins/sync/eligibility";
@@ -53,6 +55,25 @@ import {
 
 type ImportEvent = "task.updated" | "task.labels_updated" | "comment.updated";
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/**
+ * For updates of existing tasks: the resolved status with the status
+ * generation bump every status writer applies.
+ */
+async function importedStatusUpdate(
+  tx: Transaction,
+  projectId: string,
+  requested: string | null,
+  current: string,
+) {
+  const resolved = await resolveImportedStatus(
+    tx,
+    projectId,
+    requested,
+    current,
+  );
+  return { ...statusWrite(resolved.status), columnId: resolved.columnId };
+}
+
 async function resolveImportedStatus(
   tx: Transaction,
   projectId: string,
@@ -455,18 +476,21 @@ async function applyPage(
         : 0;
     const priority = current.prioritySeen ? null : extractIssuePriority(labels);
     const status = current.statusSeen ? null : extractIssueStatus(labels);
-    if (priority || status)
+    if (priority || status) {
+      const statusUpdate = status
+        ? await importedStatusUpdate(tx, project.id, status, task.status)
+        : null;
       await tx
         .update(taskTable)
-        .set({
-          ...(priority ? { priority } : {}),
-          ...(status
-            ? await resolveImportedStatus(tx, project.id, status, task.status)
-            : {}),
-        })
+        .set({ ...(priority ? { priority } : {}), ...statusUpdate })
         .where(
           and(eq(taskTable.id, task.id), eq(taskTable.projectId, project.id)),
         );
+      // A manual import is a bypass for consent; a status it changes still
+      // ends any open change request on the task.
+      if (statusUpdate && statusUpdate.status !== task.status)
+        await cancelPendingRequests(tx, task.id, "task_changed");
+    }
     current.prioritySeen ||= labels.some((label) =>
       label.name.startsWith("priority:"),
     );
@@ -551,11 +575,13 @@ async function importIssue(
       .set({
         title: issue.title,
         description: formatTaskDescriptionFromIssue(issue.body, task.id),
-        ...(await resolveImportedStatus(tx, projectId, status, task.status)),
+        ...(await importedStatusUpdate(tx, projectId, status, task.status)),
         ...(priority ? { priority } : {}),
       })
       .where(and(eq(taskTable.id, task.id), eq(taskTable.projectId, projectId)))
-      .returning({ id: taskTable.id });
+      .returning({ id: taskTable.id, status: taskTable.status });
+    if (updated && updated.status !== task.status)
+      await cancelPendingRequests(tx, task.id, "task_changed");
     return updated ? { id: updated.id, result: "updated" } : null;
   }
   const number = await claimTaskNumber(projectId, tx);

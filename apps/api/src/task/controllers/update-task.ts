@@ -32,6 +32,7 @@ import {
 } from "../../task-change-request/request-change";
 import type { ChangeRequestRow } from "../../task-change-request/response";
 import { checkStatusChange } from "../../task-change-request/status-change";
+import { statusWrite } from "../../task-change-request/apply-task-change";
 
 async function updateTask(
   id: string,
@@ -189,6 +190,14 @@ async function updateTask(
         effects.push(...opened.effects);
       }
     }
+    // A new assignee changes who must consent: open requests no longer hold.
+    if ((normalizedUserId ?? null) !== locked.userId)
+      effects.push(
+        ...finishedEffects(
+          await cancelPendingRequests(tx, id, "task_changed"),
+          currentUserId ?? null,
+        ),
+      );
     if (statusChanges && !statusIsRequest) {
       const check = await checkStatusChange(
         tx,
@@ -210,7 +219,9 @@ async function updateTask(
       .update(taskTable)
       .set({
         title,
-        ...(statusIsRequest ? {} : { status, columnId: column?.id ?? null }),
+        ...(statusIsRequest
+          ? {}
+          : { ...statusWrite(status), columnId: column?.id ?? null }),
         startDate: startDate || null,
         dueDate: dueDate || null,
         projectId,

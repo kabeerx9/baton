@@ -15,6 +15,8 @@ import {
   type TaskBefore,
 } from "../../task/controllers/task-mutation-effects";
 import type { reviewSyncResume } from "./review-resume";
+import { statusWrite } from "../../task-change-request/apply-task-change";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 
 export async function applySyncResume(
   review: Awaited<ReturnType<typeof reviewSyncResume>>,
@@ -51,15 +53,21 @@ export async function applySyncResume(
       const target = columns.find((column) => column.slug === slug)!;
       status = { status: target.slug, columnId: target.id };
     }
+    // Person-started, but it needs integration management permission, so it
+    // is a bypass for consent. Like other integration writes it skips the
+    // blocker rule; it still bumps the generation and ends open requests.
     const [after] = await tx
       .update(taskTable)
       .set({
         title: review.remote.title,
         description: review.remote.description,
-        ...status,
+        ...statusWrite(status.status),
+        columnId: status.columnId,
       })
       .where(eq(taskTable.id, task.id))
       .returning();
+    if (after && after.status !== task.status)
+      await cancelPendingRequests(tx, task.id, "task_changed");
     await recordTaskMutation(tx, task, after!);
     adoption = {
       before: task,
