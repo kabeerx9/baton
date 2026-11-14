@@ -283,4 +283,72 @@ describe("two-connection races", () => {
       10,
     );
   });
+
+  describe("workspace delete, which locks the workspace before its rows", () => {
+    async function lockWorkspaceForDelete(workspaceId: string) {
+      holder = await getDatabasePool().connect();
+      await holder.query("BEGIN");
+      // The same first step as deleteWorkspaceData (lockWorkspaceRow).
+      await holder.query("SELECT id FROM workspace WHERE id = $1 FOR UPDATE", [
+        workspaceId,
+      ]);
+      return holder;
+    }
+
+    async function deleteAndCommit(lock: PoolClient, workspaceId: string) {
+      // Cascades into projects, tasks and requests; it must not wait on a
+      // row the other path already holds.
+      await lock.query("DELETE FROM workspace WHERE id = $1", [workspaceId]);
+      await lock.query("COMMIT");
+    }
+
+    it("lets a workspace delete finish while an accept waits", async () => {
+      const f = await changeRequestFixture();
+      const requestId = await requestStatus(
+        f.outsider,
+        f.task.id,
+        "in-progress",
+      );
+      const lock = await lockWorkspaceForDelete(f.workspace.id);
+
+      const accepting = answer(f.creator, requestId, "accept");
+      await waitForLockWaiters();
+      await deleteAndCommit(lock, f.workspace.id);
+
+      expect((await accepting).status).toBe(404);
+      expect(await readTask(f.task.id)).toBeUndefined();
+      expect(await readRequest(requestId)).toBeUndefined();
+    });
+
+    it("lets a workspace delete finish while a new request waits", async () => {
+      const f = await changeRequestFixture();
+      const lock = await lockWorkspaceForDelete(f.workspace.id);
+
+      const asking = setStatus(f.outsider, f.task.id, "in-progress");
+      await waitForLockWaiters();
+      await deleteAndCommit(lock, f.workspace.id);
+
+      expect((await asking).status).toBe(404);
+      expect(await readTask(f.task.id)).toBeUndefined();
+      expect(await db.select().from(schema.taskChangeRequestTable)).toEqual([]);
+    });
+
+    it("lets a workspace delete finish while the timeout waits", async () => {
+      const f = await changeRequestFixture();
+      const requestId = await requestStatus(
+        f.outsider,
+        f.task.id,
+        "in-progress",
+      );
+      await makeDue(requestId);
+      const lock = await lockWorkspaceForDelete(f.workspace.id);
+
+      const timingOut = timeOutRequest(requestId);
+      await waitForLockWaiters();
+      await deleteAndCommit(lock, f.workspace.id);
+
+      expect(await timingOut).toBe("skipped");
+      expect(await readRequest(requestId)).toBeUndefined();
+    });
+  });
 });

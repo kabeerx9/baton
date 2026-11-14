@@ -131,3 +131,44 @@ describe("originating API key", () => {
     await expectCancelled(deleted.requestId, "credential_revoked");
   });
 });
+
+describe("banned requester", () => {
+  function ban(userId: string, banExpires: Date | null = null) {
+    return db
+      .update(schema.userTable)
+      .set({ banned: true, banExpires })
+      .where(eq(schema.userTable.id, userId));
+  }
+
+  it("cancels a session request on timeout after the requester is banned", async () => {
+    const f = await changeRequestFixture();
+    const requestId = await requestStatus(f.outsider, f.task.id, "in-progress");
+    await ban(f.outsider.id);
+    await makeDue(requestId);
+
+    expect(await timeOutRequest(requestId)).toBe("cancelled");
+    await expectCancelled(requestId, "requester_lost_access");
+    expect((await readTask(f.task.id))?.status).toBe("to-do");
+  });
+
+  it("cancels a key request on accept after the requester is banned", async () => {
+    const f = await changeRequestFixture();
+    const { requestId } = await requestWithKey(f);
+    await ban(f.outsider.id, new Date(Date.now() + 60 * 60 * 1000));
+
+    expect((await answer(f.creator, requestId, "accept")).status).toBe(200);
+    await expectCancelled(requestId, "requester_lost_access");
+    expect((await readTask(f.task.id))?.status).toBe("to-do");
+  });
+
+  it("applies on timeout when the requester's ban has expired", async () => {
+    const f = await changeRequestFixture();
+    const { requestId } = await requestWithKey(f);
+    await ban(f.outsider.id, new Date(Date.now() - 60 * 1000));
+    await makeDue(requestId);
+
+    expect(await timeOutRequest(requestId)).toBe("applied");
+    expect((await readRequest(requestId))?.state).toBe("applied_on_timeout");
+    expect((await readTask(f.task.id))?.status).toBe("in-progress");
+  });
+});

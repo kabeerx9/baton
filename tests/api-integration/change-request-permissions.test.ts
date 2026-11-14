@@ -24,6 +24,17 @@ import { createProjectFixture } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 import { restrictToProjects } from "./helpers/project-access/restrict-to-projects";
 
+vi.mock("../../apps/api/src/events", async (original) => {
+  const events = await original<typeof import("../../apps/api/src/events")>();
+  return {
+    ...events,
+    // Subscribers (activity, notifications) finish before each response, so
+    // none still writes when the next test truncates the tables.
+    publishEvent: (...args: Parameters<typeof events.publishEvent>) =>
+      events.publishEvent(args[0], args[1], { waitForHandlers: true }),
+  };
+});
+
 beforeEach(resetTestDatabase);
 afterEach(() => vi.restoreAllMocks());
 
@@ -163,14 +174,24 @@ describe("status change consent", () => {
     expect(
       (await setStatusWithKey(creatorKey, f.task.id, "in-review")).status,
     ).toBe(200);
-    const activities = await db
-      .select()
-      .from(schema.activityTable)
-      .where(eq(schema.activityTable.taskId, f.task.id));
-    expect(activities).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "status_changed", channel: "agent" }),
-      ]),
+    // The status activity is written by an event subscriber after the
+    // response, so wait for it, within a bound.
+    await vi.waitFor(
+      async () => {
+        const activities = await db
+          .select()
+          .from(schema.activityTable)
+          .where(eq(schema.activityTable.taskId, f.task.id));
+        expect(activities).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "status_changed",
+              channel: "agent",
+            }),
+          ]),
+        );
+      },
+      { timeout: 5000, interval: 50 },
     );
   });
 

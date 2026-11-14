@@ -13,6 +13,7 @@ import {
   answer,
   changeRequestFixture,
   createKey,
+  moveToNewWorkspace,
   requestStatus,
   withKey,
 } from "./helpers/change-requests";
@@ -98,6 +99,28 @@ describe("decisions after the caller lost the task", () => {
     expect(
       (await (await cancelWithKey(key, requestId)).json()).task,
     ).toBeNull();
+  });
+
+  it("returns task null on replay when the destination workspace is archived", async () => {
+    const f = await changeRequestFixture();
+    const requestId = await requestStatus(f.outsider, f.task.id, "in-progress");
+    expect((await answer(f.outsider, requestId, "cancel")).status).toBe(200);
+    // The requester stays a member where the project goes.
+    const target = await moveToNewWorkspace(f, f.creator, [f.outsider]);
+
+    const visible = await answer(f.outsider, requestId, "cancel");
+    expect((await visible.json()).task).toMatchObject({ id: f.task.id });
+
+    await db
+      .update(schema.workspaceTable)
+      .set({ archivedAt: new Date() })
+      .where(eq(schema.workspaceTable.id, target.id));
+    const replay = await answer(f.outsider, requestId, "cancel");
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({
+      request: { state: "cancelled" },
+      task: null,
+    });
   });
 
   it("refuses a replay by anyone but the original decider", async () => {

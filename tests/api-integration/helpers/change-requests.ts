@@ -151,3 +151,32 @@ export async function outcomeNotifications(userId: string) {
       ),
     );
 }
+
+/**
+ * Moves the fixture's project into a new workspace owned by `owner`.
+ * `members` also join the new workspace as plain members.
+ */
+export async function moveToNewWorkspace(
+  f: Awaited<ReturnType<typeof changeRequestFixture>>,
+  owner: { id: string },
+  members: { id: string }[] = [],
+) {
+  const { default: moveProject } =
+    await import("../../../apps/api/src/project/controllers/move-project");
+  const id = `workspace-target-${f.project.id}`;
+  const [target] = await db
+    .insert(schema.workspaceTable)
+    .values({ id, name: "Target", slug: id, createdAt: new Date() })
+    .returning();
+  await db.insert(schema.workspaceUserTable).values([
+    { workspaceId: id, userId: owner.id, role: "owner", joinedAt: new Date() },
+    ...members.map((member) => ({
+      workspaceId: id,
+      userId: member.id,
+      role: "member",
+      joinedAt: new Date(),
+    })),
+  ]);
+  await moveProject(f.project.id, f.workspace.id, id, owner.id);
+  return target;
+}
