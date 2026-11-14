@@ -58,8 +58,23 @@ type ComboboxProps<Value, Multiple extends boolean | undefined = false> = Omit<
   LegacyNames<Value> & {
     /** Raw values, as Base UI took them. A list function child renders each. */
     items?: readonly Value[];
-    /** `null` is Base UI's "keep every item"; UI SDK spells it `false`. */
-    filter?: ComboboxRootProps<Value, boolean>["filter"] | null;
+    /**
+     * Base UI's contract: `null` keeps every item, a function gets the raw item,
+     * the query and a label function. UI SDK spells "keep all" `false` and hands
+     * its own `{ value, label }` entry, so the wrapper adapts both.
+     */
+    filter?:
+      | "contains"
+      | "startsWith"
+      | false
+      | null
+      | ((
+          item: Value,
+          query: string,
+          itemToString: (value: Value) => string,
+        ) => boolean);
+    /** UI SDK name: `loop`. */
+    loopFocus?: boolean;
     multiple?: Multiple;
     value?: Selection<Value, Multiple>;
     defaultValue?: Selection<Value, Multiple>;
@@ -91,6 +106,7 @@ function Combobox<
 >({
   items,
   filter,
+  loopFocus,
   itemToStringLabel,
   itemToStringValue,
   onInputValueChange,
@@ -98,9 +114,19 @@ function Combobox<
   defaultInputValue,
   ...props
 }: ComboboxProps<Value, Multiple>) {
+  const toLabel = itemToStringLabel ?? ((value: Value) => String(value));
   const mapped = {
     ...props,
-    ...(filter === undefined ? null : { filter: filter ?? false }),
+    ...(loopFocus === undefined ? null : { loop: loopFocus }),
+    ...(filter === undefined
+      ? null
+      : {
+          filter:
+            typeof filter === "function"
+              ? (entry: { value: unknown }, query: string) =>
+                  filter(entry.value as Value, query, toLabel)
+              : (filter ?? false),
+        }),
     ...(itemToStringLabel ? { itemToLabel: itemToStringLabel } : null),
     ...(itemToStringValue ? { itemToValue: itemToStringValue } : null),
     ...(onInputValueChange ? { onQueryChange: onInputValueChange } : null),
@@ -234,15 +260,27 @@ function ComboboxTrigger({
 function ComboboxPopup({
   className,
   children,
-  side = "bottom",
+  side: sideProp = "bottom",
   sideOffset = 4,
   align = "start",
   containEvents = true,
   ...props
-}: React.ComponentProps<typeof ComboboxContentPrimitive> & {
+}: Omit<React.ComponentProps<typeof ComboboxContentPrimitive>, "side"> & {
+  /** Base UI's `inline-start` and `inline-end` map to `start` and `end`. */
+  side?:
+    | React.ComponentProps<typeof ComboboxContentPrimitive>["side"]
+    | "inline-start"
+    | "inline-end";
   /** Contain pointer and command events in the content. Keys always pass. */
   containEvents?: boolean;
 }) {
+  const side =
+    sideProp === "inline-start"
+      ? "start"
+      : sideProp === "inline-end"
+        ? "end"
+        : sideProp;
+
   return (
     <ComboboxContentPrimitive
       {...containPopupEvents(
