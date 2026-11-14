@@ -146,7 +146,9 @@ export default function CommentCard({
       <div className="group relative w-full rounded-lg border border-border/80 bg-foreground/2">
         <div className="flex flex-wrap items-center gap-2 px-3 pt-3">
           <HoverCard>
-            <HoverCardTrigger>
+            <HoverCardTrigger
+              aria-label={user?.name || t("common:people.someone")}
+            >
               <div className="flex cursor-pointer items-center gap-2">
                 <Avatar className="size-5">
                   <AvatarImage src={user?.image ?? ""} alt={user?.name || ""} />

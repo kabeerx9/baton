@@ -117,7 +117,7 @@ function UserHoverName({
 
   return (
     <HoverCard>
-      <HoverCardTrigger asChild>
+      <HoverCardTrigger aria-label={user.user.name || fallbackName} asChild>
         <span className="cursor-pointer font-medium text-foreground/85 transition-colors hover:text-foreground">
           {user.user.name}
         </span>

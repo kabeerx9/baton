@@ -162,6 +162,21 @@ describe("HoverCard", () => {
     expect(name.closest("a")).toBe(name.parentElement);
   });
 
+  it("puts an aria-label on the trigger, also when asChild supplies it", () => {
+    render(
+      <HoverCard>
+        <HoverCardTrigger aria-label="Tin" asChild>
+          <span>Tin</span>
+        </HoverCardTrigger>
+        <HoverCardContent>
+          <p>Preview body</p>
+        </HoverCardContent>
+      </HoverCard>,
+    );
+
+    expect(screen.getByLabelText("Tin")).toBe(screen.getByText("Tin"));
+  });
+
   it("opens on the requested side", async () => {
     render(<Preview side="bottom" />);
 
