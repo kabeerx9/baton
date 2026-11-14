@@ -1,4 +1,14 @@
-import { and, count, desc, eq, ne, or, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  ne,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import db from "../database";
 import {
   projectTable,
@@ -52,14 +62,20 @@ export async function listChangeRequests(
   if (filters.requestedBy === "me")
     conditions.push(eq(taskChangeRequestTable.requestedBy, userId));
   if (filters.canAnswer === "me") {
-    // Pending requests made by someone else on tasks the caller created or
-    // is assigned (or any task, for an owner or admin). Accept re-checks
-    // every permission under lock.
+    // Pending requests made by someone else, of a kind the caller has the
+    // permission to answer (status: task:update, delete: task:delete, both
+    // narrowed by an API key), on tasks they created or are assigned (or
+    // any task, for an owner or admin). Accept re-checks all of it under lock.
     const grants = await loadPersonGrants(db, filters.workspaceId, {
       userId,
       scope,
     });
+    const kinds = [
+      grants.can({ task: ["update"] }) && "status",
+      grants.can({ task: ["delete"] }) && "delete",
+    ].filter((kind): kind is string => Boolean(kind));
     conditions.push(
+      kinds.length ? inArray(taskChangeRequestTable.kind, kinds) : sql`false`,
       eq(taskChangeRequestTable.state, "pending"),
       ne(sql`coalesce(${taskChangeRequestTable.requestedBy}, '')`, userId),
       grants.bypass

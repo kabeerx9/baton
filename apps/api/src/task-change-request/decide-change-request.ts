@@ -20,7 +20,12 @@ import {
   markRequest,
 } from "./execute-change-request";
 import { type RequestEvent, transition } from "./lifecycle";
-import { consentFactsWith, loadPersonGrants } from "./load-consent-facts";
+import {
+  canSeeTaskProject,
+  consentFactsWith,
+  loadPersonGrants,
+  projectWorkspaceId,
+} from "./load-consent-facts";
 import type { ChangeRequestRow } from "./response";
 
 type Task = typeof taskTable.$inferSelect;
@@ -71,9 +76,30 @@ export async function publishExecution(
 }
 
 /**
+ * Whether the caller may see the task as it is now. Reading a request's
+ * history does not grant this: a requester or decider who lost access gets
+ * the request back without the task.
+ */
+async function canReadTask(
+  database: Parameters<typeof projectWorkspaceId>[0],
+  actor: PersonActor,
+  task: Task,
+) {
+  const workspaceId = await projectWorkspaceId(database, task.projectId);
+  if (!workspaceId) return false;
+  const grants = await loadPersonGrants(database, workspaceId, actor);
+  return (
+    grants.member &&
+    grants.can({ task: ["read"] }) &&
+    (await canSeeTaskProject(database, actor.userId, task.projectId))
+  );
+}
+
+/**
  * Accept, reject or withdraw a request. Lock order: the task, then the
- * request. Repeating a decision returns the recorded outcome; a different
- * recorded outcome is a 409. A refused accept (stale task, blocked, lost
+ * request. Only the person who recorded a decision may repeat it and
+ * get the recorded outcome back; anyone else, or a different decision, gets
+ * a 409. A refused accept (stale task, blocked, lost
  * access) still commits: the request ends cancelled with the reason.
  */
 export async function decideChangeRequest({
@@ -96,9 +122,21 @@ export async function decideChangeRequest({
   const done: { execution: Execution | null } = { execution: null };
 
   const result = await db.transaction(async (tx) => {
-    const task = found.taskId
-      ? ((await lockTask(tx, found.taskId)) ?? null)
-      : null;
+    const outcome = await decideLocked(tx);
+    return {
+      request: outcome.request,
+      task:
+        outcome.task && (await canReadTask(tx, actor, outcome.task))
+          ? outcome.task
+          : null,
+    };
+  });
+
+  async function decideLocked(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  ): Promise<{ request: ChangeRequestRow; task: Task | null }> {
+    const taskId = found?.taskId;
+    const task = taskId ? ((await lockTask(tx, taskId)) ?? null) : null;
     const [request] = await tx
       .select()
       .from(taskChangeRequestTable)
@@ -108,10 +146,11 @@ export async function decideChangeRequest({
       throw new HTTPException(404, { message: "Request not found" });
 
     const step = transition(request.state, EVENTS[decision]);
-    if (step.kind === "replay") return { request, task };
-    if (step.kind === "conflict")
+    if (step.kind === "replay" && request.decidedBy === actor.userId)
+      return { request, task };
+    if (step.kind !== "move")
       throw new ApiError(409, {
-        message: `This request is already ${step.state.replaceAll("_", " ")}.`,
+        message: `This request is already ${request.state.replaceAll("_", " ")}.`,
         code: "REQUEST_DECIDED",
       });
 
@@ -137,7 +176,8 @@ export async function decideChangeRequest({
     }
 
     if (!task) {
-      // The task is gone; the delete trigger should already have ended it.
+      // The task is gone. Deleting it cancels its pending request in the
+      // same transaction, so this only covers a row left pending by hand.
       const cancelled = await markRequest(
         tx,
         request.id,
@@ -198,7 +238,7 @@ export async function decideChangeRequest({
             ? null
             : task,
     };
-  });
+  }
 
   if (done.execution)
     await publishExecution(done.execution, actor.userId, relations);
