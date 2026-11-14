@@ -199,7 +199,25 @@ export const boardSchema = z
   .openapi("BoardResponse");
 
 export const bulkResultSchema = z
-  .object({ success: z.boolean(), updatedCount: z.number() })
+  .object({
+    success: z.boolean(),
+    updatedCount: z.number(),
+    results: z
+      .array(
+        z.discriminatedUnion("outcome", [
+          z.object({ taskId: z.string(), outcome: z.literal("applied") }),
+          z.object({
+            taskId: z.string(),
+            outcome: z.literal("refused"),
+            reason: z.string(),
+          }),
+        ]),
+      )
+      .openapi({
+        description:
+          "One entry per task. A status change, reassignment or delete of a task you are not involved in is refused, as is finishing a blocked task; the other tasks still apply. Bulk updates never create change requests: request the change on the task itself.",
+      }),
+  })
   .openapi("BulkTaskResult");
 
 export const moveTaskResultSchema = z

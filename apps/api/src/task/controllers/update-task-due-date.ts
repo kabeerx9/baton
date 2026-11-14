@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
+import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
 import { taskTable } from "../../database/schema";
 import {
   publishTaskMutation,
@@ -54,6 +55,10 @@ async function updateTaskDueDate({
   await publishTaskMutation(existingTask, updatedTask, currentUserId, {
     fields: ["dueDate"],
   });
+  if (existingTask.dueDate?.getTime() !== updatedTask.dueDate?.getTime())
+    await notifyOutsiderEdit(existingTask, updatedTask.title, currentUserId, [
+      "due date",
+    ]);
 
   return updatedTask;
 }

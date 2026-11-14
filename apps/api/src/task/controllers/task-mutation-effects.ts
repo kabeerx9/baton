@@ -6,7 +6,7 @@ import {
   taskTable,
   userTable,
 } from "../../database/schema";
-import { publishEvent } from "../../events";
+import { currentChannel, publishEvent } from "../../events";
 import createNotification from "../../notification/controllers/create-notification";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
 import { getSubtaskParentProjects } from "../get-subtask-parent-projects";
@@ -38,6 +38,7 @@ export async function recordTaskMutation(
       userId: userId ?? null,
       content: null,
       eventData: { oldTitle: before.title, newTitle: changes.title },
+      channel: userId ? currentChannel() : null,
     });
   }
   if (

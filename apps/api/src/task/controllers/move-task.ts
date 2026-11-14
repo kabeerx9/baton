@@ -15,6 +15,21 @@ import { assertProjectAccess } from "../../project-access/assert-project-access"
 import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { nextTaskPosition } from "./next-task-position";
+import { lockTask } from "./with-locked-task";
+import { findBlockedMessage } from "../assert-not-blocked";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import { decideConsent } from "../../task-change-request/consent";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+  type RequestEffect,
+} from "../../task-change-request/effects";
+import { loadConsentFacts } from "../../task-change-request/load-consent-facts";
+import {
+  consentError,
+  NOT_INVOLVED_MESSAGE,
+} from "../../task-change-request/request-change";
 
 function isSameProjectMove(
   sourceProjectId: string,
@@ -33,6 +48,7 @@ async function resolveDestinationStatus(
       id: columnTable.id,
       slug: columnTable.slug,
       position: columnTable.position,
+      isFinal: columnTable.isFinal,
     })
     .from(columnTable)
     .where(eq(columnTable.projectId, destinationProjectId))
@@ -68,11 +84,13 @@ async function moveTask({
   destinationProjectId,
   destinationStatus,
   currentUserId,
+  actor = personActor(currentUserId),
 }: {
   taskId: string;
   destinationProjectId: string;
   destinationStatus?: string;
   currentUserId: string;
+  actor?: TaskActor;
 }) {
   const existingTask = await db.query.taskTable.findFirst({
     where: eq(taskTable.id, taskId),
@@ -119,6 +137,7 @@ async function moveTask({
     destinationStatus,
   );
 
+  const effects: RequestEffect[] = [];
   const movedTask = await db.transaction(async (tx) => {
     for (const projectId of [sourceProject.id, destinationProjectId].sort()) {
       const [project] = await tx
@@ -136,6 +155,47 @@ async function moveTask({
           message: "Project was moved to another workspace, please try again",
         });
     }
+    // Lock order: projects, then the task.
+    const locked = await lockTask(tx, taskId);
+    if (!locked || locked.projectId !== sourceProject.id)
+      throw new HTTPException(409, {
+        message: "Task was moved concurrently, please try again",
+      });
+    const statusChanges = resolvedColumn.slug !== locked.status;
+    const dropsAssignee =
+      locked.userId !== null &&
+      !(
+        await filterUsersWithProjectAccess(
+          [locked.userId],
+          destinationProjectId,
+          tx,
+        )
+      ).has(locked.userId);
+    // A move cannot carry a deferred request, so an outsider's move that
+    // would change the status or drop the assignee is refused outright.
+    if (actor.kind === "person" && (statusChanges || dropsAssignee)) {
+      const facts = await loadConsentFacts(tx, locked, actor);
+      if (statusChanges) {
+        const consent = decideConsent("status", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+        if (consent.kind === "request")
+          throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });
+      }
+      if (dropsAssignee) {
+        const consent = decideConsent("assign", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+      }
+    }
+    if (statusChanges && resolvedColumn.isFinal) {
+      const blocked = await findBlockedMessage(tx, taskId, currentUserId);
+      if (blocked) throw new HTTPException(409, { message: blocked });
+    }
+    effects.push(
+      ...finishedEffects(
+        await cancelPendingRequests(tx, taskId, "task_changed"),
+        currentUserId,
+      ),
+    );
     const nextTaskNumber = await claimTaskNumber(destinationProjectId, tx);
     const nextPosition = await nextTaskPosition(
       tx,
@@ -223,6 +283,7 @@ async function moveTask({
     return movedTask;
   });
 
+  await dispatchRequestEffects(effects);
   await publishEvent("task.moved", {
     taskId,
     type: "moved",

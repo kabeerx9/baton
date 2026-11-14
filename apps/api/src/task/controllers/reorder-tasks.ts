@@ -6,6 +6,21 @@ import { publishEvent } from "../../events";
 import { assertValidTaskStatus } from "../validate-task-fields";
 import { assertTaskPosition } from "./next-task-position";
 import { publishTaskMutation } from "./task-mutation-effects";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import { decideConsent } from "../../task-change-request/consent";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+  type RequestEffect,
+} from "../../task-change-request/effects";
+import {
+  consentFactsWith,
+  loadPersonGrants,
+  projectWorkspaceId,
+} from "../../task-change-request/load-consent-facts";
+import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
+import { checkStatusChange } from "../../task-change-request/status-change";
 
 type Reorder = { id: string; position: number; status?: string };
 export default async function reorderTasks(
@@ -13,6 +28,7 @@ export default async function reorderTasks(
   tasks: Reorder[],
   userId: string,
   expectedTasks?: { id: string; position: number | null; status: string }[],
+  actor: TaskActor = personActor(userId),
 ) {
   if (new Set(tasks.map((task) => task.id)).size !== tasks.length)
     throw new HTTPException(400, { message: "Task IDs must be unique" });
@@ -33,6 +49,7 @@ export default async function reorderTasks(
     });
     columns.set(status, column?.id ?? null);
   }
+  const effects: RequestEffect[] = [];
   const { before, after } = await db.transaction(async (tx) => {
     // Task creation, duplication and moves lock this same row while allocating positions.
     const [project] = await tx
@@ -49,6 +66,9 @@ export default async function reorderTasks(
         id: taskTable.id,
         status: taskTable.status,
         position: taskTable.position,
+        projectId: taskTable.projectId,
+        createdBy: taskTable.createdBy,
+        userId: taskTable.userId,
       })
       .from(taskTable)
       .where(
@@ -92,6 +112,45 @@ export default async function reorderTasks(
       throw new HTTPException(404, {
         message: "Tasks must belong to the requested project",
       });
+    // Reordering within a column is open to everyone who can edit. Moving a
+    // card to another column is a status change: it needs consent and must
+    // not finish a blocked task. Refused atomically, never half-applied.
+    const lockedById = new Map(before.map((task) => [task.id, task]));
+    const moving = tasks.flatMap((task) => {
+      const locked = lockedById.get(task.id);
+      return locked &&
+        task.status !== undefined &&
+        task.status !== locked.status
+        ? [{ locked, status: task.status }]
+        : [];
+    });
+    if (moving.length) {
+      if (actor.kind === "person") {
+        const workspaceId = (await projectWorkspaceId(tx, projectId)) ?? "";
+        const grants = await loadPersonGrants(tx, workspaceId, actor);
+        for (const { locked } of moving) {
+          const consent = decideConsent(
+            "status",
+            await consentFactsWith(tx, locked, actor.userId, grants),
+          );
+          if (consent.kind === "request")
+            throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });
+          if (consent.kind === "deny")
+            throw new HTTPException(403, { message: consent.message });
+        }
+      }
+      for (const { locked, status } of moving) {
+        const check = await checkStatusChange(tx, locked, status, userId);
+        if (!check.ok)
+          throw new HTTPException(check.status, { message: check.message });
+        effects.push(
+          ...finishedEffects(
+            await cancelPendingRequests(tx, locked.id, "task_changed"),
+            userId,
+          ),
+        );
+      }
+    }
     const values = tasks.map((task) => ({
       id: task.id,
       position: task.position,
@@ -130,6 +189,7 @@ export default async function reorderTasks(
       });
     return { before, after };
   });
+  await dispatchRequestEffects(effects);
   const beforeById = new Map(before.map((task) => [task.id, task]));
   let statusChanged = false;
   for (const updated of after) {

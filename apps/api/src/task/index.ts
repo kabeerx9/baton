@@ -34,6 +34,11 @@ import {
   validateDateRange,
 } from "../utils/validate-dates";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { actorFromContext } from "../task-change-request/actor";
+import {
+  mutationResultSchema,
+  toChangeRequestResponse,
+} from "../task-change-request/response";
 import bulkUpdateTasks from "./controllers/bulk-update-tasks";
 import createTask from "./controllers/create-task";
 import deleteTask from "./controllers/delete-task";
@@ -108,6 +113,23 @@ import {
   updateTitleBody,
 } from "./schema";
 
+const statusResult = mutationResultSchema(taskSchema, "TaskStatusChange");
+const updateResult = mutationResultSchema(taskSchema, "TaskUpdate");
+const deleteResult = mutationResultSchema(taskSchema, "TaskDelete");
+
+const REQUEST_NOTE =
+  ' If you are not involved in the task (not its creator, its assignee, or a workspace owner or admin), the change is not made: the response is 202 with outcome "requested" and the change request, which its creator, assignee or an admin can accept. Read `outcome`, not only the HTTP status.';
+
+// Requesting a delete needs task:update; deleting directly needs task:delete
+// (checked with involvement in the controller). Either one gets past here.
+async function requireDeleteOrRequestPermission(
+  c: Parameters<typeof hasWorkspacePermission>[0],
+  next: () => Promise<void>,
+) {
+  if (await hasWorkspacePermission(c, { task: ["update"] })) return next();
+  return requireWorkspacePermission({ task: ["delete"] })(c, next);
+}
+
 const listAssignedTasksRoute = createRoute({
   method: "get",
   operationId: "listAssignedTasks",
@@ -157,7 +179,7 @@ const bulkUpdateTasksRoute = createRoute({
   tags: ["Tasks"],
   summary: "Bulk update tasks",
   description:
-    "Apply one operation to many tasks at once. Every task must be in the same workspace.",
+    "Apply one operation to many tasks at once. Every task must be in the same workspace. Each task is decided separately: a status change, reassignment or delete of a task you are not involved in is refused in `results`, and the rest apply. Bulk updates never create change requests.",
   middleware: [workspaceAccess.fromTasks(), requireBulkTaskPermission] as const,
   request: {
     body: {
@@ -241,7 +263,7 @@ const reorderTasksRoute = createRoute({
   tags: ["Tasks"],
   summary: "Reorder or move cards",
   description:
-    "Atomically update positions and optional column status for cards in one project. Other task fields are preserved.",
+    "Atomically update positions and optional column status for cards in one project. Other task fields are preserved. Reordering within a column is open; moving a card you are not involved in to another column is refused with 409 (request the status change on the task instead), as is finishing a blocked task.",
   middleware: [
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["update"] }),
@@ -377,7 +399,7 @@ const moveTaskRoute = createRoute({
   tags: ["Tasks"],
   summary: "Move task",
   description:
-    "Move a task to another project, optionally into a named column. Both projects must be in the same workspace.",
+    "Move a task to another project, optionally into a named column. Both projects must be in the same workspace. If you are not involved in the task, a move that would change its status is refused with 409, and one that would drop its assignee with 403.",
   middleware: [
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update"] }),
@@ -410,7 +432,7 @@ const updateTaskRoute = createRoute({
   tags: ["Tasks"],
   summary: "Update task",
   description:
-    "Replace every field of a task. Use the single-field routes for narrower edits.",
+    'Replace every field of a task. Use the single-field routes for narrower edits. Only the task\'s creator, assignee or a workspace owner or admin may change the assignee (403 otherwise). If you are not involved in the task, the other fields still apply but a status change becomes a change request: 202 with outcome "requested", the request and the updated task.',
   middleware: [
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update"] }),
@@ -424,12 +446,18 @@ const updateTaskRoute = createRoute({
     },
   },
   responses: {
-    200: jsonResponse("The updated task", taskSchema),
+    200: jsonResponse("Every field applied", updateResult.applied),
+    202: jsonResponse(
+      "Fields applied; the status change waits as a request",
+      updateResult.requested,
+    ),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:update or task:assign permission",
+      "No access to the project, missing task:update or task:assign permission, or an assignee change by someone not involved in the task",
     ),
     404: errorResponse("Task not found"),
+    409: errorResponse("Blocked from finishing, or the task changed"),
+    429: errorResponse("Too many change requests in the last hour"),
   },
 });
 
@@ -488,19 +516,24 @@ const deleteTaskRoute = createRoute({
   path: "/{id}",
   tags: ["Tasks"],
   summary: "Delete task",
-  description: "Permanently delete a task and its comments and labels.",
+  description: `Permanently delete a task and its comments and labels. Deleting directly needs task:delete and involvement in the task; asking needs task:update.${REQUEST_NOTE} An unanswered delete request expires after 24 hours.`,
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["delete"] }),
+    requireDeleteOrRequestPermission,
   ] as const,
   request: { params: taskParam },
   responses: {
-    200: jsonResponse("The deleted task", taskSchema),
+    200: jsonResponse("The task was deleted", deleteResult.applied),
+    202: jsonResponse(
+      "Not deleted: a delete request waits for an answer",
+      deleteResult.requested,
+    ),
     409: errorResponse("Task changed projects; retry the operation"),
     403: errorResponse(
-      "No access to the project, or missing task:delete permission",
+      "No access to the project, or missing task:delete (or task:update to request) permission",
     ),
     404: errorResponse("Task not found"),
+    429: errorResponse("Too many change requests in the last hour"),
   },
 });
 
@@ -510,7 +543,7 @@ const updateTaskStatusRoute = createRoute({
   path: "/status/{id}",
   tags: ["Tasks"],
   summary: "Update task status",
-  description: "Move a task to another column in the same project.",
+  description: `Move a task to another column in the same project. A blocked task cannot be set to a final column (409).${REQUEST_NOTE} An unanswered status request applies after 24 hours unless it targets a final column or archived; those expire.`,
   middleware: [
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update"] }),
@@ -523,12 +556,18 @@ const updateTaskStatusRoute = createRoute({
     },
   },
   responses: {
-    200: jsonResponse("The updated task", taskSchema),
+    200: jsonResponse("The status changed", statusResult.applied),
+    202: jsonResponse(
+      "Not changed: a status request waits for an answer",
+      statusResult.requested,
+    ),
     400: errorResponse("Invalid body"),
     403: errorResponse(
       "No access to the project, or missing task:update permission",
     ),
     404: errorResponse("Task not found"),
+    409: errorResponse("The task is blocked and cannot be finished"),
+    429: errorResponse("Too many change requests in the last hour"),
   },
 });
 
@@ -567,7 +606,7 @@ const updateTaskAssigneeRoute = createRoute({
   tags: ["Tasks"],
   summary: "Update task assignee",
   description:
-    "Assign a task to a workspace member, or send null to unassign it.",
+    "Assign a task to a workspace member, or send null to unassign it. Only the task's creator, its assignee or a workspace owner or admin may do this; anyone else gets 403.",
   middleware: [
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["assign"] }),
@@ -583,7 +622,7 @@ const updateTaskAssigneeRoute = createRoute({
     200: jsonResponse("The updated task", taskSchema),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:assign permission",
+      "No access to the project, missing task:assign permission, or not involved in the task",
     ),
     404: errorResponse(
       "Task not found, or assignee is not a member of the workspace",
@@ -837,6 +876,7 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       operation,
       value,
       userId,
+      actor: actorFromContext(c),
     });
 
     return c.json(result, 200);
@@ -865,7 +905,13 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
   .openapi(reorderTasksRoute, async (c) => {
     const { projectId, tasks, expectedTasks } = c.req.valid("json");
     return c.json(
-      await reorderTasks(projectId, tasks, c.get("userId"), expectedTasks),
+      await reorderTasks(
+        projectId,
+        tasks,
+        c.get("userId"),
+        expectedTasks,
+        actorFromContext(c),
+      ),
       200,
     );
   })
@@ -954,6 +1000,7 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       destinationProjectId,
       destinationStatus,
       currentUserId,
+      actor: actorFromContext(c),
     });
 
     return c.json(result, 200);
@@ -985,7 +1032,7 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
 
     validateDateRange(parsedStartDate, parsedDueDate);
 
-    const task = await updateTask(
+    const result = await updateTask(
       id,
       title,
       status,
@@ -997,9 +1044,19 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       position,
       userId,
       currentUserId,
+      actorFromContext(c),
     );
 
-    return c.json(task, 200);
+    return result.outcome === "requested"
+      ? c.json(
+          {
+            outcome: "requested" as const,
+            request: toChangeRequestResponse(result.request),
+            task: result.task,
+          },
+          202,
+        )
+      : c.json({ outcome: "applied" as const, task: result.task }, 200);
   })
   .openapi(exportTasksRoute, async (c) => {
     const { projectId } = c.req.valid("param");
@@ -1021,18 +1078,41 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     const { id } = c.req.valid("param");
 
     const currentUserId = c.get("userId");
-    const task = await deleteTask(id, currentUserId);
+    const result = await deleteTask(id, currentUserId, actorFromContext(c));
 
-    return c.json(task, 200);
+    return result.outcome === "requested"
+      ? c.json(
+          {
+            outcome: "requested" as const,
+            request: toChangeRequestResponse(result.request),
+            task: result.task,
+          },
+          202,
+        )
+      : c.json({ outcome: "applied" as const, task: result.task }, 200);
   })
   .openapi(updateTaskStatusRoute, async (c) => {
     const { id } = c.req.valid("param");
     const { status } = c.req.valid("json");
     const currentUserId = c.get("userId");
 
-    const task = await updateTaskStatus({ id, status, currentUserId });
+    const result = await updateTaskStatus({
+      id,
+      status,
+      currentUserId,
+      actor: actorFromContext(c),
+    });
 
-    return c.json(task, 200);
+    return result.outcome === "requested"
+      ? c.json(
+          {
+            outcome: "requested" as const,
+            request: toChangeRequestResponse(result.request),
+            task: result.task,
+          },
+          202,
+        )
+      : c.json({ outcome: "applied" as const, task: result.task }, 200);
   })
   .openapi(updateTaskPriorityRoute, async (c) => {
     const { id } = c.req.valid("param");
@@ -1048,7 +1128,12 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     const { userId } = c.req.valid("json");
     const currentUserId = c.get("userId");
 
-    const task = await updateTaskAssignee({ id, userId, currentUserId });
+    const task = await updateTaskAssignee({
+      id,
+      userId,
+      currentUserId,
+      actor: actorFromContext(c),
+    });
 
     return c.json(task, 200);
   })

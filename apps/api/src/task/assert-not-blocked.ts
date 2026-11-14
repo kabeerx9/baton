@@ -18,6 +18,16 @@ export async function assertNotBlocked(
   taskId: string,
   userId: string | null,
 ) {
+  const message = await findBlockedMessage(database, taskId, userId);
+  if (message) throw new HTTPException(409, { message });
+}
+
+/** The refusal message when the task has open blockers; null otherwise. */
+export async function findBlockedMessage(
+  database: Pick<typeof db, "select">,
+  taskId: string,
+  userId: string | null,
+): Promise<string | null> {
   const visible = userId ? canSeeLinkedTask(userId) : sql`false`;
   const blockers = await database
     .select({
@@ -35,7 +45,7 @@ export async function assertNotBlocked(
         taskIsOpen,
       ),
     );
-  if (blockers.length === 0) return;
+  if (blockers.length === 0) return null;
 
   const names = blockers
     .filter((b) => b.visible)
@@ -46,7 +56,5 @@ export async function assertNotBlocked(
       hidden === 1 ? "1 task you cannot see" : `${hidden} tasks you cannot see`,
     );
   }
-  throw new HTTPException(409, {
-    message: `Blocked by ${names.join(", ")}. Finish that first, or remove the link.`,
-  });
+  return `Blocked by ${names.join(", ")}. Finish that first, or remove the link.`;
 }

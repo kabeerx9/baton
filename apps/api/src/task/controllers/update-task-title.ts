@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
+import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
 import { taskTable } from "../../database/schema";
 import {
   publishTaskMutation,
@@ -60,6 +61,10 @@ async function updateTaskTitle({
   await publishTaskMutation(existingTask, updatedTask, currentUserId, {
     fields: ["title"],
   });
+  if (existingTask.title !== updatedTask.title)
+    await notifyOutsiderEdit(existingTask, updatedTask.title, currentUserId, [
+      "title",
+    ]);
 
   return updatedTask;
 }

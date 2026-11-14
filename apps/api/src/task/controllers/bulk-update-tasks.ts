@@ -21,6 +21,68 @@ import {
   assertValidPriority,
   assertValidTaskStatus,
 } from "../validate-task-fields";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import {
+  decideConsent,
+  type TaskChangeKind,
+} from "../../task-change-request/consent";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+  type RequestEffect,
+} from "../../task-change-request/effects";
+import {
+  type ConsentTask,
+  consentFactsWith,
+  loadPersonGrants,
+} from "../../task-change-request/load-consent-facts";
+import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
+import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
+import { checkStatusChange } from "../../task-change-request/status-change";
+import type { DbOrTx } from "../../project-access/db-or-tx";
+
+export type BulkItemResult =
+  | { taskId: string; outcome: "applied" }
+  | { taskId: string; outcome: "refused"; reason: string };
+
+/**
+ * Decides each task separately against the locked rows. Bulk paths never
+ * create requests: a task the caller is not involved in is refused, with the
+ * reason, and the others still apply.
+ */
+async function refusalsFor(
+  tx: DbOrTx,
+  actor: TaskActor,
+  workspaceId: string,
+  tasks: ConsentTask[],
+  change: TaskChangeKind,
+) {
+  const refusals = new Map<string, string>();
+  if (actor.kind !== "person") return refusals;
+  const grants = await loadPersonGrants(tx, workspaceId, actor);
+  for (const task of tasks) {
+    const consent = decideConsent(
+      change,
+      await consentFactsWith(tx, task, actor.userId, grants),
+    );
+    if (consent.kind === "request") refusals.set(task.id, NOT_INVOLVED_MESSAGE);
+    else if (consent.kind === "deny") refusals.set(task.id, consent.message);
+  }
+  return refusals;
+}
+
+function itemResults(
+  ids: string[],
+  refusals: Map<string, string>,
+): BulkItemResult[] {
+  return ids.map((taskId) => {
+    const reason = refusals.get(taskId);
+    return reason
+      ? { taskId, outcome: "refused", reason }
+      : { taskId, outcome: "applied" };
+  });
+}
 
 type BulkOperation =
   | "updateStatus"
@@ -36,11 +98,13 @@ async function bulkUpdateTasks({
   operation,
   value,
   userId,
+  actor = personActor(userId),
 }: {
   taskIds: string[];
   operation: BulkOperation;
   value?: string | null;
   userId: string;
+  actor?: TaskActor;
 }) {
   const tasks = await db
     .select({
@@ -98,6 +162,8 @@ async function bulkUpdateTasks({
 
   const foundIds = tasks.map((t) => t.id);
   let updatedCount = 0;
+  let refusals = new Map<string, string>();
+  const effects: RequestEffect[] = [];
 
   switch (operation) {
     case "updateStatus": {
@@ -120,12 +186,41 @@ async function bulkUpdateTasks({
       }
       const { updatedTasks, beforeById } = await db.transaction(async (tx) => {
         const before = await tx
-          .select({ id: taskTable.id, status: taskTable.status })
+          .select({
+            id: taskTable.id,
+            status: taskTable.status,
+            projectId: taskTable.projectId,
+            createdBy: taskTable.createdBy,
+            userId: taskTable.userId,
+          })
           .from(taskTable)
           .where(inArray(taskTable.id, foundIds))
           .orderBy(asc(taskTable.id))
           .for("update");
         const beforeById = new Map(before.map((task) => [task.id, task]));
+        const changing = before.filter((task) => task.status !== value);
+        refusals = await refusalsFor(
+          tx,
+          actor,
+          workspaceId,
+          changing,
+          "status",
+        );
+        // "Cannot finish while blocked" holds on bulk paths too.
+        for (const task of changing) {
+          if (refusals.has(task.id)) continue;
+          const check = await checkStatusChange(tx, task, value, userId);
+          if (!check.ok) refusals.set(task.id, check.message);
+        }
+        for (const task of changing) {
+          if (refusals.has(task.id)) continue;
+          effects.push(
+            ...finishedEffects(
+              await cancelPendingRequests(tx, task.id, "task_changed"),
+              userId,
+            ),
+          );
+        }
         const result: Array<{
           id: string;
           projectId: string;
@@ -135,8 +230,11 @@ async function bulkUpdateTasks({
         }> = [];
         for (const projectId of projectIds) {
           const projectTaskIds = tasks
-            .filter((task) => task.projectId === projectId)
+            .filter(
+              (task) => task.projectId === projectId && !refusals.has(task.id),
+            )
             .map((task) => task.id);
+          if (projectTaskIds.length === 0) continue;
           const changed = await tx
             .update(taskTable)
             .set({
@@ -165,6 +263,7 @@ async function bulkUpdateTasks({
         return { updatedTasks: result, beforeById };
       });
       updatedCount = updatedTasks.length;
+      await dispatchRequestEffects(effects);
       const parentProjects = await getSubtaskParentProjects(foundIds);
       await publishEvent("subtask-parents.refresh", {
         projects: parentProjects,
@@ -202,6 +301,7 @@ async function bulkUpdateTasks({
             projectId: taskTable.projectId,
             title: taskTable.title,
             userId: taskTable.userId,
+            createdBy: taskTable.createdBy,
             priority: taskTable.priority,
           })
           .from(taskTable)
@@ -227,7 +327,7 @@ async function bulkUpdateTasks({
         return locked;
       });
       updatedCount = before.length;
-      for (const task of before)
+      for (const task of before) {
         await publishTaskMutation(
           task,
           {
@@ -237,6 +337,9 @@ async function bulkUpdateTasks({
           userId,
           { fields: ["priority"] },
         );
+        if (task.priority !== value)
+          await notifyOutsiderEdit(task, task.title, userId, ["priority"]);
+      }
       break;
     }
 
@@ -264,6 +367,7 @@ async function bulkUpdateTasks({
             projectId: taskTable.projectId,
             title: taskTable.title,
             userId: taskTable.userId,
+            createdBy: taskTable.createdBy,
           })
           .from(taskTable)
           .where(inArray(taskTable.id, foundIds))
@@ -281,11 +385,25 @@ async function bulkUpdateTasks({
           throw new HTTPException(409, {
             message: "Tasks changed projects; retry the operation",
           });
-        await tx
-          .update(taskTable)
-          .set({ userId: assigneeId })
-          .where(inArray(taskTable.id, foundIds));
-        return locked;
+        refusals = await refusalsFor(
+          tx,
+          actor,
+          workspaceId,
+          locked.filter((task) => task.userId !== assigneeId),
+          "assign",
+        );
+        const allowed = locked.filter((task) => !refusals.has(task.id));
+        if (allowed.length)
+          await tx
+            .update(taskTable)
+            .set({ userId: assigneeId })
+            .where(
+              inArray(
+                taskTable.id,
+                allowed.map((task) => task.id),
+              ),
+            );
+        return allowed;
       });
       updatedCount = before.length;
       for (const task of before)
@@ -306,7 +424,12 @@ async function bulkUpdateTasks({
       const parentProjects = await getSubtaskParentProjects(foundIds);
       const result = await db.transaction(async (tx) => {
         const locked = await tx
-          .select({ id: taskTable.id, projectId: taskTable.projectId })
+          .select({
+            id: taskTable.id,
+            projectId: taskTable.projectId,
+            createdBy: taskTable.createdBy,
+            userId: taskTable.userId,
+          })
           .from(taskTable)
           .where(inArray(taskTable.id, foundIds))
           .orderBy(asc(taskTable.id))
@@ -323,20 +446,31 @@ async function bulkUpdateTasks({
           throw new HTTPException(409, {
             message: "Tasks changed projects; retry the operation",
           });
+        refusals = await refusalsFor(tx, actor, workspaceId, locked, "delete");
+        const deleting = foundIds.filter((id) => !refusals.has(id));
+        if (deleting.length === 0) return { rowCount: 0 };
+        for (const id of deleting)
+          effects.push(
+            ...finishedEffects(
+              await cancelPendingRequests(tx, id, "task_deleted"),
+              userId,
+            ),
+          );
         const assets = await tx
           .select({ objectKey: assetTable.objectKey })
           .from(assetTable)
-          .where(inArray(assetTable.taskId, foundIds));
+          .where(inArray(assetTable.taskId, deleting));
         await queueStorageCleanup(
           tx,
           assets.map((asset) => asset.objectKey),
         );
-        return tx.delete(taskTable).where(inArray(taskTable.id, foundIds));
+        return tx.delete(taskTable).where(inArray(taskTable.id, deleting));
       });
 
-      updatedCount = result.rowCount ?? foundIds.length;
+      updatedCount = result.rowCount ?? foundIds.length - refusals.size;
+      await dispatchRequestEffects(effects);
 
-      for (const task of tasks) {
+      for (const task of tasks.filter((task) => !refusals.has(task.id))) {
         await publishEvent("task.deleted", {
           taskId: task.id,
           projectId: task.projectId,
@@ -469,6 +603,8 @@ async function bulkUpdateTasks({
             id: taskTable.id,
             projectId: taskTable.projectId,
             dueDate: taskTable.dueDate,
+            userId: taskTable.userId,
+            createdBy: taskTable.createdBy,
           })
           .from(taskTable)
           .where(inArray(taskTable.id, foundIds))
@@ -507,13 +643,19 @@ async function bulkUpdateTasks({
         return { updatedTasks, beforeById };
       });
       updatedCount = updatedTasks.length;
-      for (const updatedTask of updatedTasks)
-        await publishTaskMutation(
-          beforeById.get(updatedTask.id)!,
-          updatedTask,
-          userId,
-          { fields: ["dueDate"] },
-        );
+      for (const updatedTask of updatedTasks) {
+        const before = beforeById.get(updatedTask.id)!;
+        await publishTaskMutation(before, updatedTask, userId, {
+          fields: ["dueDate"],
+        });
+        if (before.dueDate?.getTime() !== updatedTask.dueDate?.getTime())
+          await notifyOutsiderEdit(
+            { ...before, userId: before.userId, createdBy: before.createdBy },
+            updatedTask.title,
+            userId,
+            ["due date"],
+          );
+      }
       break;
     }
 
@@ -524,7 +666,11 @@ async function bulkUpdateTasks({
     }
   }
 
-  return { success: true, updatedCount };
+  return {
+    success: true,
+    updatedCount,
+    results: itemResults(foundIds, refusals),
+  };
 }
 
 export default bulkUpdateTasks;

@@ -10,6 +10,12 @@ import {
 import { assertProjectAccess } from "../../project-access/assert-project-access";
 import updateTaskAssignee from "../../task/controllers/update-task-assignee";
 import updateTaskStatus from "../../task/controllers/update-task-status";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { decideConsent } from "../../task-change-request/consent";
+import { loadConsentFacts } from "../../task-change-request/load-consent-facts";
+import { consentError } from "../../task-change-request/request-change";
+import type { ChangeRequestRow } from "../../task-change-request/response";
+import { taskTable as tasks } from "../../database/schema";
 import createTaskRelation from "../../task-relation/controllers/create-task-relation";
 import {
   isKey,
@@ -39,7 +45,12 @@ export type SubtaskPlan = {
   waitsOn?: (string | number)[];
 };
 
-type Caller = { workspaceId: string; currentUserId: string };
+type Caller = {
+  workspaceId: string;
+  currentUserId: string;
+  /** How the caller acted; defaults to the current user as a person. */
+  actor?: TaskActor;
+};
 
 function unwrap<T>(result: Named<T>): T {
   if (!result.ok) throw new HTTPException(400, { message: result.message });
@@ -307,10 +318,27 @@ export async function updateByKey({
 }) {
   const task = await findTaskByKey(caller.workspaceId, key);
   await assertProjectAccess(caller.currentUserId, task.projectId);
+  const actor = caller.actor ?? personActor(caller.currentUserId);
   const directory = await loadDirectory(caller.workspaceId);
   const newOwner = owner
     ? unwrap(matchMember(directory.members, owner))
     : undefined;
+  // Refuse an outsider's owner change before anything is written; the
+  // assignee controller checks again under the task lock.
+  if (owner !== undefined && actor.kind === "person") {
+    const [row] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, task.id))
+      .limit(1);
+    if (row && (newOwner?.id ?? null) !== row.userId) {
+      const consent = decideConsent(
+        "assign",
+        await loadConsentFacts(db, row, actor),
+      );
+      if (consent.kind === "deny") throw consentError(consent);
+    }
+  }
   const blockers = [];
   for (const ref of waitsOn) {
     blockers.push(await findTaskByKey(caller.workspaceId, ref));
@@ -330,24 +358,33 @@ export async function updateByKey({
       id: task.id,
       userId: newOwner?.id ?? null,
       currentUserId: caller.currentUserId,
+      actor,
     });
   }
   // Status last: a new "waits on" link can make "done" invalid, and the
   // caller should hear that instead of finishing a task that is now blocked.
-  const updated = status
+  const result = status
     ? await updateTaskStatus({
         id: task.id,
         status: statusSlug(status),
         currentUserId: caller.currentUserId,
+        actor,
       })
-    : task;
+    : null;
 
-  return {
+  const item = {
     id: task.id,
     key: `${task.slug}-${task.number ?? "?"}`,
     title: task.title,
-    status: updated.status,
+    status: result?.task.status ?? task.status,
     owner: owner === undefined ? undefined : (newOwner?.name ?? null),
     nowWaitsOn: blockers.map((b) => `${b.slug}-${b.number ?? "?"}`),
   };
+  return result?.outcome === "requested"
+    ? {
+        outcome: "requested" as const,
+        request: result.request satisfies ChangeRequestRow,
+        ...item,
+      }
+    : { outcome: "applied" as const, ...item };
 }

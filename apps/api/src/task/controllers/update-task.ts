@@ -12,9 +12,26 @@ import {
   getProjectWorkspaceId,
 } from "../../utils/assert-assignable-user";
 import { boardDescription, descriptionDeferred } from "../description-pages";
-import { assertNotBlocked } from "../assert-not-blocked";
 import { assertValidTaskStatus } from "../validate-task-fields";
 import { assertTaskPosition } from "./next-task-position";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
+import { decideConsent } from "../../task-change-request/consent";
+import {
+  dispatchRequestEffects,
+  finishedEffects,
+  type RequestEffect,
+} from "../../task-change-request/effects";
+import {
+  involvedPeople,
+  loadConsentFacts,
+} from "../../task-change-request/load-consent-facts";
+import {
+  consentError,
+  openRequestWithEffects,
+} from "../../task-change-request/request-change";
+import type { ChangeRequestRow } from "../../task-change-request/response";
+import { checkStatusChange } from "../../task-change-request/status-change";
 
 async function updateTask(
   id: string,
@@ -28,6 +45,7 @@ async function updateTask(
   position: number,
   userId?: string,
   currentUserId?: string,
+  actor: TaskActor = personActor(currentUserId ?? ""),
 ) {
   assertTaskPosition(position);
 
@@ -79,12 +97,10 @@ async function updateTask(
     ),
   });
 
-  if (column?.isFinal && status !== existingTask.status) {
-    await assertNotBlocked(db, id, currentUserId ?? null);
-  }
-
   const initialPosition = existingTask.position;
   const initialStatus = existingTask.status;
+  const effects: RequestEffect[] = [];
+  let request: ChangeRequestRow | null = null;
   const updatedTask = await db.transaction(async (tx) => {
     const [project] = await tx
       .select({ id: projectTable.id })
@@ -106,6 +122,10 @@ async function updateTask(
         columnId: taskTable.columnId,
         position: taskTable.position,
         projectId: taskTable.projectId,
+        number: taskTable.number,
+        createdBy: taskTable.createdBy,
+        statusGeneration: taskTable.statusGeneration,
+        startDate: taskTable.startDate,
       })
       .from(taskTable)
       .where(and(eq(taskTable.id, id), eq(taskTable.projectId, projectId)))
@@ -120,12 +140,77 @@ async function updateTask(
       });
     existingTask = locked;
 
+    // Consent is decided against the locked task as it was before this edit,
+    // so an outsider cannot assign themselves and finish in one call.
+    const statusChanges = status !== locked.status;
+    let statusIsRequest = false;
+    if (actor.kind === "person") {
+      const facts = await loadConsentFacts(tx, locked, actor);
+      if ((normalizedUserId ?? null) !== locked.userId) {
+        const assign = decideConsent("assign", facts);
+        if (assign.kind === "deny") throw consentError(assign);
+      }
+      if (statusChanges) {
+        const consent = decideConsent("status", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+        statusIsRequest = consent.kind === "request";
+      }
+      const edit = decideConsent("edit", facts);
+      const fields = [
+        title !== locked.title && "title",
+        description !== undefined &&
+          description !== locked.description &&
+          "description",
+        priority !== locked.priority && "priority",
+        (dueDate?.getTime() ?? null) !== (locked.dueDate?.getTime() ?? null) &&
+          "due date",
+        (startDate?.getTime() ?? null) !==
+          (locked.startDate?.getTime() ?? null) && "start date",
+      ].filter((field): field is string => Boolean(field));
+      if (edit.kind === "apply" && edit.notifyInvolved && fields.length)
+        effects.push({
+          type: "outsider_edit",
+          taskId: id,
+          projectId,
+          taskTitle: title,
+          actorId: actor.userId,
+          involved: await involvedPeople(tx, locked),
+          fields,
+        });
+      if (statusIsRequest) {
+        const opened = await openRequestWithEffects(tx, {
+          task: locked,
+          workspaceId: facts.workspaceId,
+          actor,
+          kind: "status",
+          targetStatus: status,
+        });
+        request = opened.request;
+        effects.push(...opened.effects);
+      }
+    }
+    if (statusChanges && !statusIsRequest) {
+      const check = await checkStatusChange(
+        tx,
+        locked,
+        status,
+        currentUserId ?? null,
+      );
+      if (!check.ok)
+        throw new HTTPException(check.status, { message: check.message });
+      effects.push(
+        ...finishedEffects(
+          await cancelPendingRequests(tx, id, "task_changed"),
+          currentUserId ?? null,
+        ),
+      );
+    }
+
     const [task] = await tx
       .update(taskTable)
       .set({
         title,
-        status,
-        columnId: column?.id ?? null,
+        ...(statusIsRequest ? {} : { status, columnId: column?.id ?? null }),
         startDate: startDate || null,
         dueDate: dueDate || null,
         projectId,
@@ -156,6 +241,8 @@ async function updateTask(
     });
   }
 
+  await dispatchRequestEffects(effects);
+
   await publishTaskMutation(
     {
       ...existingTask,
@@ -174,7 +261,11 @@ async function updateTask(
     userId: currentUserId,
   });
 
-  return updatedTask;
+  // Fields other than status applied either way; a status the caller may not
+  // set directly waits as a request, and the result says so.
+  return request
+    ? { outcome: "requested" as const, request, task: updatedTask }
+    : { outcome: "applied" as const, task: updatedTask };
 }
 
 export default updateTask;

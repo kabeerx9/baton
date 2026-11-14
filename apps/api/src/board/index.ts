@@ -8,6 +8,11 @@ import {
 } from "../openapi";
 import { requireWorkspacePermission } from "../utils/require-workspace-permission";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { actorFromContext } from "../task-change-request/actor";
+import {
+  changeRequestSchema,
+  toChangeRequestResponse,
+} from "../task-change-request/response";
 import addSubtask from "./controllers/add-subtask";
 import createBoardTask from "./controllers/create-board-task";
 import {
@@ -149,6 +154,15 @@ const addSubtaskPlansRoute = createRoute({
   },
 });
 
+const boardItemFields = z.object({
+  id: z.string(),
+  key: z.string(),
+  title: z.string(),
+  status: z.string(),
+  owner: z.string().nullable().optional(),
+  nowWaitsOn: z.array(z.string()),
+});
+
 const updateByKeyRoute = createRoute({
   method: "patch",
   operationId: "updateBoardItemByKey",
@@ -156,7 +170,7 @@ const updateByKeyRoute = createRoute({
   tags: ["Board"],
   summary: "Change a task or subtask found by its key",
   description:
-    "Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done.",
+    'Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done. Only the task\'s creator, its owner or a workspace owner or admin may change the owner (403 otherwise). If you are not involved in the task, a status change is not made: the response is 202 with outcome "requested" and the change request. Read `outcome`, not only the HTTP status.',
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
     requireWorkspacePermission({ task: ["update"] }),
@@ -171,20 +185,24 @@ const updateByKeyRoute = createRoute({
   responses: {
     200: jsonResponse(
       "The item after the change",
-      z
-        .object({
-          id: z.string(),
-          key: z.string(),
-          title: z.string(),
-          status: z.string(),
-          owner: z.string().nullable().optional(),
-          nowWaitsOn: z.array(z.string()),
-        })
+      boardItemFields
+        .extend({ outcome: z.literal("applied") })
         .openapi("BoardItemUpdated"),
     ),
+    202: jsonResponse(
+      "Other changes applied; the status change waits as a request",
+      boardItemFields
+        .extend({
+          outcome: z.literal("requested"),
+          request: changeRequestSchema,
+        })
+        .openapi("BoardItemChangeRequested"),
+    ),
     400: errorResponse("A person or status could not be found"),
+    403: errorResponse("An owner change by someone not involved in the task"),
     404: errorResponse("No task with that key"),
     409: errorResponse("The item is blocked and cannot be finished"),
+    429: errorResponse("Too many change requests in the last hour"),
   },
 });
 
@@ -299,17 +317,21 @@ const board = apiRouter<BaseVariables & { workspaceId: string }>()
       200,
     ),
   )
-  .openapi(updateByKeyRoute, async (c) =>
-    c.json(
-      await updateByKey({
-        ...c.req.valid("json"),
-        key: c.req.valid("param").key,
-        workspaceId: c.get("workspaceId"),
-        currentUserId: c.get("userId"),
-      }),
-      200,
-    ),
-  )
+  .openapi(updateByKeyRoute, async (c) => {
+    const result = await updateByKey({
+      ...c.req.valid("json"),
+      key: c.req.valid("param").key,
+      workspaceId: c.get("workspaceId"),
+      currentUserId: c.get("userId"),
+      actor: actorFromContext(c),
+    });
+    return result.outcome === "requested"
+      ? c.json(
+          { ...result, request: toChangeRequestResponse(result.request) },
+          202,
+        )
+      : c.json(result, 200);
+  })
   .openapi(createBoardTaskRoute, async (c) => {
     const task = await createBoardTask({
       ...c.req.valid("json"),

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { withLockedTask } from "./with-locked-task";
+import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
 import { taskTable } from "../../database/schema";
 import { publishTaskMutation } from "./task-mutation-effects";
 
@@ -35,6 +36,10 @@ async function updateTaskPriority({
   await publishTaskMutation(existingTask, updatedTask, currentUserId, {
     fields: ["priority"],
   });
+  if (existingTask.priority !== updatedTask.priority)
+    await notifyOutsiderEdit(existingTask, updatedTask.title, currentUserId, [
+      "priority",
+    ]);
 
   return updatedTask;
 }
