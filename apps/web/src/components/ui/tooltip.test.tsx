@@ -331,3 +331,51 @@ describe("Tooltip event containment", () => {
     expect(ancestor).not.toHaveBeenCalled();
   });
 });
+
+// Base UI mounts its popup while open; UI SDK keeps it in the page and marks it
+// closed. A disabled-parity check needs both shapes, and both slot names.
+function shownDisabledParityTooltip() {
+  const content = document.querySelector(
+    '[data-slot="tooltip-popup"], [data-slot="tooltip-content"]',
+  );
+  if (!(content instanceof HTMLElement)) return null;
+  if (content.hasAttribute("data-closed")) return null;
+  if (content.hasAttribute("hidden")) return null;
+  return content;
+}
+
+describe("Tooltip disabled parity (passes on the Base UI wrapper)", () => {
+  it("shows the tooltip on keyboard focus of an aria-disabled trigger", async () => {
+    // UI SDK rejects a natively disabled trigger: it can never be focused, so
+    // its tooltip would be unreachable by keyboard. Its docs name
+    // `aria-disabled` as the disabled path, which keeps the trigger in the Tab
+    // order, and both wrappers open the tooltip from there.
+    render(
+      <Tooltip delay={0}>
+        <TooltipTrigger
+          render={
+            <button aria-disabled="true" type="button">
+              Publish
+            </button>
+          }
+        />
+        <TooltipContent>Add a title to publish</TooltipContent>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole("button", { name: "Publish" });
+    expect(trigger).toHaveAttribute("aria-disabled", "true");
+    expect(trigger).not.toHaveAttribute("disabled");
+    expect(trigger.getAttribute("tabindex")).toBeNull();
+
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    trigger.focus();
+    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(shownDisabledParityTooltip()).not.toBeNull());
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    await waitFor(() => expect(shownDisabledParityTooltip()).toBeNull());
+    expect(trigger).toHaveFocus();
+  });
+});

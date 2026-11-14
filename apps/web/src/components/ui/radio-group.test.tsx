@@ -281,3 +281,97 @@ describe("RadioGroup", () => {
     expect(submitted).toBe("pro");
   });
 });
+
+// A control is out of the Tab order when the wrapper marks it natively disabled
+// or removes it from the sequence. Base UI and UI SDK both use `tabindex="-1"`
+// for a radio that is out of the group's roving sequence.
+function skippedByTab(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("tabindex") === "-1"
+  );
+}
+
+// Both wrappers render a hidden native radio beside the styled control. Base UI
+// also gives that input the same accessible name, so pick the control itself.
+function radioControl(name: string) {
+  return screen
+    .getAllByRole("radio", { name })
+    .filter((element) => element.tagName !== "INPUT")[0] as HTMLElement;
+}
+
+describe("RadioGroup disabled parity (passes on the Base UI wrapper)", () => {
+  it("disables every radio inside a disabled group", () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioGroup
+        aria-label="Plan"
+        defaultValue="starter"
+        disabled
+        onValueChange={onValueChange}
+      >
+        <Label>
+          <Radio value="starter" />
+          Starter
+        </Label>
+        <Label>
+          <Radio value="team" />
+          Team
+        </Label>
+      </RadioGroup>,
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "Plan" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    const controls = radios().filter((element) => element.tagName !== "INPUT");
+    expect(controls).toHaveLength(2);
+    for (const radio of controls) {
+      expect(radio).toHaveAttribute("aria-disabled", "true");
+      expect(radio).toHaveAttribute("data-disabled");
+      expect(radio.className).toContain("data-disabled:opacity-64");
+    }
+
+    fireEvent.click(radioControl("Team"));
+
+    expect(radioControl("Starter")).toBeChecked();
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps one disabled radio out of the Tab order and unselected", () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioGroup
+        aria-label="Plan"
+        defaultValue="starter"
+        onValueChange={onValueChange}
+      >
+        <Label>
+          <Radio value="starter" />
+          Starter
+        </Label>
+        <Label>
+          <Radio disabled value="pro" />
+          Pro
+        </Label>
+        <Label>
+          <Radio value="team" />
+          Team
+        </Label>
+      </RadioGroup>,
+    );
+
+    const pro = radioControl("Pro");
+    expect(pro).toHaveAttribute("aria-disabled", "true");
+    expect(pro).toHaveAttribute("data-disabled");
+    expect(skippedByTab(pro)).toBe(true);
+
+    fireEvent.click(pro);
+
+    expect(pro).not.toBeChecked();
+    expect(radioControl("Starter")).toBeChecked();
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+});

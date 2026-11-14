@@ -244,3 +244,69 @@ describe("Switch", () => {
     expect(submitted).toEqual(["digest=weekly"]);
   });
 });
+
+// A control is out of the Tab order when the wrapper marks it natively disabled
+// or removes it from the sequence. Base UI used `tabindex="-1"` on a span; UI
+// SDK uses a native disabled button. Both must count as skipped.
+function skippedByTab(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("tabindex") === "-1"
+  );
+}
+
+describe("Switch disabled parity (passes on the Base UI wrapper)", () => {
+  it("keeps a disabled switch out of the Tab order and ignores presses", () => {
+    const onCheckedChange = vi.fn();
+    render(
+      <Switch
+        aria-label="Security alerts"
+        disabled
+        onCheckedChange={onCheckedChange}
+      />,
+    );
+
+    const control = screen.getByRole("switch", { name: "Security alerts" });
+    expect(control).toHaveAttribute("aria-checked", "false");
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).toHaveAttribute("data-disabled");
+    expect(skippedByTab(control)).toBe(true);
+    // The dimming comes from `data-disabled`, which both wrappers set.
+    expect(control.className).toContain("data-disabled:opacity-64");
+
+    fireEvent.click(control);
+    fireEvent.keyDown(control, { key: " " });
+    fireEvent.keyUp(control, { key: " " });
+    fireEvent.keyDown(control, { key: "Enter" });
+
+    expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(control).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps a disabled switch out of a submitted form", () => {
+    const submitted: string[] = [];
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          for (const [name, value] of new FormData(event.currentTarget)) {
+            submitted.push(`${name}=${value}`);
+          }
+        }}
+      >
+        <Switch
+          aria-label="Alerts"
+          defaultChecked
+          disabled
+          name="alerts"
+          value="on"
+        />
+        <button type="submit">Save</button>
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(submitted).toEqual([]);
+  });
+});

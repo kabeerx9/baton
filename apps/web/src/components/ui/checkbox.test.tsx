@@ -13,6 +13,16 @@ function pressSpace(element: HTMLElement) {
   }
 }
 
+// A control is out of the Tab order when the wrapper marks it natively disabled
+// or removes it from the sequence. Base UI used `tabindex="-1"` on a span; UI
+// SDK uses a native disabled button. Both must count as skipped.
+function skippedByTab(element: HTMLElement) {
+  return (
+    element.hasAttribute("disabled") ||
+    element.getAttribute("tabindex") === "-1"
+  );
+}
+
 function formSubmitSpy() {
   return vi.fn((event: { preventDefault: () => void }) => {
     event.preventDefault();
@@ -197,5 +207,64 @@ describe("Checkbox", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(submitted).toEqual(["newsletter=weekly"]);
+  });
+});
+
+describe("Checkbox disabled parity (passes on the Base UI wrapper)", () => {
+  it("keeps a disabled checkbox out of the Tab order and ignores presses", () => {
+    const onCheckedChange = vi.fn();
+    render(
+      <Checkbox
+        aria-label="Accept terms"
+        disabled
+        onCheckedChange={onCheckedChange}
+      />,
+    );
+
+    const control = screen.getByRole("checkbox", { name: "Accept terms" });
+    expect(control).toHaveAttribute("aria-checked", "false");
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).toHaveAttribute("data-disabled");
+    expect(skippedByTab(control)).toBe(true);
+    // The dimming comes from `data-disabled`, which both wrappers set.
+    expect(control.className).toContain("data-disabled:opacity-64");
+    // The indicator keeps rendering so the control does not change shape.
+    expect(
+      control.querySelector('[data-slot="checkbox-indicator"]'),
+    ).toHaveAttribute("data-disabled");
+
+    fireEvent.click(control);
+    fireEvent.keyDown(control, { key: " " });
+    fireEvent.keyUp(control, { key: " " });
+
+    expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(control).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps a disabled checkbox out of a submitted form", () => {
+    const submitted: string[] = [];
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          for (const [name, value] of new FormData(event.currentTarget)) {
+            submitted.push(`${name}=${value}`);
+          }
+        }}
+      >
+        <Checkbox
+          aria-label="Newsletter"
+          defaultChecked
+          disabled
+          name="newsletter"
+          value="weekly"
+        />
+        <button type="submit">Save</button>
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(submitted).toEqual([]);
   });
 });
