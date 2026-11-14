@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
+import {
+  lockWorkspacesShared,
+  taskWorkspaceId,
+} from "../../task-change-request/lock-workspaces";
 import { lockRequestQuota } from "../../task-change-request/request-quota";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 
@@ -11,7 +15,8 @@ export type TaskTransaction = Parameters<
 
 /**
  * Locks one task row in the caller's transaction. Lock order across the
- * codebase: projects (when moving), then tasks by id, then change requests.
+ * codebase: workspaces (change request paths), then projects, then the
+ * request quota, then tasks by id, then change requests.
  * With `skipLocked`, a row another transaction holds returns undefined.
  */
 export async function lockTask(
@@ -41,10 +46,12 @@ export async function withLockedTask<T>(
 }
 
 /**
- * For paths that may open a change request. Lock order: the task's project
- * (KEY SHARE: waits while a reorder or project delete holds it FOR UPDATE),
- * then the requester's quota, then the task. The request INSERT's foreign
- * key to the project then never waits while the task is held.
+ * For paths that may open a change request. Lock order: the workspace
+ * (FOR SHARE: waits while an archive or workspace delete holds it), the
+ * task's project (KEY SHARE: waits while a reorder or project delete holds
+ * it FOR UPDATE), the requester's quota, then the task. The request
+ * INSERT's foreign keys to the workspace and project then never wait while
+ * the task is held.
  */
 export async function withLockedProjectTask<T>(
   id: string,
@@ -55,17 +62,17 @@ export async function withLockedProjectTask<T>(
   ) => Promise<T>,
 ) {
   return db.transaction(async (tx) => {
-    const [peek] = await tx
-      .select({ projectId: taskTable.projectId })
-      .from(taskTable)
-      .where(eq(taskTable.id, id));
+    const peek = await taskWorkspaceId(tx, id);
     if (!peek) throw new HTTPException(404, { message: "Task not found" });
+    const locked = await lockWorkspacesShared(tx, [peek.workspaceId]);
+    if (!locked.has(peek.workspaceId))
+      throw new HTTPException(404, { message: "Task not found" });
     const [project] = await tx
       .select({ id: projectTable.id, workspaceId: projectTable.workspaceId })
       .from(projectTable)
       .where(eq(projectTable.id, peek.projectId))
       .for("key share");
-    if (!project)
+    if (!project || project.workspaceId !== peek.workspaceId)
       throw new HTTPException(409, {
         message: "Task changed projects; retry the operation",
       });

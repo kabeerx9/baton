@@ -17,6 +17,7 @@ import { assertTaskPosition } from "./next-task-position";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { decideConsent } from "../../task-change-request/consent";
+import { lockWorkspacesShared } from "../../task-change-request/lock-workspaces";
 import { lockRequestQuota } from "../../task-change-request/request-quota";
 import {
   dispatchRequestEffects,
@@ -104,10 +105,22 @@ async function updateTask(
   const effects: RequestEffect[] = [];
   let request: ChangeRequestRow | null = null;
   const updatedTask = await db.transaction(async (tx) => {
+    // Lock order: workspace, project, request quota, task (see withLockedTask).
+    const [peek] = await tx
+      .select({ workspaceId: projectTable.workspaceId })
+      .from(projectTable)
+      .where(eq(projectTable.id, projectId));
+    if (!peek) throw new HTTPException(404, { message: "Project not found" });
+    await lockWorkspacesShared(tx, [peek.workspaceId]);
     const [project] = await tx
       .select({ id: projectTable.id, workspaceId: projectTable.workspaceId })
       .from(projectTable)
-      .where(eq(projectTable.id, projectId))
+      .where(
+        and(
+          eq(projectTable.id, projectId),
+          eq(projectTable.workspaceId, peek.workspaceId),
+        ),
+      )
       .for("update");
     if (!project)
       throw new HTTPException(404, { message: "Project not found" });

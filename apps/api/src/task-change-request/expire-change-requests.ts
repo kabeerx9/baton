@@ -12,6 +12,7 @@ import {
   markRequest,
 } from "./execute-change-request";
 import { isPending } from "./lifecycle";
+import { lockWorkspacesShared } from "./lock-workspaces";
 import { appliesOnTimeout } from "./request-change";
 import { publishExecution } from "./decide-change-request";
 
@@ -22,8 +23,10 @@ const now = sql`(now() AT TIME ZONE 'utc')`;
 type Outcome = "applied" | "expired" | "cancelled" | "skipped";
 
 /**
- * Ends one due request in its own transaction. The task is locked first
- * (SKIP LOCKED: a busy task waits for the next run), then the request is
+ * Ends one due request in its own transaction. The request's workspace is
+ * locked first (FOR SHARE: waits for an archive or delete in progress),
+ * then the task (SKIP LOCKED: a busy task waits for the next run), then the
+ * request is
  * re-read under lock and its deadline checked by the database clock. Safe
  * when two instances run at once: the second finds it no longer pending.
  */
@@ -32,6 +35,7 @@ export async function timeOutRequest(requestId: string): Promise<Outcome> {
     .select({
       taskId: taskChangeRequestTable.taskId,
       kind: taskChangeRequestTable.kind,
+      workspaceId: taskChangeRequestTable.workspaceId,
     })
     .from(taskChangeRequestTable)
     .where(eq(taskChangeRequestTable.id, requestId))
@@ -45,6 +49,9 @@ export async function timeOutRequest(requestId: string): Promise<Outcome> {
   const done: { execution: Execution | null } = { execution: null };
 
   const outcome = await db.transaction(async (tx): Promise<Outcome> => {
+    const workspaces = await lockWorkspacesShared(tx, [due.workspaceId]);
+    // A deleted workspace took the request with it.
+    if (!workspaces.has(due.workspaceId)) return "skipped";
     const task = due.taskId
       ? await lockTask(tx, due.taskId, { skipLocked: true })
       : undefined;

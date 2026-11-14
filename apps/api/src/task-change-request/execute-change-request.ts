@@ -77,13 +77,13 @@ async function staleReason(
   if (!request.requestedBy) return "requester_lost_access";
   const workspaceId = await projectWorkspaceId(database, task.projectId);
   if (workspaceId !== request.workspaceId) return "task_changed";
-  // FOR SHARE waits for an archive in progress (it locks the workspace row
-  // FOR UPDATE and touches no task), then reads its result.
+  // Callers lock the request's workspace FOR SHARE before the task, so an
+  // archive or delete in progress has finished and this reads its result.
   const [workspace] = await database
     .select({ archivedAt: workspaceTable.archivedAt })
     .from(workspaceTable)
     .where(eq(workspaceTable.id, workspaceId))
-    .for("share");
+    .limit(1);
   if (!workspace || workspace.archivedAt) return "workspace_archived";
   const credential = await requesterScope(database, request);
   if (!credential.ok) return "credential_revoked";
@@ -124,8 +124,8 @@ export type Execution =
 class Refusal extends Error {}
 
 /**
- * Applies a pending request the caller has locked (task first, then the
- * request), through the same `applyTaskChange` every status write uses, as
+ * Applies a pending request the caller has locked (its workspace, then the
+ * task, then the request), through the same `applyTaskChange` every status write uses, as
  * the deciding person (accept) or the requester (timeout), so the blocker
  * rule holds. Expected refusals (stale task, lost access, blocked, invalid
  * target) end the request as cancelled with the reason, and the caller
