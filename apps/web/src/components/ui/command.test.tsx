@@ -9,6 +9,8 @@ import { Fragment, type ReactElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   Command,
+  CommandDialog,
+  CommandDialogPopup,
   CommandEmpty,
   CommandGroup,
   CommandGroupLabel,
@@ -243,6 +245,51 @@ describe("Command list", () => {
 
     expect(names()).toEqual(["Apple", "Apricot", "Banana", "Carrot"]);
     expect(screen.queryByText("Nothing found")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty part with no filter and no items", async () => {
+    await show(<List groups={[]} noFilter />);
+
+    expect(names()).toEqual([]);
+    expect(screen.getByText("Nothing found")).toBeInTheDocument();
+  });
+
+  it("clears the query and closes the dialog on Escape", async () => {
+    const onOpenChange = vi.fn();
+    const onQuery = vi.fn();
+    function Palette() {
+      const [open, setOpen] = useState(false);
+      return (
+        <CommandDialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            onOpenChange(next);
+          }}
+        >
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <CommandDialogPopup>
+            <List onQuery={onQuery} />
+          </CommandDialogPopup>
+        </CommandDialog>
+      );
+    }
+
+    await show(<Palette />);
+    fireEvent.click(screen.getByText("Open"));
+    await flush();
+
+    await change("car");
+    expect(names()).toEqual(["Carrot"]);
+
+    // Measured: one Escape does both. The command clears the query and calls
+    // preventDefault, but the dialog listens for Escape on the document and
+    // does not see that, so the palette closes in the same key press.
+    await press("Escape");
+    expect(onQuery).toHaveBeenLastCalledWith("");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("shows a controlled query in the field and reports typing", async () => {

@@ -195,6 +195,7 @@ function CommandPalette() {
                           <CommandItem
                             key={item.value}
                             value={item.value}
+                            label={item.label}
                             onSelect={() => runCommand(item.onRun)}
                             className="px-3"
                           >

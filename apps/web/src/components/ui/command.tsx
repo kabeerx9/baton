@@ -240,9 +240,10 @@ function CommandGroupLabel({
 }
 
 /**
- * `value` identifies the item and is what `onAction` receives. Callers also
- * use it as the search text, so `label` defaults to it: UI SDK matches the
- * search against `label`, not `value`. Run it with `onSelect` (click or Enter).
+ * `value` identifies the item and is what `onAction` receives. `label` is the
+ * text the search matches; it defaults to `value`, so pass the visible text
+ * when the two differ (an id like `create-task`). Run it with `onSelect` (click
+ * or Enter).
  */
 function CommandItem({
   className,
