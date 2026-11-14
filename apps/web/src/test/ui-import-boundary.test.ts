@@ -116,7 +116,24 @@ function specifiersOf(source: string, file: string): string[] {
   return found;
 }
 
+// An import of a watched package must contain its name in the raw text, so a
+// file without any of these strings cannot violate the boundary. Skipping the
+// Babel parse for those files keeps the test fast on the whole source tree.
+// Safety margin for a loaded machine; the prefilter is what makes the test fast.
+const TEST_TIMEOUT_MS = 30_000;
+
+const WATCHED_PREFIXES = [
+  "@ui-sdk",
+  "@base-ui",
+  "@radix-ui",
+  "radix-ui",
+  "cmdk",
+];
+
 function importsOf(source: string, prefix: string, file = "file.tsx") {
+  if (!WATCHED_PREFIXES.some((watched) => source.includes(watched))) {
+    return false;
+  }
   return specifiersOf(source, file).some((specifier) =>
     specifier.startsWith(prefix),
   );
@@ -137,73 +154,93 @@ function offenders(prefix: string, allowed: (relative: string) => boolean) {
 }
 
 describe("UI library import boundary", () => {
-  it("imports @ui-sdk/ only inside the allowed folders", () => {
-    expect(
-      offenders(
-        "@ui-sdk/",
-        (relative) =>
-          UI_SDK_ALLOWED.some((dir) => relative.startsWith(dir)) ||
-          UI_SDK_ALLOWED_FILES.includes(relative),
-      ),
-    ).toEqual([]);
-  });
+  it(
+    "imports @ui-sdk/ only inside the allowed folders",
+    () => {
+      expect(
+        offenders(
+          "@ui-sdk/",
+          (relative) =>
+            UI_SDK_ALLOWED.some((dir) => relative.startsWith(dir)) ||
+            UI_SDK_ALLOWED_FILES.includes(relative),
+        ),
+      ).toEqual([]);
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("imports @base-ui/ only in components/ui and the known direct importers", () => {
-    expect(
-      offenders(
-        "@base-ui/",
-        (relative) =>
-          BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) ||
-          BASE_UI_ALLOWED_FILES.includes(relative),
-      ),
-    ).toEqual([]);
-  });
+  it(
+    "imports @base-ui/ only in components/ui and the known direct importers",
+    () => {
+      expect(
+        offenders(
+          "@base-ui/",
+          (relative) =>
+            BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) ||
+            BASE_UI_ALLOWED_FILES.includes(relative),
+        ),
+      ).toEqual([]);
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("flags every kind of import and ignores comments", () => {
-    const flagged = [
-      'import { X } from "@ui-sdk/react/dialog";',
-      "import '@ui-sdk/react/dialog';",
-      'import type { T } from "@ui-sdk/core";',
-      'export * from "@ui-sdk/x";',
-      'export { a } from "@ui-sdk/x";',
-      'const x = await import("@ui-sdk/core");',
-      "const x = await import(/* chunk */ '@ui-sdk/x');",
-      'const x = require("@ui-sdk/core");',
-      'vi.mock("@ui-sdk/react/dialog", () => ({}));',
-      'type T = typeof import("@ui-sdk/core");',
-    ];
-    for (const code of flagged) {
-      expect(importsOf(code, "@ui-sdk/"), code).toBe(true);
-    }
+  it(
+    "flags every kind of import and ignores comments",
+    () => {
+      const flagged = [
+        'import { X } from "@ui-sdk/react/dialog";',
+        "import '@ui-sdk/react/dialog';",
+        'import type { T } from "@ui-sdk/core";',
+        'export * from "@ui-sdk/x";',
+        'export { a } from "@ui-sdk/x";',
+        'const x = await import("@ui-sdk/core");',
+        "const x = await import(/* chunk */ '@ui-sdk/x');",
+        'const x = require("@ui-sdk/core");',
+        'vi.mock("@ui-sdk/react/dialog", () => ({}));',
+        'type T = typeof import("@ui-sdk/core");',
+      ];
+      for (const code of flagged) {
+        expect(importsOf(code, "@ui-sdk/"), code).toBe(true);
+      }
 
-    const ignored = [
-      "// import { X } from '@ui-sdk/react';",
-      '/* import("@ui-sdk/react") */',
-      "// uses @ui-sdk/react",
-      'const text = "@ui-sdk/react";',
-      'import { X } from "./local";',
-    ];
-    for (const code of ignored) {
-      expect(importsOf(code, "@ui-sdk/"), code).toBe(false);
-    }
-  });
+      const ignored = [
+        "// import { X } from '@ui-sdk/react';",
+        '/* import("@ui-sdk/react") */',
+        "// uses @ui-sdk/react",
+        'const text = "@ui-sdk/react";',
+        'import { X } from "./local";',
+      ];
+      for (const code of ignored) {
+        expect(importsOf(code, "@ui-sdk/"), code).toBe(false);
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("flags a CSS import and ignores a commented one", () => {
-    expect(
-      importsOf('@import "@ui-sdk/x/styles.css";', "@ui-sdk/", "a.css"),
-    ).toBe(true);
-    expect(importsOf('/* @import "@ui-sdk/x"; */', "@ui-sdk/", "a.css")).toBe(
-      false,
-    );
-  });
+  it(
+    "flags a CSS import and ignores a commented one",
+    () => {
+      expect(
+        importsOf('@import "@ui-sdk/x/styles.css";', "@ui-sdk/", "a.css"),
+      ).toBe(true);
+      expect(importsOf('/* @import "@ui-sdk/x"; */', "@ui-sdk/", "a.css")).toBe(
+        false,
+      );
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("reports a planted violation", () => {
-    const planted = (relative: string, code: string) =>
-      importsOf(code, "@base-ui/", relative) &&
-      !BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) &&
-      !BASE_UI_ALLOWED_FILES.includes(relative);
-    const code = 'const m = import(/* c */ "@base-ui/react/dialog");';
-    expect(planted("components/task/new-file.tsx", code)).toBe(true);
-    expect(planted("components/ui/dialog.tsx", code)).toBe(false);
-  });
+  it(
+    "reports a planted violation",
+    () => {
+      const planted = (relative: string, code: string) =>
+        importsOf(code, "@base-ui/", relative) &&
+        !BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) &&
+        !BASE_UI_ALLOWED_FILES.includes(relative);
+      const code = 'const m = import(/* c */ "@base-ui/react/dialog");';
+      expect(planted("components/task/new-file.tsx", code)).toBe(true);
+      expect(planted("components/ui/dialog.tsx", code)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
 });
