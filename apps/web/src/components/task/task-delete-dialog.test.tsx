@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   canDeleteTasks: vi.fn(),
   deleteTask: vi.fn(),
   error: vi.fn(),
+  info: vi.fn(),
   success: vi.fn(),
 }));
 
@@ -41,7 +42,7 @@ vi.mock("@/hooks/use-workspace-permission", () => ({
   }),
 }));
 vi.mock("@/lib/toast", () => ({
-  toast: { error: mocks.error, success: mocks.success },
+  toast: { error: mocks.error, info: mocks.info, success: mocks.success },
 }));
 
 function renderTaskDelete({
@@ -98,7 +99,10 @@ describe("TaskDeleteDialog", () => {
   });
 
   it("deletes after confirmation and reports success", async () => {
-    mocks.deleteTask.mockResolvedValue({ id: "task-1" });
+    mocks.deleteTask.mockResolvedValue({
+      outcome: "applied",
+      task: { id: "task-1" },
+    });
     const { onDeleted } = renderTaskDelete();
 
     fireEvent.click(
@@ -115,8 +119,31 @@ describe("TaskDeleteDialog", () => {
     expect(onDeleted).toHaveBeenCalledTimes(1);
   });
 
+  it("stays on the task when the delete becomes a request", async () => {
+    mocks.deleteTask.mockResolvedValue({
+      outcome: "requested",
+      task: { id: "task-1" },
+      request: { id: "request-1", kind: "delete", state: "pending" },
+    });
+    const { onDeleted } = renderTaskDelete();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "tasks:delete.action" }),
+    );
+    await confirmDeletion();
+
+    await waitFor(() =>
+      expect(mocks.info).toHaveBeenCalledWith("tasks:delete.requested"),
+    );
+    expect(mocks.success).not.toHaveBeenCalled();
+    expect(onDeleted).not.toHaveBeenCalled();
+  });
+
   it("opens the confirmation from the keyboard shortcut", async () => {
-    mocks.deleteTask.mockResolvedValue({ id: "task-1" });
+    mocks.deleteTask.mockResolvedValue({
+      outcome: "applied",
+      task: { id: "task-1" },
+    });
     renderTaskDelete();
 
     fireEvent.keyDown(document, { key: "Backspace", ctrlKey: true });

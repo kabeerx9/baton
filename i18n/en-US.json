@@ -2512,6 +2512,7 @@
 			"description": "This will permanently remove the task and all its data. You can't undo this action.",
 			"action": "Delete Task",
 			"success": "Task deleted successfully",
+			"requested": "Delete requested. The people on this task must approve it.",
 			"error": "Failed to delete task"
 		},
 		"duplicate": {

@@ -49,9 +49,15 @@ export default function TaskDeleteDialog({
 
   const handleDelete = async () => {
     try {
-      await deleteTask(taskId);
-      toast.success(t("tasks:delete.success"), { icon: Trash2Icon });
+      const result = await deleteTask(taskId);
       handle.close();
+      // A delete by someone outside the task only opens a request: the task
+      // stays, so the caller must not leave the page.
+      if (result.outcome === "requested") {
+        toast.info(t("tasks:delete.requested"));
+        return;
+      }
+      toast.success(t("tasks:delete.success"), { icon: Trash2Icon });
       onDeleted();
     } catch (error) {
       toast.error(
