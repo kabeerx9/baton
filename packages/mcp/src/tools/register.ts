@@ -39,6 +39,9 @@ const hexColorSchema = z
     "Expected a hex color like #FF6600",
   );
 
+const OUTCOME_NOTE =
+  ' Read `outcome` in the result. "applied" means the change is made. "requested" means you are not involved in the task (not its creator, its assignee, or a workspace owner or admin): nothing changed yet, and `request` holds a change request that its creator, assignee or an admin can accept. Tell the user it is waiting for them; use get_change_request to follow it.';
+
 function run(fn: () => Promise<unknown>): Promise<CallToolResult> {
   return fn()
     .then((data) => textResult(data))
@@ -354,8 +357,7 @@ export function registerTools(
   registerTool(
     "update_task",
     {
-      description:
-        "Update a task (fetches current task, merges fields, then full update).",
+      description: `Update a task (fetches current task, merges fields, then full update). Only someone involved in the task can reassign it. A status change by someone else becomes a change request; the other fields still apply.${OUTCOME_NOTE}`,
       inputSchema: updateTaskSchema,
     },
     async (args) => {
@@ -378,7 +380,7 @@ export function registerTools(
     "move_task",
     {
       description:
-        "Move a task to another project (and optional column status).",
+        "Move a task to another project (and optional column status). If you are not involved in the task, a move that changes its status or drops its assignee is refused; ask with update_task_status instead.",
       inputSchema: z.object({
         taskId: nonEmptyString,
         destinationProjectId: nonEmptyString,
@@ -402,7 +404,7 @@ export function registerTools(
   registerTool(
     "update_task_status",
     {
-      description: "Update only the status (column) of a task.",
+      description: `Update only the status (column) of a task. A blocked task cannot be set to a final column.${OUTCOME_NOTE} An unanswered status request applies after 24 hours, unless it targets a final column or archived; those expire.`,
       inputSchema: z.object({
         taskId: nonEmptyString,
         status: nonEmptyString,
@@ -414,6 +416,85 @@ export function registerTools(
           method: "PUT",
           body: JSON.stringify({ status: args.status }),
         }),
+      ),
+  );
+
+  const changeRequestId = z.object({ requestId: nonEmptyString });
+
+  registerTool(
+    "list_change_requests",
+    {
+      description:
+        "List change requests in a workspace, newest first. A change request is a status change or delete asked for by someone not involved in the task; its creator, assignee or a workspace owner or admin accepts or rejects it. Use canAnswer: true for the requests waiting on the caller, and mine: true for the caller's own. state is one of pending, accepted, rejected, cancelled, expired, applied_on_timeout.",
+      inputSchema: z.object({
+        workspaceId: nonEmptyString,
+        taskId: optionalNonEmptyString,
+        state: optionalNonEmptyString,
+        canAnswer: z.boolean().optional(),
+        mine: z.boolean().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).max(100_000).optional(),
+      }),
+    },
+    async (args) => {
+      const qs = new URLSearchParams({ workspaceId: args.workspaceId });
+      if (args.taskId) qs.set("taskId", args.taskId);
+      if (args.state) qs.set("state", args.state);
+      if (args.canAnswer) qs.set("canAnswer", "me");
+      if (args.mine) qs.set("requestedBy", "me");
+      if (args.limit !== undefined) qs.set("limit", String(args.limit));
+      if (args.offset !== undefined) qs.set("offset", String(args.offset));
+      return run(() =>
+        client.json(`/api/task-change-request?${qs.toString()}`),
+      );
+    },
+  );
+
+  registerTool(
+    "get_change_request",
+    {
+      description:
+        "Get one change request and its state. Works after the task is deleted, so you can learn how your request ended.",
+      inputSchema: changeRequestId,
+    },
+    async (args) =>
+      run(() =>
+        client.json(
+          `/api/task-change-request/${encodeURIComponent(args.requestId)}`,
+        ),
+      ),
+  );
+
+  registerTool(
+    "answer_change_request",
+    {
+      description:
+        "Accept or reject a pending change request. Only the task's creator, its assignee, or a workspace owner or admin can answer. Answer only when your user asks you to. Accepting makes the change now. If the task changed since the request was made, accepting cancels the request instead; read `request.state` in the result.",
+      inputSchema: changeRequestId.extend({
+        decision: z.enum(["accept", "reject"]),
+      }),
+    },
+    async (args) =>
+      run(() =>
+        client.json(
+          `/api/task-change-request/${encodeURIComponent(args.requestId)}/${args.decision}`,
+          { method: "POST", body: JSON.stringify({}) },
+        ),
+      ),
+  );
+
+  registerTool(
+    "cancel_change_request",
+    {
+      description: "Withdraw one of your own pending change requests.",
+      inputSchema: changeRequestId,
+    },
+    async (args) =>
+      run(() =>
+        client.json(
+          `/api/task-change-request/${encodeURIComponent(args.requestId)}/cancel`,
+          { method: "POST", body: JSON.stringify({}) },
+        ),
       ),
   );
 
@@ -597,7 +678,7 @@ export function registerTools(
     "get_board",
     {
       description:
-        "Get the workspace board. Words the team uses: a TASK is one job with one owner. A FEATURE is a job that has tasks under it; each of those tasks has its own owner and lives in a repo (App, API, Engine...) or in no repo (QA, design). In this response every top-level entry of `tasks` is a task or a feature, and its `subtasks` array holds the tasks under a feature (empty for a single task). Each has a `key` such as T-5 or API-3, a status, `dueDate`, `finishedAt` (when it reached done; null while open) and pull requests. `waitsOn` lists the open tasks that block an item, in any repo or feature; `hiddenBlockers` counts open blockers in repos you cannot see. An item is blocked when either is non-empty: it can start but cannot be set to done. `blockedBy` on a subtask is map edges only, not a blocked signal. `column` is where the entry sits on the board (todo, doing, review, done); for a feature it follows its tasks: done when all are done, review when every unfinished one is in review, doing once any has started. A blocked item stays in its column. `projects` lists where a task under a feature can live: kind `repo` for repos, kind `board` for no repo. `members` lists everyone with the user id that assignment tools accept. get_task_by_ticket_id finds one item by key.",
+        "Get the workspace board. Words the team uses: a TASK is one job with one owner. A FEATURE is a job that has tasks under it; each of those tasks has its own owner and lives in a repo (App, API, Engine...) or in no repo (QA, design). In this response every top-level entry of `tasks` is a task or a feature, and its `subtasks` array holds the tasks under a feature (empty for a single task). Each has a `key` such as T-5 or API-3, a status, `dueDate`, `finishedAt` (when it reached done; null while open) and pull requests. `waitsOn` lists the open tasks that block an item, in any repo or feature; `hiddenBlockers` counts open blockers in repos you cannot see. An item is blocked when either is non-empty: it can start but cannot be set to done. `blockedBy` on a subtask is map edges only, not a blocked signal. `column` is where the entry sits on the board (todo, doing, review, done); for a feature it follows its tasks: done when all are done, review when every unfinished one is in review, doing once any has started. A blocked item stays in its column. `projects` lists where a task under a feature can live: kind `repo` for repos, kind `board` for no repo. `members` lists everyone with the user id that assignment tools accept. `pendingRequest` is a status or delete change request waiting for an answer, or null. get_task_by_ticket_id finds one item by key.",
       inputSchema: z.object({ workspaceId: nonEmptyString }),
     },
     async (args) =>
@@ -679,8 +760,7 @@ export function registerTools(
   registerTool(
     "update_board_item",
     {
-      description:
-        "Change a task or feature found by its key (T-5, API-3): set its status, its owner, or what it waits on. Status takes everyday words: todo, in progress, review, done. A blocked task cannot be set to done; the error names what blocks it. A feature has no status of its own: it follows its tasks. To edit a title, description or comments, use the task tools with the returned id.",
+      description: `Change a task or feature found by its key (T-5, API-3): set its status, its owner, or what it waits on. Status takes everyday words: todo, in progress, review, done. A blocked task cannot be set to done; the error names what blocks it. A feature has no status of its own: it follows its tasks. Only someone involved in the task can change its owner. To edit a title, description or comments, use the task tools with the returned id.${OUTCOME_NOTE}`,
       inputSchema: z.object({
         workspaceId: nonEmptyString,
         key: nonEmptyString,
@@ -728,7 +808,7 @@ export function registerTools(
     "list_my_tasks",
     {
       description:
-        "List the open tasks assigned to the caller across every active project in a workspace, ordered by due date then priority (at most 100). Each task has `dueDate`, `waiting` (open tasks that wait on it, so someone waits on the caller; tasks in repos the caller cannot see are left out), `waitsOn` (open tasks it waits on, in any repo) and `hiddenBlockers` (a count of open blockers in repos the caller cannot see). A task with blockers can start but cannot be set to done.",
+        "List the open tasks assigned to the caller across every active project in a workspace, ordered by due date then priority (at most 100). Each task has `dueDate`, `waiting` (open tasks that wait on it, so someone waits on the caller; tasks in repos the caller cannot see are left out), `waitsOn` (open tasks it waits on, in any repo) and `hiddenBlockers` (a count of open blockers in repos the caller cannot see). A task with blockers can start but cannot be set to done. `pendingRequest` is a change request waiting on the task, or null; answer it with answer_change_request.",
       inputSchema: z.object({ workspaceId: nonEmptyString }),
     },
     async (args) =>
@@ -859,7 +939,7 @@ export function registerTools(
   registerTool(
     "delete_task",
     {
-      description: "Delete a task by ID.",
+      description: `Delete a task by ID.${OUTCOME_NOTE} An unanswered delete request expires after 24 hours.`,
       inputSchema: z.object({ taskId: nonEmptyString }),
     },
     async (args) =>
@@ -874,7 +954,7 @@ export function registerTools(
     "update_task_assignee",
     {
       description:
-        "Assign a task to a workspace member, or pass a null userId to unassign it.",
+        "Assign a task to a workspace member, or pass a null userId to unassign it. Only the task's creator, its assignee, or a workspace owner or admin can change who owns it.",
       inputSchema: z.object({
         taskId: nonEmptyString,
         userId: nonEmptyString

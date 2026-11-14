@@ -175,6 +175,60 @@ describe("MCP tool catalog", () => {
     expect(lastRequest().url).toBe("http://api.test/api/notification");
   });
 
+  it("lists, reads, answers and cancels change requests", async () => {
+    await call("list_change_requests", {
+      workspaceId: "w1",
+      canAnswer: true,
+      state: "pending",
+    });
+    expect(lastRequest().url).toBe(
+      "http://api.test/api/task-change-request?workspaceId=w1&state=pending&canAnswer=me",
+    );
+
+    await call("list_change_requests", { workspaceId: "w1", mine: true });
+    expect(lastRequest().url).toBe(
+      "http://api.test/api/task-change-request?workspaceId=w1&requestedBy=me",
+    );
+
+    await call("get_change_request", { requestId: "r1" });
+    expect(lastRequest().url).toBe(
+      "http://api.test/api/task-change-request/r1",
+    );
+
+    await call("answer_change_request", {
+      requestId: "r1",
+      decision: "accept",
+    });
+    expect(lastRequest()).toMatchObject({
+      url: "http://api.test/api/task-change-request/r1/accept",
+      method: "POST",
+    });
+
+    await call("answer_change_request", {
+      requestId: "r1",
+      decision: "reject",
+    });
+    expect(lastRequest().url).toBe(
+      "http://api.test/api/task-change-request/r1/reject",
+    );
+
+    await call("cancel_change_request", { requestId: "r1" });
+    expect(lastRequest()).toMatchObject({
+      url: "http://api.test/api/task-change-request/r1/cancel",
+      method: "POST",
+    });
+  });
+
+  it("refuses an unknown change request decision", async () => {
+    const result = await call("answer_change_request", {
+      requestId: "r1",
+      decision: "cancel",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
   it("surfaces an API failure as a tool error", async () => {
     apiFetch.mockResolvedValueOnce(
       Response.json({ message: "Task not found" }, { status: 404 }),

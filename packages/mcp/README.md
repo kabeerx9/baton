@@ -104,6 +104,12 @@ The server signs in only with `BATON_API_KEY`. Add it to the `env` of the MCP en
 - Comments: `list_task_comments`, `create_task_comment`, `update_task_comment`, `delete_task_comment`
 - Labels: `list_workspace_labels`, `create_label`, `attach_label_to_task`, `detach_label_from_task`, `delete_label`
 - Task relations: `create_task_relation`, `get_task_relations`, `delete_task_relation`
+- Change requests: `list_change_requests`, `get_change_request`, `answer_change_request`, `cancel_change_request`
+
+A status change or delete on a task you are not involved in (not its creator,
+its assignee, or a workspace owner or admin) is not made at once. The tool
+result has `outcome: "requested"` and the change request; someone involved
+accepts or rejects it. Read `outcome` before you report the change as done.
 
 Call `list_project_columns` before setting a status: the column slugs it
 returns are the values `create_task` and `update_task_status` accept.

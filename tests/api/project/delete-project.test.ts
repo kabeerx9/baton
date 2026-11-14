@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   retryStorageCleanup: vi.fn(),
   publishEvent: vi.fn(),
   getProjectSubtaskParentProjects: vi.fn(),
+  cancelPendingRequestsInProject: vi.fn(),
 }));
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
@@ -25,6 +26,9 @@ vi.mock("../../../apps/api/src/events", () => ({
 vi.mock("../../../apps/api/src/task/get-subtask-parent-projects", () => ({
   getProjectSubtaskParentProjects: mocks.getProjectSubtaskParentProjects,
 }));
+vi.mock("../../../apps/api/src/task-change-request/cancel-pending", () => ({
+  cancelPendingRequestsInProject: mocks.cancelPendingRequestsInProject,
+}));
 import deleteProject from "../../../apps/api/src/project/controllers/delete-project";
 function seed(backgroundObjectKey: string | null, assets: string[] = []) {
   const project = {
@@ -40,7 +44,13 @@ function seed(backgroundObjectKey: string | null, assets: string[] = []) {
       from: () => ({
         where: async () => assets.map((objectKey) => ({ objectKey })),
       }),
+    })
+    .mockReturnValueOnce({
+      from: () => ({
+        where: () => ({ orderBy: () => ({ for: async () => [] }) }),
+      }),
     });
+  mocks.cancelPendingRequestsInProject.mockResolvedValue([]);
   mocks.delete.mockReturnValue({
     where: () => ({ returning: async () => [project] }),
   });
@@ -69,6 +79,14 @@ describe("deleteProject", () => {
     expect(mocks.queueStorageCleanup.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.delete.mock.invocationCallOrder[0],
     );
+    expect(mocks.cancelPendingRequestsInProject).toHaveBeenCalledWith(
+      expect.anything(),
+      "project-1",
+      "task_deleted",
+    );
+    expect(
+      mocks.cancelPendingRequestsInProject.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.delete.mock.invocationCallOrder[0]);
     expect(mocks.publishEvent).toHaveBeenCalledWith("subtask-parents.refresh", {
       projects: [{ projectId: "parent-project" }],
     });

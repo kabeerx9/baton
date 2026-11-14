@@ -1,3 +1,4 @@
+import { pendingRequestsForTasks } from "../../task-change-request/pending-summaries";
 import {
   and,
   asc,
@@ -145,9 +146,10 @@ async function getAssignedTasks(
   }
 
   const taskIds = tasks.map((task) => task.id);
-  const [waitingOn, blockers] = await Promise.all([
+  const [waitingOn, blockers, pending] = await Promise.all([
     getWaitingOn(taskIds, userId, workspaceId),
     getOpenBlockers(taskIds, userId, workspaceId),
+    pendingRequestsForTasks(taskIds),
   ]);
 
   return {
@@ -156,6 +158,7 @@ async function getAssignedTasks(
       labels: labelsByTask.get(task.id) ?? [],
       waiting: waitingOn.get(task.id) ?? [],
       ...(blockers.get(task.id) ?? NO_BLOCKERS),
+      pendingRequest: pending.get(task.id) ?? null,
     })),
     total: Number(totals?.total ?? 0),
   };

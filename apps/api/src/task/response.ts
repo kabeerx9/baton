@@ -1,4 +1,5 @@
 import { nullableResponseTimestamp, responseTimestamp, z } from "../openapi";
+import { pendingRequestSchema } from "../task-change-request/response";
 
 const priorityDescription = "One of: no-priority, low, medium, high, urgent.";
 
@@ -78,6 +79,7 @@ export const taskWithAssigneeSchema = taskSchema
       .optional(),
     assigneeName: z.string().nullable(),
     assigneeId: z.string().nullable(),
+    pendingRequest: pendingRequestSchema.optional(),
   })
   .openapi("TaskWithAssignee");
 
@@ -342,6 +344,7 @@ export const assignedTasksSchema = z
           }),
           waitsOn: waitsOnSchema,
           hiddenBlockers: hiddenBlockersSchema,
+          pendingRequest: pendingRequestSchema,
         })
         .openapi("AssignedTask"),
     ),

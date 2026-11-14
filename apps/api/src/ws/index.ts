@@ -997,6 +997,7 @@ const taskUpdateEvents = [
   "comment.created",
   "comment.deleted",
   "comment.updated",
+  "task_change_request.updated",
 ];
 
 subscribeToEvent<{

@@ -47,6 +47,7 @@ import exportTasks from "./controllers/export-tasks";
 import getAssignedTasks from "./controllers/get-assigned-tasks";
 import getTaskByTicketId from "./controllers/get-task-by-ticket-id";
 import getTask from "./controllers/get-task";
+import { pendingRequestsForTasks } from "../task-change-request/pending-summaries";
 import getTasks from "./controllers/get-tasks";
 import importTasks from "./controllers/import-tasks";
 import moveTask from "./controllers/move-task";
@@ -987,8 +988,12 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       c.req.valid("query").view === "board",
       c.get("userId"),
     );
+    const pending = await pendingRequestsForTasks([task.id]);
 
-    return c.json(task, 200);
+    return c.json(
+      { ...task, pendingRequest: pending.get(task.id) ?? null },
+      200,
+    );
   })
   .openapi(moveTaskRoute, async (c) => {
     const { id } = c.req.valid("param");
