@@ -17,6 +17,7 @@ import { assertTaskPosition } from "./next-task-position";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
 import { cancelPendingRequests } from "../../task-change-request/cancel-pending";
 import { decideConsent } from "../../task-change-request/consent";
+import { lockRequestQuota } from "../../task-change-request/request-quota";
 import {
   dispatchRequestEffects,
   finishedEffects,
@@ -104,12 +105,14 @@ async function updateTask(
   let request: ChangeRequestRow | null = null;
   const updatedTask = await db.transaction(async (tx) => {
     const [project] = await tx
-      .select({ id: projectTable.id })
+      .select({ id: projectTable.id, workspaceId: projectTable.workspaceId })
       .from(projectTable)
       .where(eq(projectTable.id, projectId))
       .for("update");
     if (!project)
       throw new HTTPException(404, { message: "Project not found" });
+    if (actor.kind === "person")
+      await lockRequestQuota(tx, project.workspaceId, actor.userId);
     const [locked] = await tx
       .select({
         id: taskTable.id,
@@ -152,7 +155,10 @@ async function updateTask(
         if (assign.kind === "deny") throw consentError(assign);
       }
       if (statusChanges) {
-        const consent = decideConsent("status", facts);
+        const consent = decideConsent("status", facts, {
+          from: locked.status,
+          to: status,
+        });
         if (consent.kind === "deny") throw consentError(consent);
         statusIsRequest = consent.kind === "request";
       }

@@ -23,7 +23,10 @@ import {
   openRequestWithEffects,
 } from "../../task-change-request/request-change";
 import type { ChangeRequestRow } from "../../task-change-request/response";
-import type { TaskTransaction } from "./with-locked-task";
+import {
+  type TaskTransaction,
+  withLockedProjectTask,
+} from "./with-locked-task";
 import getTask from "./get-task";
 
 type Task = typeof taskTable.$inferSelect;
@@ -55,7 +58,14 @@ export async function deleteLockedTask(tx: TaskTransaction, task: Task) {
     .delete(taskTable)
     .where(eq(taskTable.id, task.id))
     .returning();
-  return { deleted, cancelled };
+  // The delete set their stored task_id to null; the rows sent on to the
+  // requesters' notifications must match, or those are dropped as orphans.
+  return {
+    deleted,
+    cancelled: deleted
+      ? cancelled.map((request) => ({ ...request, taskId: null }))
+      : cancelled,
+  };
 }
 
 export async function taskRelationsOf(taskId: string) {
@@ -103,41 +113,39 @@ async function deleteTask(
   const relations = await taskRelationsOf(taskId);
   const effects: RequestEffect[] = [];
 
-  const result = await db.transaction(async (tx) => {
-    const [locked] = await tx
-      .select()
-      .from(taskTable)
-      .where(eq(taskTable.id, taskId))
-      .for("update");
-    if (!locked) throw new HTTPException(404, { message: "Task not found" });
-    if (locked.projectId !== task.projectId)
-      throw new HTTPException(409, {
-        message: "Task changed projects; retry the operation",
-      });
-    if (actor.kind === "person") {
-      const facts = await loadConsentFacts(tx, locked, actor);
-      const consent = decideConsent("delete", facts);
-      if (consent.kind === "deny") throw consentError(consent);
-      if (consent.kind === "request") {
-        const opened = await openRequestWithEffects(tx, {
-          task: locked,
-          workspaceId: facts.workspaceId,
-          actor,
-          kind: "delete",
-          targetStatus: null,
+  const { after: result } = await withLockedProjectTask(
+    taskId,
+    actor.kind === "person" ? actor.userId : null,
+    async (tx, locked) => {
+      if (locked.projectId !== task.projectId)
+        throw new HTTPException(409, {
+          message: "Task changed projects; retry the operation",
         });
-        effects.push(...opened.effects);
-        return { kind: "requested" as const, request: opened.request };
+      if (actor.kind === "person") {
+        const facts = await loadConsentFacts(tx, locked, actor);
+        const consent = decideConsent("delete", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+        if (consent.kind === "request") {
+          const opened = await openRequestWithEffects(tx, {
+            task: locked,
+            workspaceId: facts.workspaceId,
+            actor,
+            kind: "delete",
+            targetStatus: null,
+          });
+          effects.push(...opened.effects);
+          return { kind: "requested" as const, request: opened.request };
+        }
       }
-    }
-    const applied = await applyTaskChange(tx, actor, locked, {
-      kind: "delete",
-    });
-    if (!applied.ok)
-      throw new HTTPException(applied.status, { message: applied.message });
-    effects.push(...finishedEffects(applied.cancelled, currentUserId));
-    return { kind: "deleted" as const, deleted: applied.before };
-  });
+      const applied = await applyTaskChange(tx, actor, locked, {
+        kind: "delete",
+      });
+      if (!applied.ok)
+        throw new HTTPException(applied.status, { message: applied.message });
+      effects.push(...finishedEffects(applied.cancelled, currentUserId));
+      return { kind: "deleted" as const, deleted: applied.before };
+    },
+  );
 
   await dispatchRequestEffects(effects);
   if (result.kind === "requested")

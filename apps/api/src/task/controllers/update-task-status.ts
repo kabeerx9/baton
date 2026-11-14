@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import { withLockedTask } from "./with-locked-task";
+import { withLockedProjectTask } from "./with-locked-task";
 import type { taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { publishTaskMutation } from "./task-mutation-effects";
@@ -43,12 +43,16 @@ async function updateTaskStatus({
   actor?: TaskActor;
 }): Promise<TaskStatusResult> {
   const effects: RequestEffect[] = [];
-  const { before: existingTask, after: result } = await withLockedTask(
+  const { before: existingTask, after: result } = await withLockedProjectTask(
     id,
+    actor.kind === "person" ? actor.userId : null,
     async (tx, existingTask): Promise<TaskStatusResult> => {
       if (actor.kind === "person" && status !== existingTask.status) {
         const facts = await loadConsentFacts(tx, existingTask, actor);
-        const consent = decideConsent("status", facts);
+        const consent = decideConsent("status", facts, {
+          from: existingTask.status,
+          to: status,
+        });
         if (consent.kind === "deny") throw consentError(consent);
         if (consent.kind === "request") {
           const valid = await getValidTaskStatuses(existingTask.projectId, tx);
