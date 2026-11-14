@@ -1,7 +1,7 @@
-import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Check } from "lucide-react";
 import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CommandPrimitive } from "@/components/ui/command";
 import { isEditableTarget } from "@/lib/shortcuts/registry";
 import type { OptionMenuItem } from "./option-menu-item";
 
@@ -53,26 +53,22 @@ export function OptionMenu({
   }, []);
 
   return (
-    <Autocomplete.Root
-      items={options}
-      filteredItems={filtered}
-      value={query}
-      onValueChange={(value, details) => {
-        if (
-          details.reason === "input-change" ||
-          details.reason === "input-clear"
-        ) {
-          setQuery(value);
-          onQueryChange?.(value);
-        }
+    <CommandPrimitive.Root
+      // `display: contents`: the root used to render no element.
+      className="contents"
+      // `filtered` is already filtered, and pinned options must always show.
+      filter={false}
+      query={query}
+      // Typing, and Escape clearing the field.
+      onQueryChange={(value) => {
+        setQuery(value);
+        onQueryChange?.(value);
       }}
-      inline
-      open
-      autoHighlight="always"
-      keepHighlight
+      // Enter and a click both run the highlighted option.
+      onAction={(value) => onSelect(value)}
     >
       <div className="flex h-10 items-center border-border/80 border-b">
-        <Autocomplete.Input
+        <CommandPrimitive.Input
           autoFocus
           aria-label={label}
           placeholder={placeholder}
@@ -91,18 +87,17 @@ export function OptionMenu({
         <div className="px-3 py-5 text-muted-foreground text-xs">{status}</div>
       ) : (
         <>
-          <Autocomplete.Empty className="px-3 text-muted-foreground text-xs not-empty:py-5">
+          <CommandPrimitive.Empty className="px-3 text-muted-foreground text-xs not-empty:py-5">
             {t("tasks:filterMenu.noResults")}
-          </Autocomplete.Empty>
-          <Autocomplete.List className="max-h-72 overflow-y-auto p-1 empty:hidden">
-            {(option: OptionMenuItem) => {
-              const index = filtered.indexOf(option);
+          </CommandPrimitive.Empty>
+          <CommandPrimitive.List className="max-h-72 overflow-y-auto p-1 empty:hidden">
+            {filtered.map((option, index) => {
               return (
-                <Autocomplete.Item
+                <CommandPrimitive.Item
                   key={option.value}
-                  value={option}
+                  value={option.value}
+                  label={option.label}
                   aria-current={option.selected || undefined}
-                  onClick={() => onSelect(option.value)}
                   className="flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] text-foreground outline-none data-highlighted:bg-accent [&_svg]:size-3.5"
                 >
                   {option.icon && (
@@ -134,12 +129,12 @@ export function OptionMenu({
                       </span>
                     )
                   )}
-                </Autocomplete.Item>
+                </CommandPrimitive.Item>
               );
-            }}
-          </Autocomplete.List>
+            })}
+          </CommandPrimitive.List>
         </>
       )}
-    </Autocomplete.Root>
+    </CommandPrimitive.Root>
   );
 }
