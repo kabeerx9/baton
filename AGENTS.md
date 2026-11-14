@@ -32,6 +32,7 @@ The common mistake is finishing one path while leaving another stale. Check the 
 
 - API: Keep handlers thin and behavior in controllers. Use `createRoute`, Zod request and response schemas, `HTTPException` for expected failures, and `requireWorkspacePermission` for workspace actions. Middleware declared on `createRoute` runs before validators, so it must read the raw request instead of `c.req.valid()`.
 - Client: Use `@baton/libs`, fetchers in `apps/web/src/fetchers/`, and TanStack Query hooks. Update invalidation and visible loading, error, and current states.
+- Task writes: A new path that changes a task's status, assignee or existence goes through the consent rules in `apps/api/src/task-change-request/` (BOARD.md, "Who can change a task"). Set status with `statusWrite()` and cancel pending change requests in the same transaction, or accept and the timeout job act on stale tasks.
 - Realtime: If a mutation drives activity, notifications, integrations, or live UI, use `publishEvent()` and check WebSocket delivery and cache updates. Redis fan-out must remain optional.
 - Data: Put schema and relations in `apps/api/src/database/`. Generate a migration with `pnpm --filter @baton/api db:generate`, inspect its SQL, and account for existing installations.
 - Public contracts: Keep Zod validation and OpenAPI descriptions accurate. The spec is served at `/api/openapi`; `tests/api-integration/openapi.test.ts` checks it.

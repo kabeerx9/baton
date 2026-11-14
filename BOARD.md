@@ -11,6 +11,8 @@ Baton is based on Kaneo and changes how it is used. Read this before you touch `
 | Feature | A job that has tasks under it. "Live scoring" is a feature; its app work and its API work are tasks. |
 | Board | The home page. It lists every feature and every task that stands alone. |
 | Task page | The one page for any task or feature. |
+| Involved | The task's creator and its assignee. With no creator, only the assignee; with neither, nobody. |
+| Change request | A status change or delete asked for by someone who is not involved. It waits for an answer. |
 | Repo | What the code calls a project: App, API, Draft engine. A task under a feature lives in a repo and gets its key prefix, for example `API-3`. A task with no repo, or one that stands alone, gets `T`. |
 
 Everything you do is a task, and a feature is a group of tasks. An item is called a
@@ -40,6 +42,52 @@ for a task under a feature, and `board task` for an item on the board.
    refusal is `apps/api/src/task/assert-not-blocked.ts`.
 6. My tasks follows rule 3: a feature is open while one of its tasks is open.
    See `apps/api/src/board/open-board-task.ts`.
+7. Only involved people, workspace owners and admins change a task's status,
+   delete it or reassign it directly. Other members ask: see the table below.
+   Every check runs on the locked task row in the API
+   (`apps/api/src/task-change-request/consent.ts`), not in the UI.
+
+### Who can change a task
+
+The permission check always comes first: a status change needs `task:update`,
+a direct delete needs `task:delete`, a reassignment needs `task:assign`. Then:
+
+| Change | Involved, owner or admin | Other member |
+| --- | --- | --- |
+| Status | Applies | Change request (202) |
+| Delete | Applies (needs `task:delete`) | Change request (202), with `task:update` or `task:delete` |
+| Assign, unassign | Applies | Refused (403). This includes taking the task yourself. |
+| Title, description, priority, due date, labels | Applies | Applies; involved people get a notification |
+| Status of a feature (rule 3) | Applies | Applies |
+
+- Bulk, reorder and project move never create a request. They refuse the
+  item instead: bulk returns `results` per task, reorder across columns returns
+  409, a move that changes the status returns 409.
+- Answering: an involved person, owner or admin with the action's permission
+  accepts or rejects. Nobody answers their own request. Only the requester
+  cancels (withdraws) it.
+- One pending request per task. A second request from anyone supersedes it;
+  the same request again returns the existing one. At most 10 new requests
+  per workspace per hour (429).
+- Accept re-checks the task. If its status or project changed, it became a
+  feature, or the requester lost access since the request, the request ends
+  `cancelled` with the reason. A blocked task still cannot be finished (rule 5);
+  that refusal also ends the request `cancelled`.
+- No answer in 24 hours: a status request into a non-final, non-archived
+  column applies (`applied_on_timeout`, credited to the requester). A request
+  for a final column, archived or a delete expires. The hourly job is
+  `apps/api/src/task-change-request/expire-change-requests.ts`; it runs safely
+  on several instances at once.
+- Any direct status change, reassignment, move or delete cancels the pending
+  request. Exception: GitHub and other system writers do not check rule 5,
+  because GitHub is the source of truth. They still cancel the pending request
+  (`applyTaskChange` in `apps/api/src/task-change-request/apply-task-change.ts`).
+- Lock order: projects, then tasks sorted by id, then requests.
+
+States: `pending`, then one of `accepted`, `rejected`, `cancelled`,
+`superseded`, `expired`, `applied_on_timeout`. The transitions are one pure
+function, `apps/api/src/task-change-request/lifecycle.ts`. An unknown state is
+treated as final.
 
 ## Storage
 
@@ -49,6 +97,14 @@ for a task under a feature, and `board task` for an item on the board.
 - A subtask is a `task_relation` of type `subtask`: source = the task, target = the subtask.
 - A subtask with no repo is stored in the board project. The UI labels it "No repo".
 - "Waits on" is a `task_relation` of type `blocks`: source = the blocker.
+- `task.created_by` is the creator. Migration 0077 filled it from each task's
+  earliest `created` activity; tasks without one have no creator.
+- `task.status_generation` goes up by one on every status change. A request
+  stores the status and generation it saw, so accept can detect a change.
+- `task_change_request` keeps every request. It copies the task key and title,
+  so it keeps its history after the task is deleted.
+- `activity.channel` is `web` (cookie session) or `agent` (bearer token, API
+  key, MCP). Null for system writes and older rows.
 
 ## API
 
@@ -59,6 +115,14 @@ for a task under a feature, and `board task` for an item on the board.
 | `POST /api/board/{taskId}/subtask` | Create a subtask and link it, in one transaction. |
 | `GET /api/board/workspace/{workspaceId}/history?days=30` | Finished work per person. |
 | `GET /api/task/assigned?workspaceId=` | My open work. `waiting` lists the open tasks each one blocks; `waitsOn` and `hiddenBlockers` say what each one waits on. |
+| `GET /api/task-change-request?workspaceId=` | Change requests, newest first. Filters: `taskId`, `state`, `requestedBy=me`, `canAnswer=me`. |
+| `GET /api/task-change-request/{id}` | One request. Works after the task is deleted. |
+| `POST /api/task-change-request/{id}/accept`, `/reject`, `/cancel` | Answer or withdraw a request. Returns `{ request, task }`; `request.state` says how it ended. |
+
+Status, delete, full task update and board item update answer 200 with
+`outcome: "applied"`, or 202 with `outcome: "requested"` and the `request`.
+Clients read `outcome`, not only the HTTP status. The board, task detail and
+my tasks show `pendingRequest` (or null) on each item.
 
 What a task waits on comes from the server, in one module
 (`apps/api/src/task/get-open-blockers.ts`):
@@ -86,6 +150,13 @@ Agents work in names, not ids: owner "Aakash", repo "API", key "T-5".
 | `update_board_item` | Sets the status, owner or waits-on of a task or subtask found by its key. |
 | `list_my_tasks` | The caller's open work, with who waits on each item. |
 | `get_team_history` | Finished work per person. |
+| `list_change_requests` | Change requests in a workspace; `canAnswer: true` for those waiting on the caller. |
+| `get_change_request` | One request and how it ended. |
+| `answer_change_request` | Accept or reject a request. |
+| `cancel_change_request` | Withdraw your own request. |
+
+The status, delete and update tools return `outcome`. An agent reports
+`requested` as waiting for an answer, not as done.
 
 A wrong name creates nothing: every name is checked first, and the error lists the valid ones.
 The task tools still apply to any task or subtask id, for titles, descriptions and comments.
@@ -102,6 +173,10 @@ Optional. Set `SLACK_BOT_TOKEN` to turn them on; see `.env.sample`. Code: `apps/
 | "X is waiting on you" | The owner of the blocking task | A task is linked as blocked by theirs, or a blocking task is reassigned to them |
 | "You can continue" | The owner of the blocked task | A task that blocked theirs is finished |
 | "Waiting on you: N tasks" | Each person whose open tasks block open work | Once a day, only if the list is not empty |
+| "X asks to move T-5 to done" | The involved people | A change request is made. With nobody involved, admins find it with `canAnswer=me`. |
+| "Your request was accepted" (or rejected, cancelled, expired) | The requester | Their request ends, unless they ended it |
+
+Change request messages are also in-app notifications, sent after the change commits.
 
 - A person is matched to Slack by the email of their tracker account. The answer is saved
   in `slack_user_link`. `PUT /api/slack-dm/me` sets a Slack member ID by hand.
