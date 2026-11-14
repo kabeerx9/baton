@@ -1,12 +1,31 @@
 "use client";
 
-import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
+import {
+  Collapsible as CollapsibleRoot,
+  CollapsiblePanel as CollapsiblePanelPart,
+  CollapsibleTrigger as CollapsibleTriggerPart,
+} from "@ui-sdk/react/collapsible";
 import * as React from "react";
-
 import { cn } from "@/lib/cn";
 
-function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
-  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
+type CollapsibleProps = React.ComponentProps<typeof CollapsibleRoot>;
+
+type CollapsibleTriggerProps = Omit<
+  React.ComponentProps<typeof CollapsibleTriggerPart>,
+  "className" | "children"
+> & {
+  asChild?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+};
+
+type CollapsiblePanelProps = Omit<
+  React.ComponentProps<typeof CollapsiblePanelPart>,
+  "className"
+> & { className?: string };
+
+function Collapsible(props: CollapsibleProps) {
+  return <CollapsibleRoot {...props} />;
 }
 
 function CollapsibleTrigger({
@@ -14,36 +33,31 @@ function CollapsibleTrigger({
   className,
   children,
   render,
-  nativeButton,
   ...props
-}: CollapsiblePrimitive.Trigger.Props & { asChild?: boolean }) {
+}: CollapsibleTriggerProps) {
   const resolvedRender =
-    asChild && React.isValidElement(children) ? children : render;
+    asChild && React.isValidElement<Record<string, unknown>>(children)
+      ? children
+      : render;
 
   return (
-    <CollapsiblePrimitive.Trigger
+    <CollapsibleTriggerPart
       className={cn("cursor-pointer", className)}
-      data-slot="collapsible-trigger"
-      nativeButton={render ? false : nativeButton}
       render={resolvedRender}
       {...props}
     >
       {asChild ? undefined : children}
-    </CollapsiblePrimitive.Trigger>
+    </CollapsibleTriggerPart>
   );
 }
 
-function CollapsiblePanel({
-  className,
-  ...props
-}: CollapsiblePrimitive.Panel.Props) {
+function CollapsiblePanel({ className, ...props }: CollapsiblePanelProps) {
   return (
-    <CollapsiblePrimitive.Panel
+    <CollapsiblePanelPart
       className={cn(
         "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-in-out data-ending-style:h-0 data-starting-style:h-0",
         className,
       )}
-      data-slot="collapsible-panel"
       {...props}
     />
   );
