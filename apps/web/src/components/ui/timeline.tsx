@@ -1,6 +1,5 @@
 "use client";
 
-import { Slot } from "radix-ui";
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
@@ -86,19 +85,11 @@ function TimelineContent({
 }
 
 // TimelineDate
-interface TimelineDateProps extends React.HTMLAttributes<HTMLTimeElement> {
-  asChild?: boolean;
-}
+type TimelineDateProps = React.TimeHTMLAttributes<HTMLTimeElement>;
 
-function TimelineDate({
-  asChild = false,
-  className,
-  ...props
-}: TimelineDateProps) {
-  const Comp = asChild ? Slot.Root : "time";
-
+function TimelineDate({ className, ...props }: TimelineDateProps) {
   return (
-    <Comp
+    <time
       className={cn(
         "mb-1 block font-medium text-muted-foreground text-xs group-data-[orientation=vertical]/timeline:max-sm:h-4",
         className,
@@ -120,12 +111,9 @@ function TimelineHeader({
 }
 
 // TimelineIndicator
-interface TimelineIndicatorProps extends React.HTMLAttributes<HTMLDivElement> {
-  asChild?: boolean;
-}
+type TimelineIndicatorProps = React.HTMLAttributes<HTMLDivElement>;
 
 function TimelineIndicator({
-  asChild = false,
   className,
   children,
   ...props
