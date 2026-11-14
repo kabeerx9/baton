@@ -23,6 +23,7 @@ function task(id: string, dueDate: Date | null): AssignedTask {
     waiting: [],
     waitsOn: [],
     hiddenBlockers: 0,
+    pendingRequest: null,
   };
 }
 

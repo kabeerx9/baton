@@ -11,8 +11,21 @@ export function useDeleteTask() {
 
   return useMutation({
     mutationFn: deleteTask,
-    onSuccess: (deletedTask) => {
+    onSuccess: (result) => {
       invalidateMyWork(queryClient);
+      // A request leaves the task in place: refetch it so its pending
+      // request shows, and keep it in every cache.
+      if (result.outcome === "requested") {
+        void queryClient.invalidateQueries({
+          queryKey: ["task", result.task.id],
+          exact: true,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["tasks", result.task.projectId],
+        });
+        return;
+      }
+      const deletedTask = result.task;
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.setQueryData<ProjectWithTasks | undefined>(
         ["tasks", deletedTask.projectId],

@@ -15,10 +15,15 @@ export function useBulkOperations() {
 
   const bulkDelete = useMutation({
     mutationFn: async (taskIds: string[]) => {
-      await Promise.all(taskIds.map((id) => deleteTask(id)));
+      const results = await Promise.all(taskIds.map((id) => deleteTask(id)));
+      // A delete on a task the caller is not involved in becomes a request;
+      // that task stays.
+      return results
+        .filter((result) => result.outcome === "applied")
+        .map((result) => result.task.id);
     },
-    onSuccess: (_, taskIds) => {
-      removeTasksFromRelations(queryClientRef, taskIds);
+    onSuccess: (deletedIds) => {
+      removeTasksFromRelations(queryClientRef, deletedIds);
       invalidateCommon();
     },
   });

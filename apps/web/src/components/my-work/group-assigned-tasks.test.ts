@@ -30,6 +30,7 @@ function task(
     waiting: [],
     waitsOn: [],
     hiddenBlockers: 0,
+    pendingRequest: null,
   };
 }
 

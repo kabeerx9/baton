@@ -13,6 +13,7 @@ function activity(overrides: Partial<WorkspaceActivity>): WorkspaceActivity {
     eventData: null,
     excerpt: null,
     userId: "user-1",
+    channel: null,
     userName: "Mira",
     userImage: null,
     externalUserName: null,

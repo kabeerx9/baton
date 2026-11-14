@@ -98,7 +98,10 @@ describe("useDeleteTask", () => {
     queryClient.setQueryData(["tasks", project.id], project);
     queryClient.setQueryData(["task", deletedTask.id], deletedTask);
     useProjectStore.getState().setProject(project);
-    vi.mocked(deleteTask).mockResolvedValue(deletedTask);
+    vi.mocked(deleteTask).mockResolvedValue({
+      outcome: "applied",
+      task: deletedTask,
+    } as Awaited<ReturnType<typeof deleteTask>>);
 
     const { result } = renderHook(() => useDeleteTask(), { wrapper: Wrapper });
 
@@ -125,6 +128,40 @@ describe("useDeleteTask", () => {
     ]);
     expect(storedProject?.plannedTasks).toEqual([]);
     expect(storedProject?.archivedTasks).toEqual([]);
+  });
+
+  it("keeps the task in every cache when the delete becomes a request", async () => {
+    const project = makeProject();
+    const task = { ...makeTask("delete-me"), priority: "no-priority" };
+    queryClient.setQueryData(["tasks", project.id], project);
+    queryClient.setQueryData(["task", task.id], task);
+    useProjectStore.getState().setProject(project);
+    vi.mocked(deleteTask).mockResolvedValue({
+      outcome: "requested",
+      task,
+      request: { id: "request-1", state: "pending", kind: "delete" },
+    } as unknown as Awaited<ReturnType<typeof deleteTask>>);
+
+    const { result } = renderHook(() => useDeleteTask(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(task.id);
+    });
+
+    const cachedProject = queryClient.getQueryData<
+      ReturnType<typeof makeProject>
+    >(["tasks", project.id]);
+    expect(cachedProject?.columns[0]?.tasks.map(({ id }) => id)).toEqual([
+      "delete-me",
+      "keep-me",
+    ]);
+    expect(queryClient.getQueryData(["task", task.id])).toEqual(task);
+    expect(queryClient.getQueryState(["task", task.id])?.isInvalidated).toBe(
+      true,
+    );
+    expect(
+      useProjectStore.getState().project?.columns[0]?.tasks.map(({ id }) => id),
+    ).toEqual(["delete-me", "keep-me"]);
   });
 
   it("leaves query and project-store state unchanged when deletion fails", async () => {
