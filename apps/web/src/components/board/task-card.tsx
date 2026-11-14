@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { PendingIndicator } from "@/components/task/change-request/pending-indicator";
+import { useBoardMemberName } from "@/hooks/queries/board/use-board-member-name";
 import { DueDateLabel } from "@/components/my-work/due-date-text";
 import { Avatar } from "./avatar";
 import { CardTree } from "./card-tree";
@@ -11,6 +13,7 @@ import {
   hiddenBlockerCount,
   isBlocked,
   type Lane,
+  pendingOn,
   STATUS_LABEL,
   waitingOn,
 } from "./model";
@@ -38,6 +41,8 @@ export function TaskCard({
 }) {
   const [peek, setPeek] = useState(false);
   const reduce = useReducedMotion();
+  const nameOf = useBoardMemberName(workspaceId);
+  const pending = pendingOn(boardTask);
   const card = useRef<HTMLElement>(null);
   // A new card is scrolled into view and marked for a moment. The timer starts
   // when the card exists, so a slow refetch does not use it up.
@@ -100,6 +105,14 @@ export function TaskCard({
             <LaneBars boardTask={boardTask} lanes={lanes} />
           </div>
         ) : null}
+        {pending && (
+          <div className="mt-3">
+            <PendingIndicator
+              request={pending}
+              requesterName={nameOf(pending.requestedBy)}
+            />
+          </div>
+        )}
         {boardTask.column !== "done" && (
           <WaitingChip
             item={{

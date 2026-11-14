@@ -1,3 +1,4 @@
+import type { PendingRequest } from "@/components/task/change-request/describe-pending";
 import type { BoardResponse } from "@/fetchers/board/get-board";
 
 export type Status = "todo" | "doing" | "review" | "done";
@@ -34,43 +35,48 @@ export type Blockable = {
   hiddenBlockers: number;
 };
 
-export type Subtask = Blockable & {
-  id: string;
-  key: string;
-  title: string;
-  projectId: string;
-  status: Status;
-  priority: string | null;
-  /** ISO time or null. */
-  dueDate: string | null;
-  finishedAt: string | null;
-  assignee: Person | null;
-  pr: {
-    number: number;
-    state: "open" | "closed" | "merged";
-    url: string;
-  } | null;
-  /** Map edges only: visible subtasks that block this one, any status. Never a blocked signal. */
-  blockedBy: string[];
-};
+/** The open change request on a task or subtask, as the board read carries it. */
+export type Pending = { pendingRequest: PendingRequest | null };
 
-export type BoardTask = Blockable & {
-  id: string;
-  key: string;
-  title: string;
-  summary: string;
-  /** The hidden board project. Needed to open the task page. */
-  projectId: string;
-  /** The task's own status and assignee. They matter when it has no subtasks. */
-  status: Status;
-  priority: string | null;
-  dueDate: string | null;
-  finishedAt: string | null;
-  assignee: Person | null;
-  /** Board column, decided by the API. */
-  column: Status;
-  subtasks: Subtask[];
-};
+export type Subtask = Blockable &
+  Pending & {
+    id: string;
+    key: string;
+    title: string;
+    projectId: string;
+    status: Status;
+    priority: string | null;
+    /** ISO time or null. */
+    dueDate: string | null;
+    finishedAt: string | null;
+    assignee: Person | null;
+    pr: {
+      number: number;
+      state: "open" | "closed" | "merged";
+      url: string;
+    } | null;
+    /** Map edges only: visible subtasks that block this one, any status. Never a blocked signal. */
+    blockedBy: string[];
+  };
+
+export type BoardTask = Blockable &
+  Pending & {
+    id: string;
+    key: string;
+    title: string;
+    summary: string;
+    /** The hidden board project. Needed to open the task page. */
+    projectId: string;
+    /** The task's own status and assignee. They matter when it has no subtasks. */
+    status: Status;
+    priority: string | null;
+    dueDate: string | null;
+    finishedAt: string | null;
+    assignee: Person | null;
+    /** Board column, decided by the API. */
+    column: Status;
+    subtasks: Subtask[];
+  };
 
 export type Tone = { dot: string; text: string; bar: string; stroke: string };
 
@@ -191,6 +197,7 @@ export function buildBoard(data: BoardResponse) {
         waitsOn: s.waitsOn,
         hiddenBlockers: s.hiddenBlockers,
         blockedBy: s.blockedBy,
+        pendingRequest: s.pendingRequest,
       };
     });
     return {
@@ -207,6 +214,7 @@ export function buildBoard(data: BoardResponse) {
       finishedAt: f.finishedAt,
       waitsOn: f.waitsOn,
       hiddenBlockers: f.hiddenBlockers,
+      pendingRequest: f.pendingRequest,
       subtasks,
     };
   });
@@ -304,4 +312,15 @@ export function findBoardItem(
  */
 export function effectiveStatus(item: BoardTask | Subtask): Status {
   return "column" in item ? item.column : item.status;
+}
+
+/** The request to show on a card: the task's own, else the first on its subtasks. */
+export function pendingOn(
+  boardTask: Pick<BoardTask, "pendingRequest" | "subtasks">,
+): PendingRequest | null {
+  return (
+    boardTask.pendingRequest ??
+    boardTask.subtasks.find((s) => s.pendingRequest)?.pendingRequest ??
+    null
+  );
 }

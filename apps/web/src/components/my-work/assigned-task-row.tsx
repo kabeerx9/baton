@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { PendingIndicator } from "@/components/task/change-request/pending-indicator";
+import { useBoardMemberName } from "@/hooks/queries/board/use-board-member-name";
 import { useBoardProjectId } from "@/hooks/queries/board/use-board-project-id";
 import type { AssignedTask } from "@/fetchers/task/get-assigned-tasks";
 import { getColumnIcon } from "@/lib/column";
@@ -23,6 +25,7 @@ export function AssignedTaskRow({
 }: AssignedTaskRowProps) {
   const { t } = useTranslation();
   const boardProjectId = useBoardProjectId(workspaceId);
+  const nameOf = useBoardMemberName(workspaceId);
   const badge = blockedBadge(task);
   const badgeText = badge
     ? [
@@ -59,6 +62,12 @@ export function AssignedTaskRow({
       <span className="min-w-0 flex-1 truncate text-foreground text-sm">
         {task.title}
       </span>
+      {task.pendingRequest && (
+        <PendingIndicator
+          request={task.pendingRequest}
+          requesterName={nameOf(task.pendingRequest.requestedBy)}
+        />
+      )}
       {badge && badgeText && (
         <span
           className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-medium text-[11px] text-amber-700 dark:text-amber-400"

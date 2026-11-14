@@ -23,6 +23,7 @@ export const subtaskFixture = (
   waitsOn: [],
   hiddenBlockers: 0,
   blockedBy: [],
+  pendingRequest: null,
   ...over,
 });
 
@@ -43,6 +44,7 @@ export const boardTaskFixture = (
   column: "todo",
   waitsOn: [],
   hiddenBlockers: 0,
+  pendingRequest: null,
   subtasks: [],
   ...over,
 });
