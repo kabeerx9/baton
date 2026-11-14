@@ -12,7 +12,6 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Command,
-  CommandCollection,
   CommandDialog,
   CommandDialogPopup,
   CommandEmpty,
@@ -180,12 +179,8 @@ function SearchCommandMenu({ open, setOpen }: SearchCommandMenuProps) {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandDialogPopup instant>
-        <Command items={groupedItems} filter={null}>
-          <CommandInput
-            placeholder={t("navigation:search.inputPlaceholder")}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <Command filter={false} query={query} onQueryChange={setQuery}>
+          <CommandInput placeholder={t("navigation:search.inputPlaceholder")} />
           <CommandPanel>
             <CommandEmpty>
               <div className="text-center py-6">
@@ -198,43 +193,41 @@ function SearchCommandMenu({ open, setOpen }: SearchCommandMenuProps) {
               </div>
             </CommandEmpty>
             <CommandList>
-              {(group: SearchGroup, groupIndex: number) => (
+              {groupedItems.map((group, groupIndex) => (
                 <Fragment key={group.value}>
-                  <CommandGroup items={group.items}>
+                  <CommandGroup>
                     <CommandGroupLabel>{group.label}</CommandGroupLabel>
-                    <CommandCollection>
-                      {(item: SearchResultItem) => {
-                        const Icon = getItemIcon(item.type);
-                        return (
-                          <CommandItem
-                            key={`${item.type}-${item.id}`}
-                            value={`${item.title} ${item.description || ""} ${item.type} ${item.id}`}
-                            onClick={() => handleSelect(item)}
-                            className="flex items-start gap-3 py-3"
-                            aria-label={`${item.type}: ${item.title}`}
-                          >
-                            <Icon
-                              className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0"
-                              aria-hidden="true"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">
-                                {item.title}
-                              </div>
-                              {item.description && (
-                                <div className="text-xs text-muted-foreground truncate mt-1">
-                                  {item.description}
-                                </div>
-                              )}
+                    {group.items.map((item) => {
+                      const Icon = getItemIcon(item.type);
+                      return (
+                        <CommandItem
+                          key={`${item.type}-${item.id}`}
+                          value={`${item.title} ${item.description || ""} ${item.type} ${item.id}`}
+                          onSelect={() => handleSelect(item)}
+                          className="flex items-start gap-3 py-3"
+                          aria-label={`${item.type}: ${item.title}`}
+                        >
+                          <Icon
+                            className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0"
+                            aria-hidden="true"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {item.title}
                             </div>
-                          </CommandItem>
-                        );
-                      }}
-                    </CommandCollection>
+                            {item.description && (
+                              <div className="text-xs text-muted-foreground truncate mt-1">
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
                   </CommandGroup>
                   {groupIndex < groupedItems.length - 1 && <CommandSeparator />}
                 </Fragment>
-              )}
+              ))}
             </CommandList>
           </CommandPanel>
         </Command>

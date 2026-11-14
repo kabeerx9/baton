@@ -13,7 +13,6 @@ import {
 } from "./task-relation-picker-store";
 import {
   Command,
-  CommandCollection,
   CommandDialog,
   CommandDialogPopup,
   CommandEmpty,
@@ -362,15 +361,13 @@ export default function TaskRelations({
 
       <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
         <CommandDialogPopup>
-          <Command items={commandGroups}>
+          <Command query={searchQuery} onQueryChange={setSearchQuery}>
             <CommandInput
               placeholder={
                 selectedRelationType === "parent"
                   ? t("tasks:relations.parentPlaceholder")
                   : t("tasks:relations.searchPlaceholder")
               }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <CommandPanel>
               <CommandEmpty>
@@ -382,38 +379,36 @@ export default function TaskRelations({
                 </div>
               </CommandEmpty>
               <CommandList>
-                {(group: TaskGroup, groupIndex: number) => (
+                {commandGroups.map((group, groupIndex) => (
                   <Fragment key={group.value}>
-                    <CommandGroup items={group.items}>
+                    <CommandGroup>
                       <CommandGroupLabel>{group.label}</CommandGroupLabel>
-                      <CommandCollection>
-                        {(item: TaskItem) => (
-                          <CommandItem
-                            key={item.id}
-                            value={`${project?.slug}-${item.number} ${item.title}`}
-                            onClick={() => handleLinkTask(item.id)}
-                            className="flex items-center gap-3 py-2"
-                          >
-                            {getColumnIcon(
-                              item.status,
-                              false,
-                              columnIconBySlug.get(item.status),
-                            )}
-                            <span className="text-xs text-muted-foreground shrink-0 font-mono">
-                              {project?.slug}-{item.number}
-                            </span>
-                            <span className="text-sm truncate flex-1">
-                              {item.title}
-                            </span>
-                          </CommandItem>
-                        )}
-                      </CommandCollection>
+                      {group.items.map((item) => (
+                        <CommandItem
+                          key={item.id}
+                          value={`${project?.slug}-${item.number} ${item.title}`}
+                          onSelect={() => handleLinkTask(item.id)}
+                          className="flex items-center gap-3 py-2"
+                        >
+                          {getColumnIcon(
+                            item.status,
+                            false,
+                            columnIconBySlug.get(item.status),
+                          )}
+                          <span className="text-xs text-muted-foreground shrink-0 font-mono">
+                            {project?.slug}-{item.number}
+                          </span>
+                          <span className="text-sm truncate flex-1">
+                            {item.title}
+                          </span>
+                        </CommandItem>
+                      ))}
                     </CommandGroup>
                     {groupIndex < commandGroups.length - 1 && (
                       <CommandSeparator />
                     )}
                   </Fragment>
-                )}
+                ))}
               </CommandList>
             </CommandPanel>
             <CommandFooter>

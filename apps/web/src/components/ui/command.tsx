@@ -1,20 +1,39 @@
 "use client";
 
 import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog";
+import {
+  Command as CommandRoot,
+  CommandEmpty as CommandEmptyPrimitive,
+  CommandGroup as CommandGroupPrimitive,
+  CommandGroupLabel as CommandGroupLabelPrimitive,
+  CommandInput as CommandInputPrimitive,
+  CommandItem as CommandItemPrimitive,
+  CommandItemText as CommandItemTextPrimitive,
+  CommandList as CommandListPrimitive,
+  CommandSeparator as CommandSeparatorPrimitive,
+  CommandStatus as CommandStatusPrimitive,
+  type SearchFilter,
+} from "@ui-sdk/react/command";
 import { SearchIcon } from "lucide-react";
 import type * as React from "react";
-import {
-  Autocomplete,
-  AutocompleteCollection,
-  AutocompleteEmpty,
-  AutocompleteGroup,
-  AutocompleteGroupLabel,
-  AutocompleteInput,
-  AutocompleteItem,
-  AutocompleteList,
-  AutocompleteSeparator,
-} from "@/components/ui/autocomplete";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/cn";
+
+// The unstyled parts, for a feature that lays out its own list (the option
+// menu). Features import this from here, never from the library.
+const CommandPrimitive = {
+  Root: CommandRoot,
+  Input: CommandInputPrimitive,
+  List: CommandListPrimitive,
+  Item: CommandItemPrimitive,
+  ItemText: CommandItemTextPrimitive,
+  Empty: CommandEmptyPrimitive,
+  Status: CommandStatusPrimitive,
+  Group: CommandGroupPrimitive,
+  GroupLabel: CommandGroupLabelPrimitive,
+  Separator: CommandSeparatorPrimitive,
+};
 
 const CommandDialog = CommandDialogPrimitive.Root;
 
@@ -95,17 +114,23 @@ function CommandDialogPopup({
   );
 }
 
+/**
+ * An inline search list. It filters by `contains`, as Baton's lists always did
+ * (UI SDK defaults to fuzzy). `filter={null}` keeps every item, for results a
+ * server already filtered. `display: contents` keeps the old layout: the root
+ * used to render no element, so its children sat directly in the popup.
+ */
 function Command({
-  autoHighlight = "always",
-  keepHighlight = true,
+  className,
+  filter,
   ...props
-}: React.ComponentProps<typeof Autocomplete>) {
+}: Omit<React.ComponentProps<typeof CommandRoot>, "filter"> & {
+  filter?: SearchFilter<string> | null;
+}) {
   return (
-    <Autocomplete
-      autoHighlight={autoHighlight}
-      inline
-      keepHighlight={keepHighlight}
-      open
+    <CommandRoot
+      className={cn("contents", className)}
+      filter={filter === null ? false : (filter ?? "contains")}
       {...props}
     />
   );
@@ -113,22 +138,35 @@ function Command({
 
 function CommandInput({
   className,
-  placeholder = undefined,
+  placeholder,
   ...props
-}: React.ComponentProps<typeof AutocompleteInput>) {
+}: React.ComponentProps<typeof CommandInputPrimitive>) {
+  // UI SDK warns about an unnamed field, and strict mode turns that into a
+  // test failure. Callers pass a placeholder, never a label.
+  const named = props["aria-label"] || props["aria-labelledby"];
   return (
     <div className="px-2.5 py-1.5">
-      <AutocompleteInput
-        autoFocus
-        className={cn(
-          "border-transparent! bg-transparent! shadow-none before:hidden has-focus-visible:ring-0",
-          className,
-        )}
-        placeholder={placeholder}
-        size="lg"
-        startAddon={<SearchIcon />}
-        {...props}
-      />
+      <div className="relative not-has-[>*.w-full]:w-fit w-full text-foreground has-disabled:opacity-64">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 start-px z-10 flex items-center ps-[calc(--spacing(3)-1px)] opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:-mx-0.5"
+          data-slot="command-start-addon"
+        >
+          <SearchIcon />
+        </div>
+        <CommandInputPrimitive
+          autoFocus
+          aria-label={named ? undefined : placeholder}
+          className={cn(
+            "*:data-[slot=command-input]:ps-[calc(--spacing(8.5)-1px)] sm:*:data-[slot=command-input]:ps-[calc(--spacing(8)-1px)]",
+            "border-transparent! bg-transparent! shadow-none before:hidden has-focus-visible:ring-0",
+            className,
+          )}
+          placeholder={placeholder}
+          render={<Input nativeInput size="lg" />}
+          {...props}
+        />
+      </div>
     </div>
   );
 }
@@ -136,24 +174,30 @@ function CommandInput({
 function CommandList({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteList>) {
+}: React.ComponentProps<typeof CommandListPrimitive>) {
   return (
-    <AutocompleteList
-      className={cn("not-empty:scroll-py-2 not-empty:p-2", className)}
-      data-slot="command-list"
-      {...props}
-    />
+    <ScrollArea scrollbarGutter scrollFade>
+      <CommandListPrimitive
+        className={cn(
+          "not-empty:scroll-py-2 not-empty:p-2 in-data-overflow-y:pe-3",
+          className,
+        )}
+        {...props}
+      />
+    </ScrollArea>
   );
 }
 
 function CommandEmpty({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteEmpty>) {
+}: React.ComponentProps<typeof CommandEmptyPrimitive>) {
   return (
-    <AutocompleteEmpty
-      className={cn("not-empty:py-6", className)}
-      data-slot="command-empty"
+    <CommandEmptyPrimitive
+      className={cn(
+        "not-empty:p-2 text-center text-base text-muted-foreground not-empty:py-6 sm:text-sm",
+        className,
+      )}
       {...props}
     />
   );
@@ -171,11 +215,10 @@ function CommandPanel({ className, ...props }: React.ComponentProps<"div">) {
 function CommandGroup({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteGroup>) {
+}: React.ComponentProps<typeof CommandGroupPrimitive>) {
   return (
-    <AutocompleteGroup
-      className={className}
-      data-slot="command-group"
+    <CommandGroupPrimitive
+      className={cn("[[role=group]+&]:mt-1.5", className)}
       {...props}
     />
   );
@@ -184,30 +227,40 @@ function CommandGroup({
 function CommandGroupLabel({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteGroupLabel>) {
+}: React.ComponentProps<typeof CommandGroupLabelPrimitive>) {
   return (
-    <AutocompleteGroupLabel
-      className={className}
-      data-slot="command-group-label"
+    <CommandGroupLabelPrimitive
+      className={cn(
+        "px-2 py-1.5 font-medium text-muted-foreground text-xs",
+        className,
+      )}
       {...props}
     />
   );
 }
 
-function CommandCollection({
-  ...props
-}: React.ComponentProps<typeof AutocompleteCollection>) {
-  return <AutocompleteCollection data-slot="command-collection" {...props} />;
-}
-
+/**
+ * `value` identifies the item and is what `onAction` receives. `label` is the
+ * text the search matches; it defaults to `value`, so pass the visible text
+ * when the two differ (an id like `create-task`). Run it with `onSelect` (click
+ * or Enter).
+ */
 function CommandItem({
   className,
+  value,
+  label,
   ...props
-}: React.ComponentProps<typeof AutocompleteItem>) {
+}: Omit<React.ComponentProps<typeof CommandItemPrimitive>, "value"> & {
+  value: string;
+}) {
   return (
-    <AutocompleteItem
-      className={cn("py-1.5", className)}
-      data-slot="command-item"
+    <CommandItemPrimitive
+      className={cn(
+        "flex min-h-8 cursor-default select-none items-center rounded-sm px-2 py-1.5 text-base outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm",
+        className,
+      )}
+      label={label ?? value}
+      value={value}
       {...props}
     />
   );
@@ -216,11 +269,10 @@ function CommandItem({
 function CommandSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteSeparator>) {
+}: React.ComponentProps<typeof CommandSeparatorPrimitive>) {
   return (
-    <AutocompleteSeparator
-      className={cn("my-2", className)}
-      data-slot="command-separator"
+    <CommandSeparatorPrimitive
+      className={cn("mx-2 my-2 h-px bg-border last:hidden", className)}
       {...props}
     />
   );
@@ -254,7 +306,6 @@ function CommandFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Command,
-  CommandCollection,
   CommandCreateHandle,
   CommandDialog,
   CommandDialogPopup,
@@ -267,6 +318,7 @@ export {
   CommandItem,
   CommandList,
   CommandPanel,
+  CommandPrimitive,
   CommandSeparator,
   CommandShortcut,
 };
