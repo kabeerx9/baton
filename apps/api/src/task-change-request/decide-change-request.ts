@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../database";
-import { taskChangeRequestTable, type taskTable } from "../database/schema";
+import {
+  taskChangeRequestTable,
+  type taskTable,
+  workspaceTable,
+} from "../database/schema";
 import { ApiError } from "../errors/api-error";
 import { publishEvent } from "../events";
 import {
@@ -20,6 +24,7 @@ import {
   markRequest,
 } from "./execute-change-request";
 import { type RequestEvent, transition } from "./lifecycle";
+import { lockWorkspacesShared, taskWorkspaceId } from "./lock-workspaces";
 import {
   canSeeTaskProject,
   consentFactsWith,
@@ -78,7 +83,9 @@ export async function publishExecution(
 /**
  * Whether the caller may see the task as it is now. Reading a request's
  * history does not grant this: a requester or decider who lost access gets
- * the request back without the task.
+ * the request back without the task. The task's current workspace may
+ * differ from the request's after a project move; it must be active, as
+ * for any task read.
  */
 async function canReadTask(
   database: Parameters<typeof projectWorkspaceId>[0],
@@ -87,6 +94,12 @@ async function canReadTask(
 ) {
   const workspaceId = await projectWorkspaceId(database, task.projectId);
   if (!workspaceId) return false;
+  const [workspace] = await database
+    .select({ archivedAt: workspaceTable.archivedAt })
+    .from(workspaceTable)
+    .where(eq(workspaceTable.id, workspaceId))
+    .limit(1);
+  if (!workspace || workspace.archivedAt) return false;
   const grants = await loadPersonGrants(database, workspaceId, actor);
   return (
     grants.member &&
@@ -96,8 +109,9 @@ async function canReadTask(
 }
 
 /**
- * Accept, reject or withdraw a request. Lock order: the task, then the
- * request. Only the person who recorded a decision may repeat it and
+ * Accept, reject or withdraw a request. Lock order: the request's
+ * workspace and the task's current one (FOR SHARE, by id), the task, then
+ * the request. Only the person who recorded a decision may repeat it and
  * get the recorded outcome back; anyone else, or a different decision, gets
  * a 409. A refused accept (stale task, blocked, lost
  * access) still commits: the request ends cancelled with the reason.
@@ -122,6 +136,10 @@ export async function decideChangeRequest({
   const done: { execution: Execution | null } = { execution: null };
 
   const result = await db.transaction(async (tx) => {
+    const current = found.taskId
+      ? await taskWorkspaceId(tx, found.taskId)
+      : undefined;
+    await lockWorkspacesShared(tx, [found.workspaceId, current?.workspaceId]);
     const outcome = await decideLocked(tx);
     return {
       request: outcome.request,
