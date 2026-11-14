@@ -1,6 +1,7 @@
 import { GitPullRequest } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ExternalLinksAccordion } from "@/components/external-links/external-links-accordion";
+import { TaskChangeRequest } from "@/components/task/change-request/task-change-request";
 import { PropertyChips } from "@/components/task/properties/property-chips";
 import { TaskActivity } from "@/components/task/task-activity";
 import TaskDescription from "@/components/task/task-description";
@@ -266,6 +267,12 @@ export function TaskFlowPage({
         <div
           className={`min-w-0 ${siblings.length > 0 ? "" : "w-full max-w-3xl"}`}
         >
+          <TaskChangeRequest
+            key={taskId}
+            taskId={taskId}
+            projectId={projectId}
+            workspaceId={workspaceId}
+          />
           <TaskDescription taskId={taskId} />
 
           {/* Always open: these are details people read, not extras. */}

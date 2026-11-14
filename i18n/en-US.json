@@ -137,6 +137,9 @@
 				"apply": "Apply link",
 				"remove": "Remove link"
 			}
+		},
+		"channel": {
+			"agent": "agent"
 		}
 	},
 	"auth": {
@@ -2512,7 +2515,6 @@
 			"description": "This will permanently remove the task and all its data. You can't undo this action.",
 			"action": "Delete Task",
 			"success": "Task deleted successfully",
-			"requested": "Delete requested. The people on this task must approve it.",
 			"error": "Failed to delete task"
 		},
 		"duplicate": {
@@ -2573,6 +2575,48 @@
 			"startsOn": "Starts {{date}}",
 			"beforeStart": "{{date}} is before the start date",
 			"afterDue": "{{date}} is after the due date"
+		},
+		"changeRequest": {
+			"bannerLabel": "Change request",
+			"askStatusFrom": "{{name}} asks to move this task from {{from}} to {{to}}",
+			"askStatus": "{{name}} asks to move this task to {{to}}",
+			"askArchive": "{{name}} asks to archive this task",
+			"askDelete": "{{name}} asks to delete this task",
+			"mineStatusFrom": "You asked to move this task from {{from}} to {{to}}",
+			"mineStatus": "You asked to move this task to {{to}}",
+			"mineArchive": "You asked to archive this task",
+			"mineDelete": "You asked to delete this task",
+			"asked": "Asked {{when}}.",
+			"appliesIn_one": "Applies in about {{count}} hour if nobody answers.",
+			"appliesIn_other": "Applies in about {{count}} hours if nobody answers.",
+			"expiresIn_one": "Expires in about {{count}} hour if nobody answers. The task stays as it is.",
+			"expiresIn_other": "Expires in about {{count}} hours if nobody answers. The task stays as it is.",
+			"observe": "The task's creator, its assignee or a workspace admin can answer.",
+			"waiting": "Waiting for the task's creator, its assignee or a workspace admin.",
+			"accept": "Accept",
+			"acceptDelete": "Accept and delete",
+			"reject": "Reject",
+			"cancel": "Cancel request",
+			"dismiss": "Dismiss",
+			"errorFailed": "Could not send your answer. Try again.",
+			"errorDecided": "Someone already answered this request.",
+			"closed": {
+				"accepted": "Request accepted. The change was made.",
+				"rejected": "Request rejected. The task stays as it is.",
+				"cancelled": "Request cancelled.",
+				"superseded": "A newer request replaced this one.",
+				"expired": "Request expired. The task stays as it is.",
+				"applied_on_timeout": "Nobody answered, so the change was applied.",
+				"unknown": "This request is closed."
+			},
+			"pending": "Request pending",
+			"pendingStatus": "{{name}} asked to move this to {{to}}",
+			"pendingArchive": "{{name}} asked to archive this",
+			"pendingDelete": "{{name}} asked to delete this",
+			"someone": "Someone",
+			"withAgent": "{{name}} (agent)",
+			"requestedTo": "Request sent to {{names}}",
+			"requested": "Request sent. The task's creator, its assignee or a workspace admin can answer."
 		}
 	},
 	"invitations": {
