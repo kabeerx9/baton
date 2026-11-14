@@ -56,4 +56,13 @@ describe("Progress", () => {
     expect(bar).toHaveAttribute("data-slot", "progress");
     expect(bar).toHaveClass("w-16", "flex");
   });
+
+  // Port regression: Base UI gave the indicator `height: inherit` inline; UI SDK
+  // sets only the inline width, so the fill needs its own height to be visible.
+  // jsdom does not apply the Tailwind sheet, so this asserts the class.
+  it("gives the fill the height of the track", () => {
+    render(<Progress value={40} />);
+
+    expect(indicator()).toHaveClass("h-full");
+  });
 });
