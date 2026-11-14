@@ -76,6 +76,54 @@ describe("Switch", () => {
     ).toBe("true");
   });
 
+  it("does not toggle or submit on Enter from the thumb", () => {
+    const onSubmit = formSubmitSpy();
+    const onCheckedChange = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Switch aria-label="Enabled" onCheckedChange={onCheckedChange} />
+        <button type="submit">Save</button>
+      </form>,
+    );
+    const control = screen.getByRole("switch", { name: "Enabled" });
+    const thumb = control.querySelector(
+      '[data-slot="switch-thumb"]',
+    ) as HTMLElement;
+
+    fireEvent.keyDown(thumb, { key: "Enter" });
+
+    expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(control.getAttribute("aria-checked")).toBe("false");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("does not toggle or submit on Enter from a focusable child", () => {
+    const onSubmit = formSubmitSpy();
+    const onCheckedChange = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Switch
+          aria-label="Enabled"
+          onCheckedChange={onCheckedChange}
+          render={(props) => (
+            <div {...props}>
+              <button type="button">Details</button>
+            </div>
+          )}
+        />
+        <button type="submit">Save</button>
+      </form>,
+    );
+    const control = screen.getByRole("switch", { name: "Enabled" });
+    const child = screen.getByRole("button", { name: "Details" });
+
+    fireEvent.keyDown(child, { key: "Enter" });
+
+    expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(control.getAttribute("aria-checked")).toBe("false");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("toggles on Enter without submitting its form", () => {
     const onSubmit = formSubmitSpy();
     const onCheckedChange = vi.fn();

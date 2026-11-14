@@ -39,6 +39,7 @@ function Checkbox({
 }: CheckboxProps) {
   const controlled = checked !== undefined;
   const mixed = indeterminate ? "indeterminate" : undefined;
+  // Accepted reduction: uncontrolled `indeterminate` sets only the initial state.
 
   return (
     <CheckboxRoot

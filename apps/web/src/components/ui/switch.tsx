@@ -21,18 +21,16 @@ function Switch({ className, onKeyDown, ...props }: SwitchProps) {
       )}
       onKeyDown={(event) => {
         onKeyDown?.(event);
-        // Base UI activated the switch on Enter and kept its form from
-        // submitting. UI SDK submits the form and leaves the switch alone, so
-        // press it after the caller's handler had its say.
-        if (
-          event.defaultPrevented ||
-          event.key !== "Enter" ||
-          event.target !== event.currentTarget
-        ) {
+        // Base UI kept Enter inside the switch from submitting its form; UI SDK
+        // would submit it from anywhere inside the root.
+        if (event.defaultPrevented || event.key !== "Enter") {
           return;
         }
         event.preventDefault();
-        event.currentTarget.click();
+        // Only the control itself toggles; a descendant Enter does nothing else.
+        if (event.target === event.currentTarget) {
+          event.currentTarget.click();
+        }
       }}
       {...props}
     >
