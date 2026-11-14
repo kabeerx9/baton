@@ -74,18 +74,21 @@ update and a move that drops the owner. Then:
   result. Anyone else, or a different decision, gets 409.
 - Reading a request does not let you read its task. Accept, reject and cancel
   return `task: null` unless the caller can read the task now (membership,
-  `task:read`, project access).
+  `task:read`, project access, and the task's current workspace is not
+  archived).
 - One pending request per task. A second request from anyone supersedes it;
   the same request again returns the existing one. At most 10 new requests
   per workspace per hour (429).
 - Accept and the timeout re-check the task and the requester. The request ends
   `cancelled` with the reason if the task status or project changed, the task
-  became a feature, the requester lost access (`requester_lost_access`), the
+  became a feature, the requester lost access or is banned
+  (`requester_lost_access`), the
   workspace was archived (`workspace_archived`), or the API key that made the
   request was disabled, expired, deleted or no longer allows the change
   (`credential_revoked`). The request stores the key id, never the secret; a
-  request from a session re-checks only the person. A blocked task still cannot be finished (rule 5);
-  that refusal also ends the request `cancelled`.
+  request from a session re-checks only the person. A blocked task still
+  cannot be finished (rule 5); that refusal also ends the request
+  `cancelled`.
 - No answer in 24 hours: a status request into a non-final, non-archived
   column applies (`applied_on_timeout`, credited to the requester). A request
   for a final column, archive, unarchive or a delete expires. The hourly job is
@@ -97,10 +100,15 @@ update and a move that drops the owner. Then:
   (`applyTaskChange` in `apps/api/src/task-change-request/apply-task-change.ts`).
 - Every path that cancels a request notifies the requester after commit. If
   the task is gone or hidden, the notice falls back to the workspace. There
-  are no database triggers.
-- Lock order: projects, then the requester's hourly quota (an advisory lock),
-  then tasks sorted by id, then requests. Paths that open a request use
-  `withLockedProjectTask` in `apps/api/src/task/controllers/with-locked-task.ts`.
+  are no database triggers. A history notice sends no Slack link, so it does
+  not show where a moved or hidden task is now.
+- Lock order: workspaces (FOR SHARE, by id), then projects, then the
+  requester's hourly quota (an advisory lock), then tasks sorted by id, then
+  requests. Workspace archive and delete lock the workspace first, so they
+  never deadlock with a request. Paths that open a request use
+  `withLockedProjectTask` in `apps/api/src/task/controllers/with-locked-task.ts`;
+  accept and the timeout use `lockWorkspacesShared` in
+  `apps/api/src/task-change-request/lock-workspaces.ts`.
 
 States: `pending`, then one of `accepted`, `rejected`, `cancelled`,
 `superseded`, `expired`, `applied_on_timeout`. The transitions are one pure
