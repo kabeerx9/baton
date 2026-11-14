@@ -28,7 +28,7 @@ import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
 /** What Base UI took as `items`: a value-to-label record. UI SDK takes a list. */
-type ItemsRecord = Record<string, React.ReactNode>;
+type ItemsRecord = Record<string, string>;
 
 function toListData<T>(
   items: ListData<T> | ItemsRecord | undefined,
@@ -37,7 +37,7 @@ function toListData<T>(
     return items as ListData<T> | undefined;
   }
   return Object.entries(items).map(([value, label]) => ({
-    label: typeof label === "string" ? label : value,
+    label,
     value,
   })) as ListData<T>;
 }
@@ -67,6 +67,7 @@ function Select<T = string, Multiple extends boolean | undefined = false>({
   items,
   itemToStringLabel,
   itemToStringValue,
+  modal = true,
   ...props
 }: SelectRootProps<T, Multiple>) {
   return (
@@ -74,6 +75,9 @@ function Select<T = string, Multiple extends boolean | undefined = false>({
       items={toListData<T>(items)}
       itemToLabel={itemToStringLabel}
       itemToValue={itemToStringValue}
+      // Base UI's Select was modal by default (page scroll locked, the rest of
+      // the page inert); UI SDK defaults to "pointer".
+      modal={modal}
       {...(props as SelectPrimitiveProps<T, Multiple>)}
     />
   );
@@ -161,10 +165,14 @@ function SelectTrigger({
 
 type SelectValueProps = Omit<
   React.ComponentProps<typeof SelectValuePrimitive>,
-  "className"
-> & { className?: string };
+  "className" | "children"
+> & {
+  className?: string;
+  /** A node, or, as in Base UI, a function of the selected value. */
+  children?: React.ReactNode | ((value: unknown) => React.ReactNode);
+};
 
-function SelectValue({ className, ...props }: SelectValueProps) {
+function SelectValue({ className, children, ...props }: SelectValueProps) {
   return (
     <SelectValuePrimitive
       className={cn(
@@ -172,14 +180,23 @@ function SelectValue({ className, ...props }: SelectValueProps) {
         className,
       )}
       {...props}
-    />
+    >
+      {typeof children === "function"
+        ? (state: { value: unknown }) => children(state.value)
+        : children}
+    </SelectValuePrimitive>
   );
 }
 
 type SelectContentProps = Omit<
   React.ComponentProps<typeof SelectContentPrimitive>,
-  "className"
+  "className" | "side"
 > & {
+  /** `inline-start` and `inline-end` are Base UI's names for `start` and `end`. */
+  side?:
+    | React.ComponentProps<typeof SelectContentPrimitive>["side"]
+    | "inline-start"
+    | "inline-end";
   className?: string;
   /** Contain pointer and command events in the content. Keys always pass. */
   containEvents?: boolean;
@@ -208,7 +225,12 @@ function SelectContent({
             // --available-height is not inherited: copy it for the list.
             "z-50 select-none overflow-visible border-0 bg-transparent p-0 origin-(--transform-origin) [--list-height:var(--available-height)] transition-[scale,opacity,translate] duration-150 ease-out data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-[side=top]:data-starting-style:translate-y-1 data-[side=bottom]:data-starting-style:-translate-y-1 data-[side=left]:data-starting-style:translate-x-1 data-[side=right]:data-starting-style:-translate-x-1",
           ),
-          side,
+          side:
+            side === "inline-start"
+              ? "start"
+              : side === "inline-end"
+                ? "end"
+                : side,
           sideOffset,
           ...props,
         },

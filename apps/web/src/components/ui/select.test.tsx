@@ -80,6 +80,20 @@ function key(element: Element, name: string) {
   fireEvent.keyUp(element, { key: name, code: name });
 }
 
+// A button runs its click on Enter (keydown) and Space (keyup) unless the key
+// event was prevented. jsdom does not do this, so a keyboard test that never
+// clicks cannot tell a working opener from an inert one (trap 5). This sends
+// the browser's sequence and clicks only when the library left the key alone.
+function activateWithKey(element: Element, name: "Enter" | " ") {
+  const down = fireEvent.keyDown(element, { key: name, code: name });
+  if (name === "Enter") {
+    if (down) fireEvent.click(element);
+    return;
+  }
+  const up = fireEvent.keyUp(element, { key: name, code: name });
+  if (down && up) fireEvent.click(element);
+}
+
 function trigger(name = "Fruit") {
   return screen.getByRole("combobox", { name });
 }
@@ -126,11 +140,13 @@ type FruitProps = {
   onValueChange?: (value: unknown, details?: unknown) => void;
   disabledItem?: string;
   items?: typeof FRUITS | Record<string, string> | null;
-  valueChildren?: React.ReactNode;
+  valueChildren?: React.ComponentProps<typeof SelectValue>["children"];
   alignItemWithTrigger?: boolean;
   containEvents?: boolean;
   contentProps?: Record<string, unknown>;
   control?: React.ReactNode;
+  modal?: boolean;
+  onOpenChange?: (open: boolean, details?: unknown) => void;
 };
 
 function Fruit({
@@ -146,6 +162,8 @@ function Fruit({
   containEvents,
   contentProps,
   control,
+  modal,
+  onOpenChange,
 }: FruitProps) {
   // The disabled flag goes on the item part and, for UI SDK, on its data too.
   const data =
@@ -168,7 +186,9 @@ function Fruit({
     <Select
       disabled={disabled}
       items={data}
+      modal={modal}
       name={name}
+      onOpenChange={onOpenChange}
       onValueChange={onValueChange}
       {...rootProps}
     >
@@ -223,6 +243,17 @@ describe("Select roles and value", () => {
     render(<Fruit defaultValue="cherry" valueChildren="Custom: Cherry" />);
 
     expect(trigger()).toHaveTextContent("Custom: Cherry");
+  });
+
+  it("calls SelectValue function children with the selected value", () => {
+    render(
+      <Fruit
+        defaultValue="cherry"
+        valueChildren={(selected) => `Got ${String(selected)}`}
+      />,
+    );
+
+    expect(trigger()).toHaveTextContent("Got cherry");
   });
 
   it("takes an items record, as three call sites pass one", () => {
@@ -312,6 +343,65 @@ describe("Select roles and value", () => {
   it("keeps the SelectPopup alias for SelectContent", () => {
     expect(SelectPopup).toBe(SelectContent);
   });
+});
+
+describe("Select modal", () => {
+  // Base UI's Select was modal by default: page scroll locked while open. UI
+  // SDK defaults to a pointer-only modal, so the wrapper sets it back.
+  // How "modal is engaged" shows: UI SDK locks scroll on <html>. Base UI's
+  // scroll lock needs a real scrollbar, which jsdom has none of, so there the
+  // sign is its inert overlay around the page.
+  const locked = () =>
+    PORTED
+      ? document.documentElement.style.overflow === "hidden"
+      : document.querySelector("[data-base-ui-inert]") !== null;
+
+  it("locks page scroll while open and releases it on close", async () => {
+    render(<Fruit />);
+    expect(locked()).toBe(false);
+
+    await openByClick();
+    expect(locked()).toBe(true);
+
+    key(active(), "Escape");
+    await waitFor(() => expect(shownListbox()).toBeNull());
+    await waitFor(() => expect(locked()).toBe(false));
+  });
+
+  // Base UI's Select has no modal prop (always modal), so the opt-out is a
+  // UI SDK addition and runs on the ported wrapper only.
+  it.runIf(PORTED)("does not lock page scroll with modal={false}", async () => {
+    render(<Fruit modal={false} />);
+
+    await openByClick();
+    expect(shownListbox()).not.toBeNull();
+    expect(locked()).toBe(false);
+  });
+});
+
+describe("Select opening keys", () => {
+  it.each(["Enter", " "])(
+    "opens on %j, moves focus into the list, and reports open changes as booleans",
+    async (name) => {
+      const onOpenChange = vi.fn();
+      render(<Fruit defaultValue="banana" onOpenChange={onOpenChange} />);
+
+      act(() => trigger().focus());
+      activateWithKey(trigger(), name as "Enter" | " ");
+      await waitFor(() => expect(shownListbox()).not.toBeNull());
+      await settle();
+
+      expect(shownListbox()?.contains(active())).toBe(true);
+      expect(onOpenChange.mock.calls.map((call) => call[0])).toEqual([true]);
+
+      key(active(), "Escape");
+      await waitFor(() => expect(shownListbox()).toBeNull());
+      expect(onOpenChange.mock.calls.map((call) => call[0])).toEqual([
+        true,
+        false,
+      ]);
+    },
+  );
 });
 
 describe("Select keyboard", () => {
@@ -453,15 +543,13 @@ describe("Select disabled", () => {
     expect(onValueChange).not.toHaveBeenCalled();
     expect(shownListbox()).not.toBeNull();
 
-    // Base UI keeps a disabled item focusable (aria-disabled, tabindex -1) and
-    // lets the highlight land on it; UI SDK skips it, as its docs say. Both
-    // contracts: Enter on a highlighted disabled item chooses nothing, and the
-    // highlight reaches Cherry from Apple by arrows.
+    // One contract for both libraries: arrows reach Cherry, and Enter on a
+    // highlighted disabled item chooses nothing. Base UI let the highlight
+    // land on the disabled item, so the Enter check runs there; UI SDK skips
+    // it (see "Select added behavior").
     key(active(), "Home");
-    const visited: (string | undefined)[] = [
-      highlighted()?.textContent?.trim(),
-    ];
-    for (let step = 0; step < 3; step += 1) {
+    const visited: (string | undefined)[] = [];
+    for (let step = 0; step < 2; step += 1) {
       key(active(), "ArrowDown");
       visited.push(highlighted()?.textContent?.trim());
       if (highlighted()?.textContent?.trim() === "Banana") {
@@ -471,11 +559,26 @@ describe("Select disabled", () => {
     }
     expect(visited).toContain("Cherry");
     expect(shownListbox()).not.toBeNull();
-    if (PORTED) expect(visited).not.toContain("Banana");
-    else expect(visited).toContain("Banana");
 
     press(option("Cherry"));
     expect(onValueChange.mock.calls[0]?.[0]).toBe("cherry");
+  });
+});
+
+// Added by UI SDK. Base UI 1.9 left a disabled item focusable and
+// highlightable (aria-disabled, tabindex -1); UI SDK skips it on the arrows.
+describe("Select added behavior", () => {
+  it.runIf(PORTED)("skips a disabled item on the arrow keys", async () => {
+    render(<Fruit disabledItem="banana" />);
+
+    await openByClick();
+    key(active(), "Home");
+    const visited = [highlighted()?.textContent?.trim()];
+    for (let step = 0; step < 3; step += 1) {
+      key(active(), "ArrowDown");
+      visited.push(highlighted()?.textContent?.trim());
+    }
+    expect(visited).not.toContain("Banana");
   });
 });
 
@@ -536,7 +639,8 @@ describe("Select in a form", () => {
     render(<FormFixture onSubmit={onSubmit} />);
 
     act(() => trigger().focus());
-    key(trigger(), "Enter");
+    activateWithKey(trigger(), "Enter");
+    await waitFor(() => expect(shownListbox()).not.toBeNull());
     // Trap 1: jsdom emulates no implicit submit, so a library that submits
     // implicitly has to call requestSubmit; it is spied through onSubmit.
     await new Promise((resolve) => setTimeout(resolve, 20));
