@@ -88,21 +88,47 @@ describe("Toggle parity (passes on the Base UI wrapper)", () => {
     expect(button).toHaveTextContent("Starred");
   });
 
-  it("does not submit a surrounding form on Enter", () => {
+  it("activates with Enter and Space without submitting the form", () => {
+    const onPressedChange = vi.fn();
     const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
     render(
       <form onSubmit={onSubmit}>
-        <Toggle aria-label="Star">Star</Toggle>
+        <Toggle aria-label="Star" onPressedChange={onPressedChange}>
+          Star
+        </Toggle>
         <button type="submit">Save</button>
       </form>,
     );
-    const button = screen.getByRole("button", { name: "Star" });
+    const toggle = screen.getByRole("button", { name: "Star" });
+    // Negative control: the form is wired, so the zero below means something.
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
 
-    button.focus();
-    fireEvent.keyDown(button, { key: "Enter" });
-    fireEvent.keyUp(button, { key: "Enter" });
-    fireEvent.keyDown(button, { key: " " });
-    fireEvent.keyUp(button, { key: " " });
-    expect(onSubmit).not.toHaveBeenCalled();
+    toggle.focus();
+    pressKey(toggle, "Enter");
+    expect(onPressedChange).toHaveBeenLastCalledWith(true, expect.anything());
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    pressKey(toggle, " ");
+    expect(onPressedChange).toHaveBeenLastCalledWith(false, expect.anything());
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    // One change per key press, and the form never submitted.
+    expect(onPressedChange).toHaveBeenCalledTimes(2);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * A native button activates on the click its browser dispatches for Enter and
+ * Space. jsdom does not dispatch one, and a wrapper may take the key over and
+ * click itself instead, so a press is the key events plus that click only when
+ * the element left the key to the browser.
+ */
+function pressKey(element: HTMLElement, key: string) {
+  const leftToBrowser = fireEvent.keyDown(element, { key });
+  fireEvent.keyUp(element, { key });
+  if (leftToBrowser) {
+    fireEvent.click(element);
+  }
+}
