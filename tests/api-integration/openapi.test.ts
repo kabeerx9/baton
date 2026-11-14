@@ -109,6 +109,65 @@ describe("Baton API OpenAPI spec", () => {
     expect(new Set(ids).size, "operationIds must be unique").toBe(ids.length);
   });
 
+  it("documents change requests and the applied or requested outcome", () => {
+    const keys = new Set(
+      operations(spec).map(
+        ([method, path]) => `${method.toUpperCase()} ${path}`,
+      ),
+    );
+    for (const op of [
+      "GET /task-change-request",
+      "GET /task-change-request/{id}",
+      "POST /task-change-request/{id}/accept",
+      "POST /task-change-request/{id}/reject",
+      "POST /task-change-request/{id}/cancel",
+    ])
+      expect(keys.has(op), `missing operation ${op}`).toBe(true);
+
+    const schemaOf = (operation: Operation | undefined, status: string) =>
+      JSON.stringify(
+        (
+          operation?.responses[status] as
+            | { content?: Record<string, { schema?: unknown }> }
+            | undefined
+        )?.content?.["application/json"]?.schema ?? null,
+      );
+    for (const [method, path, applied, requested] of [
+      [
+        "put",
+        "/task/status/{id}",
+        "TaskStatusChangeApplied",
+        "TaskStatusChangeRequested",
+      ],
+      ["put", "/task/{id}", "TaskUpdateApplied", "TaskUpdateRequested"],
+      ["delete", "/task/{id}", "TaskDeleteApplied", "TaskDeleteRequested"],
+      [
+        "patch",
+        "/board/workspace/{workspaceId}/item/{key}",
+        "BoardItemUpdated",
+        "BoardItemChangeRequested",
+      ],
+    ]) {
+      const operation = spec.paths[path]?.[method];
+      expect(schemaOf(operation, "200"), `${method} ${path} 200`).toContain(
+        applied,
+      );
+      expect(schemaOf(operation, "202"), `${method} ${path} 202`).toContain(
+        requested,
+      );
+    }
+    expect(Object.keys(spec.components.schemas)).toEqual(
+      expect.arrayContaining([
+        "TaskChangeRequest",
+        "PendingChangeRequest",
+        "TaskChangeRequestDecision",
+      ]),
+    );
+    expect(JSON.stringify(spec.components.schemas.AssignedTask)).toContain(
+      "pendingRequest",
+    );
+  });
+
   it("names its entity schemas as reusable components", () => {
     expect(Object.keys(spec.components.schemas)).toEqual(
       expect.arrayContaining([

@@ -425,7 +425,7 @@ export function registerTools(
     "list_change_requests",
     {
       description:
-        "List change requests in a workspace, newest first. A change request is a status change or delete asked for by someone not involved in the task; its creator, assignee or a workspace owner or admin accepts or rejects it. Use canAnswer: true for the requests waiting on the caller, and mine: true for the caller's own. state is one of pending, accepted, rejected, cancelled, expired, applied_on_timeout.",
+        "List change requests in a workspace, newest first. A change request is a status change or delete asked for by someone not involved in the task; its creator, assignee or a workspace owner or admin accepts or rejects it. Use canAnswer: true for the requests waiting on the caller, and mine: true for the caller's own. state is one of pending, accepted, rejected, cancelled, superseded, expired, applied_on_timeout.",
       inputSchema: z.object({
         workspaceId: nonEmptyString,
         taskId: optionalNonEmptyString,
