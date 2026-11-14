@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import * as React from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { expectPopupContainment } from "./popup-containment-test-utils";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./preview-card";
 
 const DELAY = 30;
@@ -190,5 +191,36 @@ describe("HoverCard", () => {
       "data-side",
       "bottom",
     );
+  });
+});
+
+// Section 11: the card sits inside the editor's issue-link chip, so a press on
+// its content must not reach the link around it.
+describe("HoverCard event containment", () => {
+  it("contains pointer and command events from its content", async () => {
+    await expectPopupContainment({
+      render: ({ containEvents, contentProps, control }) => (
+        <HoverCard closeDelay={DELAY} openDelay={DELAY}>
+          <HoverCardTrigger asChild>
+            <a href="/tasks/BATON-1">BATON-1 Fix the preview</a>
+          </HoverCardTrigger>
+          <HoverCardContent containEvents={containEvents} {...contentProps}>
+            <p>Preview body</p>
+            {control}
+          </HoverCardContent>
+        </HoverCard>
+      ),
+      open: async () => {
+        hover(screen.getByRole("link", { name: "BATON-1 Fix the preview" }));
+        await waitFor(() => {
+          expect(screen.getByText("Preview body")).toBeInTheDocument();
+        });
+      },
+      content: () => {
+        const content = screen.getByText("Preview body").parentElement;
+        if (!content) throw new Error("the card did not render");
+        return content;
+      },
+    });
   });
 });

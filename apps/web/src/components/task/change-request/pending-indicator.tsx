@@ -36,15 +36,11 @@ export function PendingIndicator({
         <ClockIcon aria-hidden="true" className="size-3" />
         {t("tasks:changeRequest.pending")}
       </TooltipTrigger>
-      {/* The board card is a Link, and a React portal keeps events bubbling
-          through the component tree, so container alone does not keep a click
-          on the tooltip away from the card. */}
-      <TooltipContent
-        container={document.body}
-        onClick={(event) => event.stopPropagation()}
-      >
-        {detail}
-      </TooltipContent>
+      {/* The board card is a Link, and UI SDK renders the tooltip in place, so
+          a click on it would run the link's default action. The container keeps
+          the content out of the anchor; the tooltip wrapper contains the React
+          event. */}
+      <TooltipContent container={document.body}>{detail}</TooltipContent>
     </Tooltip>
   );
 }

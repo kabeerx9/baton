@@ -8,6 +8,7 @@ import {
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
 function HoverCard({
@@ -47,22 +48,30 @@ function HoverCardContent({
   className,
   side = "top",
   sideOffset = 4,
+  containEvents = true,
   ...props
-}: React.ComponentProps<typeof HoverCardContentPrimitive>) {
+}: React.ComponentProps<typeof HoverCardContentPrimitive> & {
+  /** Contain pointer and command events in the content. Keys always pass. */
+  containEvents?: boolean;
+}) {
   return (
     <HoverCardContentPrimitive
-      align={align}
-      className={cn(
-        POPUP_RESET,
-        "relative flex w-64 origin-(--transform-origin) text-balance rounded-lg border bg-popover not-dark:bg-clip-padding p-4 text-popover-foreground text-sm shadow-lg/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-        className,
+      {...containPopupEvents(
+        {
+          align,
+          className: cn(
+            POPUP_RESET,
+            "relative flex w-64 origin-(--transform-origin) text-balance rounded-lg border bg-popover not-dark:bg-clip-padding p-4 text-popover-foreground text-sm shadow-lg/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+            className,
+          ),
+          side,
+          sideOffset,
+          children,
+          ...props,
+        },
+        containEvents,
       )}
-      side={side}
-      sideOffset={sideOffset}
-      {...props}
-    >
-      {children}
-    </HoverCardContentPrimitive>
+    />
   );
 }
 
