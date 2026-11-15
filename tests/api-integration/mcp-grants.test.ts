@@ -14,6 +14,7 @@ import { getClient } from "../../apps/api/src/mcp/oauth";
 import { deleteExpiredStates } from "../../apps/api/src/mcp/oauth-store";
 import { TOKEN_ATTEMPTS_PER_MINUTE } from "../../apps/api/src/mcp/token-attempts";
 import { resetTestDatabase } from "./helpers/database";
+import { createProjectFixture } from "./helpers/fixtures";
 import { signUpWithSession } from "./helpers/auth-session";
 import {
   approveMcpAgent,
@@ -779,6 +780,54 @@ describe("MCP default workspace", () => {
       createdAt: new Date(),
     });
     await expectWorkspaceRefused(app, owner.token, limited.id);
+  });
+
+  it("marks a refused write as a tool error", async () => {
+    const { app } = createApp();
+    routeToolCallsInto(app);
+    const owner = await signUp(app);
+    const workspace = await addWorkspace(owner.userId, "Acme");
+    const { project, columns } = await createProjectFixture({
+      workspaceId: workspace.id,
+      slug: "API",
+    });
+    const [blocker, blocked] = await db
+      .insert(schema.taskTable)
+      .values(
+        [1, 2].map((number) => ({
+          projectId: project.id,
+          columnId: columns.todo.id,
+          title: `Task ${number}`,
+          status: "to-do",
+          number,
+          createdBy: owner.userId,
+          userId: owner.userId,
+        })),
+      )
+      .returning();
+    await db.insert(schema.taskRelationTable).values({
+      sourceTaskId: blocker!.id,
+      targetTaskId: blocked!.id,
+      relationType: "blocks",
+    });
+    const agent = await connectMcpAgent(app, { bearer: owner.token });
+
+    const refused = await callTool(
+      app,
+      agent.accessToken,
+      "update_board_item",
+      {
+        key: "API-2",
+        status: "done",
+      },
+    );
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0]?.text).toContain("Blocked by API-1");
+    const [unchanged] = await db
+      .select({ status: schema.taskTable.status })
+      .from(schema.taskTable)
+      .where(eq(schema.taskTable.id, blocked!.id));
+    expect(unchanged!.status).toBe("to-do");
   });
 
   it("lists workspace names when there are several and no default", async () => {
