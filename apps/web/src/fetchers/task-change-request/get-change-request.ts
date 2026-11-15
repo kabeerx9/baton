@@ -13,6 +13,4 @@ async function getChangeRequest(id: string) {
   return response.json();
 }
 
-export type ChangeRequest = Awaited<ReturnType<typeof getChangeRequest>>;
-
 export default getChangeRequest;

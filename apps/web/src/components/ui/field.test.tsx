@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "./select";
 import { Switch } from "./switch";
-import { Textarea } from "./textarea";
 
 // Every control that Baton puts inside a Field. `target` is the element that
 // must carry the field's name, description, and aria-invalid. `focusOnLabel`
@@ -39,13 +38,6 @@ const CASES: Case[] = [
   {
     name: "Input",
     control: <Input name="x" />,
-    role: "textbox",
-    target: () => screen.getByRole("textbox"),
-    label: "focus",
-  },
-  {
-    name: "Textarea",
-    control: <Textarea name="x" />,
     role: "textbox",
     target: () => screen.getByRole("textbox"),
     label: "focus",

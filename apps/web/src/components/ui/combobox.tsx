@@ -529,7 +529,6 @@ export {
   ComboboxChip,
   ComboboxChips,
   ComboboxChipsInput,
-  ComboboxClear,
   ComboboxEmpty,
   ComboboxGroup,
   ComboboxGroupLabel,

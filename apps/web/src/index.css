@@ -97,7 +97,6 @@ input:-webkit-autofill:active {
     transition-property: opacity !important;
   }
 
-  [data-slot="sidebar-menu-badge"],
   [data-slot="collapsible-panel"],
   [data-slot="accordion-panel"] {
     transition: none !important;
@@ -1326,28 +1325,6 @@ input:-webkit-autofill:active {
   .baton-embed-composer-error {
     font-size: 0.72rem;
     color: var(--destructive);
-  }
-
-  .baton-comment-composer {
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    border-radius: 0.62rem;
-    background: color-mix(in srgb, var(--background) 96%, transparent);
-    transition:
-      border-color 0.14s ease,
-      box-shadow 0.14s ease;
-  }
-
-  .baton-comment-composer:focus-within {
-    border-color: color-mix(in srgb, var(--ring) 64%, var(--border));
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 20%, transparent);
-  }
-
-  .baton-comment-card-body {
-    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    border-radius: 0.6rem;
-    background: color-mix(in srgb, var(--card) 82%, transparent);
-    backdrop-filter: blur(3px);
-    position: relative;
   }
 
   .baton-comment-editor-shell {

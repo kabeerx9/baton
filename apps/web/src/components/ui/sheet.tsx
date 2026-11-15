@@ -289,16 +289,12 @@ function SheetPanel({
 
 export {
   Sheet,
-  SheetBackdrop,
-  SheetBackdrop as SheetOverlay,
   SheetClose,
   SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetPanel,
   SheetPopup,
-  SheetPopup as SheetContent,
-  SheetPortal,
   SheetTitle,
   SheetTrigger,
 };
