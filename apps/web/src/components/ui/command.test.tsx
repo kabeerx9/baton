@@ -1,9 +1,13 @@
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
+   The ancestor elements stand in for a clickable row around a dialog; they are
+   probes, not interactive UI. */
 import {
   act,
   cleanup,
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { Fragment, type ReactElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -11,6 +15,7 @@ import {
   Command,
   CommandDialog,
   CommandDialogPopup,
+  CommandDialogTrigger,
   CommandEmpty,
   CommandGroup,
   CommandGroupLabel,
@@ -20,6 +25,7 @@ import {
   CommandPanel,
   CommandSeparator,
 } from "./command";
+import { expectPopupContainment } from "./popup-containment-test-utils";
 
 afterEach(cleanup);
 
@@ -361,5 +367,312 @@ describe("Command list", () => {
     fireEvent.keyDown(screen.getByLabelText("plain"), { key: "Enter" });
 
     expect(clicked).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Record section 4: the popup slot `command-dialog-popup` becomes
+// `dialog-content`. The backdrop keeps its UI SDK name `dialog-backdrop`. This
+// flag flips with the port; every assertion that moves with it is one of those
+// renames.
+const PORTED = false;
+const SLOT = {
+  content: PORTED ? "dialog-content" : "command-dialog-popup",
+  backdrop: PORTED ? "dialog-backdrop" : "command-dialog-backdrop",
+  trigger: PORTED ? "dialog-trigger" : "command-dialog-trigger",
+};
+
+type OpenChange = (open: boolean, details: { reason?: string }) => void;
+
+/**
+ * One place that knows how callers wire the dialog parts. Only the props and
+ * the slot names change between the Base UI and the UI SDK wrapper.
+ */
+function Palette({
+  onOpenChange,
+  popupProps,
+  triggerProps,
+  children,
+  triggerLabel = "Open palette",
+}: {
+  onOpenChange?: OpenChange;
+  popupProps?: Partial<React.ComponentProps<typeof CommandDialogPopup>>;
+  triggerProps?: Partial<React.ComponentProps<typeof CommandDialogTrigger>>;
+  children?: React.ReactNode;
+  triggerLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <CommandDialog
+      open={open}
+      onOpenChange={(next, details) => {
+        setOpen(next);
+        onOpenChange?.(next, details as { reason?: string });
+      }}
+    >
+      <CommandDialogTrigger {...triggerProps}>
+        {triggerLabel}
+      </CommandDialogTrigger>
+      <CommandDialogPopup {...popupProps}>
+        {children ?? <List />}
+      </CommandDialogPopup>
+    </CommandDialog>
+  );
+}
+
+const trigger = () => screen.getByRole("button", { name: "Open palette" });
+
+/** The open dialog content. A closing one keeps `data-closed` for its exit. */
+const openDialogs = () =>
+  [
+    ...document.querySelectorAll<HTMLElement>(`[data-slot="${SLOT.content}"]`),
+  ].filter((el) => !el.hasAttribute("data-closed") && !el.hidden);
+const dialogContent = () => openDialogs().at(-1) ?? null;
+const backdrop = () =>
+  document.querySelector<HTMLElement>(`[data-slot="${SLOT.backdrop}"]`);
+
+async function expectOpen() {
+  await waitFor(() => expect(dialogContent()).not.toBeNull());
+}
+async function expectClosed() {
+  await waitFor(() => expect(openDialogs()).toHaveLength(0));
+}
+
+/** A real mouse press: pointer and mouse events, then the click. */
+function pressOn(element: Element) {
+  fireEvent.pointerDown(element, { pointerType: "mouse", button: 0 });
+  fireEvent.mouseDown(element, { button: 0 });
+  fireEvent.pointerUp(element, { pointerType: "mouse", button: 0 });
+  fireEvent.mouseUp(element, { button: 0 });
+  fireEvent.click(element, { button: 0 });
+}
+
+/**
+ * A key press the way a browser runs it. jsdom does not run the default action
+ * of Enter or Space, so this does: a native button gets its click, only when
+ * the keydown was not cancelled.
+ */
+function key(element: Element, name: string) {
+  const proceed = fireEvent.keyDown(element, { key: name });
+  if (name === " ") fireEvent.keyUp(element, { key: name });
+  if (!proceed) return false;
+  if (element instanceof HTMLButtonElement && name === "Enter") {
+    fireEvent.click(element);
+    return true;
+  }
+  return false;
+}
+
+const escape = () =>
+  fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+
+describe("Command dialog", () => {
+  it("opens from the trigger, names the dialog and closes on Escape", async () => {
+    const onOpenChange = vi.fn();
+    await show(
+      <Palette
+        onOpenChange={onOpenChange}
+        popupProps={{ "aria-label": "Command palette" }}
+      />,
+    );
+
+    const button = trigger();
+    expect(button).toHaveAttribute("data-slot", SLOT.trigger);
+    expect(button).toHaveAttribute("aria-haspopup", "dialog");
+    expect(dialogContent()).toBeNull();
+
+    pressOn(button);
+    await expectOpen();
+
+    const dialog = screen.getByRole("dialog", { name: "Command palette" });
+    expect(dialog).toBe(dialogContent());
+    expect(dialog).toHaveAttribute("data-slot", SLOT.content);
+    // Base UI leaves `aria-modal` off; UI SDK marks a modal dialog as modal.
+    if (PORTED) expect(dialog).toHaveAttribute("aria-modal", "true");
+    else expect(dialog).not.toHaveAttribute("aria-modal");
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      true,
+      expect.objectContaining({ reason: "trigger-press" }),
+    );
+
+    // The search field takes focus, so a key press reaches the dialog.
+    expect(input()).toHaveFocus();
+    escape();
+    await expectClosed();
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      false,
+      expect.objectContaining({ reason: "escape-key" }),
+    );
+  });
+
+  it("moves focus into the search field and back to the trigger by default", async () => {
+    await show(<Palette />);
+    const button = trigger();
+    act(() => button.focus());
+
+    pressOn(button);
+    await expectOpen();
+    await waitFor(() => expect(input()).toHaveFocus());
+
+    escape();
+    await expectClosed();
+    await waitFor(() => expect(button).toHaveFocus());
+  });
+
+  it("keeps focus off the trigger with finalFocus={false}", async () => {
+    await show(<Palette popupProps={{ finalFocus: false }} />);
+    const button = trigger();
+    act(() => button.focus());
+
+    pressOn(button);
+    await expectOpen();
+    await waitFor(() => expect(input()).toHaveFocus());
+
+    escape();
+    await expectClosed();
+    await act(async () => {});
+    expect(button).not.toHaveFocus();
+  });
+
+  it("renders a backdrop and closes on a press on it", async () => {
+    const onOpenChange = vi.fn();
+    await show(<Palette onOpenChange={onOpenChange} />);
+
+    pressOn(trigger());
+    await expectOpen();
+    const layer = backdrop();
+    expect(layer).not.toBeNull();
+
+    pressOn(layer as Element);
+    await expectClosed();
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      false,
+      expect.objectContaining({ reason: "outside-press" }),
+    );
+  });
+
+  it("skips the open animation with instant and animates without it", async () => {
+    const first = render(<Palette popupProps={{ instant: true }} />);
+    pressOn(trigger());
+    await expectOpen();
+    expect(dialogContent()).toHaveClass("transition-none");
+    expect(backdrop()).toHaveClass("transition-none");
+    first.unmount();
+    cleanup();
+
+    render(<Palette />);
+    pressOn(trigger());
+    await expectOpen();
+    expect(dialogContent()).not.toHaveClass("transition-none");
+    expect(backdrop()).not.toHaveClass("transition-none");
+  });
+
+  it("applies a caller's className to the content", async () => {
+    await show(<Palette popupProps={{ className: "max-w-md" }} />);
+
+    pressOn(trigger());
+    await expectOpen();
+    expect(dialogContent()).toHaveClass("max-w-md");
+  });
+
+  it("a disabled trigger is natively disabled, is skipped by Tab and does not open (trap 2)", async () => {
+    const onOpenChange = vi.fn();
+    await show(
+      <Palette triggerProps={{ disabled: true }} onOpenChange={onOpenChange} />,
+    );
+
+    const button = trigger();
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute("aria-disabled", "true");
+    act(() => button.focus());
+    expect(button).not.toHaveFocus();
+
+    pressOn(button);
+    key(button, "Enter");
+    await act(async () => {});
+
+    expect(dialogContent()).toBeNull();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("Enter on the trigger and in the list does not submit a form around it (trap 1)", async () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    const onRun = vi.fn();
+    // Record rule 8: a UI SDK dialog renders in place, so content that sits in
+    // a form would nest forms. This usage moves it to the body; Base UI
+    // portals there already, so the prop is only passed after the port.
+    const container = PORTED ? document.body : undefined;
+    render(
+      <form onSubmit={onSubmit}>
+        <Palette popupProps={{ container }}>
+          <List onRun={onRun} />
+        </Palette>
+        <button type="submit">Save</button>
+      </form>,
+    );
+
+    act(() => trigger().focus());
+    key(trigger(), "Enter");
+    await expectOpen();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    // Enter runs the highlighted item instead of submitting the form.
+    expect(input()).toHaveFocus();
+    fireEvent.keyDown(input(), { key: "Enter" });
+    await flush();
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("negative control: a plain button in the same form does submit on Enter", () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <button>Plain</button>
+      </form>,
+    );
+
+    key(screen.getByRole("button", { name: "Plain" }), "Enter");
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe.skipIf(!PORTED)("Command dialog event containment", () => {
+  it("contains pointer and command events in the content and the backdrop", async () => {
+    await expectPopupContainment({
+      render: ({ containEvents, contentProps, control }) => (
+        <Palette
+          popupProps={{
+            ...contentProps,
+            containEvents,
+            "aria-label": "Contained",
+          }}
+        >
+          {control}
+        </Palette>
+      ),
+      open: async () => {
+        pressOn(trigger());
+        await expectOpen();
+      },
+      content: () => dialogContent() as Element,
+      backdrop: () => backdrop(),
+    });
+  });
+
+  it("a press on the backdrop does not reach a clickable row around the dialog", async () => {
+    const onClick = vi.fn();
+    render(
+      <div onClick={onClick}>
+        <Palette />
+      </div>,
+    );
+    pressOn(trigger());
+    await expectOpen();
+    onClick.mockClear();
+
+    pressOn(backdrop() as Element);
+
+    expect(onClick).not.toHaveBeenCalled();
   });
 });
