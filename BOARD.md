@@ -213,10 +213,11 @@ session token. An MCP token belongs to a grant (`mcp_grant`): one connected
 agent, its user, client and default workspace. Tokens are stored as SHA-256
 hashes (`mcp_token`). Access tokens last one hour; refresh tokens rotate, and
 a rotated token still works for 60 seconds so two processes of one agent can
-refresh together. A rotated token used later revokes the grant. A grant ends
+refresh together. A rotated token used later, at any time before its own
+expiry, revokes the grant. A grant ends
 after 90 days without use, on `DELETE /api/mcp/grants/{id}`, on a password
-reset, a ban, deactivation or account deletion. Signing out sessions does not
-end grants. The refresh rule is one pure function,
+reset (self-service or by an admin), a ban, deactivation or account
+deletion. Signing out sessions does not end grants. The refresh rule is one pure function,
 `apps/api/src/mcp/grant/refresh-decision.ts`.
 
 An MCP token also works on the REST API, because the tools call it, and acts

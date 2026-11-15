@@ -76,9 +76,12 @@ Agents read and plan the board through MCP. Connect once, sign in once in the br
 How sign-in works:
 
 - The consent page names the agent and, when you are in more than one workspace, asks for its default workspace. Board tools use that workspace when you name none.
-- Each agent gets its own grant. Access tokens last one hour; the agent refreshes them. A grant ends after 90 days without use, when you revoke it (`DELETE /api/mcp/grants/{id}`), or when your password is reset or your account is banned. Signing out other browser sessions does not disconnect agents.
+- Each agent gets its own grant. Access tokens last one hour; the agent refreshes them. A grant ends after 90 days without use, when you revoke it (`DELETE /api/mcp/grants/{id}`), or when your password is reset (also by an admin) or your account is banned. Signing out other browser sessions does not disconnect agents.
 - `URL` lists a core set of 12 tools. Add `?tools=all` to the URL for the full catalog.
 - Browser session tokens do not work on `/api/mcp`. If an agent connected before grants existed, it signs in again once.
+- `GET /api/mcp/grants` lists your connected agents, newest first, in pages. Follow `nextCursor` until it is null.
+- Tools call the REST API from inside the API process at `BATON_INTERNAL_API_URL` (default `http://127.0.0.1:1337`). If the API listens on another port, set it, or every tool call fails with `Unauthorized`.
+- With an API key, each REST call a tool makes counts against the key's quota. A board tool can make two (one to find the workspace), so give headless agents room. The MCP request itself does not count.
 
 ## License
 
