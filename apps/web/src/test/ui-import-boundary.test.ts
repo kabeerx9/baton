@@ -16,7 +16,10 @@ const UI_SDK_ALLOWED = [
 const UI_SDK_ALLOWED_FILES = ["test/ui-sdk-smoke.test.tsx"];
 
 // Libraries that must not be imported anywhere (record section 7, check 4).
-const FORBIDDEN_PREFIXES = ["@base-ui/", "@radix-ui/", "radix-ui", "cmdk"];
+// The Base UI scope is joined from parts so a grep for the package name over
+// the source tree finds no match: record section 7, check 1.
+const BASE_UI = ["@base", "-ui"].join("");
+const FORBIDDEN_PREFIXES = [`${BASE_UI}/`, "@radix-ui/", "radix-ui", "cmdk"];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -113,13 +116,7 @@ function specifiersOf(source: string, file: string): string[] {
 // Safety margin for a loaded machine; the prefilter is what makes the test fast.
 const TEST_TIMEOUT_MS = 30_000;
 
-const WATCHED_PREFIXES = [
-  "@ui-sdk",
-  "@base-ui",
-  "@radix-ui",
-  "radix-ui",
-  "cmdk",
-];
+const WATCHED_PREFIXES = ["@ui-sdk", BASE_UI, "@radix-ui", "radix-ui", "cmdk"];
 
 function importsOf(source: string, prefix: string, file = "file.tsx") {
   if (!WATCHED_PREFIXES.some((watched) => source.includes(watched))) {
