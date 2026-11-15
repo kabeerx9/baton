@@ -95,6 +95,7 @@ input:-webkit-autofill:active {
   [data-slot="alert-dialog-popup"],
   [data-slot="command-dialog-popup"],
   [data-slot="sheet-popup"],
+  [data-sheet],
   [data-slot="sidebar"][data-mobile="true"],
   [data-slot="toast"],
   [data-slot="toast-popup"],
