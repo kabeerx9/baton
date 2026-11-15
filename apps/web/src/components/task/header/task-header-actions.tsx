@@ -1,6 +1,6 @@
-import type { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import { GitBranch, Link2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { AlertDialogHandle } from "@/components/ui/alert-dialog";
 import { HeaderIconButton } from "./header-icon-button";
 import { TaskMoreMenu } from "./task-more-menu";
 import { useTaskCopyActions } from "./use-task-copy-actions";
@@ -9,7 +9,7 @@ type TaskHeaderActionsProps = {
   taskId: string;
   projectId: string;
   workspaceId: string;
-  deleteHandle: AlertDialogPrimitive.Handle<unknown>;
+  deleteHandle: AlertDialogHandle<unknown>;
 };
 
 export function TaskHeaderActions({

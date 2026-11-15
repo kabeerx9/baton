@@ -1,10 +1,10 @@
-import type { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import { Trash2Icon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
+  type AlertDialogHandle,
   AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
@@ -20,7 +20,7 @@ import { notifyChangeRequested } from "@/lib/notify-change-requested";
 import { toast } from "@/lib/toast";
 
 type TaskDeleteDialogProps = {
-  handle: AlertDialogPrimitive.Handle<unknown>;
+  handle: AlertDialogHandle<unknown>;
   taskId: string;
   onDeleted: () => void;
   shortcutEnabled?: boolean;
