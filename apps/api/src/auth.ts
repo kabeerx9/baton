@@ -757,6 +757,15 @@ export const auth = betterAuth({
     ),
     after: createAuthMiddleware(async (ctx) => {
       await recordAuthAdminAudit(ctx);
+      if (
+        ctx.path === "/admin/set-user-password" &&
+        !isAPIError(ctx.context.returned)
+      ) {
+        // An admin reset keeps sessions but must still disconnect agents.
+        // Codes approved before it fail in exchangeCode.
+        const userId = (ctx.body as { userId?: unknown } | undefined)?.userId;
+        if (typeof userId === "string") await revokeUserGrants(userId);
+      }
       if (ctx.path === "/api-key/delete" && !isAPIError(ctx.context.returned)) {
         const keyId = (ctx.body as { keyId?: unknown } | undefined)?.keyId;
         // better-auth only deletes the caller's own keys.

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import db from "../../database";
-import { mcpGrantTable, mcpTokenTable } from "../../database/schema";
+import { mcpGrantTable, mcpTokenTable, userTable } from "../../database/schema";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 
 async function endGrants(
@@ -35,7 +35,20 @@ export async function revokeOwnGrant(userId: string, grantId: string) {
   return ids.length > 0;
 }
 
-/** Ban, deactivation and password reset disconnect every agent of the user. */
-export function revokeUserGrants(userId: string, tx: DbOrTx = db) {
-  return endGrants(tx, and(eq(mcpGrantTable.userId, userId)));
+/**
+ * Ban, deactivation and password resets disconnect every agent of the user.
+ * The user row lock orders this against a code exchange: an exchange that
+ * already holds it commits first and its grant is revoked here; a later one
+ * sees the new password and refuses its code (exchangeCode).
+ */
+export function revokeUserGrants(userId: string, tx?: DbOrTx) {
+  const run = async (t: DbOrTx) => {
+    await t
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .for("update");
+    return endGrants(t, and(eq(mcpGrantTable.userId, userId)));
+  };
+  return tx ? run(tx) : db.transaction(run);
 }

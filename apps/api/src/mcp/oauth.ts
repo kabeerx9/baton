@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, eq, gt, isNotNull, lt, or } from "drizzle-orm";
 import db from "../database";
 import {
+  accountTable,
   mcpGrantTable,
   mcpOauthStateTable,
   sessionTable,
@@ -29,6 +30,8 @@ type AuthCode = {
   redirectUri: string;
   /** Chosen on the consent page; null lets the tools fall back. */
   defaultWorkspaceId?: string | null;
+  /** Epoch ms of consent. A password change after it voids the code. */
+  approvedAt?: number;
 };
 
 export type AuthorizationRequest = {
@@ -71,14 +74,14 @@ export async function registerClient(params: {
 }
 
 export async function createAuthCode(
-  params: AuthCode,
+  params: Omit<AuthCode, "approvedAt">,
   requestId?: string,
 ): Promise<string> {
   const code = randomUUID();
   await putState(
     "code",
     code,
-    params,
+    { ...params, approvedAt: Date.now() } satisfies AuthCode,
     new Date(Date.now() + codeTtlMs),
     requestId,
   );
@@ -176,6 +179,23 @@ export async function exchangeCode(
       .limit(1)
       .for("update");
     if (!approver || approver.expiresAt <= new Date()) return null;
+    // An admin password reset keeps sessions, so the session check above
+    // cannot catch it. A code approved before any password change is void.
+    const [credential] = await tx
+      .select({ updatedAt: accountTable.updatedAt })
+      .from(accountTable)
+      .where(
+        and(
+          eq(accountTable.userId, stored.userId),
+          eq(accountTable.providerId, "credential"),
+        ),
+      )
+      .limit(1);
+    if (
+      typeof stored.approvedAt !== "number" ||
+      (credential && credential.updatedAt.getTime() >= stored.approvedAt)
+    )
+      return null;
 
     const now = new Date();
     // Bounded cleanup: drop this user's grants that ended long ago.

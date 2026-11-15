@@ -14,8 +14,11 @@ import { getClient } from "../../apps/api/src/mcp/oauth";
 import { deleteExpiredStates } from "../../apps/api/src/mcp/oauth-store";
 import { TOKEN_ATTEMPTS_PER_MINUTE } from "../../apps/api/src/mcp/token-attempts";
 import { resetTestDatabase } from "./helpers/database";
+import { signUpWithSession } from "./helpers/auth-session";
 import {
+  approveMcpAgent,
   connectMcpAgent,
+  exchangeMcpCode,
   type McpConnection,
   mcpPost,
   refresh,
@@ -360,6 +363,51 @@ describe("MCP access tokens", () => {
     expect((await grantOf(agent)).revokedAt).not.toBeNull();
     expect((await authorized(app, agent.accessToken)).status).toBe(401);
     expect((await refresh(app, agent)).status).toBe(400);
+  });
+
+  it("revokes grants and voids pending codes when an admin sets the password", async () => {
+    const { app } = createApp();
+    const admin = await signUpWithSession(app, {
+      email: `${randomUUID()}@example.com`,
+      name: "Instance Admin",
+      role: "admin",
+    });
+    const owner = await signUp(app);
+    const agent = await connectMcpAgent(app, { bearer: owner.token });
+    const pending = await approveMcpAgent(app, { bearer: owner.token });
+
+    const reset = await app.request("/api/auth/admin/set-user-password", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: admin.cookies,
+        origin: "http://localhost:5173",
+      },
+      body: JSON.stringify({
+        userId: owner.userId,
+        newPassword: "an-admin-chosen-password",
+      }),
+    });
+    expect(reset.status, await reset.clone().text()).toBe(200);
+
+    expect((await grantOf(agent)).revokedAt).not.toBeNull();
+    expect((await authorized(app, agent.accessToken)).status).toBe(401);
+    expect((await mcpPost(app, agent.accessToken, "tools/list")).status).toBe(
+      401,
+    );
+    expect((await refresh(app, agent)).status).toBe(400);
+    // The session survives an admin reset, but the code it approved does not.
+    const exchanged = await exchangeMcpCode(app, pending);
+    expect(exchanged.status).toBe(400);
+    expect(await exchanged.json()).toEqual({ error: "invalid_grant" });
+    expect(
+      await db
+        .select()
+        .from(schema.mcpGrantTable)
+        .where(eq(schema.mcpGrantTable.clientId, pending.clientId)),
+    ).toHaveLength(0);
+    // A new approval after the reset works.
+    await connectMcpAgent(app, { bearer: owner.token });
   });
 
   it("accepts an API key on /api/mcp", async () => {

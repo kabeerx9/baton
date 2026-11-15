@@ -14,20 +14,28 @@ export type McpConnection = {
   refreshToken: string;
 };
 
-/**
- * Run the real OAuth flow (DCR, authorize, consent, token) for a signed-in
- * user. `auth` is the approving browser credential: a cookie header or a
- * session bearer token.
- */
-export async function connectMcpAgent(
+export type ApprovedMcpCode = {
+  clientId: string;
+  redirectUri: string;
+  code: string;
+  verifier: string;
+};
+
+type ConnectOptions = {
+  clientName?: string;
+  workspaceId?: string | null;
+  redirectUri?: string;
+};
+
+type ApproverAuth = { cookie: string } | { bearer: string };
+
+export const MCP_RESOURCE = "http://localhost:1337/api/mcp";
+
+/** Register a client and start an authorization request; returns its id. */
+export async function startMcpAuthorization(
   app: App,
-  auth: { cookie: string } | { bearer: string },
-  options: {
-    clientName?: string;
-    workspaceId?: string | null;
-    redirectUri?: string;
-  } = {},
-): Promise<McpConnection> {
+  options: ConnectOptions = {},
+) {
   const redirectUri = options.redirectUri ?? "http://127.0.0.1:43123/callback";
   const register = await app.request("/api/mcp/register", {
     method: "POST",
@@ -53,54 +61,92 @@ export async function connectMcpAgent(
     createHash("sha256").update(verifier).digest("base64url"),
   );
   authorize.searchParams.set("code_challenge_method", "S256");
-  authorize.searchParams.set("resource", "http://localhost:1337/api/mcp");
+  authorize.searchParams.set("resource", MCP_RESOURCE);
   const started = await app.request(authorize.pathname + authorize.search, {
     redirect: "manual",
   });
   expect(started.status).toBe(302);
-  const requestId = new URL(
-    started.headers.get("location") ?? "",
-  ).searchParams.get("request_id");
+  const requestId =
+    new URL(started.headers.get("location") ?? "").searchParams.get(
+      "request_id",
+    ) ?? "";
+  return { clientId, redirectUri, verifier, requestId };
+}
 
-  const decision = await app.request(
-    `/api/mcp/authorize/request/${requestId}`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: MCP_ORIGIN,
-        ...("cookie" in auth
-          ? { cookie: auth.cookie }
-          : { authorization: `Bearer ${auth.bearer}` }),
-      },
-      body: JSON.stringify({
-        approved: true,
-        ...(options.workspaceId !== undefined
-          ? { workspaceId: options.workspaceId }
-          : {}),
-      }),
+/** POST the consent decision for an authorization request. */
+export function decideMcpAuthorization(
+  app: App,
+  auth: ApproverAuth,
+  requestId: string,
+  body: { approved: boolean; workspaceId?: string | null },
+) {
+  return app.request(`/api/mcp/authorize/request/${requestId}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: MCP_ORIGIN,
+      ...("cookie" in auth
+        ? { cookie: auth.cookie }
+        : { authorization: `Bearer ${auth.bearer}` }),
     },
-  );
+    body: JSON.stringify(body),
+  });
+}
+
+/** Register, authorize and approve; stops before the code exchange. */
+export async function approveMcpAgent(
+  app: App,
+  auth: ApproverAuth,
+  options: ConnectOptions = {},
+): Promise<ApprovedMcpCode> {
+  const started = await startMcpAuthorization(app, options);
+  const decision = await decideMcpAuthorization(app, auth, started.requestId, {
+    approved: true,
+    ...(options.workspaceId !== undefined
+      ? { workspaceId: options.workspaceId }
+      : {}),
+  });
   expect(decision.status, await decision.clone().text()).toBe(200);
   const { redirect } = (await decision.json()) as { redirect: string };
-  const code = new URL(redirect).searchParams.get("code") ?? "";
+  return {
+    clientId: started.clientId,
+    redirectUri: started.redirectUri,
+    verifier: started.verifier,
+    code: new URL(redirect).searchParams.get("code") ?? "",
+  };
+}
 
-  const token = await requestToken(app, {
+export function exchangeMcpCode(app: App, approved: ApprovedMcpCode) {
+  return requestToken(app, {
     grant_type: "authorization_code",
-    code,
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    code_verifier: verifier,
-    resource: "http://localhost:1337/api/mcp",
+    code: approved.code,
+    client_id: approved.clientId,
+    redirect_uri: approved.redirectUri,
+    code_verifier: approved.verifier,
+    resource: MCP_RESOURCE,
   });
+}
+
+/**
+ * Run the real OAuth flow (DCR, authorize, consent, token) for a signed-in
+ * user. `auth` is the approving browser credential: a cookie header or a
+ * session bearer token.
+ */
+export async function connectMcpAgent(
+  app: App,
+  auth: ApproverAuth,
+  options: ConnectOptions = {},
+): Promise<McpConnection> {
+  const approved = await approveMcpAgent(app, auth, options);
+  const token = await exchangeMcpCode(app, approved);
   expect(token.status).toBe(200);
   const body = (await token.json()) as {
     access_token: string;
     refresh_token: string;
   };
   return {
-    clientId,
-    redirectUri,
+    clientId: approved.clientId,
+    redirectUri: approved.redirectUri,
     accessToken: body.access_token,
     refreshToken: body.refresh_token,
   };
