@@ -18,15 +18,11 @@ import { expectPopupContainment } from "./popup-containment-test-utils";
 import { POPUP_RESET } from "./popup-reset";
 import {
   Sheet,
-  SheetBackdrop,
   SheetClose,
-  SheetContent,
   SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetOverlay,
   SheetPanel,
-  SheetPortal,
   SheetPopup,
   SheetTitle,
   SheetTrigger,
@@ -588,28 +584,6 @@ describe("Sheet reduced motion", () => {
 
   it("negative control: the same lookup does not find an unknown slot", () => {
     expect(reducedMotionBlock).not.toContain('[data-slot="sheet-fake"]');
-  });
-});
-
-describe("Sheet exports kept for callers", () => {
-  it("keeps SheetPortal and SheetOverlay as usable parts", async () => {
-    expect(SheetOverlay).toBe(SheetBackdrop);
-    render(
-      <Sheet defaultOpen>
-        <SheetPortal>
-          <SheetOverlay />
-          <SheetPopup showCloseButton={false}>
-            <SheetTitle>Parts</SheetTitle>
-          </SheetPopup>
-        </SheetPortal>
-      </Sheet>,
-    );
-    await expectOpen();
-    expect(screen.getByRole("dialog", { name: "Parts" })).toBeInTheDocument();
-  });
-
-  it("exports SheetContent as the same part as SheetPopup", () => {
-    expect(SheetContent).toBe(SheetPopup);
   });
 });
 

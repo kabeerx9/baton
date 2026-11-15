@@ -201,6 +201,4 @@ export function createShortcutRegistry(isMac: boolean, sequenceTimeout = 2000) {
   };
 }
 
-export type ShortcutRegistry = ReturnType<typeof createShortcutRegistry>;
-
 export const shortcutRegistry = createShortcutRegistry(isMacPlatform());

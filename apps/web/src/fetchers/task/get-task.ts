@@ -1,10 +1,5 @@
 import { client } from "@baton/libs";
-import type { InferRequestType } from "hono/client";
 import { HttpError } from "@/lib/http-error";
-
-export type GetTaskRequest = InferRequestType<
-  (typeof client)["task"][":id"]["$get"]
->["param"];
 
 async function getTask(taskId: string, view: "detail" | "board" = "detail") {
   const response = await client.task[":id"].$get({

@@ -9,8 +9,6 @@ import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 import { useGetActiveWorkspaceUser } from "@/hooks/queries/workspace-users/use-active-workspace-user";
 import { authClient } from "@/lib/auth-client";
 
-export type PermissionLevel = "owner" | "admin" | "member";
-
 // Capabilities are named permission bundles (see `workspaceCapabilities` in
 // @baton/permissions). The server evaluates all of them in one request with
 // the same rules it enforces, so custom workspace roles work in the UI: the
