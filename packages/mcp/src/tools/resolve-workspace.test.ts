@@ -63,31 +63,50 @@ describe("resolveWorkspaceId", () => {
     ).resolves.toBe("b");
   });
 
-  it("prefers an exact-case name and refuses a case-only collision", async () => {
+  it("refuses names that differ only in case", async () => {
     const cased = [
       { id: "a", name: "Acme", slug: "a1" },
       { id: "b", name: "ACME", slug: "b1" },
     ];
-    await expect(resolveWorkspaceId(client(cased), "ACME", "a")).resolves.toBe(
+    for (const text of ["ACME", "Acme", "acme"]) {
+      await expect(
+        resolveWorkspaceId(client(cased), text, "a"),
+      ).rejects.toThrow("matches 2 workspaces");
+    }
+    await expect(resolveWorkspaceId(client(cased), "b", "a")).resolves.toBe(
       "b",
     );
-    await expect(resolveWorkspaceId(client(cased), "Acme", "b")).resolves.toBe(
-      "a",
-    );
-    await expect(
-      resolveWorkspaceId(client(cased), "acme", "a"),
-    ).rejects.toThrow("matches 2 workspaces");
   });
 
-  it("prefers a slug over another workspace's name", async () => {
+  it("refuses text that is one workspace's slug and another's name", async () => {
     const clash = [
       { id: "a", name: "ops", slug: "operations" },
       { id: "b", name: "Platform", slug: "ops" },
     ];
     for (const order of [clash, [...clash].reverse()]) {
-      await expect(resolveWorkspaceId(client(order), "ops", "a")).resolves.toBe(
-        "b",
-      );
+      await expect(
+        resolveWorkspaceId(client(order), "ops", "a"),
+      ).rejects.toThrow("matches 2 workspaces");
     }
+  });
+
+  it("refuses a duplicate name that is also one duplicate's slug", async () => {
+    // Review case: both are "Acme"; A's slug is "acme", B's is "acme-2".
+    const twins = [
+      { id: "a", name: "Acme", slug: "acme" },
+      { id: "b", name: "Acme", slug: "acme-2" },
+    ];
+    for (const order of [twins, [...twins].reverse()]) {
+      const result = resolveWorkspaceId(client(order), "Acme", "b");
+      await expect(result).rejects.toThrow("matches 2 workspaces");
+      await expect(result).rejects.toThrow("Nothing was changed");
+    }
+    // Unique slugs and exact ids still resolve.
+    await expect(
+      resolveWorkspaceId(client(twins), "acme-2", "a"),
+    ).resolves.toBe("b");
+    await expect(resolveWorkspaceId(client(twins), "a", "b")).resolves.toBe(
+      "a",
+    );
   });
 });

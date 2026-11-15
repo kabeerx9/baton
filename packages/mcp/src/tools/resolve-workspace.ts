@@ -8,31 +8,28 @@ const describe = (workspace: Workspace) =>
     : `"${workspace.name}" (id ${workspace.id})`;
 
 /**
- * Find the one workspace a text reference names. Precedence, first tier with
- * a match wins: exact id, slug (any case), exact name, name in any case.
- * Names are not unique, so two matches in one tier are an error, never a guess.
+ * Find the one workspace a text reference names. An exact id always wins.
+ * Otherwise the text must match exactly one workspace by name or slug,
+ * ignoring case; names are not unique, so any second match is an error.
  */
 function matchWorkspace(
   workspaces: Workspace[],
   wanted: string,
 ): Workspace | undefined {
+  const byId = workspaces.find((workspace) => workspace.id === wanted);
+  if (byId) return byId;
   const lower = wanted.toLowerCase();
-  const tiers: Array<(workspace: Workspace) => boolean> = [
-    (workspace) => workspace.id === wanted,
-    (workspace) => workspace.slug?.toLowerCase() === lower,
-    (workspace) => workspace.name === wanted,
-    (workspace) => workspace.name.toLowerCase() === lower,
-  ];
-  for (const tier of tiers) {
-    const matches = workspaces.filter(tier);
-    if (matches.length === 1) return matches[0];
-    if (matches.length > 1) {
-      throw new Error(
-        `"${wanted}" matches ${matches.length} workspaces: ${matches.map(describe).join(", ")}. Pass the id or slug.`,
-      );
-    }
+  const matches = workspaces.filter(
+    (workspace) =>
+      workspace.name.toLowerCase() === lower ||
+      workspace.slug?.toLowerCase() === lower,
+  );
+  if (matches.length > 1) {
+    throw new Error(
+      `"${wanted}" matches ${matches.length} workspaces: ${matches.map(describe).join(", ")}. Nothing was changed. Pass the id.`,
+    );
   }
-  return undefined;
+  return matches[0];
 }
 
 /**
