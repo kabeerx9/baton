@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNotNull, lt } from "drizzle-orm";
+import { and, eq, isNotNull, lt, sql } from "drizzle-orm";
 import {
   afterEach,
   beforeEach,
@@ -155,6 +155,31 @@ async function expectWorkspaceRefused(
     { approved: true, workspaceId: null },
   );
   expect(retried.status, await retried.clone().text()).toBe(200);
+}
+
+function adminSetPassword(app: App, cookies: string, userId: string) {
+  return app.request("/api/auth/admin/set-user-password", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: cookies,
+      origin: "http://localhost:5173",
+    },
+    body: JSON.stringify({ userId, newPassword: `reset-${randomUUID()}` }),
+  });
+}
+
+/** Wait until some backend is blocked on a row lock in an account UPDATE. */
+async function waitForBlockedAccountUpdate() {
+  for (let i = 0; i < 200; i++) {
+    const result = await db.execute<{ waiting: number }>(
+      sql`select count(*)::int as waiting from pg_stat_activity
+          where wait_event_type = 'Lock' and query ilike 'update "account"%'`,
+    );
+    if ((result.rows[0]?.waiting ?? 0) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("The password UPDATE never blocked");
 }
 
 describe("MCP refresh tokens", () => {
@@ -494,6 +519,76 @@ describe("MCP access tokens", () => {
     ).toHaveLength(0);
     // A new approval after the reset works.
     await connectMcpAgent(app, { bearer: owner.token });
+  });
+
+  it("voids a code approved while a password UPDATE waits on the account row", async () => {
+    const { app } = createApp();
+    const admin = await signUpWithSession(app, {
+      email: `${randomUUID()}@example.com`,
+      name: "Instance Admin",
+      role: "admin",
+    });
+    const owner = await signUp(app);
+
+    // A concurrent account write holds the credential row.
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let locked!: () => void;
+    const isLocked = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const holder = db.transaction(async (tx) => {
+      await tx
+        .select()
+        .from(schema.accountTable)
+        .where(eq(schema.accountTable.userId, owner.userId))
+        .for("update");
+      locked();
+      await released;
+    });
+    await isLocked;
+
+    // The admin reset starts and blocks on its password UPDATE.
+    const reset = adminSetPassword(app, admin.cookies, owner.userId);
+    await waitForBlockedAccountUpdate();
+
+    // Consent completes while the reset waits, so it sees the old password.
+    const pending = await approveMcpAgent(app, { bearer: owner.token });
+    release();
+    await holder;
+    expect((await reset).status).toBe(200);
+
+    const exchanged = await exchangeMcpCode(app, pending);
+    expect(exchanged.status).toBe(400);
+    expect(await exchanged.json()).toEqual({ error: "invalid_grant" });
+    expect(await db.select().from(schema.mcpGrantTable)).toHaveLength(0);
+  });
+
+  it("voids a pre-reset code even when the approving replica's clock runs ahead", async () => {
+    const { app } = createApp();
+    const admin = await signUpWithSession(app, {
+      email: `${randomUUID()}@example.com`,
+      name: "Instance Admin",
+      role: "admin",
+    });
+    const owner = await signUp(app);
+
+    // Consent on a replica ten seconds ahead.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 10_000 });
+    const pending = await approveMcpAgent(app, { bearer: owner.token });
+    vi.useRealTimers();
+    // The reset completes on a replica with the true time, before that clock.
+    expect(
+      (await adminSetPassword(app, admin.cookies, owner.userId)).status,
+    ).toBe(200);
+    // Redemption on a replica ten seconds behind.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() - 10_000 });
+    const exchanged = await exchangeMcpCode(app, pending);
+    vi.useRealTimers();
+    expect(exchanged.status).toBe(400);
+    expect(await db.select().from(schema.mcpGrantTable)).toHaveLength(0);
   });
 
   it("accepts an API key on /api/mcp", async () => {

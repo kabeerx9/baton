@@ -217,7 +217,9 @@ refresh together. A rotated token used later, at any time before its own
 expiry, revokes the grant. A grant ends
 after 90 days without use, on `DELETE /api/mcp/grants/{id}`, on a password
 reset (self-service or by an admin), a ban, deactivation or account
-deletion. Signing out sessions does not end grants. The refresh rule is one pure function,
+deletion. Signing out sessions does not end grants. A consent code is void
+after any password change: it stores `account.credential_generation`, which a
+trigger bumps with every password write. The refresh rule is one pure function,
 `apps/api/src/mcp/grant/refresh-decision.ts`.
 
 An MCP token also works on the REST API, because the tools call it, and acts

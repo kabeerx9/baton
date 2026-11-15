@@ -101,6 +101,11 @@ export const accountTable = pgTable(
     }),
     scope: text("scope"),
     password: text("password"),
+    /**
+     * Bumped by a trigger in the same UPDATE that changes `password`
+     * (migration 0080), on every path. MCP codes snapshot it at consent.
+     */
+    credentialGeneration: integer("credential_generation").default(0).notNull(),
     createdAt: timestamp("created_at", { mode: "date" })
       .default(utcNow)
       .notNull(),

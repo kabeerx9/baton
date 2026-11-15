@@ -43,6 +43,7 @@ function migrationStatements() {
 const independentLaterMigrations = [
   "0078_mcp_grants",
   "0079_mcp_token_expiry_index",
+  "0080_mcp_credential_generation",
 ];
 
 it("is the latest migration that changes these tables, so the old schema is today's without it", () => {

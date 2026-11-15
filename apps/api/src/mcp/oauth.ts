@@ -30,8 +30,11 @@ type AuthCode = {
   redirectUri: string;
   /** Chosen on the consent page; null lets the tools fall back. */
   defaultWorkspaceId?: string | null;
-  /** Epoch ms of consent. A password change after it voids the code. */
-  approvedAt?: number;
+  /**
+   * `account.credential_generation` at consent, null without a password.
+   * Any password change bumps it, which voids the code. No clocks involved.
+   */
+  credentialGeneration?: number | null;
 };
 
 export type AuthorizationRequest = {
@@ -73,15 +76,36 @@ export async function registerClient(params: {
   return client;
 }
 
+/** The user's password generation, or null when they have no password. */
+async function credentialGeneration(
+  tx: DbOrTx,
+  userId: string,
+): Promise<number | null> {
+  const [credential] = await tx
+    .select({ generation: accountTable.credentialGeneration })
+    .from(accountTable)
+    .where(
+      and(
+        eq(accountTable.userId, userId),
+        eq(accountTable.providerId, "credential"),
+      ),
+    )
+    .limit(1);
+  return credential?.generation ?? null;
+}
+
 export async function createAuthCode(
-  params: Omit<AuthCode, "approvedAt">,
+  params: Omit<AuthCode, "credentialGeneration">,
   requestId?: string,
 ): Promise<string> {
   const code = randomUUID();
   await putState(
     "code",
     code,
-    { ...params, approvedAt: Date.now() } satisfies AuthCode,
+    {
+      ...params,
+      credentialGeneration: await credentialGeneration(db, params.userId),
+    } satisfies AuthCode,
     new Date(Date.now() + codeTtlMs),
     requestId,
   );
@@ -180,20 +204,12 @@ export async function exchangeCode(
       .for("update");
     if (!approver || approver.expiresAt <= new Date()) return null;
     // An admin password reset keeps sessions, so the session check above
-    // cannot catch it. A code approved before any password change is void.
-    const [credential] = await tx
-      .select({ updatedAt: accountTable.updatedAt })
-      .from(accountTable)
-      .where(
-        and(
-          eq(accountTable.userId, stored.userId),
-          eq(accountTable.providerId, "credential"),
-        ),
-      )
-      .limit(1);
+    // cannot catch it. Any password change since consent bumped the
+    // generation. Read under the user lock that revokeUserGrants also takes.
     if (
-      typeof stored.approvedAt !== "number" ||
-      (credential && credential.updatedAt.getTime() >= stored.approvedAt)
+      stored.credentialGeneration === undefined ||
+      (await credentialGeneration(tx, stored.userId)) !==
+        stored.credentialGeneration
     )
       return null;
 

@@ -52,6 +52,8 @@ vi.mock("../../apps/api/src/auth", () => ({
 
 vi.mock("../../apps/api/src/database", async () => ({
   default: {
+    // Consent reads the password generation outside a transaction.
+    select: mocks.select,
     transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
       callback({
         insert: mocks.insert,

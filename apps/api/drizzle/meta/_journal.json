@@ -561,6 +561,13 @@
       "when": 1794756271952,
       "tag": "0079_mcp_token_expiry_index",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794756349300,
+      "tag": "0080_mcp_credential_generation",
+      "breakpoints": true
     }
   ]
 }
