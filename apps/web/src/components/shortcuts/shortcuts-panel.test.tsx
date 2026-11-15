@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import {
   afterEach,
@@ -93,5 +94,53 @@ describe("ShortcutsPanel", () => {
     fireEvent.keyDown(search(), { key: "Escape" });
     await act(async () => {});
     expect(useShortcutsPanelStore.getState().open).toBe(false);
+  });
+
+  it("is a non-modal dialog that opens with focus in the search and closes on an outside press", async () => {
+    useShortcutsPanelStore.setState({ open: true });
+    render(
+      <ShortcutTestWrapper>
+        <button type="button">Page button</button>
+        <ShortcutsPanel />
+      </ShortcutTestWrapper>,
+    );
+    const input = await screen.findByLabelText(
+      "navigation:shortcuts.searchPlaceholder",
+    );
+    await waitFor(() => expect(input).toHaveFocus());
+
+    const panel = screen.getByRole("dialog");
+    expect(panel).toHaveAttribute("data-shortcuts", "allow");
+    // Non-modal: the page stays reachable, and a press outside closes it.
+    const pageButton = screen.getByRole("button", { name: "Page button" });
+    expect(pageButton).toBeEnabled();
+    fireEvent.pointerDown(pageButton);
+    fireEvent.pointerUp(pageButton);
+    fireEvent.click(pageButton);
+    await waitFor(() =>
+      expect(useShortcutsPanelStore.getState().open).toBe(false),
+    );
+  });
+
+  it("closes from the close button and clears the query", async () => {
+    useShortcutsPanelStore.setState({ open: true });
+    renderPanel();
+    fireEvent.change(
+      await screen.findByLabelText("navigation:shortcuts.searchPlaceholder"),
+      {
+        target: { value: "inbox" },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "common:actions.close" }),
+    );
+    await waitFor(() =>
+      expect(useShortcutsPanelStore.getState().open).toBe(false),
+    );
+
+    useShortcutsPanelStore.setState({ open: true });
+    expect(
+      await screen.findByLabelText("navigation:shortcuts.searchPlaceholder"),
+    ).toHaveValue("");
   });
 });
