@@ -67,7 +67,7 @@ const workspaceRef = z
   .min(1)
   .optional()
   .describe(
-    "Workspace id or name. Leave out to use your default workspace, or your only one.",
+    "Workspace id, slug or name. A name shared by two workspaces is refused; pass the id or slug. Leave out to use your default workspace, or your only one.",
   );
 
 export function registerTools(
