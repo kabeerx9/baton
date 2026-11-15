@@ -1988,6 +1988,7 @@
 				"list": "Board and list",
 				"inbox": "Inbox",
 				"filters": "Filters",
+				"myTasks": "My tasks",
 				"editor": "Editor"
 			},
 			"items": {
@@ -2059,6 +2060,10 @@
 				"deleteReadNotifications": "Delete all read notifications",
 				"toggleNotificationRead": "Mark as read or unread",
 				"markAllNotificationsRead": "Mark all as read",
+				"finishNextTask": "Finish the next task",
+				"skipNextTask": "Skip the next task",
+				"finishFocusedTask": "Finish the focused task",
+				"undoFinish": "Undo the last finish",
 				"addFilter": "Add filter",
 				"clearAllFilters": "Clear all filters",
 				"clearLastFilter": "Clear last filter",
@@ -2756,24 +2761,132 @@
 				"today": "Today",
 				"tomorrow": "Tomorrow",
 				"thisWeek": "This week",
-				"later": "Later",
-				"noDueDate": "No due date"
+				"later": "Later"
 			}
 		},
 		"myTasks": {
 			"pageTitle": "My tasks",
 			"emptyDescription": "Tasks assigned to you across this workspace show up here.",
-			"groupBy": {
-				"label": "Group by",
-				"dueDate": "Due date",
-				"project": "Repo"
-			},
+			"clearedTitle": "You cleared the list.",
+			"clearedDescription": "Every task you had is done. Teammates who waited on you have been told.",
+			"loading": "Loading your tasks",
+			"errorDescription": "The server did not answer. Try again in a moment.",
+			"retry": "Try again",
 			"noRepo": "No repo",
 			"truncated": "Showing the first {{shown}} of {{total}} tasks.",
 			"waitsOn": "Waits on {{key}}",
 			"waitsOnHidden_one": "Waits on {{count}} task you cannot see",
 			"waitsOnHidden_other": "Waits on {{count}} tasks you cannot see",
-			"waitsOnMore": "+{{count}}"
+			"waitsOnMore": "+{{count}}",
+			"heldSection": "Held up by others",
+			"showFewer": "Show fewer",
+			"headline": {
+				"waiting_one": "One teammate is waiting on you.",
+				"waiting_other": "{{count}} teammates are waiting on you.",
+				"overdue_one": "One task is overdue. Start with it.",
+				"overdue_other": "{{count}} tasks are overdue. Start with the oldest.",
+				"today_one": "One thing is due today.",
+				"today_other": "{{count}} things are due today.",
+				"nothingDue": "Nothing is due today.",
+				"heldOnly": "Nothing to do until others finish.",
+				"clear": "You are clear."
+			},
+			"summary": {
+				"overdue": "overdue",
+				"today": "due today",
+				"week": "this week",
+				"held": "held up"
+			},
+			"reason": {
+				"people_one": "{{names}} is waiting on this",
+				"people_other": "{{names}} are waiting on this",
+				"tasks_one": "One task is waiting on this",
+				"tasks_other": "{{count}} tasks are waiting on this",
+				"overdue_one": "{{count}} day overdue",
+				"overdue_other": "{{count}} days overdue",
+				"today": "Due today",
+				"priority": "Highest priority",
+				"next": "Next in line",
+				"picked": "You picked this"
+			},
+			"hero": {
+				"label": "Do this next",
+				"cannotMove": "cannot move",
+				"cannotMoveYet": "cannot move yet",
+				"done": "Mark done",
+				"skip": "Skip",
+				"move": "Move",
+				"setDate": "Set a date",
+				"open": "Open",
+				"afterThis": "After this",
+				"doNow": "Do this one now instead",
+				"waits_one": "{{names}} waits",
+				"waits_other": "{{names}} wait",
+				"more": "+{{count}} more",
+				"nothingFree": "Nothing you can finish right now. The tasks below wait on other people.",
+				"clear": "You are clear. Enjoy it."
+			},
+			"people": {
+				"title": "Waiting on you",
+				"needs": "needs",
+				"nobody": "Unowned work",
+				"andMore": "and {{count}} more",
+				"upNext": "Up next",
+				"heldUp": "Held up",
+				"doFirst": "Do first",
+				"doFirstLabel": "Do {{key}} first, for {{name}}",
+				"showMore": "Show {{count}} more"
+			},
+			"sections": {
+				"showAll": "Show all {{count}}"
+			},
+			"row": {
+				"markDone": "Mark {{key}} done",
+				"cannotFinish": "{{key}} cannot be finished yet",
+				"featureHint": "This closes when the tasks under it are done.",
+				"doNext": "Do next",
+				"doNextLabel": "Do {{key}} next",
+				"waiting_one": "{{names}} is waiting",
+				"waiting_other": "{{names}} are waiting",
+				"tasksWaiting_one": "One task is waiting",
+				"tasksWaiting_other": "{{count}} tasks are waiting"
+			},
+			"due": {
+				"none": "No date",
+				"overdue": "{{count}}d overdue"
+			},
+			"when": {
+				"label": "Move this task",
+				"today": "Today",
+				"tomorrow": "Tomorrow",
+				"inAWeek": "In a week",
+				"clear": "Clear the date"
+			},
+			"rail": {
+				"label": "Overview",
+				"cleared": "Cleared this visit",
+				"clearedOf": "of {{total}}",
+				"week": "Next seven days",
+				"weekLabel": "Tasks due per day",
+				"dayDue": "{{date}}: {{count}} due",
+				"nothingDue": "Nothing due",
+				"andMore": "and {{count}} more",
+				"repos": "Where it sits",
+				"showAll": "Show all",
+				"repoOnly": "{{name}}: {{count}} open. Show only this repo",
+				"repoAll": "{{name}}: {{count}} open. Show every repo",
+				"keys": "Keys"
+			},
+			"toast": {
+				"done": "{{key}} done",
+				"released_one": "{{names}} is no longer waiting on it.",
+				"released_other": "{{names}} are no longer waiting on it.",
+				"undo": "Undo",
+				"stillOpen": "{{key}} stays open. It closes when the tasks under it are done.",
+				"doneError": "Could not mark the task done.",
+				"undoError": "Could not reopen the task.",
+				"moveError": "Could not move the task."
+			}
 		},
 		"board": {
 			"waitsOn": {
