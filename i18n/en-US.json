@@ -406,6 +406,8 @@
 				"selfReported": "Self-reported",
 				"redirect": "Sends you back to",
 				"signedInAs": "Signed in as",
+				"workspace": "Default workspace",
+				"workspaceHint": "The agent's board tools use this workspace when you don't name one.",
 				"deny": "Deny",
 				"allow": "Allow access"
 			},
