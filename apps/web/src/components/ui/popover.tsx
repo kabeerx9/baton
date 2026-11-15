@@ -1,35 +1,145 @@
 "use client";
 
-import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+import {
+  createPopoverController,
+  Popover as PopoverPrimitive,
+  PopoverClose as PopoverClosePrimitive,
+  PopoverContent as PopoverContentPrimitive,
+  PopoverDescription as PopoverDescriptionPrimitive,
+  type PopoverController,
+  PopoverTitle as PopoverTitlePrimitive,
+  PopoverTrigger as PopoverTriggerPrimitive,
+} from "@ui-sdk/react/popover";
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { containPopupEvents } from "./popup-containment";
+import { POPUP_RESET } from "./popup-reset";
 
-const PopoverCreateHandle = PopoverPrimitive.createHandle;
+/** The part's props with plain `children`: no part here takes a render function. */
+type Plain<T> = Omit<T, "children"> & { children?: React.ReactNode };
 
-const Popover = PopoverPrimitive.Root;
+/**
+ * What `PopoverCreateHandle()` returns. It keeps the Base UI handle API
+ * (`open(triggerId)`, `close()`, `isOpen`) over a UI SDK controller, so a
+ * caller passes it as `handle` to the popover and to detached triggers.
+ */
+type PopoverHandle<Payload = unknown> = {
+  readonly controller: PopoverController<Payload>;
+  /** Opens the popover from the detached trigger with this id. */
+  open: (triggerId: string) => void;
+  close: () => void;
+  readonly isOpen: boolean;
+  /** Trigger payloads by id, kept so `open(triggerId)` can pass one. */
+  readonly triggers: Map<string, Payload | undefined>;
+};
+
+function PopoverCreateHandle<Payload = unknown>(): PopoverHandle<Payload> {
+  const controller = createPopoverController<Payload>();
+  const triggers = new Map<string, Payload | undefined>();
+  return {
+    controller,
+    triggers,
+    open(triggerId) {
+      void controller.open({
+        anchor: document.getElementById(triggerId) ?? undefined,
+        payload: triggers.get(triggerId),
+      });
+    },
+    close() {
+      controller.close();
+    },
+    get isOpen() {
+      return controller.isOpen();
+    },
+  };
+}
+
+/**
+ * The popup renders in place, so inside a `<form>` its inputs and buttons have
+ * that form as their owner. Base UI portaled it out, so Enter in a search input
+ * or a plain `<button>` never submitted the form around the popover. Cancel the
+ * browser's default action for that case. A form inside the popup is its own
+ * owner and is left alone.
+ */
+function ownedByOuterForm(target: EventTarget | null, popup: Element): boolean {
+  if (
+    !(target instanceof HTMLInputElement || target instanceof HTMLButtonElement)
+  )
+    return false;
+  // A button's `type` property is "submit" when the attribute is missing.
+  if (target instanceof HTMLButtonElement && target.type !== "submit")
+    return false;
+  return target.form !== null && !popup.contains(target.form);
+}
+
+function keepOuterFormUnsubmitted(
+  event: React.KeyboardEvent<HTMLElement> | React.MouseEvent<HTMLElement>,
+) {
+  if (event.defaultPrevented) return;
+  const target =
+    "key" in event
+      ? event.key === "Enter"
+        ? event.target
+        : null
+      : event.target instanceof Element
+        ? event.target.closest("button")
+        : null;
+  if (ownedByOuterForm(target, event.currentTarget)) event.preventDefault();
+}
+
+function Popover({
+  handle,
+  controller,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive> & {
+  /** A handle from `PopoverCreateHandle()`; maps to UI SDK `controller`. */
+  handle?: PopoverHandle<any>;
+}) {
+  return (
+    <PopoverPrimitive
+      controller={handle?.controller ?? controller}
+      {...props}
+    />
+  );
+}
 
 function PopoverTrigger({
   asChild = false,
-  nativeButton = true,
-  className,
   children,
+  handle,
+  controller,
+  id,
+  payload,
   render,
   ...props
-}: PopoverPrimitive.Trigger.Props & { asChild?: boolean }) {
-  const resolvedRender =
-    asChild && React.isValidElement(children) ? children : render;
+}: Plain<React.ComponentProps<typeof PopoverTriggerPrimitive>> & {
+  asChild?: boolean;
+  /** A handle from `PopoverCreateHandle()`; maps to UI SDK `controller`. */
+  handle?: PopoverHandle<any>;
+}) {
+  const resolvedRender = (
+    asChild && React.isValidElement(children) ? children : render
+  ) as React.ComponentProps<typeof PopoverTriggerPrimitive>["render"];
+
+  React.useEffect(() => {
+    if (!handle || !id) return;
+    handle.triggers.set(id, payload);
+    return () => {
+      handle.triggers.delete(id);
+    };
+  }, [handle, id, payload]);
 
   return (
-    <PopoverPrimitive.Trigger
-      className={className}
-      data-slot="popover-trigger"
-      nativeButton={nativeButton}
+    <PopoverTriggerPrimitive
+      controller={handle?.controller ?? controller}
+      id={id}
+      payload={payload}
       render={resolvedRender}
       {...props}
     >
       {asChild ? undefined : children}
-    </PopoverPrimitive.Trigger>
+    </PopoverTriggerPrimitive>
   );
 }
 
@@ -41,68 +151,74 @@ function PopoverPopup({
   sideOffset = 4,
   alignOffset = 0,
   tooltipStyle = false,
-  anchor,
   positionerClassName,
+  containEvents = true,
+  onClick,
+  onKeyDown,
   ...props
-}: PopoverPrimitive.Popup.Props & {
-  side?: PopoverPrimitive.Positioner.Props["side"];
-  align?: PopoverPrimitive.Positioner.Props["align"];
-  sideOffset?: PopoverPrimitive.Positioner.Props["sideOffset"];
-  alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"];
+}: Plain<React.ComponentProps<typeof PopoverContentPrimitive>> & {
   tooltipStyle?: boolean;
-  anchor?: PopoverPrimitive.Positioner.Props["anchor"];
+  /** UI SDK has no positioner: the class lands on the content. */
   positionerClassName?: string;
+  /** Contain pointer and command events in the content. Keys always pass. */
+  containEvents?: boolean;
 }) {
   return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Positioner
-        align={align}
-        alignOffset={alignOffset}
-        anchor={anchor}
-        className={cn(
-          "z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-[top,left,right,bottom,transform] data-instant:transition-none",
-          positionerClassName,
-        )}
-        data-slot="popover-positioner"
-        side={side}
-        sideOffset={sideOffset}
-      >
-        <PopoverPrimitive.Popup
-          className={cn(
-            "relative flex h-(--popup-height,auto) w-(--popup-width,auto) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding text-popover-foreground shadow-lg/5 outline-none transition-[width,height,scale,opacity,translate] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] has-data-[slot=calendar]:rounded-xl has-data-[slot=calendar]:before:rounded-[calc(var(--radius-xl)-1px)] data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-[side=top]:data-starting-style:translate-y-1 data-[side=bottom]:data-starting-style:-translate-y-1 data-[side=left]:data-starting-style:translate-x-1 data-[side=right]:data-starting-style:-translate-x-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+    <PopoverContentPrimitive
+      {...containPopupEvents(
+        {
+          align,
+          alignOffset,
+          className: cn(
+            POPUP_RESET,
+            "relative flex max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] has-data-[slot=calendar]:rounded-xl has-data-[slot=calendar]:before:rounded-[calc(var(--radius-xl)-1px)] data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-[side=top]:data-starting-style:translate-y-1 data-[side=bottom]:data-starting-style:-translate-y-1 data-[side=left]:data-starting-style:translate-x-1 data-[side=right]:data-starting-style:-translate-x-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
             tooltipStyle &&
               "w-fit text-balance rounded-md text-xs shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]",
+            positionerClassName,
             className,
-          )}
-          data-slot="popover-popup"
-          {...props}
-        >
-          <PopoverPrimitive.Viewport
-            className={cn(
-              "relative size-full max-h-(--available-height) overflow-clip px-(--viewport-inline-padding) py-0.5 [--viewport-inline-padding:--spacing(1)] has-data-[slot=calendar]:p-2 data-instant:transition-none **:data-current:data-ending-style:opacity-0 **:data-current:data-starting-style:opacity-0 **:data-previous:data-ending-style:opacity-0 **:data-previous:data-starting-style:opacity-0 **:data-current:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-previous:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-current:opacity-100 **:data-previous:opacity-100 **:data-current:transition-opacity **:data-previous:transition-opacity",
-              tooltipStyle
-                ? "py-0.5 [--viewport-inline-padding:--spacing(1)]"
-                : "not-data-transitioning:overflow-y-auto",
-            )}
-            data-slot="popover-viewport"
-          >
-            {children}
-          </PopoverPrimitive.Viewport>
-        </PopoverPrimitive.Popup>
-      </PopoverPrimitive.Positioner>
-    </PopoverPrimitive.Portal>
+          ),
+          onClick: (event: React.MouseEvent<HTMLDivElement>) => {
+            onClick?.(event);
+            keepOuterFormUnsubmitted(event);
+          },
+          onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => {
+            onKeyDown?.(event);
+            keepOuterFormUnsubmitted(event);
+          },
+          side,
+          sideOffset,
+          children: (
+            <div
+              className={cn(
+                "relative size-full max-h-(--available-height) overflow-y-auto px-1 py-0.5 has-data-[slot=calendar]:p-2",
+                tooltipStyle && "overflow-clip",
+              )}
+              data-slot="popover-viewport"
+            >
+              {children}
+            </div>
+          ),
+          ...props,
+        },
+        containEvents,
+      )}
+    />
   );
 }
 
-function PopoverClose({ ...props }: PopoverPrimitive.Close.Props) {
-  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+function PopoverClose(
+  props: Plain<React.ComponentProps<typeof PopoverClosePrimitive>>,
+) {
+  return <PopoverClosePrimitive type="button" {...props} />;
 }
 
-function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
+function PopoverTitle({
+  className,
+  ...props
+}: React.ComponentProps<typeof PopoverTitlePrimitive>) {
   return (
-    <PopoverPrimitive.Title
+    <PopoverTitlePrimitive
       className={cn("font-semibold text-lg leading-none", className)}
-      data-slot="popover-title"
       {...props}
     />
   );
@@ -111,11 +227,10 @@ function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
 function PopoverDescription({
   className,
   ...props
-}: PopoverPrimitive.Description.Props) {
+}: React.ComponentProps<typeof PopoverDescriptionPrimitive>) {
   return (
-    <PopoverPrimitive.Description
+    <PopoverDescriptionPrimitive
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="popover-description"
       {...props}
     />
   );
@@ -131,3 +246,4 @@ export {
   PopoverTitle,
   PopoverTrigger,
 };
+export type { PopoverHandle };

@@ -302,6 +302,8 @@ describe("CreateTaskModal", () => {
 
     fireEvent.click(screen.getByText("common:modals.createTask.selectProject"));
     fireEvent.click(await screen.findByText("Beta"));
+    // Mixed phase: the Base UI dialog's insideReactTree flag clears on a timer; D1 should remove this line.
+    await act(async () => {});
     const backdrop = document.querySelector('[data-slot="dialog-backdrop"]');
     fireEvent.pointerDown(backdrop as Element);
     fireEvent.pointerUp(backdrop as Element);
