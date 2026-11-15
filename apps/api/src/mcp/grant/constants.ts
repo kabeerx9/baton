@@ -7,6 +7,11 @@ export const GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
  * the same moment. A rotated token still works this long after rotation.
  */
 export const REFRESH_GRACE_MS = 60 * 1000;
+/**
+ * Expired token rows one refresh deletes. A refresh adds two, so cleanup
+ * keeps up with any refresh rate the token limit allows.
+ */
+export const EXPIRED_TOKEN_CLEANUP_BATCH = 100;
 /** Bounds last-used writes to one per grant per minute. */
 export const LAST_USED_WRITE_INTERVAL_MS = 60 * 1000;
 /** Revoked or expired grants are pruned this long after they end. */

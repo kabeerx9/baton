@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 import {
   afterEach,
   beforeEach,
@@ -10,6 +10,7 @@ import {
 } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
+import { EXPIRED_TOKEN_CLEANUP_BATCH } from "../../apps/api/src/mcp/grant/constants";
 import { getClient } from "../../apps/api/src/mcp/oauth";
 import { deleteExpiredStates } from "../../apps/api/src/mcp/oauth-store";
 import { TOKEN_ATTEMPTS_PER_MINUTE } from "../../apps/api/src/mcp/token-attempts";
@@ -243,6 +244,46 @@ describe("MCP refresh tokens", () => {
     expect((await grantOf(agent)).revokedAt).not.toBeNull();
     expect((await refresh(app, agent, r2.refresh_token)).status).toBe(400);
     expect((await authorized(app, r2.access_token)).status).toBe(401);
+  });
+
+  it("deletes expired token rows in bounded batches and keeps live ones", async () => {
+    const { app } = createApp();
+    const owner = await signUp(app);
+    const agent = await connectMcpAgent(app, { bearer: owner.token });
+    const grant = await grantOf(agent);
+    const expired = (count: number) =>
+      Array.from({ length: count }, () => ({
+        grantId: grant.id,
+        kind: "refresh" as const,
+        tokenHash: randomUUID(),
+        expiresAt: new Date(Date.now() - 60_000),
+        rotatedAt: new Date(Date.now() - 120_000),
+      }));
+    await db
+      .insert(schema.mcpTokenTable)
+      .values(expired(EXPIRED_TOKEN_CLEANUP_BATCH + 30));
+    const countExpired = async () =>
+      (
+        await db
+          .select()
+          .from(schema.mcpTokenTable)
+          .where(
+            and(
+              eq(schema.mcpTokenTable.grantId, grant.id),
+              lt(schema.mcpTokenTable.expiresAt, new Date()),
+            ),
+          )
+      ).length;
+
+    const first = (await (await refresh(app, agent)).json()) as {
+      refresh_token: string;
+    };
+    expect(await countExpired()).toBe(30);
+    expect((await refresh(app, agent, first.refresh_token)).status).toBe(200);
+    expect(await countExpired()).toBe(0);
+    // The original refresh token is rotated but unexpired, so it stays and a
+    // late replay still revokes (see the seven-day test).
+    expect((await authorized(app, agent.accessToken)).status).toBe(200);
   });
 
   it("lets two parallel refreshes with one shared token both succeed", async () => {

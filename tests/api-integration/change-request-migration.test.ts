@@ -40,7 +40,10 @@ function migrationStatements() {
 
 // Later migrations that only add new, unrelated tables leave the premise
 // intact. Add one here only after checking it touches none of 0077's objects.
-const independentLaterMigrations = ["0078_mcp_grants"];
+const independentLaterMigrations = [
+  "0078_mcp_grants",
+  "0079_mcp_token_expiry_index",
+];
 
 it("is the latest migration that changes these tables, so the old schema is today's without it", () => {
   const journal = JSON.parse(

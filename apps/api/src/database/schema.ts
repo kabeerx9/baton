@@ -1418,7 +1418,8 @@ export const mcpTokenTable = pgTable(
   },
   (table) => [
     uniqueIndex("mcp_token_tokenHash_uidx").on(table.tokenHash),
-    index("mcp_token_grantId_idx").on(table.grantId),
+    // Serves the grant FK and the per-grant expired-row cleanup.
+    index("mcp_token_grantId_expiresAt_idx").on(table.grantId, table.expiresAt),
   ],
 );
 
