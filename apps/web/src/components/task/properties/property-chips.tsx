@@ -30,9 +30,9 @@ type PropertyChipsProps = {
 };
 
 const chip =
-  "inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-border bg-accent/30 px-2.5 font-medium text-foreground text-xs outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 data-popup-open:border-input data-popup-open:bg-accent disabled:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0";
+  "inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-border bg-accent/30 px-2.5 font-medium text-foreground text-xs outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 data-open:border-input data-open:bg-accent disabled:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0";
 const dateButton =
-  "flex h-full items-center gap-1.5 rounded-[5px] px-1.5 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 data-popup-open:bg-accent";
+  "flex h-full items-center gap-1.5 rounded-[5px] px-1.5 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 data-open:bg-accent";
 
 export function PropertyChips({
   taskId,

@@ -1,8 +1,11 @@
 "use client";
 
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import {
+  mergeProps,
+  renderElement,
+  type PartProps,
+} from "@ui-sdk/react/primitive";
+import { ChevronRight } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/cn";
@@ -41,21 +44,17 @@ function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
   );
 }
 
-function BreadcrumbLink({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<"a">) {
+interface BreadcrumbLinkProps extends Omit<PartProps<"a">, "className"> {
+  className?: string;
+}
+
+function BreadcrumbLink({ className, render, ...props }: BreadcrumbLinkProps) {
   const defaultProps = {
     className: cn("transition-colors hover:text-foreground", className),
     "data-slot": "breadcrumb-link",
   };
 
-  return useRender({
-    defaultTagName: "a",
-    props: mergeProps<"a">(defaultProps, props),
-    render,
-  });
+  return renderElement("a", mergeProps(defaultProps, props), render);
 }
 
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
@@ -90,27 +89,8 @@ function BreadcrumbSeparator({
   );
 }
 
-function BreadcrumbEllipsis({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      aria-hidden="true"
-      className={className}
-      data-slot="breadcrumb-ellipsis"
-      role="presentation"
-      {...props}
-    >
-      <MoreHorizontal className="size-4" />
-      <span className="sr-only">{i18n.t("common:breadcrumb.more")}</span>
-    </span>
-  );
-}
-
 export {
   Breadcrumb,
-  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,

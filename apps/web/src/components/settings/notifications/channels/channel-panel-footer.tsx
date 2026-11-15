@@ -52,6 +52,10 @@ export function ChannelPanelFooter({
         {submitLabel}
       </Button>
       <ConfirmDialog
+        // This footer sits inside the channel's <form>. UI SDK renders the
+        // dialog in place, so it is portaled out: Enter inside it must not
+        // submit the channel form.
+        container={document.body}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={t("settings:notificationsPage.disconnectTitle", {

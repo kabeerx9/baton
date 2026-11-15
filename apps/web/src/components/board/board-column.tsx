@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { orderCards } from "./card-order";
-import { splitDone } from "./done-window";
 import type { BoardTask, Lane, Status } from "./model";
 import { StatusIcon } from "./status-icon";
 import { TaskCard } from "./task-card";
@@ -10,7 +9,8 @@ import { TaskCard } from "./task-card";
 export function BoardColumn({
   status,
   today,
-  items: all,
+  items,
+  olderCount,
   lanes,
   workspaceId,
   justCreated,
@@ -19,35 +19,27 @@ export function BoardColumn({
   status: Status;
   /** Start of the local day, ms. Shared by the whole board. */
   today: number;
+  /** The cards to show, in order (`columnOrder`). */
   items: BoardTask[];
+  /** Done only: finished work older than the Done window. */
+  olderCount: number;
   lanes: Lane[];
   workspaceId: string;
   justCreated: string | null;
   onHighlightDone: () => void;
 }) {
   const { t } = useTranslation();
-  // Done keeps 14 calendar days counted from local midnight (accepted policy).
-  const { recent, olderCount } =
-    status === "done"
-      ? splitDone(all, new Date(today))
-      : { recent: all, olderCount: 0 };
-  const items = orderCards(
-    recent,
-    (f) => ({
-      key: f.key,
-      priority: f.priority,
-      dueDate: f.dueDate,
-      done: f.column === "done",
-    }),
-    today,
-  );
+  const titleId = useId();
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-muted/40 p-2.5">
+    <section
+      aria-labelledby={titleId}
+      className="flex min-w-0 flex-col gap-3 rounded-xl bg-muted/40 p-2.5"
+    >
       <div className="flex items-center gap-2 px-1 text-xs">
         <StatusIcon status={status} size={13} />
-        <span className="font-medium">
+        <h2 id={titleId} className="font-medium">
           {t(`workspace:board.columns.${status}`)}
-        </span>
+        </h2>
         <span className="tabular-nums text-muted-foreground">
           {items.length}
         </span>
@@ -57,10 +49,12 @@ export function BoardColumn({
           {t("workspace:board.empty")}
         </div>
       ) : (
-        items.map((f) => (
+        items.map((f, index) => (
           <TaskCard
             key={f.id}
             boardTask={f}
+            index={index}
+            count={items.length}
             highlighted={f.id === justCreated}
             onHighlightDone={onHighlightDone}
             lanes={lanes}
@@ -81,6 +75,6 @@ export function BoardColumn({
           </Link>
         </p>
       )}
-    </div>
+    </section>
   );
 }

@@ -9,7 +9,6 @@ import CreateTaskModal from "@/components/shared/modals/create-task-modal";
 import CreateWorkspaceModal from "@/components/shared/modals/create-workspace-modal";
 import {
   Command,
-  CommandCollection,
   CommandDialog,
   CommandDialogPopup,
   CommandEmpty,
@@ -178,7 +177,7 @@ function CommandPalette() {
     <>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandDialogPopup instant finalFocus={false}>
-          <Command items={groupedItems}>
+          <Command>
             <CommandInput
               placeholder={t("navigation:commandPalette.inputPlaceholder")}
             />
@@ -187,38 +186,37 @@ function CommandPalette() {
                 {t("navigation:commandPalette.empty")}
               </CommandEmpty>
               <CommandList>
-                {(group: PaletteGroup, groupIndex: number) => (
+                {groupedItems.map((group, groupIndex) => (
                   <Fragment key={group.value}>
-                    <CommandGroup items={group.items}>
+                    <CommandGroup>
                       <CommandGroupLabel>{group.label}</CommandGroupLabel>
-                      <CommandCollection>
-                        {(item: PaletteActionItem) => {
-                          return (
-                            <CommandItem
-                              key={item.value}
-                              value={item.value}
-                              onClick={() => runCommand(item.onRun)}
-                              className="px-3"
-                            >
-                              <span className="flex-1">{item.label}</span>
-                              {item.shortcutId && (
-                                <CommandShortcut>
-                                  <ShortcutKeys
-                                    id={item.shortcutId}
-                                    tone="muted"
-                                  />
-                                </CommandShortcut>
-                              )}
-                            </CommandItem>
-                          );
-                        }}
-                      </CommandCollection>
+                      {group.items.map((item) => {
+                        return (
+                          <CommandItem
+                            key={item.value}
+                            value={item.value}
+                            label={item.label}
+                            onSelect={() => runCommand(item.onRun)}
+                            className="px-3"
+                          >
+                            <span className="flex-1">{item.label}</span>
+                            {item.shortcutId && (
+                              <CommandShortcut>
+                                <ShortcutKeys
+                                  id={item.shortcutId}
+                                  tone="muted"
+                                />
+                              </CommandShortcut>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
                     </CommandGroup>
                     {groupIndex < groupedItems.length - 1 && (
                       <CommandSeparator />
                     )}
                   </Fragment>
-                )}
+                ))}
               </CommandList>
             </CommandPanel>
             <CommandFooter>

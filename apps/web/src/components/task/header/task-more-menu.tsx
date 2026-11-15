@@ -1,4 +1,3 @@
-import type { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import {
   CopyIcon,
   Ellipsis,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
+import type { AlertDialogHandle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Menu,
@@ -24,7 +24,7 @@ import type { useTaskCopyActions } from "./use-task-copy-actions";
 
 type TaskMoreMenuProps = {
   actions: ReturnType<typeof useTaskCopyActions>;
-  deleteHandle: AlertDialogPrimitive.Handle<unknown>;
+  deleteHandle: AlertDialogHandle<unknown>;
 };
 
 export function TaskMoreMenu({ actions, deleteHandle }: TaskMoreMenuProps) {
@@ -39,7 +39,7 @@ export function TaskMoreMenu({ actions, deleteHandle }: TaskMoreMenuProps) {
             variant="ghost"
             size="icon-sm"
             aria-label={t("tasks:bulk.moreActions")}
-            className="text-muted-foreground hover:text-foreground data-popup-open:bg-accent [&_svg]:size-[15px]"
+            className="text-muted-foreground hover:text-foreground data-open:bg-accent [&_svg]:size-[15px]"
           />
         }
       >

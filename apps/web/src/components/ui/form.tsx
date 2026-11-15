@@ -1,6 +1,6 @@
 "use client";
 
-import { Slot } from "@radix-ui/react-slot";
+import { mergeProps } from "@ui-sdk/react/primitive";
 import * as React from "react";
 import {
   Controller,
@@ -100,20 +100,31 @@ function FormLabel({
   );
 }
 
-function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
+type FormControlProps = React.HTMLAttributes<HTMLElement> & {
+  children?: React.ReactNode;
+};
+
+function FormControl({ children, ...props }: FormControlProps) {
   const { error, formDescriptionId, formItemId, formMessageId } =
     useFormField();
+  const child = React.Children.only(
+    children as React.ReactElement<Record<string, unknown>>,
+  );
 
-  return (
-    <Slot
-      aria-describedby={
-        error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
-      }
-      aria-invalid={!!error}
-      data-slot="form-control"
-      id={formItemId}
-      {...props}
-    />
+  return React.cloneElement(
+    child,
+    mergeProps(
+      {
+        "aria-describedby": error
+          ? `${formDescriptionId} ${formMessageId}`
+          : formDescriptionId,
+        "aria-invalid": !!error,
+        "data-slot": "form-control",
+        id: formItemId,
+      },
+      props,
+      child.props,
+    ),
   );
 }
 

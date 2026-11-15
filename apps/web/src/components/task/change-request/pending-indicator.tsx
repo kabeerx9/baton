@@ -36,7 +36,11 @@ export function PendingIndicator({
         <ClockIcon aria-hidden="true" className="size-3" />
         {t("tasks:changeRequest.pending")}
       </TooltipTrigger>
-      <TooltipContent>{detail}</TooltipContent>
+      {/* The board card is a Link, and UI SDK renders the tooltip in place, so
+          a click on it would run the link's default action. The container keeps
+          the content out of the anchor; the tooltip wrapper contains the React
+          event. */}
+      <TooltipContent container={document.body}>{detail}</TooltipContent>
     </Tooltip>
   );
 }

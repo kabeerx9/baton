@@ -216,6 +216,9 @@ describe("ChannelsSection", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole("alertdialog");
+    // The dialog is portaled out of the channel form, so Enter inside it
+    // cannot submit that form.
+    expect(dialog.closest("form")).toBeNull();
     await act(async () => {
       fireEvent.click(
         within(dialog).getByRole("button", {

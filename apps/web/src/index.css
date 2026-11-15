@@ -1,3 +1,4 @@
+@layer ui-sdk;
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
@@ -84,19 +85,15 @@ input:-webkit-autofill:active {
    CSS properties, so forcing them here neutralizes entrance/exit movement
    while transition-property keeps the fade. */
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="popover-popup"],
-  [data-slot="select-popup"],
-  [data-slot="menu-popup"],
-  [data-slot="menu-sub-content"],
-  [data-slot="tooltip-popup"],
-  [data-slot="context-menu-content"],
-  [data-slot="dialog-popup"],
-  [data-slot="alert-dialog-popup"],
-  [data-slot="command-dialog-popup"],
-  [data-slot="sheet-popup"],
-  [data-slot="sidebar"][data-mobile="true"],
-  [data-slot="toast"],
-  [data-slot="toast-popup"] {
+  [data-slot="popover-content"],
+  [data-slot="select-content"],
+  [data-slot="menu-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="hover-card-content"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-sheet],
+  [data-slot="toast"] {
     transition-property: opacity !important;
   }
 

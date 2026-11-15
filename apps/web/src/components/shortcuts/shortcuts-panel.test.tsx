@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import {
   afterEach,
@@ -13,6 +14,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
+import { DialogPrimitive } from "@/components/ui/dialog";
 import { ShortcutTestWrapper } from "@/lib/shortcuts/shortcut-test-wrapper";
 import { ShortcutsPanel } from "./shortcuts-panel";
 import { useShortcutsPanelStore } from "./shortcuts-panel-store";
@@ -93,5 +95,121 @@ describe("ShortcutsPanel", () => {
     fireEvent.keyDown(search(), { key: "Escape" });
     await act(async () => {});
     expect(useShortcutsPanelStore.getState().open).toBe(false);
+  });
+
+  it("is a non-modal dialog that opens with focus in the search and closes on an outside press", async () => {
+    useShortcutsPanelStore.setState({ open: true });
+    render(
+      <ShortcutTestWrapper>
+        <button type="button">Page button</button>
+        <ShortcutsPanel />
+      </ShortcutTestWrapper>,
+    );
+    const input = await screen.findByLabelText(
+      "navigation:shortcuts.searchPlaceholder",
+    );
+    await waitFor(() => expect(input).toHaveFocus());
+
+    const panel = screen.getByRole("dialog");
+    expect(panel).toHaveAttribute("data-shortcuts", "allow");
+    // Non-modal: the page stays reachable, and a press outside closes it.
+    const pageButton = screen.getByRole("button", { name: "Page button" });
+    expect(pageButton).toBeEnabled();
+    fireEvent.pointerDown(pageButton);
+    fireEvent.pointerUp(pageButton);
+    fireEvent.click(pageButton);
+    await waitFor(() =>
+      expect(useShortcutsPanelStore.getState().open).toBe(false),
+    );
+  });
+
+  it("closes from the close button and clears the query", async () => {
+    useShortcutsPanelStore.setState({ open: true });
+    renderPanel();
+    fireEvent.change(
+      await screen.findByLabelText("navigation:shortcuts.searchPlaceholder"),
+      {
+        target: { value: "inbox" },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "common:actions.close" }),
+    );
+    await waitFor(() =>
+      expect(useShortcutsPanelStore.getState().open).toBe(false),
+    );
+
+    useShortcutsPanelStore.setState({ open: true });
+    expect(
+      await screen.findByLabelText("navigation:shortcuts.searchPlaceholder"),
+    ).toHaveValue("");
+  });
+});
+
+// Record section 11: the panel renders in place, so a press inside it must not
+// reach a clickable component that holds it. Keys still pass.
+describe("ShortcutsPanel event containment", () => {
+  function pressEvents(element: Element) {
+    fireEvent.pointerDown(element, { pointerType: "mouse" });
+    fireEvent.mouseDown(element);
+    fireEvent.click(element);
+    fireEvent.contextMenu(element);
+  }
+
+  function probe() {
+    return {
+      onClick: vi.fn(),
+      onPointerDown: vi.fn(),
+      onMouseDown: vi.fn(),
+      onContextMenu: vi.fn(),
+      onKeyDown: vi.fn(),
+    };
+  }
+
+  it("keeps pointer and command events inside the panel, and lets keys out", async () => {
+    useShortcutsPanelStore.setState({ open: true });
+    const ancestor = probe();
+    render(
+      <div {...ancestor}>
+        <ShortcutTestWrapper>
+          <ShortcutsPanel />
+        </ShortcutTestWrapper>
+      </div>,
+    );
+    const input = await screen.findByLabelText(
+      "navigation:shortcuts.searchPlaceholder",
+    );
+    for (const spy of Object.values(ancestor)) spy.mockClear();
+
+    pressEvents(input);
+    expect(ancestor.onClick).not.toHaveBeenCalled();
+    expect(ancestor.onPointerDown).not.toHaveBeenCalled();
+    expect(ancestor.onMouseDown).not.toHaveBeenCalled();
+    expect(ancestor.onContextMenu).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "a" });
+    expect(ancestor.onKeyDown).toHaveBeenCalledTimes(1);
+    expect(useShortcutsPanelStore.getState().open).toBe(true);
+  });
+
+  it("negative control: the same probe sees the events from an uncontained dialog", async () => {
+    const ancestor = probe();
+    render(
+      <div {...ancestor}>
+        <DialogPrimitive.Root defaultOpen modal={false}>
+          <DialogPrimitive.Content aria-label="Raw">
+            <input aria-label="Raw input" />
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Root>
+      </div>,
+    );
+    const input = await screen.findByLabelText("Raw input");
+    for (const spy of Object.values(ancestor)) spy.mockClear();
+
+    pressEvents(input);
+    expect(ancestor.onClick).toHaveBeenCalled();
+    expect(ancestor.onPointerDown).toHaveBeenCalled();
+    expect(ancestor.onMouseDown).toHaveBeenCalled();
+    expect(ancestor.onContextMenu).toHaveBeenCalled();
   });
 });

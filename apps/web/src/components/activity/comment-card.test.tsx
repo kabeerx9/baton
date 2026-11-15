@@ -143,6 +143,11 @@ describe("CommentCard", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("names the author trigger for assistive technology", () => {
+    renderCommentCard();
+    expect(screen.getByLabelText("Tin")).toBeInTheDocument();
+  });
+
   it("shows full date+short time in tooltip on hover/focus", async () => {
     renderCommentCard();
 

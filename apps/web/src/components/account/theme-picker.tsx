@@ -1,8 +1,7 @@
-import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ThemePreviewWindow } from "@/components/account/theme-preview-window";
-import { RadioGroup } from "@/components/ui/radio-group";
+import { RadioGroup, RadioPrimitive } from "@/components/ui/radio-group";
 type Theme = "light" | "dark" | "system";
 
 const THEMES: { value: Theme; labelKey: string }[] = [
@@ -34,7 +33,7 @@ export function ThemePicker({ value, onChange }: ThemePickerProps) {
             key={theme.value}
             className="flex min-w-0 cursor-pointer flex-col gap-2"
           >
-            <RadioPrimitive.Root
+            <RadioPrimitive
               value={theme.value}
               aria-label={t(theme.labelKey)}
               className="h-20 overflow-hidden rounded-lg border border-border outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-checked:border-foreground data-checked:ring-2 data-checked:ring-foreground/15 sm:h-24"
@@ -47,7 +46,7 @@ export function ThemePicker({ value, onChange }: ThemePickerProps) {
               ) : (
                 <ThemePreviewWindow tone={theme.value} />
               )}
-            </RadioPrimitive.Root>
+            </RadioPrimitive>
             <span
               aria-hidden="true"
               className="flex items-center gap-1.5 text-xs text-muted-foreground has-[svg]:font-medium has-[svg]:text-foreground"

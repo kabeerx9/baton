@@ -1,83 +1,88 @@
 "use client";
 
-import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import {
+  Tooltip as TooltipPrimitive,
+  TooltipContent as TooltipContentPrimitive,
+  TooltipTrigger as TooltipTriggerPrimitive,
+} from "@ui-sdk/react/tooltip";
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { containPopupEvents } from "./popup-containment";
+import { POPUP_RESET } from "./popup-reset";
 
-const TooltipCreateHandle = TooltipPrimitive.createHandle;
+const Tooltip = TooltipPrimitive;
 
-const TooltipProvider = TooltipPrimitive.Provider;
-
-const Tooltip = TooltipPrimitive.Root;
+/**
+ * UI SDK groups tooltips without a provider. Baton keeps this export because
+ * call sites still wrap tooltips in it.
+ */
+function TooltipProvider({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 function TooltipTrigger({
   asChild = false,
   children,
   render,
   ...props
-}: TooltipPrimitive.Trigger.Props & { asChild?: boolean }) {
+}: React.ComponentProps<typeof TooltipTriggerPrimitive> & {
+  asChild?: boolean;
+}) {
   const resolvedRender =
-    asChild && React.isValidElement(children) ? children : render;
+    asChild && React.isValidElement<Record<string, any>>(children)
+      ? children
+      : render;
 
   return (
-    <TooltipPrimitive.Trigger
-      data-slot="tooltip-trigger"
-      render={resolvedRender}
-      {...props}
-    >
+    <TooltipTriggerPrimitive render={resolvedRender} {...props}>
       {asChild ? undefined : children}
-    </TooltipPrimitive.Trigger>
+    </TooltipTriggerPrimitive>
   );
 }
 
 function TooltipPopup({
   className,
   align = "center",
+  hidden,
   sideOffset = 4,
   side = "top",
-  anchor,
   children,
+  containEvents = true,
   ...props
-}: TooltipPrimitive.Popup.Props & {
-  align?: TooltipPrimitive.Positioner.Props["align"];
-  side?: TooltipPrimitive.Positioner.Props["side"];
-  sideOffset?: TooltipPrimitive.Positioner.Props["sideOffset"];
-  anchor?: TooltipPrimitive.Positioner.Props["anchor"];
+}: React.ComponentProps<typeof TooltipContentPrimitive> & {
+  /** Contain pointer and command events in the content. Keys always pass. */
+  containEvents?: boolean;
 }) {
+  // UI SDK owns the content's `hidden` attribute and would overwrite it, so a
+  // caller asking for no tooltip (the sidebar while expanded) gets no popup.
+  if (hidden) {
+    return null;
+  }
+
   return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner
-        align={align}
-        anchor={anchor}
-        className="z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-[top,left,right,bottom,transform] data-instant:transition-none"
-        data-slot="tooltip-positioner"
-        side={side}
-        sideOffset={sideOffset}
-      >
-        <TooltipPrimitive.Popup
-          className={cn(
-            "relative flex h-(--popup-height,auto) w-(--popup-width,auto) origin-(--transform-origin) text-balance rounded-md border bg-popover not-dark:bg-clip-padding text-popover-foreground text-xs shadow-md/5 transition-[width,height,scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 data-instant:duration-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+    <TooltipContentPrimitive
+      {...containPopupEvents(
+        {
+          align,
+          className: cn(
+            POPUP_RESET,
+            "relative flex max-w-(--available-width) origin-(--transform-origin) text-balance rounded-md border bg-popover not-dark:bg-clip-padding px-2 py-1 text-popover-foreground text-xs shadow-md/5 transition-[scale,opacity] duration-150 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
             className,
-          )}
-          data-slot="tooltip-popup"
-          {...props}
-        >
-          <TooltipPrimitive.Viewport
-            className="relative size-full overflow-clip px-(--viewport-inline-padding) py-1 [--viewport-inline-padding:--spacing(2)] data-instant:transition-none **:data-current:data-ending-style:opacity-0 **:data-current:data-starting-style:opacity-0 **:data-previous:data-ending-style:opacity-0 **:data-previous:data-starting-style:opacity-0 **:data-current:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-previous:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-previous:truncate **:data-current:opacity-100 **:data-previous:opacity-100 **:data-current:transition-opacity **:data-previous:transition-opacity"
-            data-slot="tooltip-viewport"
-          >
-            {children}
-          </TooltipPrimitive.Viewport>
-        </TooltipPrimitive.Popup>
-      </TooltipPrimitive.Positioner>
-    </TooltipPrimitive.Portal>
+          ),
+          side,
+          sideOffset,
+          children,
+          ...props,
+        },
+        containEvents,
+      )}
+    />
   );
 }
 
 export {
   Tooltip,
-  TooltipCreateHandle,
   TooltipPopup,
   TooltipPopup as TooltipContent,
   TooltipProvider,

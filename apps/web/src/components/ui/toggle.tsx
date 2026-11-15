@@ -1,6 +1,9 @@
 "use client";
 
-import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
+import {
+  Toggle as TogglePrimitive,
+  type ToggleState,
+} from "@ui-sdk/react/toggle";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/cn";
@@ -32,14 +35,17 @@ function Toggle({
   variant,
   size,
   ...props
-}: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
-  return (
-    <TogglePrimitive
-      className={cn(toggleVariants({ className, size, variant }))}
-      data-slot="toggle"
-      {...props}
-    />
-  );
+}: React.ComponentProps<typeof TogglePrimitive> &
+  VariantProps<typeof toggleVariants>) {
+  // UI SDK takes className as a string or a function of the part's state, so
+  // merge the variant classes inside that function.
+  const classes = (state: ToggleState) =>
+    cn(
+      toggleVariants({ size, variant }),
+      typeof className === "function" ? className(state) : className,
+    );
+
+  return <TogglePrimitive className={classes} {...props} />;
 }
 
 export { Toggle, toggleVariants };

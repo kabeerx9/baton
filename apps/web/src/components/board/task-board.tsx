@@ -1,12 +1,14 @@
 import { Plus } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useLocalDay } from "@/hooks/use-local-day";
 import { BoardColumn } from "./board-column";
-import type { BoardTask, Lane, Status } from "./model";
+import { COLUMNS, columnOrder } from "./column-order";
+import { BoardNavRoot, useBoardNav } from "./keyboard/use-board-nav";
+import { recoveryText } from "./keyboard/recovery-text";
+import type { BoardTask, Lane } from "./model";
 import { NewTaskDialog } from "./new-task-dialog";
-
-const COLUMNS: Status[] = ["todo", "doing", "review", "done"];
 
 export function TaskBoard({
   boardTasks,
@@ -19,6 +21,16 @@ export function TaskBoard({
 }) {
   // One clock for the whole board: ticks at local midnight and on focus.
   const today = useLocalDay();
+  const { t } = useTranslation();
+  const columns = columnOrder(boardTasks, today);
+  const nav = useBoardNav({
+    columns: COLUMNS,
+    order: columns
+      .map((column) => column.items.map((task) => task.id).join(","))
+      .join("|"),
+    describe: (details) =>
+      recoveryText(details, (key, values) => t(key, values)),
+  });
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const clearJustCreated = useCallback(() => setJustCreated(null), []);
@@ -42,20 +54,25 @@ export function TaskBoard({
           New task
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {COLUMNS.map((status) => (
+      <BoardNavRoot
+        nav={nav}
+        aria-label={t("workspace:board.nav.label")}
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+      >
+        {columns.map(({ status, items, olderCount }) => (
           <BoardColumn
             key={status}
             status={status}
             today={today}
-            items={boardTasks.filter((f) => f.column === status)}
+            items={items}
+            olderCount={olderCount}
             lanes={lanes}
             workspaceId={workspaceId}
             justCreated={justCreated}
             onHighlightDone={clearJustCreated}
           />
         ))}
-      </div>
+      </BoardNavRoot>
       <NewTaskDialog
         workspaceId={workspaceId}
         open={creating}

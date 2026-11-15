@@ -37,6 +37,7 @@ The common mistake is finishing one path while leaving another stale. Check the 
 - Data: Put schema and relations in `apps/api/src/database/`. Generate a migration with `pnpm --filter @baton/api db:generate`, inspect its SQL, and account for existing installations.
 - Public contracts: Keep Zod validation and OpenAPI descriptions accurate. The spec is served at `/api/openapi`; `tests/api-integration/openapi.test.ts` checks it.
 - UI: Put user-facing copy in static i18n keys, with `i18n/en-US.json` as the source. Check accessibility and the reverse action: assign/unassign, connect/disconnect, enable/disable.
+- UI primitives: Build new primitives with UI SDK, through `components/ui` or `components/primitives`, never from a feature file. Read `node_modules/@ui-sdk/react/docs/llms.txt` first.
 - Other entry points: Consider MCP, API keys, webhooks, and Docker when the behavior reaches them.
 
 ## Working safely
