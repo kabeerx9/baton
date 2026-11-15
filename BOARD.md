@@ -170,28 +170,58 @@ Status, assignee, description and comments use the normal task endpoints.
 ## MCP tools
 
 Agents work in names, not ids: owner "Aakash", repo "API", key "T-5".
+The endpoint lists a core set by default; `?tools=all` (or `BATON_MCP_TOOLS=all`
+for stdio) lists the full catalog. The core set lives in
+`packages/mcp/src/tools/catalog.ts`.
 
-| Tool | Use |
-| --- | --- |
-| `get_board` | Everything in one call: tasks, subtasks, keys, repos, members. |
-| `create_board_task` | One call creates a task with its description, owner, subtasks, their repos and owners, and what waits on what. |
-| `add_subtasks` | Adds subtasks to a task found by its key. |
-| `update_board_item` | Sets the status, owner or waits-on of a task or subtask found by its key. |
-| `list_my_tasks` | The caller's open work, with who waits on each item. |
-| `get_team_history` | Finished work per person. |
-| `list_change_requests` | Change requests in a workspace; `canAnswer: true` for those waiting on the caller. |
-| `get_change_request` | One request and how it ended. |
-| `answer_change_request` | Accept or reject a request. |
-| `cancel_change_request` | Withdraw your own request. |
+| Tool | Core | Use |
+| --- | --- | --- |
+| `list_workspaces` | yes | The workspaces the caller can read. |
+| `list_my_tasks` | yes | The caller's open work, with who waits on each item. |
+| `get_task_by_ticket_id` | yes | One task by key, with its comments, in one call. |
+| `get_board` | yes | Everything in one call: tasks, subtasks, keys, repos, members. |
+| `create_board_task` | yes | One call creates a task with its description, owner, subtasks, their repos and owners, and what waits on what. |
+| `add_subtasks` | yes | Adds subtasks to a task found by its key. |
+| `update_board_item` | yes | Sets the status, owner or waits-on of a task or subtask found by its key. |
+| `create_task_comment` | yes | Adds a comment to a task. |
+| `list_workspace_members` | yes | Members, for names and ids. |
+| `list_change_requests` | yes | Change requests in a workspace; `canAnswer: true` for those waiting on the caller. |
+| `answer_change_request` | yes | Accept or reject a request. |
+| `cancel_change_request` | yes | Withdraw your own request. |
+| `get_team_history` | no | Finished work per person. |
+| `get_change_request` | no | One request and how it ended. |
+
+Board tools take `workspaceId` as an id or a name, and it is optional. The
+workspace is the one named, else the grant's default (chosen on the consent
+page), else the caller's only workspace. Otherwise the error lists the valid
+names. Resolution lives in `packages/mcp/src/tools/resolve-workspace.ts`.
 
 The status, delete and update tools return `outcome`. An agent reports
-`requested` as waiting for an answer, not as done.
+`requested` as waiting for an answer, not as done. The server sends this
+recipe as its MCP `instructions` (`packages/mcp/src/tools/instructions.ts`).
 
 A wrong name creates nothing: every name is checked first, and the error lists the valid ones.
 The task tools still apply to any task or subtask id, for titles, descriptions and comments.
 The matching API calls are `POST /api/board/workspace/{id}/plan`,
 `POST /api/board/workspace/{id}/item/{key}/subtasks` and `PATCH /api/board/workspace/{id}/item/{key}`.
 Name matching lives in `apps/api/src/board/resolve-names.ts`.
+
+### Who an agent is
+
+`/api/mcp` accepts an MCP access token or an API key, never a browser
+session token. An MCP token belongs to a grant (`mcp_grant`): one connected
+agent, its user, client and default workspace. Tokens are stored as SHA-256
+hashes (`mcp_token`). Access tokens last one hour; refresh tokens rotate, and
+a rotated token still works for 60 seconds so two processes of one agent can
+refresh together. A rotated token used later revokes the grant. A grant ends
+after 90 days without use, on `DELETE /api/mcp/grants/{id}`, on a password
+reset, a ban, deactivation or account deletion. Signing out sessions does not
+end grants. The refresh rule is one pure function,
+`apps/api/src/mcp/grant/refresh-decision.ts`.
+
+An MCP token also works on the REST API, because the tools call it, and acts
+with the person's permissions (`activity.channel` is `agent`). It never works
+on `/api/auth/*`, session-only routes or WebSockets.
 
 ## Slack messages
 

@@ -57,17 +57,28 @@ The API listens on http://localhost:1337 and applies migrations at startup. [ENV
 | `REDIS_URL` | Optional. Only needed for more than one API instance. |
 | `BATON_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS` | Optional. Allows notification destinations on private networks. |
 
-## MCP with an API key
+## MCP
 
-Agents can read and plan the board through MCP. Tools such as `get_board`, `create_board_task` and `update_board_item` work with names and keys, not ids.
+Agents read and plan the board through MCP. Connect once, sign in once in the browser, and the agent keeps working: it renews its own access with a refresh token. Tools such as `list_my_tasks`, `create_board_task` and `update_board_item` work with names and task keys, not ids.
 
-1. In Baton, create an API key under Settings > Account > Developer.
-2. Build `packages/mcp` with `pnpm --filter @baton/mcp build`.
-3. Add the `baton-mcp` binary to your MCP client, with `BATON_API_URL` and `BATON_API_KEY` in its `env`.
+`URL` below is your API origin plus `/api/mcp`, for example `https://baton.example.com/api/mcp`. Use the API origin, not the web app origin, when they differ. Any host other than `localhost` needs HTTPS.
 
-Clients that support Streamable HTTP and OAuth can instead connect to `<BATON_API_URL>/api/mcp` and sign in through the browser.
+| Client | One-time setup |
+| --- | --- |
+| Claude Code | `claude mcp add --transport http --scope user baton URL`, then `/mcp` > baton > Authenticate. |
+| Codex CLI | `codex mcp add baton --url URL`, then `codex mcp login baton`. |
+| OpenCode | `opencode mcp add baton --global --url URL`, then `opencode mcp auth baton`. |
+| Cursor | In `~/.cursor/mcp.json`: `{"mcpServers":{"baton":{"url":"URL"}}}`, then Settings > MCP > Login. |
+| Claude Desktop, public HTTPS instance | Settings > Connectors > Add custom connector > `URL`. |
+| Claude Desktop, private instance | Use `baton-mcp` over stdio with an API key ([packages/mcp/README.md](packages/mcp/README.md)). |
+| Headless agents | Send `Authorization: Bearer <API key>` to `URL`. Create the key under Settings > Account > Developer. |
 
-[packages/mcp/README.md](packages/mcp/README.md) has the installer and client examples.
+How sign-in works:
+
+- The consent page names the agent and, when you are in more than one workspace, asks for its default workspace. Board tools use that workspace when you name none.
+- Each agent gets its own grant. Access tokens last one hour; the agent refreshes them. A grant ends after 90 days without use, when you revoke it (`DELETE /api/mcp/grants/{id}`), or when your password is reset or your account is banned. Signing out other browser sessions does not disconnect agents.
+- `URL` lists a core set of 12 tools. Add `?tools=all` to the URL for the full catalog.
+- Browser session tokens do not work on `/api/mcp`. If an agent connected before grants existed, it signs in again once.
 
 ## License
 
