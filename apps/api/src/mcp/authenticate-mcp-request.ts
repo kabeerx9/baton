@@ -15,7 +15,8 @@ export type McpPrincipal =
 
 /**
  * `/api/mcp` accepts an MCP access token bound to this endpoint, or an API key
- * checked exactly as REST checks it. A browser session token is refused.
+ * checked as REST checks it (quota is spent by the tools' REST calls). A
+ * browser session token is refused.
  */
 export async function authenticateMcpRequest(
   req: Request,
@@ -36,7 +37,9 @@ export async function authenticateMcpRequest(
     };
   }
 
-  const apiKey = await verifyApiKey(token);
+  // Check, do not consume: each REST call a tool makes counts against the
+  // key's quota, so the MCP request itself must not count again.
+  const apiKey = await verifyApiKey(token, { consume: false });
   if (apiKey?.status !== "valid") return null;
   return { kind: "api_key", token, userId: apiKey.key.userId };
 }

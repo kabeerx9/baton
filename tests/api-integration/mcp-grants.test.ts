@@ -472,6 +472,38 @@ describe("MCP access tokens", () => {
     expect((await mcpPost(app, key, "tools/list")).status).toBe(200);
     expect((await mcpPost(app, "not-a-key", "tools/list")).status).toBe(401);
   });
+
+  it("spends an API key's quota on the tool's REST call, not on the MCP request", async () => {
+    const { app } = createApp();
+    routeToolCallsInto(app);
+    const owner = await signUp(app);
+    await addWorkspace(owner.userId, "Acme");
+    const created = await app.request("/api/auth/api-key/create", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${owner.token}`,
+        origin: "http://localhost:5173",
+      },
+      body: JSON.stringify({ name: "nearly spent" }),
+    });
+    const { key, id } = (await created.json()) as { key: string; id: string };
+    await db
+      .update(schema.apikeyTable)
+      .set({ remaining: 1, refillAmount: null, refillInterval: null })
+      .where(eq(schema.apikeyTable.id, id));
+
+    const listed = await callTool(app, key, "list_workspaces");
+    expect(listed.isError, listed.content[0]?.text).toBeFalsy();
+    expect(listed.content[0]?.text).toContain("Acme");
+    const [row] = await db
+      .select({ remaining: schema.apikeyTable.remaining })
+      .from(schema.apikeyTable)
+      .where(eq(schema.apikeyTable.id, id));
+    expect(row!.remaining).toBe(0);
+    // A spent key is still refused at the MCP endpoint.
+    expect((await mcpPost(app, key, "tools/list")).status).toBe(401);
+  });
 });
 
 describe("MCP audience", () => {
