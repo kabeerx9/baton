@@ -32,12 +32,9 @@ import {
   SelectValue,
 } from "./select";
 
-// Library names. Section 4 of the migration record lists the renames: the
-// content slot `popover-popup` becomes `popover-content` and the trigger state
-// `data-popup-open` becomes `data-open`.
+// UI SDK names (record section 4): content slot `popover-content`, trigger state `data-open`.
 const SLOT = { content: "popover-content" };
 const OPEN_ATTR = "data-open";
-const PORTED = true;
 
 type OpenChange = (open: boolean, details: { reason: string }) => void;
 
@@ -142,20 +139,9 @@ const outside = () => screen.getByText("Outside");
 // to the trigger. A press on a button would hand focus to that button.
 const emptySpace = () => screen.getByText("Empty space");
 
-/**
- * Moves focus out of the popover the way a person does. Base UI watches Tab
- * through its trailing focus guard and ignores a programmatic `focus()`; UI SDK
- * watches focus leaving the layer.
- */
+/** Moves focus out of the popover the way a person does: UI SDK watches focus leaving the layer. */
 function leaveFocus() {
-  if (PORTED) {
-    act(() => outside().focus());
-    return;
-  }
-  const guards = [
-    ...document.querySelectorAll<HTMLElement>("[data-base-ui-focus-guard]"),
-  ];
-  act(() => guards[guards.length - 1]?.focus());
+  act(() => outside().focus());
 }
 
 async function openByClick() {
@@ -200,7 +186,7 @@ describe("Popover roles and trigger", () => {
     render(<Basic />);
     await openByClick();
     for (const token of POPUP_RESET.split(" ")) {
-      if (PORTED) expect(openPopup()).toHaveClass(token);
+      expect(openPopup()).toHaveClass(token);
     }
   });
 
@@ -377,8 +363,7 @@ describe("Popover modal mode", () => {
     render(<Basic modal />);
     expect(outsideUnreachable()).toBe(false);
     await openByClick();
-    // Base UI blocks the page with an internal backdrop, not an inert marker.
-    if (PORTED) await waitFor(() => expect(outsideUnreachable()).toBe(true));
+    await waitFor(() => expect(outsideUnreachable()).toBe(true));
     await waitFor(() => expect(scrollLocked()).toBe(true));
 
     key(document.activeElement as Element, "Escape");
@@ -525,6 +510,63 @@ describe("Popover inside a form", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("does not submit the form when an <input type=submit> inside the popover is pressed", async () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    const onPick = vi.fn();
+    render(
+      <form onSubmit={onSubmit}>
+        <Popover>
+          <PopoverTrigger>Open popover</PopoverTrigger>
+          <PopoverPopup>
+            <PopoverTitle>Task status</PopoverTitle>
+            <input onClick={onPick} type="submit" value="Pick" />
+          </PopoverPopup>
+        </Popover>
+      </form>,
+    );
+    press(trigger());
+    await expectOpen();
+
+    press(screen.getByRole("button", { name: "Pick" }));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("negative control: an <input type=submit> outside a popover does submit the form", () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <input type="submit" value="Plain submit" />
+      </form>,
+    );
+    press(screen.getByRole("button", { name: "Plain submit" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("still submits a form that sits inside the popover", async () => {
+    const outer = vi.fn((event: React.FormEvent) => event.preventDefault());
+    const inner = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={outer}>
+        <Popover>
+          <PopoverTrigger>Open popover</PopoverTrigger>
+          <PopoverPopup>
+            <PopoverTitle>Task status</PopoverTitle>
+            <form onSubmit={inner}>
+              <input type="submit" value="Create" />
+            </form>
+          </PopoverPopup>
+        </Popover>
+      </form>,
+    );
+    press(trigger());
+    await expectOpen();
+
+    press(screen.getByRole("button", { name: "Create" }));
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(outer).not.toHaveBeenCalled();
+  });
+
   it("does not submit the form when a Close part is pressed", async () => {
     const onSubmit = vi.fn();
     render(<InForm onSubmit={onSubmit} withInput={false} />);
@@ -638,28 +680,24 @@ describe("Popover with other popups inside", () => {
     expect(openPopup()).not.toBeNull();
   });
 
-  // A UI SDK select inside a Base UI popover closes both on Escape, so this
-  // runs on the port only (record section 9, browser row "Popup in a layer").
-  it.runIf(PORTED)(
-    "Escape closes only the select, then the popover on the next Escape",
-    async () => {
-      render(<WithSelect />);
-      await openByClick();
+  // Record section 9, browser row "Popup in a layer".
+  it("Escape closes only the select, then the popover on the next Escape", async () => {
+    render(<WithSelect />);
+    await openByClick();
 
-      press(screen.getByRole("combobox", { name: "Fruit" }));
-      await waitFor(() => expect(listbox()).not.toBeNull());
+    press(screen.getByRole("combobox", { name: "Fruit" }));
+    await waitFor(() => expect(listbox()).not.toBeNull());
 
-      key(document.activeElement as Element, "Escape");
-      await waitFor(() => expect(listbox()).toBeNull());
-      expect(openPopup()).not.toBeNull();
+    key(document.activeElement as Element, "Escape");
+    await waitFor(() => expect(listbox()).toBeNull());
+    expect(openPopup()).not.toBeNull();
 
-      await waitFor(() =>
-        expect(openPopup()?.contains(document.activeElement)).toBe(true),
-      );
-      key(document.activeElement as Element, "Escape");
-      await expectClosed();
-    },
-  );
+    await waitFor(() =>
+      expect(openPopup()?.contains(document.activeElement)).toBe(true),
+    );
+    key(document.activeElement as Element, "Escape");
+    await expectClosed();
+  });
 
   function WithMenu({ onPick }: { onPick?: () => void }) {
     return (
@@ -701,26 +739,23 @@ describe("Popover with other popups inside", () => {
     expect(openPopup()).not.toBeNull();
   });
 
-  it.runIf(PORTED)(
-    "Escape closes only the menu, then the popover on the next Escape",
-    async () => {
-      render(<WithMenu />);
-      await openByClick();
+  it("Escape closes only the menu, then the popover on the next Escape", async () => {
+    render(<WithMenu />);
+    await openByClick();
 
-      press(screen.getByRole("button", { name: "Actions" }));
-      await waitFor(() => expect(menus()).toHaveLength(1));
+    press(screen.getByRole("button", { name: "Actions" }));
+    await waitFor(() => expect(menus()).toHaveLength(1));
 
-      key(document.activeElement as Element, "Escape");
-      await waitFor(() => expect(menus()).toHaveLength(0));
-      expect(openPopup()).not.toBeNull();
+    key(document.activeElement as Element, "Escape");
+    await waitFor(() => expect(menus()).toHaveLength(0));
+    expect(openPopup()).not.toBeNull();
 
-      await waitFor(() =>
-        expect(openPopup()?.contains(document.activeElement)).toBe(true),
-      );
-      key(document.activeElement as Element, "Escape");
-      await expectClosed();
-    },
-  );
+    await waitFor(() =>
+      expect(openPopup()?.contains(document.activeElement)).toBe(true),
+    );
+    key(document.activeElement as Element, "Escape");
+    await expectClosed();
+  });
 
   it("a command list inside it highlights and picks, and the popover stays open", async () => {
     const onSelect = vi.fn();
@@ -764,25 +799,22 @@ describe("Popover with other popups inside", () => {
 });
 
 describe("Popover popup containment", () => {
-  it.runIf(PORTED)(
-    "contains pointer and command events by default (record section 11)",
-    async () => {
-      await expectPopupContainment({
-        render: ({ containEvents, contentProps, control }) => (
-          <Popover>
-            <PopoverTrigger>Open popover</PopoverTrigger>
-            <PopoverPopup containEvents={containEvents} {...contentProps}>
-              <PopoverTitle>Task status</PopoverTitle>
-              {control}
-            </PopoverPopup>
-          </Popover>
-        ),
-        open: async () => {
-          press(trigger());
-          await expectOpen();
-        },
-        content: () => openPopup() as Element,
-      });
-    },
-  );
+  it("contains pointer and command events by default (record section 11)", async () => {
+    await expectPopupContainment({
+      render: ({ containEvents, contentProps, control }) => (
+        <Popover>
+          <PopoverTrigger>Open popover</PopoverTrigger>
+          <PopoverPopup containEvents={containEvents} {...contentProps}>
+            <PopoverTitle>Task status</PopoverTitle>
+            {control}
+          </PopoverPopup>
+        </Popover>
+      ),
+      open: async () => {
+        press(trigger());
+        await expectOpen();
+      },
+      content: () => openPopup() as Element,
+    });
+  });
 });

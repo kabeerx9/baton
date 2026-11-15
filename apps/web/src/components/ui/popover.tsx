@@ -13,6 +13,7 @@ import {
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { keepOuterFormUnsubmitted } from "./outer-form-guard";
 import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
@@ -53,39 +54,6 @@ function PopoverCreateHandle<Payload = unknown>(): PopoverHandle<Payload> {
       return controller.isOpen();
     },
   };
-}
-
-/**
- * The popup renders in place, so inside a `<form>` its inputs and buttons have
- * that form as their owner. Base UI portaled it out, so Enter in a search input
- * or a plain `<button>` never submitted the form around the popover. Cancel the
- * browser's default action for that case. A form inside the popup is its own
- * owner and is left alone.
- */
-function ownedByOuterForm(target: EventTarget | null, popup: Element): boolean {
-  if (
-    !(target instanceof HTMLInputElement || target instanceof HTMLButtonElement)
-  )
-    return false;
-  // A button's `type` property is "submit" when the attribute is missing.
-  if (target instanceof HTMLButtonElement && target.type !== "submit")
-    return false;
-  return target.form !== null && !popup.contains(target.form);
-}
-
-function keepOuterFormUnsubmitted(
-  event: React.KeyboardEvent<HTMLElement> | React.MouseEvent<HTMLElement>,
-) {
-  if (event.defaultPrevented) return;
-  const target =
-    "key" in event
-      ? event.key === "Enter"
-        ? event.target
-        : null
-      : event.target instanceof Element
-        ? event.target.closest("button")
-        : null;
-  if (ownedByOuterForm(target, event.currentTarget)) event.preventDefault();
 }
 
 function Popover({

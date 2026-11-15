@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  createDialogController,
   Dialog as DialogRootPrimitive,
   DialogBackdrop as DialogBackdropPrimitive,
   DialogClose as DialogClosePrimitive,
   DialogContent as DialogContentPrimitive,
-  type DialogController,
   DialogDescription as DialogDescriptionPrimitive,
   type DialogFinalFocus,
   type DialogInitialFocus,
@@ -19,49 +17,12 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/cn";
 import { i18n } from "@/lib/i18n";
+import { DialogCreateHandle, type DialogHandle } from "./dialog-handle";
 import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
 /** The part's props with plain `children`: no part here takes a render function. */
 type Plain<T> = Omit<T, "children"> & { children?: React.ReactNode };
-
-/**
- * What `DialogCreateHandle()` returns. It keeps the Base UI handle API
- * (`open(triggerId)`, `openWithPayload(payload)`, `close()`, `isOpen`) over a
- * UI SDK controller, so a caller passes it as `handle` to the dialog and to
- * detached triggers.
- */
-type DialogHandle<Payload = unknown> = {
-  readonly controller: DialogController<Payload>;
-  /** Opens the dialog from the detached trigger with this id. */
-  open: (triggerId: string) => void;
-  openWithPayload: (payload: Payload) => void;
-  close: () => void;
-  readonly isOpen: boolean;
-  /** Trigger payloads by id, kept so `open(triggerId)` can pass one. */
-  readonly triggers: Map<string, Payload | undefined>;
-};
-
-function DialogCreateHandle<Payload = unknown>(): DialogHandle<Payload> {
-  const controller = createDialogController<Payload>();
-  const triggers = new Map<string, Payload | undefined>();
-  return {
-    controller,
-    triggers,
-    open(triggerId) {
-      void controller.open({ payload: triggers.get(triggerId) });
-    },
-    openWithPayload(payload) {
-      void controller.open({ payload });
-    },
-    close() {
-      controller.close();
-    },
-    get isOpen() {
-      return Boolean(controller.isOpen());
-    },
-  };
-}
 
 /** A ref object, which Base UI took for `initialFocus` and `finalFocus`. */
 type FocusRef = React.RefObject<HTMLElement | null>;

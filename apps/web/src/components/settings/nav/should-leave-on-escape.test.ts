@@ -71,43 +71,27 @@ describe("shouldLeaveOnEscape", () => {
 
     dialog.remove();
     const popup = document.createElement("div");
-    popup.dataset.slot = "select-popup";
+    popup.dataset.slot = "select-content";
     document.body.append(popup);
     expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(
       false,
     );
   });
 
-  it.each(["toast-popup", "tooltip-popup", "toast", "tooltip-content"])(
-    "ignores a visible %s",
-    (slot) => {
-      const popup = document.createElement("div");
-      popup.dataset.slot = slot;
-      document.body.append(popup);
+  it.each(["toast", "tooltip-content"])("ignores a visible %s", (slot) => {
+    const popup = document.createElement("div");
+    popup.dataset.slot = slot;
+    document.body.append(popup);
 
-      expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(
-        true,
-      );
-    },
-  );
+    expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(true);
+  });
 
   it.each([
-    "dialog-popup",
-    "alert-dialog-popup",
-    "sheet-popup",
-    "menu-popup",
-    "select-popup",
-    "combobox-popup",
-    "autocomplete-popup",
-    "popover-popup",
-    "command-dialog-popup",
-    "preview-card-content",
     "dialog-content",
     "alert-dialog-content",
     "menu-content",
     "select-content",
     "combobox-content",
-    "autocomplete-content",
     "popover-content",
     "hover-card-content",
   ])("leaves Escape to an open %s", (slot) => {
@@ -122,11 +106,25 @@ describe("shouldLeaveOnEscape", () => {
     expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(true);
   });
 
+  it("leaves Escape to an open sheet, which is a dialog-content with role dialog", () => {
+    // A sheet is the Dialog part with `data-sheet`; no separate selector is needed.
+    const sheet = document.createElement("div");
+    sheet.dataset.slot = "dialog-content";
+    sheet.dataset.sheet = "";
+    document.body.append(sheet);
+
+    expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(
+      false,
+    );
+    sheet.setAttribute("data-closed", "");
+    expect(shouldLeaveOnEscape(escapeFrom(document.body), document)).toBe(true);
+  });
+
   it("ignores popups that stay mounted after closing", () => {
     const positioner = document.createElement("div");
     positioner.hidden = true;
     const popup = document.createElement("div");
-    popup.dataset.slot = "select-popup";
+    popup.dataset.slot = "select-content";
     popup.setAttribute("data-closed", "");
     positioner.append(popup);
     document.body.append(positioner);

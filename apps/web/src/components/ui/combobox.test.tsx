@@ -667,9 +667,7 @@ describe("Combobox parity", () => {
       ),
       open: openByTrigger,
       content: () => {
-        const content = document.querySelector(
-          "[data-slot=combobox-popup], [data-slot=combobox-content]",
-        );
+        const content = document.querySelector("[data-slot=combobox-content]");
         if (!content) throw new Error("no combobox content");
         return content;
       },

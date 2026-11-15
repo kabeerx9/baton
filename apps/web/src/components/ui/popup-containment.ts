@@ -74,13 +74,13 @@ function containedHandlers(
  * A `render` function gets the part's props and must spread them; its returned
  * element's own handlers are not merged, so there it needs its own containment.
  *
- * `data-popup` marks the subtree for `isFromPopup`.
+ * `data-contained` marks the subtree for `isFromPopup`.
  */
 export function containPopupEvents<P extends Record<string, unknown>>(
   props: P,
   enabled = true,
 ): P {
-  const next: Record<string, unknown> = { ...props, "data-popup": "" };
+  const next: Record<string, unknown> = { ...props, "data-contained": "" };
   if (!enabled) return next as P;
 
   Object.assign(next, containedHandlers(props));
@@ -103,6 +103,6 @@ export function isFromPopup(event: {
 }) {
   if (!(event.target instanceof Element)) return false;
   if (!(event.currentTarget instanceof Node)) return false;
-  const popup = event.target.closest("[data-popup]");
+  const popup = event.target.closest("[data-contained]");
   return popup !== null && !popup.contains(event.currentTarget);
 }
