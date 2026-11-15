@@ -2,6 +2,7 @@ import { HTTPException } from "hono/http-exception";
 import { publishEvent } from "../../events";
 import type { z } from "../../openapi";
 import { getUserSession } from "../../utils/get-user-session";
+import listWorkspaces from "../../workspace/controllers/list-workspaces";
 import {
   consumeAuthorizationRequest,
   createAuthCode,
@@ -10,13 +11,14 @@ import {
   getClient,
   registerClient,
 } from "../oauth";
+import { reconnectPageResponse } from "../reconnect-page";
+import { redirectUriMatches } from "../redirect-uri-matches";
 import type {
   authorizationDecisionSchema,
   authorizationQuerySchema,
   clientRegistrationSchema,
 } from "../schemas";
-
-const clientUrl = process.env.BATON_CLIENT_URL || "http://localhost:5173";
+import { clientUrl, isMcpResource, mcpIssuer } from "../urls";
 
 type ClientRegistrationInput = z.infer<typeof clientRegistrationSchema>;
 type AuthorizationInput = z.infer<typeof authorizationQuerySchema>;
@@ -41,6 +43,8 @@ function buildAuthorizationRedirect(
   if (request.state !== undefined) {
     url.searchParams.set("state", request.state);
   }
+  // RFC 9207: lets the client check which server answered.
+  url.searchParams.set("iss", mcpIssuer());
   return url.toString();
 }
 
@@ -52,6 +56,24 @@ function isTrustedConsentOrigin(origin: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The grant's default workspace: the one picked on the consent page (it must
+ * be one the user can read), else their only workspace, else none.
+ */
+async function chooseDefaultWorkspace(
+  userId: string,
+  picked: string | null,
+): Promise<string | null> {
+  const workspaces = await listWorkspaces(userId);
+  if (picked) {
+    if (!workspaces.some((workspace) => workspace.id === picked)) {
+      throwOAuthError(400, "invalid_workspace");
+    }
+    return picked;
+  }
+  return workspaces.length === 1 ? (workspaces[0]?.id ?? null) : null;
 }
 
 export async function registerMcpClient(input: ClientRegistrationInput) {
@@ -66,7 +88,7 @@ export async function registerMcpClient(input: ClientRegistrationInput) {
     redirect_uris: client.redirectUris,
     client_name: client.clientName,
     token_endpoint_auth_method: "none" as const,
-    grant_types: ["authorization_code" as const],
+    grant_types: ["authorization_code" as const, "refresh_token" as const],
     response_types: ["code" as const],
   };
 }
@@ -75,9 +97,23 @@ export async function beginMcpAuthorization(
   input: AuthorizationInput,
 ): Promise<string> {
   const client = await getClient(input.client_id);
-  if (!client) throwOAuthError(400, "invalid_client");
-  if (!client.redirectUris.includes(input.redirect_uri)) {
+  if (!client) {
+    // A person sees this in the browser, not the agent: explain what to do.
+    throw new HTTPException(400, { res: reconnectPageResponse() });
+  }
+  if (
+    !client.redirectUris.some((uri) =>
+      redirectUriMatches(uri, input.redirect_uri),
+    )
+  ) {
     throwOAuthError(400, "invalid_redirect_uri");
+  }
+  // RFC 8707: once the redirect is trusted, report a wrong audience there.
+  if (input.resource !== undefined && !isMcpResource(input.resource)) {
+    return buildAuthorizationRedirect(
+      { redirectUri: input.redirect_uri, state: input.state },
+      { error: "invalid_target" },
+    );
   }
 
   const requestId = await createAuthorizationRequest({
@@ -121,7 +157,11 @@ export async function decideMcpAuthorizationRequest(params: {
   if (!request) throwOAuthError(404, "invalid_or_expired_request");
 
   const client = await getClient(request.clientId);
-  if (!client?.redirectUris.includes(request.redirectUri)) {
+  if (
+    !client?.redirectUris.some((uri) =>
+      redirectUriMatches(uri, request.redirectUri),
+    )
+  ) {
     throwOAuthError(400, "invalid_client");
   }
 
@@ -131,6 +171,10 @@ export async function decideMcpAuthorizationRequest(params: {
     return buildAuthorizationRedirect(request, { error: "access_denied" });
   }
 
+  const defaultWorkspaceId = await chooseDefaultWorkspace(
+    session.user.id,
+    params.decision.workspaceId ?? null,
+  );
   const code = await createAuthCode(
     {
       clientId: request.clientId,
@@ -138,6 +182,7 @@ export async function decideMcpAuthorizationRequest(params: {
       sessionId: session.session.id,
       codeChallenge: request.codeChallenge,
       redirectUri: request.redirectUri,
+      defaultWorkspaceId,
     },
     params.requestId,
   );

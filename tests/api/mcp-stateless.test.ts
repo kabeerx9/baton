@@ -4,11 +4,23 @@ import mcpRoutes from "../../apps/api/src/mcp";
 import { createModernMcpHandler } from "../../apps/api/src/mcp/modern";
 
 const authMocks = vi.hoisted(() => ({
-  getSession: vi.fn(async () => ({ user: { id: "test-user" } })),
+  getSession: vi.fn(async (req: Request) =>
+    req.headers.get("authorization") === "Bearer test-token"
+      ? {
+          kind: "grant" as const,
+          token: "test-token",
+          userId: "test-user",
+          grantId: "grant-1",
+          defaultWorkspaceId: null,
+        }
+      : null,
+  ),
 }));
 
-vi.mock("../../apps/api/src/auth", () => ({
-  auth: { api: { getSession: authMocks.getSession } },
+// /api/mcp authenticates MCP access tokens and API keys; the token checks
+// themselves are covered by the integration tests.
+vi.mock("../../apps/api/src/mcp/authenticate-mcp-request", () => ({
+  authenticateMcpRequest: authMocks.getSession,
 }));
 
 const protocolVersion = "2026-07-28";
@@ -20,14 +32,7 @@ const currentUser = {
   role: "user",
 };
 
-const sessionResponse = {
-  user: { ...currentUser, token: "unexpected-user-secret" },
-  session: {
-    id: "test-session",
-    token: "live-session-secret",
-    expiresAt: "2026-11-08T00:00:00.000Z",
-  },
-};
+const sessionResponse = { ...currentUser, token: "unexpected-user-secret" };
 
 function modernRequest(
   method: string,
@@ -35,7 +40,7 @@ function modernRequest(
   params: Record<string, unknown> = {},
 ): Request {
   const name = method === "tools/call" ? String(params.name) : undefined;
-  return new Request("http://mcp.test/mcp", {
+  return new Request("http://mcp.test/mcp?tools=all", {
     method: "POST",
     headers: {
       accept: "application/json, text/event-stream",
@@ -88,7 +93,9 @@ afterEach(() => {
 
 describe("MCP 2026-07-28 stateless HTTP", () => {
   it("serves tools/list on independent HTTP requests without session IDs", async () => {
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
 
     const first = await handler.fetch(modernRequest("tools/list", 1));
     const second = await handler.fetch(modernRequest("tools/list", 2));
@@ -115,7 +122,9 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
       },
     );
     vi.stubGlobal("fetch", apiFetch);
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
 
     const responses = await Promise.all(
       [1, 2, 3, 4].map((id) =>
@@ -140,13 +149,22 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
 
   it("gets one task by ticket ID through the HTTP MCP server", async () => {
     const apiFetch = vi.fn(async (input: RequestInfo | URL) => {
-      expect(String(input)).toBe(
+      const url = String(input);
+      if (url === "http://api.test/api/workspace") {
+        return Response.json([{ id: "workspace 1", name: "First" }]);
+      }
+      if (url === "http://api.test/api/comment/task-1") {
+        return Response.json([{ id: "comment-1", content: "Looks good" }]);
+      }
+      expect(url).toBe(
         "http://api.test/api/task/by-ticket-id/KAN-12?workspaceId=workspace+1&projectId=project+1",
       );
       return Response.json({ id: "task-1", title: "Direct match" });
     });
     vi.stubGlobal("fetch", apiFetch);
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
 
     const response = await handler.fetch(
       modernRequest("tools/call", 1, {
@@ -162,7 +180,8 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
 
     expect(response.status).toBe(200);
     expect(body.result.content[0].text).toContain("Direct match");
-    expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(body.result.content[0].text).toContain("Looks good");
+    expect(apiFetch).toHaveBeenCalledTimes(3);
   });
 
   it("validates bearer authentication on every modern POST", async () => {
@@ -175,14 +194,14 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
     expect(authMocks.getSession).toHaveBeenCalledTimes(2);
     for (const call of authMocks.getSession.mock.calls) {
-      expect(new Headers(call[0].headers).get("authorization")).toBe(
-        "Bearer test-token",
-      );
+      expect(call[0].headers.get("authorization")).toBe("Bearer test-token");
     }
   });
 
   it("rejects a modern request without the required per-request metadata", async () => {
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
     const request = new Request("http://mcp.test/mcp", {
       method: "POST",
       headers: {
@@ -219,7 +238,9 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
       },
     );
     vi.stubGlobal("fetch", apiFetch);
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
 
     const response = await handler.fetch(
       modernRequest("tools/call", 1, {
@@ -286,8 +307,11 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
     const response = await mcpRoutes.request(request);
 
     expect(response.status).toBe(200);
-    expect((await rpcBody(response)).result.tools).toContainEqual(
-      expect.objectContaining({ name: "whoami" }),
+    // The default catalog is the core set.
+    const tools = (await rpcBody(response)).result.tools;
+    expect(tools).toHaveLength(12);
+    expect(tools).toContainEqual(
+      expect.objectContaining({ name: "list_my_tasks" }),
     );
 
     const unauthenticated = new Request("http://mcp.test/mcp", {
@@ -303,7 +327,7 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
   });
 
   it("advertises the canonical protected-resource metadata URL on 401", async () => {
-    const response = await mcpRoutes.request("/mcp", {
+    const response = await mcpRoutes.request("/mcp?tools=all", {
       method: "POST",
       headers: {
         accept: "application/json, text/event-stream",
@@ -358,7 +382,7 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
         method: "notifications/initialized",
       }),
     });
-    const tools = await replicaB.default.request("/mcp", {
+    const tools = await replicaB.default.request("/mcp?tools=all", {
       method: "POST",
       headers: {
         accept: "application/json, text/event-stream",
@@ -375,7 +399,7 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
     const toolsBody = await rpcBody(tools);
     const apiFetch = vi.fn(async () => Response.json(sessionResponse));
     vi.stubGlobal("fetch", apiFetch);
-    const call = await replicaB.default.request("/mcp", {
+    const call = await replicaB.default.request("/mcp?tools=all", {
       method: "POST",
       headers: {
         accept: "application/json, text/event-stream",
@@ -450,7 +474,9 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
   });
 
   it("returns a tool error rather than throwing when arguments fail validation", async () => {
-    const handler = createModernMcpHandler("test-token", "http://api.test");
+    const handler = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
 
     const response = await handler.fetch(
       modernRequest("tools/call", 1, {

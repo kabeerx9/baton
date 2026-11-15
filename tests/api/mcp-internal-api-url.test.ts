@@ -1,17 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const authMocks = vi.hoisted(() => ({
-  getSession: vi.fn(async () => ({ user: { id: "test-user" } })),
+  getSession: vi.fn(async () => ({
+    kind: "grant" as const,
+    token: "test-token",
+    userId: "test-user",
+    grantId: "grant-1",
+    defaultWorkspaceId: null,
+  })),
 }));
 
-vi.mock("../../apps/api/src/auth", () => ({
-  auth: { api: { getSession: authMocks.getSession } },
+vi.mock("../../apps/api/src/mcp/authenticate-mcp-request", () => ({
+  authenticateMcpRequest: authMocks.getSession,
 }));
 
 const protocolVersion = "2026-07-28";
 
 function toolRequest() {
-  return new Request("http://public.test:5273/mcp", {
+  return new Request("http://public.test:5273/mcp?tools=all", {
     method: "POST",
     headers: {
       accept: "application/json, text/event-stream",
@@ -59,11 +65,9 @@ describe("MCP API URLs", () => {
   it("advertises the public URL while fetching tools through the internal URL", async () => {
     const apiFetch = vi.fn(async () =>
       Response.json({
-        user: {
-          id: "test-user",
-          name: "Test User",
-          email: "test@example.com",
-        },
+        id: "test-user",
+        name: "Test User",
+        email: "test@example.com",
       }),
     );
     vi.stubGlobal("fetch", apiFetch);
@@ -87,7 +91,7 @@ describe("MCP API URLs", () => {
     expect(toolResponse.status).toBe(200);
     expect(apiFetch).toHaveBeenCalledOnce();
     expect(String(apiFetch.mock.calls[0]?.[0])).toBe(
-      "http://127.0.0.1:1337/api/auth/get-session",
+      "http://127.0.0.1:1337/api/user/me",
     );
   });
 
@@ -96,11 +100,9 @@ describe("MCP API URLs", () => {
     async (internalApiUrl) => {
       const apiFetch = vi.fn(async () =>
         Response.json({
-          user: {
-            id: "test-user",
-            name: "Test User",
-            email: "test@example.com",
-          },
+          id: "test-user",
+          name: "Test User",
+          email: "test@example.com",
         }),
       );
       vi.stubGlobal("fetch", apiFetch);
@@ -111,7 +113,7 @@ describe("MCP API URLs", () => {
       expect(toolResponse.status).toBe(200);
       expect(apiFetch).toHaveBeenCalledOnce();
       expect(String(apiFetch.mock.calls[0]?.[0])).toBe(
-        "http://api.internal:1337/api/auth/get-session",
+        "http://api.internal:1337/api/user/me",
       );
     },
   );

@@ -21,7 +21,9 @@ function collectTools() {
   const registrar: McpToolRegistrar = {
     registerTool: (name, _config, callback) => tools.set(name, callback),
   };
-  registerMcpTools(registrar, "http://api.test", "test-token");
+  registerMcpTools(registrar, "http://api.test", "test-token", {
+    catalog: "all",
+  });
   return tools;
 }
 
@@ -36,7 +38,14 @@ function call(name: string, args: unknown = {}) {
 let apiFetch: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  apiFetch = vi.fn(async () => Response.json({ ok: true }));
+  apiFetch = vi.fn(async (input: RequestInfo | URL) =>
+    String(input).endsWith("/api/workspace")
+      ? Response.json([
+          { id: "ws 1", name: "First" },
+          { id: "w1", name: "Second" },
+        ])
+      : Response.json({ ok: true }),
+  );
   vi.stubGlobal("fetch", apiFetch);
 });
 

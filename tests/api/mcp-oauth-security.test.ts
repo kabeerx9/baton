@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => {
-  const insertedSessions: Array<Record<string, unknown>> = [];
+  const insertedRows: Array<Record<string, unknown>> = [];
   const getSession = vi.fn(async ({ headers }: { headers: Headers }) => {
     const cookie = new Headers(headers).get("cookie") ?? "";
     if (cookie.includes("victim_session=1")) {
@@ -15,11 +15,18 @@ const mocks = vi.hoisted(() => {
     return null;
   });
   const insert = vi.fn(() => ({
-    values: vi.fn(async (row: Record<string, unknown>) => {
-      insertedSessions.push(row);
-      return row;
-    }),
+    values: vi.fn(
+      (rows: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        insertedRows.push(...(Array.isArray(rows) ? rows : [rows]));
+        return Object.assign(Promise.resolve(), {
+          returning: async () => [{ id: "grant-1" }],
+        });
+      },
+    ),
   }));
+  const write = () => ({ where: async () => [] });
+  const update = vi.fn(() => ({ set: write }));
+  const remove = vi.fn(write);
   const select = vi.fn(() => ({
     from: () => ({
       where: () => ({
@@ -34,7 +41,7 @@ const mocks = vi.hoisted(() => {
       }),
     }),
   }));
-  return { getSession, insert, select, insertedSessions };
+  return { getSession, insert, select, update, remove, insertedRows };
 });
 
 vi.mock("../../apps/api/src/auth", () => ({
@@ -44,13 +51,26 @@ vi.mock("../../apps/api/src/auth", () => ({
 vi.mock("../../apps/api/src/database", async () => ({
   default: {
     transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
-      callback({ insert: mocks.insert, select: mocks.select }),
+      callback({
+        insert: mocks.insert,
+        select: mocks.select,
+        update: mocks.update,
+        delete: mocks.remove,
+      }),
   },
   schema: await import("../../apps/api/src/database/schema"),
 }));
 
 vi.mock("../../apps/api/src/mcp/tools", () => ({
   registerMcpTools: vi.fn(),
+}));
+
+vi.mock("../../apps/api/src/workspace/controllers/list-workspaces", () => ({
+  default: async () => [],
+}));
+
+vi.mock("../../apps/api/src/mcp/token-attempts", () => ({
+  takeTokenAttempt: async () => true,
 }));
 
 vi.mock("../../apps/api/src/mcp/oauth-store", () => {
@@ -191,7 +211,7 @@ describe("MCP OAuth security", () => {
     expect(remoteHttp.status).toBe(400);
   });
 
-  it("accepts Claude-style registration metadata and never grants refresh tokens", async () => {
+  it("accepts Claude-style registration metadata and grants refresh tokens", async () => {
     const response = await mcpRoutes.request("/mcp/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -206,7 +226,7 @@ describe("MCP OAuth security", () => {
     });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      grant_types: ["authorization_code"],
+      grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
     });
@@ -271,7 +291,7 @@ describe("MCP OAuth security", () => {
 
   it("requires explicit same-origin approval before issuing a code", async () => {
     const redirectUri = "https://client.example/callback";
-    const verifier = "attacker-known-verifier-1234567890";
+    const verifier = "attacker-known-verifier-1234567890-padded-to-43";
     const client = await registerClient(redirectUri);
     const authorizeUrl = buildAuthorizeUrl(
       client.client_id,
@@ -352,7 +372,29 @@ describe("MCP OAuth security", () => {
       }),
     });
     expect(token.status).toBe(200);
-    expect(mocks.insertedSessions.at(-1)?.userId).toBe("victim-user");
+    expect(token.headers.get("cache-control")).toBe("no-store");
+    expect(token.headers.get("pragma")).toBe("no-cache");
+    const issued = (await token.json()) as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    };
+    expect(issued.expires_in).toBe(3600);
+    expect(issued.refresh_token).toMatch(/^baton_mcp_rt_/);
+    expect(callback.searchParams.get("iss")).toBe("http://localhost:1337/api");
+    const grant = mocks.insertedRows.find((row) => "clientId" in row);
+    expect(grant).toMatchObject({
+      userId: "victim-user",
+      clientName: "Test MCP client",
+      resource: "http://localhost:1337/api/mcp",
+    });
+    // Only hashes reach the database, never the tokens themselves.
+    const stored = JSON.stringify(mocks.insertedRows);
+    expect(stored).not.toContain(issued.access_token);
+    expect(stored).not.toContain(issued.refresh_token);
+    expect(mocks.insertedRows.filter((row) => "tokenHash" in row)).toHaveLength(
+      2,
+    );
 
     const replay = await mcpRoutes.request(
       `/mcp/authorize/request/${requestId}`,
@@ -387,7 +429,7 @@ describe("MCP OAuth security", () => {
 
   it("consumes an authorization code after a failed redemption attempt", async () => {
     const redirectUri = "https://client.example/single-use";
-    const verifier = "single-use-verifier";
+    const verifier = "single-use-verifier-padded-to-the-rfc-minimum";
     const client = await registerClient(redirectUri);
     const callback = await decideAuthorization({
       clientId: client.client_id,
@@ -410,8 +452,110 @@ describe("MCP OAuth security", () => {
         }),
       });
 
-    expect((await redeem("incorrect-verifier")).status).toBe(400);
+    expect(
+      (await redeem("incorrect-verifier-padded-to-the-rfc-minimum")).status,
+    ).toBe(400);
     expect((await redeem(verifier)).status).toBe(400);
+  });
+
+  it("shows an HTML reconnect page for an unknown client", async () => {
+    const response = await mcpRoutes.request(
+      buildAuthorizeUrl(
+        "forgotten-client",
+        "http://127.0.0.1:4000/callback",
+        "unknown-client-verifier",
+      ).toString(),
+      { redirect: "manual" },
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain("Reconnect your agent");
+  });
+
+  it("matches a loopback redirect on any port, but not another path or host", async () => {
+    const client = await registerClient("http://127.0.0.1:3000/callback");
+    const authorize = (redirectUri: string) =>
+      mcpRoutes.request(
+        buildAuthorizeUrl(
+          client.client_id,
+          redirectUri,
+          "loopback-verifier",
+        ).toString(),
+        { redirect: "manual" },
+      );
+    expect((await authorize("http://127.0.0.1:53682/callback")).status).toBe(
+      302,
+    );
+    expect((await authorize("http://127.0.0.1:53682/other")).status).toBe(400);
+    expect((await authorize("http://localhost:53682/callback")).status).toBe(
+      400,
+    );
+  });
+
+  it("returns invalid_target with iss for a foreign resource", async () => {
+    const redirectUri = "https://client.example/target";
+    const client = await registerClient(redirectUri);
+    const url = buildAuthorizeUrl(client.client_id, redirectUri, "target-v");
+    url.searchParams.set("resource", "https://other.example/api/mcp");
+    const response = await mcpRoutes.request(url.toString(), {
+      redirect: "manual",
+    });
+    expect(response.status).toBe(302);
+    const callback = new URL(response.headers.get("location") ?? "");
+    expect(callback.origin + callback.pathname).toBe(redirectUri);
+    expect(callback.searchParams.get("error")).toBe("invalid_target");
+    expect(callback.searchParams.get("iss")).toBe("http://localhost:1337/api");
+    expect(callback.searchParams.get("state")).toBe("client-state");
+
+    url.searchParams.set("resource", "http://localhost:1337/api/mcp");
+    const accepted = await mcpRoutes.request(url.toString(), {
+      redirect: "manual",
+    });
+    expect(new URL(accepted.headers.get("location") ?? "").pathname).toBe(
+      "/mcp/authorize",
+    );
+  });
+
+  it("answers token errors with no-store and checks verifier syntax and resource", async () => {
+    const token = (params: Record<string, string>) =>
+      mcpRoutes.request("/mcp/token", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code: "unknown-code",
+          client_id: "client",
+          redirect_uri: "https://client.example/cb",
+          code_verifier: "v".repeat(43),
+          ...params,
+        }),
+      });
+    const shortVerifier = await token({ code_verifier: "v".repeat(42) });
+    expect(shortVerifier.status).toBe(400);
+    expect(shortVerifier.headers.get("cache-control")).toBe("no-store");
+    expect(shortVerifier.headers.get("pragma")).toBe("no-cache");
+    await expect(shortVerifier.json()).resolves.toEqual({
+      error: "invalid_request",
+    });
+    await expect(
+      (await token({ resource: "https://evil.example/api/mcp" })).json(),
+    ).resolves.toEqual({ error: "invalid_target" });
+    await expect((await token({})).json()).resolves.toEqual({
+      error: "invalid_grant",
+    });
+    await expect(
+      (await token({ grant_type: "client_credentials" })).json(),
+    ).resolves.toEqual({ error: "unsupported_grant_type" });
+  });
+
+  it("advertises both grants and issuer responses", async () => {
+    const metadata = await (
+      await mcpRoutes.request("/.well-known/oauth-authorization-server/api")
+    ).json();
+    expect(metadata).toMatchObject({
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      authorization_response_iss_parameter_supported: true,
+    });
   });
 
   it("sweeps expired authorization requests when creating a new one", async () => {

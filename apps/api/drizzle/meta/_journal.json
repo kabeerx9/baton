@@ -547,6 +547,13 @@
       "when": 1794662104880,
       "tag": "0077_task_change_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794751274686,
+      "tag": "0078_mcp_grants",
+      "breakpoints": true
     }
   ]
 }

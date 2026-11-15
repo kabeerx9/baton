@@ -1,10 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createId } from "@paralleldrive/cuid2";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNotNull, lt, or } from "drizzle-orm";
 import db from "../database";
-import { sessionTable, userTable } from "../database/schema";
+import {
+  mcpGrantTable,
+  mcpOauthStateTable,
+  sessionTable,
+  userTable,
+} from "../database/schema";
+import type { DbOrTx } from "../project-access/db-or-tx";
 import { notBannedCondition } from "../utils/user-ban";
+import { DEAD_GRANT_RETENTION_MS, GRANT_IDLE_MS } from "./grant/constants";
+import { issueTokenPair, type McpTokenPair } from "./grant/issue-tokens";
 import { consumeState, getState, putState } from "./oauth-store";
+import { mcpResource } from "./urls";
 
 type RegisteredClient = {
   clientId: string;
@@ -19,6 +27,8 @@ type AuthCode = {
   sessionId: string;
   codeChallenge: string;
   redirectUri: string;
+  /** Chosen on the consent page; null lets the tools fall back. */
+  defaultWorkspaceId?: string | null;
 };
 
 export type AuthorizationRequest = {
@@ -28,7 +38,8 @@ export type AuthorizationRequest = {
   state?: string;
 };
 
-// Clients re-register on invalid_client, so the TTL only bounds table growth.
+// A grant keeps its client row alive (keepClientAlive); this TTL only bounds
+// registrations that never complete a sign-in.
 const clientTtlMs = 30 * 24 * 60 * 60 * 1000;
 const codeTtlMs = 5 * 60 * 1000;
 const requestTtlMs = 10 * 60 * 1000;
@@ -99,6 +110,24 @@ export async function consumeAuthorizationRequest(
   return consumeState<AuthorizationRequest>("request", requestId);
 }
 
+/** Extend a client row while a grant uses it, so reconnects keep their client_id. */
+export async function keepClientAlive(
+  tx: DbOrTx,
+  clientId: string,
+  until: Date,
+): Promise<void> {
+  await tx
+    .update(mcpOauthStateTable)
+    .set({ expiresAt: until })
+    .where(
+      and(
+        eq(mcpOauthStateTable.kind, "client"),
+        eq(mcpOauthStateTable.key, clientId),
+        lt(mcpOauthStateTable.expiresAt, until),
+      ),
+    );
+}
+
 function base64url(buf: Buffer): string {
   return buf.toString("base64url");
 }
@@ -113,7 +142,7 @@ export async function exchangeCode(
   clientId: string,
   codeVerifier: string,
   redirectUri: string,
-): Promise<{ accessToken: string; expiresIn: number } | null> {
+): Promise<McpTokenPair | null> {
   const stored = await consumeState<AuthCode>("code", code);
   if (!stored) return null;
 
@@ -121,9 +150,9 @@ export async function exchangeCode(
   if (stored.redirectUri !== redirectUri) return null;
   if (!verifyPkce(codeVerifier, stored.codeChallenge)) return null;
 
-  // Session insertion bypasses Better Auth's hooks. Revoking the approving
-  // session must also retire its outstanding authorization codes.
+  // Revoking the approving session must also retire its outstanding codes.
   if (!stored.sessionId) return null;
+  const client = await getClient(clientId);
   return db.transaction(async (tx) => {
     // Session deletions in the auth adapter lock this user before their
     // DELETE statement, so revocation cannot miss this transaction's insert.
@@ -148,16 +177,39 @@ export async function exchangeCode(
       .for("update");
     if (!approver || approver.expiresAt <= new Date()) return null;
 
-    const sessionToken = randomUUID();
-    const expiresIn = 30 * 24 * 60 * 60;
-    await tx.insert(sessionTable).values({
-      id: createId(),
-      token: sessionToken,
-      userId: stored.userId,
-      expiresAt: new Date(Date.now() + expiresIn * 1000),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    return { accessToken: sessionToken, expiresIn };
+    const now = new Date();
+    // Bounded cleanup: drop this user's grants that ended long ago.
+    const cutoff = new Date(now.getTime() - DEAD_GRANT_RETENTION_MS);
+    await tx
+      .delete(mcpGrantTable)
+      .where(
+        and(
+          eq(mcpGrantTable.userId, stored.userId),
+          or(
+            and(
+              isNotNull(mcpGrantTable.revokedAt),
+              lt(mcpGrantTable.revokedAt, cutoff),
+            ),
+            lt(mcpGrantTable.idleExpiresAt, cutoff),
+          ),
+        ),
+      );
+    const idleExpiresAt = new Date(now.getTime() + GRANT_IDLE_MS);
+    const [grant] = await tx
+      .insert(mcpGrantTable)
+      .values({
+        userId: stored.userId,
+        clientId,
+        clientName: client?.clientName || "MCP client",
+        resource: mcpResource(),
+        defaultWorkspaceId: stored.defaultWorkspaceId ?? null,
+        createdAt: now,
+        lastUsedAt: now,
+        idleExpiresAt,
+      })
+      .returning({ id: mcpGrantTable.id });
+    if (!grant) return null;
+    await keepClientAlive(tx, clientId, idleExpiresAt);
+    return issueTokenPair(tx, grant.id, now);
   });
 }

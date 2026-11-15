@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import db from "../../database";
 import { userTable } from "../../database/schema";
+import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
 import { deleteUserSessions } from "../../sessions/delete-user-sessions";
 import { isBanActive } from "../../utils/user-ban";
 import { revokeSessionConnections } from "../../ws";
@@ -33,6 +34,7 @@ async function deactivateUser(
     const sessionIds = await deleteUserSessions(tx, userId, {
       exceptSessionId: null,
     });
+    await revokeUserGrants(userId, tx);
     if (!isBanActive(target) || target.banExpires) {
       await recordAdminAction(
         {

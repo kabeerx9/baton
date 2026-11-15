@@ -720,7 +720,9 @@ export const taskChangeRequestTable = pgTable(
     // How the requester signed in. With an API key, accept and the timeout
     // job re-check that key's current state and scope; the secret is never
     // stored. A deleted key leaves api_key_id null with auth_method kept.
-    authMethod: text("auth_method").$type<"cookie" | "bearer" | "api_key">(),
+    authMethod: text("auth_method").$type<
+      "cookie" | "bearer" | "api_key" | "mcp"
+    >(),
     apiKeyId: text("api_key_id").references(() => apikeyTable.id, {
       onDelete: "set null",
       onUpdate: "cascade",
@@ -1362,6 +1364,61 @@ export const mcpOauthStateTable = pgTable(
   (table) => [
     uniqueIndex("mcp_oauth_state_kind_key_uidx").on(table.kind, table.key),
     index("mcp_oauth_state_expiresAt_idx").on(table.expiresAt),
+  ],
+);
+
+// One row per connected MCP agent: the user approved this client once on the
+// consent page. Tokens hang off the grant, so revoking it ends them all.
+export const mcpGrantTable = pgTable(
+  "mcp_grant",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    clientName: text("client_name").notNull(),
+    resource: text("resource").notNull(),
+    defaultWorkspaceId: text("default_workspace_id").references(
+      () => workspaceTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+    idleExpiresAt: timestamp("idle_expires_at", { mode: "date" }).notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+  },
+  (table) => [index("mcp_grant_userId_idx").on(table.userId)],
+);
+
+// Only SHA-256 hashes of tokens are stored. A rotated refresh token is kept
+// for a while so a late reuse can be told apart from an unknown token.
+export const mcpTokenTable = pgTable(
+  "mcp_token",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => mcpGrantTable.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"access" | "refresh">().notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    rotatedAt: timestamp("rotated_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("mcp_token_tokenHash_uidx").on(table.tokenHash),
+    index("mcp_token_grantId_idx").on(table.grantId),
   ],
 );
 
