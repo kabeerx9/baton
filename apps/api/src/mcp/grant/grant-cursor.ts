@@ -1,3 +1,6 @@
+/** Grant ids are cuid2 values; anything else never names a grant. */
+const GRANT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** Keyset position in the grant list: created_at desc, then id desc. */
 export type GrantCursor = { createdAt: Date; id: string };
 
@@ -18,7 +21,7 @@ export function decodeGrantCursor(value: string): GrantCursor | null {
       parsed.length !== 2 ||
       typeof parsed[0] !== "string" ||
       typeof parsed[1] !== "string" ||
-      parsed[1].length === 0
+      !GRANT_ID.test(parsed[1])
     )
       return null;
     const createdAt = new Date(parsed[0]);

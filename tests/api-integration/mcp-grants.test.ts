@@ -702,7 +702,15 @@ describe("MCP grants API", () => {
       "grant-0",
     ]);
 
-    for (const query of ["cursor=garbage", "limit=0", "limit=101"]) {
+    const nulCursor = Buffer.from(
+      JSON.stringify(["2026-11-15T10:00:00.000Z", "\u0000"]),
+    ).toString("base64url");
+    for (const query of [
+      "cursor=garbage",
+      `cursor=${nulCursor}`,
+      "limit=0",
+      "limit=101",
+    ]) {
       expect(
         (await app.request(`/api/mcp/grants?${query}`, { headers })).status,
         query,
