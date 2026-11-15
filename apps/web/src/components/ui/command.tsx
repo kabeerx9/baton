@@ -1,6 +1,14 @@
 "use client";
 
-import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog";
+import {
+  createDialogController,
+  Dialog as DialogRootPrimitive,
+  DialogBackdrop as DialogBackdropPrimitive,
+  DialogContent as DialogContentPrimitive,
+  type DialogFinalFocus,
+  type DialogInitialFocus,
+  DialogTrigger as DialogTriggerPrimitive,
+} from "@ui-sdk/react/dialog";
 import {
   Command as CommandRoot,
   CommandEmpty as CommandEmptyPrimitive,
@@ -19,6 +27,9 @@ import type * as React from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/cn";
+import type { DialogHandle } from "./dialog";
+import { containPopupEvents } from "./popup-containment";
+import { POPUP_RESET } from "./popup-reset";
 
 // The unstyled parts, for a feature that lays out its own list (the option
 // menu). Features import this from here, never from the library.
@@ -35,80 +46,184 @@ const CommandPrimitive = {
   Separator: CommandSeparatorPrimitive,
 };
 
-const CommandDialog = CommandDialogPrimitive.Root;
+/**
+ * What `CommandCreateHandle()` returns: the Base UI handle API (`open(triggerId)`,
+ * `openWithPayload(payload)`, `close()`, `isOpen`) over a UI SDK controller, as
+ * the dialog wrapper (D1) keeps it. Written here rather than imported from
+ * `./dialog`, which loads the i18n bundle for its close button and would make
+ * the palette depend on that load order.
+ */
+function CommandCreateHandle<Payload = unknown>(): DialogHandle<Payload> {
+  const controller = createDialogController<Payload>();
+  const triggers = new Map<string, Payload | undefined>();
+  return {
+    controller,
+    triggers,
+    open(triggerId) {
+      void controller.open({ payload: triggers.get(triggerId) });
+    },
+    openWithPayload(payload) {
+      void controller.open({ payload });
+    },
+    close() {
+      controller.close();
+    },
+    get isOpen() {
+      return Boolean(controller.isOpen());
+    },
+  };
+}
 
-const CommandDialogPortal = CommandDialogPrimitive.Portal;
-
-const CommandCreateHandle = CommandDialogPrimitive.createHandle;
-
-function CommandDialogTrigger(props: CommandDialogPrimitive.Trigger.Props) {
+/**
+ * The palette's dialog. `handle` is the Base UI name for UI SDK `controller`;
+ * `disablePointerDismissal` is Base UI's name for `closeOnOutsidePress={false}`.
+ */
+function CommandDialog({
+  handle,
+  controller,
+  disablePointerDismissal,
+  closeOnOutsidePress,
+  ...props
+}: React.ComponentProps<typeof DialogRootPrimitive> & {
+  /** A handle from `CommandCreateHandle()`; maps to UI SDK `controller`. */
+  handle?: DialogHandle<any>;
+  /** Base UI name for `closeOnOutsidePress={false}`. */
+  disablePointerDismissal?: boolean;
+}) {
   return (
-    <CommandDialogPrimitive.Trigger
-      data-slot="command-dialog-trigger"
+    <DialogRootPrimitive
+      closeOnOutsidePress={
+        closeOnOutsidePress ??
+        (disablePointerDismissal === undefined
+          ? undefined
+          : !disablePointerDismissal)
+      }
+      controller={handle?.controller ?? controller}
       {...props}
     />
+  );
+}
+
+/** UI SDK dialogs render in place and have no portal: this renders its children. */
+function CommandDialogPortal({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+function CommandDialogTrigger({
+  children,
+  handle,
+  ...props
+}: React.ComponentProps<typeof DialogTriggerPrimitive> & {
+  /** A handle from `CommandCreateHandle()`; maps to UI SDK `controller`. */
+  handle?: DialogHandle<any>;
+}) {
+  return (
+    <DialogTriggerPrimitive controller={handle?.controller} {...props}>
+      {children}
+    </DialogTriggerPrimitive>
   );
 }
 
 function CommandDialogBackdrop({
   className,
+  containEvents = true,
   ...props
-}: CommandDialogPrimitive.Backdrop.Props) {
+}: React.ComponentProps<typeof DialogBackdropPrimitive> & {
+  /** Contain pointer and command events in the backdrop. Keys always pass. */
+  containEvents?: boolean;
+}) {
   return (
-    <CommandDialogPrimitive.Backdrop
-      className={cn(
-        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-starting-style:opacity-0",
-        className,
+    <DialogBackdropPrimitive
+      {...containPopupEvents(
+        {
+          className: cn(
+            "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-starting-style:opacity-0",
+            className,
+          ),
+          ...props,
+        },
+        containEvents,
       )}
-      data-slot="command-dialog-backdrop"
-      {...props}
     />
   );
 }
 
-function CommandDialogViewport({
-  className,
-  ...props
-}: CommandDialogPrimitive.Viewport.Props) {
-  return (
-    <CommandDialogPrimitive.Viewport
-      className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center px-4 py-[max(--spacing(4),4vh)] sm:py-[10vh]",
-        className,
-      )}
-      data-slot="command-dialog-viewport"
-      {...props}
-    />
-  );
+/** UI SDK dialogs have no viewport: the content is placed by its own classes. */
+function CommandDialogViewport({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+/** A ref object, which Base UI took for `initialFocus` and `finalFocus`. */
+type FocusRef = React.RefObject<HTMLElement | null>;
+
+/** Base UI's focus props mapped to UI SDK's: `false` to "none", a ref to a function. */
+function mapFocus(
+  value: DialogInitialFocus | DialogFinalFocus | FocusRef | boolean | undefined,
+) {
+  if (value === false) return "none";
+  if (value === true || value === undefined) return undefined;
+  if (typeof value === "object" && "current" in value) {
+    return () => value.current;
+  }
+  return value;
 }
 
 function CommandDialogPopup({
   className,
   children,
   instant = false,
+  containEvents = true,
+  initialFocus,
+  finalFocus,
   ...props
-}: CommandDialogPrimitive.Popup.Props & { instant?: boolean }) {
+}: Omit<
+  React.ComponentProps<typeof DialogContentPrimitive>,
+  "children" | "initialFocus" | "finalFocus"
+> & {
+  children?: React.ReactNode;
+  instant?: boolean;
+  /** Contain pointer and command events in the content and the backdrop. Keys always pass. */
+  containEvents?: boolean;
+  /** Also takes a ref object (mapped to a function) and `false` (mapped to "none"). */
+  initialFocus?: DialogInitialFocus | FocusRef | boolean;
+  /** Also takes a ref object (mapped to a function) and `false` (mapped to "none"). */
+  finalFocus?: DialogFinalFocus | FocusRef | boolean;
+}) {
   return (
     <CommandDialogPortal>
       <CommandDialogBackdrop
+        containEvents={containEvents}
         className={cn(
           instant &&
             "transition-none data-starting-style:opacity-100 data-ending-style:opacity-100",
         )}
       />
       <CommandDialogViewport>
-        <CommandDialogPrimitive.Popup
-          className={cn(
-            "relative row-start-2 flex max-h-105 min-h-0 w-full min-w-0 max-w-xl flex-col rounded-2xl border bg-popover not-dark:bg-clip-padding text-popover-foreground shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-200 ease-out will-change-transform before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:bg-muted/72 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 **:data-[slot=scroll-area-viewport]:data-overflow-y:pe-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-            instant &&
-              "transition-none data-starting-style:scale-100 data-starting-style:opacity-100 data-ending-style:scale-100 data-ending-style:opacity-100",
-            className,
+        <DialogContentPrimitive
+          {...containPopupEvents(
+            {
+              // The content is the top-layer element itself, so it is placed
+              // here and not by a viewport grid: centered at the top with the
+              // same 4vh/10vh inset the viewport had.
+              className: cn(
+                POPUP_RESET,
+                "fixed inset-x-0 top-[max(--spacing(4),4vh)] mx-auto flex max-h-105 min-h-0 w-[calc(100%-2rem)] min-w-0 max-w-xl flex-col rounded-2xl border bg-popover not-dark:bg-clip-padding text-popover-foreground shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-200 ease-out will-change-transform sm:top-[10vh] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:bg-muted/72 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 **:data-[slot=scroll-area-viewport]:data-overflow-y:pe-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+                instant &&
+                  "transition-none data-starting-style:scale-100 data-starting-style:opacity-100 data-ending-style:scale-100 data-ending-style:opacity-100",
+                className,
+              ),
+              // The palette owns its own identity: `dialog-content` is shared
+              // with every other dialog.
+              "data-command-dialog": "",
+              finalFocus: mapFocus(finalFocus),
+              initialFocus: mapFocus(initialFocus),
+              ...props,
+            },
+            containEvents,
           )}
-          data-slot="command-dialog-popup"
-          {...props}
         >
           {children}
-        </CommandDialogPrimitive.Popup>
+        </DialogContentPrimitive>
       </CommandDialogViewport>
     </CommandDialogPortal>
   );

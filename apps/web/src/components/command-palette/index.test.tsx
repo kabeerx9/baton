@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import CommandPalette from "./index";
@@ -124,5 +125,55 @@ describe("CommandPalette", () => {
     // The stable id is not what the user reads, so it does not match.
     await search("create-task");
     expect(names()).toEqual([]);
+  });
+
+  it("opens from the shortcut, filters, runs on Enter and leaves focus where it was", async () => {
+    render(
+      <>
+        <button type="button">Opener</button>
+        <CommandPalette />
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "Opener" });
+    act(() => opener.focus());
+    act(() => m.shortcuts.openCommandMenu());
+    await flush();
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await search("Create task");
+    expect(names()).toEqual(["Create task"]);
+
+    fireEvent.keyDown(
+      screen.getByRole("combobox", { name: "Type a command" }),
+      { key: "Enter" },
+    );
+    await flush();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    // `finalFocus={false}`: the palette does not hand focus back to whatever
+    // the shortcut was pressed from.
+    expect(opener).not.toHaveFocus();
+  });
+
+  it("clears a non-empty query on the first Escape and closes on the second", async () => {
+    openPalette();
+    const input = screen.getByRole("combobox", { name: "Type a command" });
+
+    await search("theme");
+    expect(names()).toEqual(["Light theme", "Dark theme", "System theme"]);
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    await flush();
+    expect(input).toHaveValue("");
+    expect(names()).toContain("Members");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    await flush();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 });

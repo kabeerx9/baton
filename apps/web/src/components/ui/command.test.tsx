@@ -260,7 +260,7 @@ describe("Command list", () => {
     expect(screen.getByText("Nothing found")).toBeInTheDocument();
   });
 
-  it("clears the query and closes the dialog on Escape", async () => {
+  it("clears a non-empty query on the first Escape and closes on the second", async () => {
     const onOpenChange = vi.fn();
     const onQuery = vi.fn();
     function Palette() {
@@ -290,11 +290,15 @@ describe("Command list", () => {
     await change("car");
     expect(names()).toEqual(["Carrot"]);
 
-    // Measured: one Escape does both. The command clears the query and calls
-    // preventDefault, but the dialog listens for Escape on the document and
-    // does not see that, so the palette closes in the same key press.
+    // Record section 12: the command clears its query and calls
+    // preventDefault, so the UI SDK dialog layer skips the same key press.
     await press("Escape");
     expect(onQuery).toHaveBeenLastCalledWith("");
+    expect(input()).toHaveValue("");
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(names()).toEqual(["Apple", "Apricot", "Banana", "Carrot"]);
+
+    await press("Escape");
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -374,7 +378,7 @@ describe("Command list", () => {
 // `dialog-content`. The backdrop keeps its UI SDK name `dialog-backdrop`. This
 // flag flips with the port; every assertion that moves with it is one of those
 // renames.
-const PORTED = false;
+const PORTED = true;
 const SLOT = {
   content: PORTED ? "dialog-content" : "command-dialog-popup",
   backdrop: PORTED ? "dialog-backdrop" : "command-dialog-backdrop",
@@ -634,6 +638,42 @@ describe("Command dialog", () => {
     key(screen.getByRole("button", { name: "Plain" }), "Enter");
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns when its content sits inside a button, and not in a plain div (trap 4)", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The outer button takes the trigger's accessible name too, so this test
+    // finds the trigger by its slot.
+    const nestedTrigger = () =>
+      document.querySelector<HTMLElement>('[data-slot="dialog-trigger"]');
+    try {
+      const nested = render(
+        <button type="button">
+          <Palette />
+        </button>,
+      );
+      pressOn(nestedTrigger() as Element);
+      await expectOpen();
+      pressOn(input());
+      expect(error.mock.calls.flat().join(" ")).toContain(
+        "[popup-containment]",
+      );
+      nested.unmount();
+      cleanup();
+      error.mockClear();
+
+      render(
+        <div>
+          <Palette />
+        </div>,
+      );
+      pressOn(trigger());
+      await expectOpen();
+      pressOn(input());
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
   });
 });
 
