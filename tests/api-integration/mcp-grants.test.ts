@@ -18,12 +18,14 @@ import { signUpWithSession } from "./helpers/auth-session";
 import {
   approveMcpAgent,
   connectMcpAgent,
+  decideMcpAuthorization,
   exchangeMcpCode,
   type McpConnection,
   mcpPost,
   refresh,
   requestToken,
   rpcResult,
+  startMcpAuthorization,
 } from "./helpers/mcp-oauth";
 
 type App = ReturnType<typeof createApp>["app"];
@@ -110,6 +112,48 @@ const authorized = (app: App, token: string) =>
   app.request("/api/workspace", {
     headers: { authorization: `Bearer ${token}` },
   });
+
+/**
+ * Consent with an unreadable workspace answers 400 invalid_workspace, issues
+ * no code or grant, and leaves the request open for a valid decision.
+ */
+async function expectWorkspaceRefused(
+  app: App,
+  bearer: string,
+  workspaceId: string,
+) {
+  const started = await startMcpAuthorization(app);
+  const countCodes = async () =>
+    (
+      await db
+        .select()
+        .from(schema.mcpOauthStateTable)
+        .where(eq(schema.mcpOauthStateTable.kind, "code"))
+    ).length;
+  const codesBefore = await countCodes();
+  const grantsBefore = (await db.select().from(schema.mcpGrantTable)).length;
+
+  const refused = await decideMcpAuthorization(
+    app,
+    { bearer },
+    started.requestId,
+    { approved: true, workspaceId },
+  );
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ error: "invalid_workspace" });
+  expect(await countCodes()).toBe(codesBefore);
+  expect(await db.select().from(schema.mcpGrantTable)).toHaveLength(
+    grantsBefore,
+  );
+
+  const retried = await decideMcpAuthorization(
+    app,
+    { bearer },
+    started.requestId,
+    { approved: true, workspaceId: null },
+  );
+  expect(retried.status, await retried.clone().text()).toBe(200);
+}
 
 describe("MCP refresh tokens", () => {
   it("rotates: the new pair works and the access token reaches tools and REST", async () => {
@@ -715,13 +759,26 @@ describe("MCP default workspace", () => {
     const mine = await callTool(app, agent.accessToken, "list_my_tasks");
     expect(mine.isError, mine.content[0]?.text).toBeFalsy();
 
-    await expect(
-      connectMcpAgent(
-        app,
-        { bearer: owner.token },
-        { workspaceId: foreign.id },
-      ),
-    ).rejects.toThrow();
+    await expectWorkspaceRefused(app, owner.token, foreign.id);
+  });
+
+  it("refuses a workspace the user belongs to but cannot read", async () => {
+    const { app } = createApp();
+    // The first account becomes the instance admin, who passes role checks.
+    await signUp(app, "Instance admin");
+    const owner = await signUp(app);
+    const limited = await addWorkspace(owner.userId, "Limited");
+    await db
+      .update(schema.workspaceUserTable)
+      .set({ role: "contractor" })
+      .where(eq(schema.workspaceUserTable.workspaceId, limited.id));
+    await db.insert(schema.workspaceRoleTable).values({
+      workspaceId: limited.id,
+      role: "contractor",
+      permission: JSON.stringify({ task: ["read"] }),
+      createdAt: new Date(),
+    });
+    await expectWorkspaceRefused(app, owner.token, limited.id);
   });
 
   it("lists workspace names when there are several and no default", async () => {
