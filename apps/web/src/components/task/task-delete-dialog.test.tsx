@@ -84,6 +84,14 @@ async function confirmDeletion() {
   fireEvent.click(deleteButtons.at(-1) as HTMLButtonElement);
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   mocks.canDeleteTasks.mockReturnValue(true);
 });
@@ -124,6 +132,52 @@ describe("TaskDeleteDialog", () => {
       icon: expect.anything(),
     });
     expect(onDeleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the dialog open while the delete is still running", async () => {
+    const deletion = deferred<{
+      outcome: string;
+      task: { id: string };
+    }>();
+    mocks.deleteTask.mockReturnValue(deletion.promise);
+    const { onDeleted } = renderTaskDelete();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "tasks:delete.action" }),
+    );
+    await confirmDeletion();
+
+    await waitFor(() => expect(mocks.deleteTask).toHaveBeenCalledTimes(1));
+    // A slow delete leaves the question on screen until it settles.
+    expect(screen.queryByText("tasks:delete.title")).not.toBeNull();
+    expect(onDeleted).not.toHaveBeenCalled();
+
+    await act(async () =>
+      deletion.resolve({ outcome: "applied", task: { id: "task-1" } }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText("tasks:delete.title")).toBeNull(),
+    );
+    expect(onDeleted).toHaveBeenCalledTimes(1);
+    expect(mocks.success).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes without deleting when the answer is cancel", async () => {
+    const { onDeleted } = renderTaskDelete();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "tasks:delete.action" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "common:actions.cancel" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText("tasks:delete.title")).toBeNull(),
+    );
+    expect(mocks.deleteTask).not.toHaveBeenCalled();
+    expect(onDeleted).not.toHaveBeenCalled();
   });
 
   it("stays on the task when the delete becomes a request", async () => {

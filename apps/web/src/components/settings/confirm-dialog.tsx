@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -22,6 +22,8 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   children?: ReactNode;
   confirmDisabled?: boolean;
+  /** Renders the dialog elsewhere. Set it when a form wraps this usage. */
+  container?: ComponentProps<typeof AlertDialogContent>["container"];
 };
 
 export function ConfirmDialog({
@@ -36,12 +38,13 @@ export function ConfirmDialog({
   onConfirm,
   children,
   confirmDisabled = false,
+  container,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent container={container}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? (
