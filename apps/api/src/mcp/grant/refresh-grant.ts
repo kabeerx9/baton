@@ -1,9 +1,9 @@
-import { and, eq, isNotNull, lt, or } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import db from "../../database";
 import { mcpGrantTable, mcpTokenTable, userTable } from "../../database/schema";
 import { notBannedCondition } from "../../utils/user-ban";
 import { keepClientAlive } from "../oauth";
-import { GRANT_IDLE_MS, ROTATED_REFRESH_RETENTION_MS } from "./constants";
+import { GRANT_IDLE_MS } from "./constants";
 import { issueTokenPair, type McpTokenPair } from "./issue-tokens";
 import { decideRefresh } from "./refresh-decision";
 import { revokeGrant } from "./revoke-grants";
@@ -82,22 +82,14 @@ export async function refreshGrant(
           .update(mcpGrantTable)
           .set({ lastUsedAt: now, idleExpiresAt })
           .where(eq(mcpGrantTable.id, grant.id));
-        // Bounded cleanup of this grant's dead rows.
+        // Delete only expired rows. A rotated refresh token stays until its
+        // own expiry, so a replay at any point before then revokes the grant.
         await tx
           .delete(mcpTokenTable)
           .where(
             and(
               eq(mcpTokenTable.grantId, grant.id),
-              or(
-                lt(mcpTokenTable.expiresAt, now),
-                and(
-                  isNotNull(mcpTokenTable.rotatedAt),
-                  lt(
-                    mcpTokenTable.rotatedAt,
-                    new Date(now.getTime() - ROTATED_REFRESH_RETENTION_MS),
-                  ),
-                ),
-              ),
+              lt(mcpTokenTable.expiresAt, now),
             ),
           );
         await keepClientAlive(tx, grant.clientId, idleExpiresAt);

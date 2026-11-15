@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import {
   afterEach,
   beforeEach,
@@ -162,6 +162,39 @@ describe("MCP refresh tokens", () => {
     // Every token of the grant is dead, including the newest pair.
     expect((await authorized(app, rotated.access_token)).status).toBe(401);
     expect((await refresh(app, agent, rotated.refresh_token)).status).toBe(400);
+  });
+
+  it("still revokes on reuse of a token rotated more than seven days ago", async () => {
+    const { app } = createApp();
+    const owner = await signUp(app);
+    const agent = await connectMcpAgent(app, { bearer: owner.token });
+    const r1 = (await (await refresh(app, agent)).json()) as {
+      refresh_token: string;
+    };
+    // R0 was rotated eight days ago but has not reached its own expiry.
+    await db
+      .update(schema.mcpTokenTable)
+      .set({ rotatedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) })
+      .where(
+        and(
+          eq(schema.mcpTokenTable.grantId, (await grantOf(agent)).id),
+          isNotNull(schema.mcpTokenTable.rotatedAt),
+        ),
+      );
+    // A refresh with the successor runs the cleanup.
+    const r2Response = await refresh(app, agent, r1.refresh_token);
+    expect(r2Response.status).toBe(200);
+    const r2 = (await r2Response.json()) as {
+      access_token: string;
+      refresh_token: string;
+    };
+
+    const replay = await refresh(app, agent);
+    expect(replay.status).toBe(400);
+    expect(await replay.json()).toEqual({ error: "invalid_grant" });
+    expect((await grantOf(agent)).revokedAt).not.toBeNull();
+    expect((await refresh(app, agent, r2.refresh_token)).status).toBe(400);
+    expect((await authorized(app, r2.access_token)).status).toBe(401);
   });
 
   it("lets two parallel refreshes with one shared token both succeed", async () => {
