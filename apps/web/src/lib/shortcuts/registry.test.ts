@@ -1,3 +1,6 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
+import { Dialog, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import {
   afterEach,
   beforeEach,
@@ -6,6 +9,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
+import { SHORTCUTS } from "./catalog";
 import { parseBinding } from "./key-combo";
 import { createShortcutRegistry, type ShortcutScope } from "./registry";
 
@@ -193,5 +197,52 @@ describe("shortcut registry", () => {
       ["switchWorkspace", "w"],
       ["openProject", "p"],
     ]);
+  });
+
+  // A real UI SDK dialog is open and the key starts inside it. The registry
+  // must see it as a blocking popup, and only shortcuts that allow popups run.
+  it("runs mod+k from inside an open UI SDK dialog and blocks single keys there", async () => {
+    vi.useRealTimers();
+    const palette = vi.fn();
+    const single = vi.fn();
+    registry.register({
+      bindings: SHORTCUTS.openCommandMenu.keys.map(parseBinding),
+      scope: "global",
+      allowInInput: SHORTCUTS.openCommandMenu.allowInInput,
+      allowInPopup: SHORTCUTS.openCommandMenu.allowInPopup,
+      handler: palette,
+    });
+    registry.register({
+      bindings: [parseBinding("c")],
+      scope: "global",
+      handler: single,
+    });
+
+    render(
+      createElement(
+        Dialog,
+        { defaultOpen: true },
+        createElement(
+          DialogPopup,
+          { showCloseButton: false },
+          createElement(DialogTitle, null, "Edit"),
+          createElement("button", { type: "button" }, "Inside"),
+        ),
+      ),
+    );
+    const inside = await waitFor(() =>
+      screen.getByRole("button", { name: "Inside" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    press("c", "KeyC", {}, inside);
+    expect(
+      single,
+      "a single key is blocked inside the dialog",
+    ).not.toHaveBeenCalled();
+
+    press("k", "KeyK", { metaKey: true }, inside);
+    expect(palette).toHaveBeenCalledTimes(1);
+    cleanup();
   });
 });

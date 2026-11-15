@@ -39,7 +39,7 @@ export function TaskMoreMenu({ actions, deleteHandle }: TaskMoreMenuProps) {
             variant="ghost"
             size="icon-sm"
             aria-label={t("tasks:bulk.moreActions")}
-            className="text-muted-foreground hover:text-foreground data-popup-open:bg-accent data-open:bg-accent [&_svg]:size-[15px]"
+            className="text-muted-foreground hover:text-foreground data-open:bg-accent [&_svg]:size-[15px]"
           />
         }
       >

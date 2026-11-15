@@ -32,7 +32,7 @@ function ProbePopup({
     ...(contained
       ? containPopupEvents(contentProps, containEvents)
       : contentProps),
-    "data-testid": "test-popup-content",
+    "data-testid": "test-content",
   };
 
   return (
@@ -63,9 +63,9 @@ function openerCase(opener: Opener, contained = true): PopupContainmentCase {
       if (opener === "click") fireEvent.click(trigger);
       if (opener === "context-menu") fireEvent.contextMenu(trigger);
       if (opener === "keyboard") fireEvent.keyDown(trigger, { key: "Enter" });
-      await screen.findByTestId("test-popup-content");
+      await screen.findByTestId("test-content");
     },
-    content: () => screen.getByTestId("test-popup-content"),
+    content: () => screen.getByTestId("test-content"),
   };
 }
 

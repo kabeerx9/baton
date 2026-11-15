@@ -85,7 +85,7 @@ export async function expectPopupContainment(
   const controlClick = vi.fn();
   const documentKeyDown = vi.fn();
   const control = (
-    <button data-popup-control="" onClick={controlClick} type="button">
+    <button data-control="" onClick={controlClick} type="button">
       Contained control
     </button>
   );
@@ -106,7 +106,7 @@ export async function expectPopupContainment(
 
     const content = popupCase.content();
     expect(content.isConnected, "the popup content is in the page").toBe(true);
-    const controlElement = document.querySelector("[data-popup-control]");
+    const controlElement = document.querySelector("[data-control]");
     if (!(controlElement instanceof HTMLElement)) {
       throw new Error("the control must be rendered inside the popup content");
     }

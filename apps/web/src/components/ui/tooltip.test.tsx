@@ -332,12 +332,10 @@ describe("Tooltip event containment", () => {
   });
 });
 
-// Base UI mounts its popup while open; UI SDK keeps it in the page and marks it
-// closed. A disabled-parity check needs both shapes, and both slot names.
+// UI SDK keeps the popup in the page and marks it closed, so a shown tooltip is
+// content that is neither `data-closed` nor `hidden`.
 function shownDisabledParityTooltip() {
-  const content = document.querySelector(
-    '[data-slot="tooltip-popup"], [data-slot="tooltip-content"]',
-  );
+  const content = document.querySelector('[data-slot="tooltip-content"]');
   if (!(content instanceof HTMLElement)) return null;
   if (content.hasAttribute("data-closed")) return null;
   if (content.hasAttribute("hidden")) return null;

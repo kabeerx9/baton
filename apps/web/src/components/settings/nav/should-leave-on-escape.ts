@@ -1,29 +1,16 @@
 // Escape belongs to whatever is open on top of the page (dialogs, menus,
-// selects, the mobile nav sheet) and to forms and controls; only a bare Escape on
-// the settings page itself leaves settings. Closed Base UI popups can stay
+// selects, the mobile nav sheet, which is a dialog) and to forms and controls;
+// only a bare Escape on the settings page itself leaves settings. Closed UI SDK popups stay
 // mounted (hidden, with data-closed), so only count the open ones.
 const OVERLAY_SELECTOR = [
   '[role="dialog"]',
   '[role="alertdialog"]',
   '[role="menu"]',
-  '[data-slot="dialog-popup"]',
-  '[data-slot="alert-dialog-popup"]',
-  '[data-slot="sheet-popup"]',
-  "[data-sheet]",
-  '[data-slot="menu-popup"]',
-  '[data-slot="select-popup"]',
-  '[data-slot="combobox-popup"]',
-  '[data-slot="autocomplete-popup"]',
-  '[data-slot="popover-popup"]',
-  '[data-slot="command-dialog-popup"]',
-  '[data-slot="preview-card-content"]',
-  // UI SDK names. Keep both lists until the Base UI wrappers are gone.
   '[data-slot="dialog-content"]',
   '[data-slot="alert-dialog-content"]',
   '[data-slot="menu-content"]',
   '[data-slot="select-content"]',
   '[data-slot="combobox-content"]',
-  '[data-slot="autocomplete-content"]',
   '[data-slot="popover-content"]',
   '[data-slot="hover-card-content"]',
 ].join(",");

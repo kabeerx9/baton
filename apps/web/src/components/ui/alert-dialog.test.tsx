@@ -29,12 +29,9 @@ import {
 import { expectPopupContainment } from "./popup-containment-test-utils";
 import { POPUP_RESET } from "./popup-reset";
 
-// Library names. Section 4 of the migration record renames the content slot
-// `alert-dialog-popup` to `alert-dialog-content`. `alert-dialog-backdrop` is
-// unchanged.
-const PORTED = true;
+// UI SDK slot names (record section 4).
 const SLOT = {
-  content: PORTED ? "alert-dialog-content" : "alert-dialog-popup",
+  content: "alert-dialog-content",
   backdrop: "alert-dialog-backdrop",
 };
 
@@ -42,7 +39,7 @@ afterEach(cleanup);
 
 type OpenChange = (open: boolean, details: { reason: string }) => void;
 
-/** The open alert dialog content. Base UI keeps it while it animates out. */
+/** The open alert dialog content. UI SDK keeps it while it animates out. */
 function openDialogs() {
   return [
     ...document.querySelectorAll<HTMLElement>(`[data-slot="${SLOT.content}"]`),
@@ -158,8 +155,7 @@ describe("AlertDialog roles, slots and trigger", () => {
     expect(dialog).toHaveAccessibleDescription("This cannot be undone");
     expect(dialog).toBe(openDialog());
     expect(dialog).toHaveAttribute("data-slot", SLOT.content);
-    if (PORTED) expect(button).toHaveAttribute("data-open");
-    else expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveAttribute("data-open");
   });
 
   it("renders a backdrop and the part slots", async () => {
@@ -190,11 +186,8 @@ describe("AlertDialog roles, slots and trigger", () => {
   it("starts the content from the app's text styles", async () => {
     render(<Basic />);
     await openByClick();
-    // Base UI portals the content, so only the ported wrapper needs the reset.
-    if (PORTED) {
-      for (const token of POPUP_RESET.split(" ")) {
-        expect(openDialog()).toHaveClass(token);
-      }
+    for (const token of POPUP_RESET.split(" ")) {
+      expect(openDialog()).toHaveClass(token);
     }
   });
 
@@ -599,7 +592,7 @@ describe("AlertDialog exports kept for callers", () => {
   });
 });
 
-describe.skipIf(!PORTED)("AlertDialog event containment", () => {
+describe("AlertDialog event containment", () => {
   it("contains pointer and command events in the content and the backdrop", async () => {
     await expectPopupContainment({
       render: ({ containEvents, contentProps, control }) => (

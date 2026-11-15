@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  createDialogController,
   Dialog as DialogRootPrimitive,
   DialogBackdrop as DialogBackdropPrimitive,
   DialogContent as DialogContentPrimitive,
@@ -27,7 +26,7 @@ import type * as React from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/cn";
-import type { DialogHandle } from "./dialog";
+import { DialogCreateHandle, type DialogHandle } from "./dialog-handle";
 import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
@@ -45,34 +44,6 @@ const CommandPrimitive = {
   GroupLabel: CommandGroupLabelPrimitive,
   Separator: CommandSeparatorPrimitive,
 };
-
-/**
- * What `CommandCreateHandle()` returns: the Base UI handle API (`open(triggerId)`,
- * `openWithPayload(payload)`, `close()`, `isOpen`) over a UI SDK controller, as
- * the dialog wrapper (D1) keeps it. Written here rather than imported from
- * `./dialog`, which loads the i18n bundle for its close button and would make
- * the palette depend on that load order.
- */
-function CommandCreateHandle<Payload = unknown>(): DialogHandle<Payload> {
-  const controller = createDialogController<Payload>();
-  const triggers = new Map<string, Payload | undefined>();
-  return {
-    controller,
-    triggers,
-    open(triggerId) {
-      void controller.open({ payload: triggers.get(triggerId) });
-    },
-    openWithPayload(payload) {
-      void controller.open({ payload });
-    },
-    close() {
-      controller.close();
-    },
-    get isOpen() {
-      return Boolean(controller.isOpen());
-    },
-  };
-}
 
 /**
  * The palette's dialog. `handle` is the Base UI name for UI SDK `controller`;
@@ -421,7 +392,7 @@ function CommandFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Command,
-  CommandCreateHandle,
+  DialogCreateHandle as CommandCreateHandle,
   CommandDialog,
   CommandDialogPopup,
   CommandDialogTrigger,

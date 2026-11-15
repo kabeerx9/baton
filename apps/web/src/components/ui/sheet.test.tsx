@@ -32,15 +32,12 @@ import {
   SheetTrigger,
 } from "./sheet";
 
-// Library names. Section 4 of the migration record renames the content slot
-// `sheet-popup` to `dialog-content` and moves the backdrop to `dialog-backdrop`
-// with the other dialog kinds. The port keeps a `data-sheet` identity on the
-// content so sheet-only selectors still match now that the part owns the slot
-// name.
-const PORTED = true;
+// UI SDK names (record section 4): content slot `dialog-content` and backdrop
+// `dialog-backdrop`, as for other dialogs. The sheet keeps a `data-sheet`
+// identity on the content because the part owns the slot name.
 const SLOT = {
-  content: PORTED ? "dialog-content" : "sheet-popup",
-  backdrop: PORTED ? "dialog-backdrop" : "sheet-backdrop",
+  content: "dialog-content",
+  backdrop: "dialog-backdrop",
 };
 
 type Side = "right" | "left" | "top" | "bottom";
@@ -55,7 +52,7 @@ function panels() {
   ];
 }
 
-/** The open content. Base UI unmounts it; UI SDK keeps it and marks it closed. */
+/** The open content. UI SDK keeps closed content in the page and marks it closed. */
 function openPanel() {
   return (
     panels().find(
@@ -187,8 +184,7 @@ describe("Sheet roles, slots and trigger", () => {
     expect(openPanel()).toBeNull();
 
     await openByClick();
-    if (PORTED) expect(button).toHaveAttribute("data-open");
-    else expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveAttribute("data-open");
     const dialog = screen.getByRole("dialog", { name: "Filters" });
     expect(dialog).toHaveAccessibleDescription("Narrow the list");
     expect(dialog).toBe(openPanel());
@@ -202,11 +198,11 @@ describe("Sheet roles, slots and trigger", () => {
     expect(backdrop()).not.toBeNull();
     expect(screen.getByText("Filters")).toHaveAttribute(
       "data-slot",
-      PORTED ? "dialog-title" : "sheet-title",
+      "dialog-title",
     );
     expect(screen.getByText("Narrow the list")).toHaveAttribute(
       "data-slot",
-      PORTED ? "dialog-description" : "sheet-description",
+      "dialog-description",
     );
     expect(document.querySelector('[data-slot="sheet-header"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="sheet-panel"]')).not.toBeNull();
@@ -217,14 +213,14 @@ describe("Sheet roles, slots and trigger", () => {
     render(<Basic />);
     await openByClick();
     for (const token of POPUP_RESET.split(" ")) {
-      if (PORTED) expect(openPanel()).toHaveClass(token);
+      expect(openPanel()).toHaveClass(token);
     }
   });
 
   it("keeps a sheet identity now that the content slot is dialog-content", async () => {
     render(<Basic />);
     await openByClick();
-    if (PORTED) expect(openPanel()).toHaveAttribute("data-sheet");
+    expect(openPanel()).toHaveAttribute("data-sheet");
   });
 
   it("shows a close button by default and hides it with showCloseButton={false}", async () => {
@@ -393,19 +389,16 @@ describe("Sheet modal behaviour", () => {
     ];
     expect(focusable.length).toBeGreaterThan(1);
 
-    // Base UI traps Tab with focus guards and an inert page, so jsdom sees no
-    // cancelled key. UI SDK handles Tab itself and wraps focus. The browser
-    // check proves the real Tab order; this proves the library's own handling.
+    // UI SDK handles Tab itself and wraps focus. The browser check proves the
+    // real Tab order; this proves the library's own handling.
     focusable.at(-1)?.focus();
     const notCancelled = fireEvent.keyDown(document.activeElement as Element, {
       key: "Tab",
     });
-    if (PORTED) {
-      expect(notCancelled, "UI SDK cancels Tab at the last stop").toBe(false);
-      expect(document.activeElement, "Tab wraps to the first stop").toBe(
-        focusable[0],
-      );
-    }
+    expect(notCancelled, "UI SDK cancels Tab at the last stop").toBe(false);
+    expect(document.activeElement, "Tab wraps to the first stop").toBe(
+      focusable[0],
+    );
     expect(panel.contains(document.activeElement)).toBe(true);
   });
 });
@@ -496,9 +489,9 @@ describe("Sheet and forms", () => {
     const ran = key(screen.getByLabelText("Title"), "Enter");
     expect(ran, "Enter in the input must reach implicit submission").toBe(true);
     expect(inner).toHaveBeenCalledTimes(1);
-    // Base UI portals the panel, but React still sends the inner submit up the
-    // component tree to the outer form (record section 11). Containment stops it.
-    if (PORTED) expect(outer).not.toHaveBeenCalled();
+    // React sends the inner submit up the component tree to the outer form
+    // (record section 11). Containment stops it.
+    expect(outer).not.toHaveBeenCalled();
     expect(openPanel()).not.toBeNull();
   });
 
@@ -590,7 +583,7 @@ describe("Sheet reduced motion", () => {
     await openByClick();
     expect(openPanel()).toHaveAttribute("data-slot", SLOT.content);
     expect(reducedMotionBlock).toContain(`[data-slot="${SLOT.content}"]`);
-    if (PORTED) expect(reducedMotionBlock).toContain("[data-sheet]");
+    expect(reducedMotionBlock).toContain("[data-sheet]");
   });
 
   it("negative control: the same lookup does not find an unknown slot", () => {
@@ -620,7 +613,7 @@ describe("Sheet exports kept for callers", () => {
   });
 });
 
-describe.skipIf(!PORTED)("Sheet event containment", () => {
+describe("Sheet event containment", () => {
   it("contains pointer and command events in the content and the backdrop", async () => {
     await expectPopupContainment({
       render: ({ containEvents, contentProps, control }) => (

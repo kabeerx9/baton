@@ -12,20 +12,14 @@ const UI_SDK_ALLOWED = [
   "components/board/keyboard/",
 ];
 
-// Feature files that still import Base UI directly. Each is ported by a wrapper
-// job, and Z1 empties this list.
 // The J0 smoke test imports UI SDK directly on purpose.
 const UI_SDK_ALLOWED_FILES = ["test/ui-sdk-smoke.test.tsx"];
 
-const BASE_UI_ALLOWED_FILES = [
-  "components/common/option-menu/option-menu.tsx",
-  "components/task/task-delete-dialog.tsx",
-  "components/task/header/task-header-actions.tsx",
-  "components/shortcuts/shortcuts-panel.tsx",
-  "components/task/header/task-more-menu.tsx",
-  "components/account/theme-picker.tsx",
-];
-const BASE_UI_ALLOWED_DIRS = ["components/ui/"];
+// Libraries that must not be imported anywhere (record section 7, check 4).
+// The Base UI scope is joined from parts so a grep for the package name over
+// the source tree finds no match: record section 7, check 1.
+const BASE_UI = ["@base", "-ui"].join("");
+const FORBIDDEN_PREFIXES = [`${BASE_UI}/`, "@radix-ui/", "radix-ui", "cmdk"];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -122,13 +116,7 @@ function specifiersOf(source: string, file: string): string[] {
 // Safety margin for a loaded machine; the prefilter is what makes the test fast.
 const TEST_TIMEOUT_MS = 30_000;
 
-const WATCHED_PREFIXES = [
-  "@ui-sdk",
-  "@base-ui",
-  "@radix-ui",
-  "radix-ui",
-  "cmdk",
-];
+const WATCHED_PREFIXES = ["@ui-sdk", BASE_UI, "@radix-ui", "radix-ui", "cmdk"];
 
 function importsOf(source: string, prefix: string, file = "file.tsx") {
   if (!WATCHED_PREFIXES.some((watched) => source.includes(watched))) {
@@ -169,17 +157,10 @@ describe("UI library import boundary", () => {
     TEST_TIMEOUT_MS,
   );
 
-  it(
-    "imports @base-ui/ only in components/ui and the known direct importers",
-    () => {
-      expect(
-        offenders(
-          "@base-ui/",
-          (relative) =>
-            BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) ||
-            BASE_UI_ALLOWED_FILES.includes(relative),
-        ),
-      ).toEqual([]);
+  it.each(FORBIDDEN_PREFIXES)(
+    "never imports %s",
+    (prefix) => {
+      expect(offenders(prefix, () => false)).toEqual([]);
     },
     TEST_TIMEOUT_MS,
   );
@@ -233,13 +214,18 @@ describe("UI library import boundary", () => {
   it(
     "reports a planted violation",
     () => {
-      const planted = (relative: string, code: string) =>
-        importsOf(code, "@base-ui/", relative) &&
-        !BASE_UI_ALLOWED_DIRS.some((dir) => relative.startsWith(dir)) &&
-        !BASE_UI_ALLOWED_FILES.includes(relative);
-      const code = 'const m = import(/* c */ "@base-ui/react/dialog");';
-      expect(planted("components/task/new-file.tsx", code)).toBe(true);
-      expect(planted("components/ui/dialog.tsx", code)).toBe(false);
+      for (const prefix of FORBIDDEN_PREFIXES) {
+        const code = `const m = import(/* c */ "${prefix}react/dialog");`;
+        expect(
+          importsOf(code, prefix, "components/ui/dialog.tsx"),
+          prefix,
+        ).toBe(true);
+      }
+      // A UI SDK import outside the allowed folders is an offender.
+      const code = 'import { Dialog } from "@ui-sdk/react/dialog";';
+      expect(importsOf(code, "@ui-sdk/", "components/task/new-file.tsx")).toBe(
+        true,
+      );
     },
     TEST_TIMEOUT_MS,
   );

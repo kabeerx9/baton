@@ -168,7 +168,7 @@ describe("Sidebar parts", () => {
     );
   });
 
-  it("styles an open menu trigger with data-popup-open and data-open", () => {
+  it("styles an open menu trigger with data-open", () => {
     render(
       <SidebarProvider>
         <SidebarMenuButton>Item</SidebarMenuButton>
@@ -177,9 +177,7 @@ describe("Sidebar parts", () => {
     );
     const item = screen.getByRole("button", { name: "Item" }).className;
     const action = screen.getByRole("button", { name: "Act" }).className;
-    expect(item).toContain("data-popup-open:hover:bg-sidebar-accent");
     expect(item).toContain("data-open:hover:bg-sidebar-accent");
-    expect(action).toContain("data-popup-open:opacity-100");
     expect(action).toContain("data-open:opacity-100");
   });
 });

@@ -13,6 +13,7 @@ import { Fragment, type ReactElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   Command,
+  CommandCreateHandle,
   CommandDialog,
   CommandDialogPopup,
   CommandDialogTrigger,
@@ -374,22 +375,19 @@ describe("Command list", () => {
   });
 });
 
-// Record section 4: the popup slot `command-dialog-popup` becomes
-// `dialog-content`. The backdrop keeps its UI SDK name `dialog-backdrop`. This
-// flag flips with the port; every assertion that moves with it is one of those
-// renames.
-const PORTED = true;
+// Record section 4: the popup slot is `dialog-content`, the backdrop
+// `dialog-backdrop` and the trigger `dialog-trigger`.
 const SLOT = {
-  content: PORTED ? "dialog-content" : "command-dialog-popup",
-  backdrop: PORTED ? "dialog-backdrop" : "command-dialog-backdrop",
-  trigger: PORTED ? "dialog-trigger" : "command-dialog-trigger",
+  content: "dialog-content",
+  backdrop: "dialog-backdrop",
+  trigger: "dialog-trigger",
 };
 
 type OpenChange = (open: boolean, details: { reason?: string }) => void;
 
 /**
  * One place that knows how callers wire the dialog parts. Only the props and
- * the slot names change between the Base UI and the UI SDK wrapper.
+ * the slot names differ between dialogs.
  */
 function Palette({
   onOpenChange,
@@ -490,9 +488,7 @@ describe("Command dialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Command palette" });
     expect(dialog).toBe(dialogContent());
     expect(dialog).toHaveAttribute("data-slot", SLOT.content);
-    // Base UI leaves `aria-modal` off; UI SDK marks a modal dialog as modal.
-    if (PORTED) expect(dialog).toHaveAttribute("aria-modal", "true");
-    else expect(dialog).not.toHaveAttribute("aria-modal");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(onOpenChange).toHaveBeenLastCalledWith(
       true,
       expect.objectContaining({ reason: "trigger-press" }),
@@ -602,9 +598,8 @@ describe("Command dialog", () => {
     const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
     const onRun = vi.fn();
     // Record rule 8: a UI SDK dialog renders in place, so content that sits in
-    // a form would nest forms. This usage moves it to the body; Base UI
-    // portals there already, so the prop is only passed after the port.
-    const container = PORTED ? document.body : undefined;
+    // a form would nest forms. This usage moves it to the body.
+    const container = document.body;
     render(
       <form onSubmit={onSubmit}>
         <Palette popupProps={{ container }}>
@@ -677,7 +672,34 @@ describe("Command dialog", () => {
   });
 });
 
-describe.skipIf(!PORTED)("Command dialog event containment", () => {
+describe("Command dialog handle", () => {
+  it("opens and closes from a handle, with a detached trigger", async () => {
+    const handle = CommandCreateHandle();
+    render(
+      <>
+        <CommandDialogTrigger handle={handle}>
+          Open palette
+        </CommandDialogTrigger>
+        <CommandDialog handle={handle}>
+          <CommandDialogPopup>
+            <List />
+          </CommandDialogPopup>
+        </CommandDialog>
+      </>,
+    );
+    expect(handle.isOpen).toBe(false);
+
+    act(() => handle.openWithPayload(undefined));
+    await expectOpen();
+    expect(handle.isOpen).toBe(true);
+
+    act(() => handle.close());
+    await expectClosed();
+    expect(handle.isOpen).toBe(false);
+  });
+});
+
+describe("Command dialog event containment", () => {
   it("contains pointer and command events in the content and the backdrop", async () => {
     await expectPopupContainment({
       render: ({ containEvents, contentProps, control }) => (

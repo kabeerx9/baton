@@ -40,11 +40,8 @@ import {
   SelectValue,
 } from "./select";
 
-// Library names. Section 4 of the migration record lists the renames: the
-// content slot `dialog-popup` becomes `dialog-content`. `dialog-backdrop` is
-// unchanged.
+// UI SDK slot names (record section 4).
 const SLOT = { content: "dialog-content", backdrop: "dialog-backdrop" };
-const PORTED = true;
 
 afterEach(cleanup);
 
@@ -167,15 +164,13 @@ describe("Dialog roles, slots and trigger", () => {
     const button = trigger();
     expect(button).toHaveAttribute("data-slot", "dialog-trigger");
     expect(button).toHaveAttribute("type", "button");
-    // Base UI sets aria-expanded; UI SDK uses aria-controls and data-open.
+    // UI SDK uses aria-controls and data-open, not aria-expanded.
     expect(button).toHaveAttribute("aria-haspopup", "dialog");
-    if (!PORTED) expect(button).toHaveAttribute("aria-expanded", "false");
     expect(button).not.toHaveAttribute("data-open");
     expect(openDialog()).toBeNull();
 
     await openByClick();
-    if (PORTED) expect(button).toHaveAttribute("data-open");
-    else expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveAttribute("data-open");
     const dialog = screen.getByRole("dialog", { name: "Edit task" });
     expect(dialog).toHaveAccessibleDescription("Change the details");
     expect(dialog).toBe(openDialog());
@@ -208,7 +203,7 @@ describe("Dialog roles, slots and trigger", () => {
     render(<Basic />);
     await openByClick();
     for (const token of POPUP_RESET.split(" ")) {
-      if (PORTED) expect(openDialog()).toHaveClass(token);
+      expect(openDialog()).toHaveClass(token);
     }
   });
 
@@ -659,9 +654,9 @@ describe("Dialog and forms", () => {
     const ran = key(screen.getByLabelText("Title"), "Enter");
     expect(ran, "Enter in the input must reach implicit submission").toBe(true);
     expect(inner).toHaveBeenCalledTimes(1);
-    // Base UI portals the dialog, but React still sends the inner submit up the
-    // component tree to the outer form (record section 11). Containment stops it.
-    if (PORTED) expect(outer).not.toHaveBeenCalled();
+    // React sends the inner submit up the component tree to the outer form
+    // (record section 11). Containment stops it.
+    expect(outer).not.toHaveBeenCalled();
     expect(openDialog()).not.toBeNull();
   });
 
@@ -760,7 +755,7 @@ describe("Dialog disabled", () => {
   });
 });
 
-describe.skipIf(!PORTED)("Dialog event containment", () => {
+describe("Dialog event containment", () => {
   it("contains pointer and command events in the content and the backdrop", async () => {
     await expectPopupContainment({
       render: ({ containEvents, contentProps, control }) => (
@@ -799,7 +794,7 @@ describe.skipIf(!PORTED)("Dialog event containment", () => {
   });
 });
 
-describe.skipIf(!PORTED)("Popups inside an open dialog", () => {
+describe("Popups inside an open dialog", () => {
   function WithPopups() {
     return (
       <Dialog>

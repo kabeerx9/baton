@@ -25,8 +25,8 @@ import {
 // instead of repeating their classes, their event containment and their
 // onClick-to-onSelect mapping.
 //
-// Slot names follow the UI SDK parts: `context-menu-content` is `menu-content`,
-// `context-menu-item` is `menu-item`, and so on. The trigger's open state is
+// Slot names follow the UI SDK parts: the content is `menu-content`,
+// an item is `menu-item`, and so on. The trigger's open state is
 // `data-open`.
 
 type TriggerProps = Omit<

@@ -22,9 +22,7 @@ import {
 import { expectPopupContainment } from "./popup-containment-test-utils";
 import { POPUP_RESET } from "./popup-reset";
 
-// Library names. Section 4 of the migration record lists the renames: the
-// content slot `menu-popup` becomes `menu-content` and the trigger state
-// `data-popup-open` becomes `data-open`. The other parts keep their slot.
+// UI SDK names (record section 4): content slot `menu-content`, trigger state `data-open`.
 const SLOT = {
   content: "menu-content",
   subContent: "menu-content",

@@ -1,8 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
    The ancestor div stands in for a clickable card or form row around a popup;
    it is a probe, not interactive UI. */
-import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { Popover as BasePopover } from "@base-ui/react/popover";
 import {
   act,
   fireEvent,
@@ -13,6 +11,8 @@ import {
 import * as React from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { Dialog, DialogPopup } from "./dialog";
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "./popover";
 import { expectPopupContainment } from "./popup-containment-test-utils";
 import {
   Select,
@@ -34,9 +34,8 @@ const FRUITS = [
   { value: "blueberry", label: "Blueberry" },
 ];
 
-// The popup slot: `select-popup` on Base UI, `select-content` on UI SDK.
+// The popup slot on UI SDK.
 const SLOT = "select-content";
-const PORTED = true;
 
 // Base UI mounts the list only while it is open. UI SDK keeps the content in
 // the page and marks it data-closed while it is hidden. Both count as shown
@@ -351,10 +350,7 @@ describe("Select modal", () => {
   // How "modal is engaged" shows: UI SDK locks scroll on <html>. Base UI's
   // scroll lock needs a real scrollbar, which jsdom has none of, so there the
   // sign is its inert overlay around the page.
-  const locked = () =>
-    PORTED
-      ? document.documentElement.style.overflow === "hidden"
-      : document.querySelector("[data-base-ui-inert]") !== null;
+  const locked = () => document.documentElement.style.overflow === "hidden";
 
   it("locks page scroll while open and releases it on close", async () => {
     render(<Fruit />);
@@ -370,7 +366,7 @@ describe("Select modal", () => {
 
   // Base UI's Select has no modal prop (always modal), so the opt-out is a
   // UI SDK addition and runs on the ported wrapper only.
-  it.runIf(PORTED)("does not lock page scroll with modal={false}", async () => {
+  it("does not lock page scroll with modal={false}", async () => {
     render(<Fruit modal={false} />);
 
     await openByClick();
@@ -496,21 +492,18 @@ describe("Select keyboard", () => {
   // Base UI 1.9 mounts items only while open, so a closed trigger has no
   // labels to match and selects nothing in jsdom. UI SDK documents this
   // typeahead; the test runs on the ported wrapper only.
-  it.runIf(PORTED)(
-    "selects the next match when typing on the closed, focused trigger",
-    async () => {
-      const onValueChange = vi.fn();
-      render(<Fruit onValueChange={onValueChange} />);
+  it("selects the next match when typing on the closed, focused trigger", async () => {
+    const onValueChange = vi.fn();
+    render(<Fruit onValueChange={onValueChange} />);
 
-      act(() => trigger().focus());
-      key(trigger(), "c");
+    act(() => trigger().focus());
+    key(trigger(), "c");
 
-      await waitFor(() => expect(onValueChange).toHaveBeenCalled());
-      expect(onValueChange.mock.calls[0]?.[0]).toBe("cherry");
-      expect(shownListbox()).toBeNull();
-      expect(trigger()).toHaveTextContent("Cherry");
-    },
-  );
+    await waitFor(() => expect(onValueChange).toHaveBeenCalled());
+    expect(onValueChange.mock.calls[0]?.[0]).toBe("cherry");
+    expect(shownListbox()).toBeNull();
+    expect(trigger()).toHaveTextContent("Cherry");
+  });
 });
 
 describe("Select disabled", () => {
@@ -568,7 +561,7 @@ describe("Select disabled", () => {
 // Added by UI SDK. Base UI 1.9 left a disabled item focusable and
 // highlightable (aria-disabled, tabindex -1); UI SDK skips it on the arrows.
 describe("Select added behavior", () => {
-  it.runIf(PORTED)("skips a disabled item on the arrow keys", async () => {
+  it("skips a disabled item on the arrow keys", async () => {
     render(<Fruit disabledItem="banana" />);
 
     await openByClick();
@@ -671,16 +664,14 @@ describe("Select in a form", () => {
 });
 
 describe("Select in other layers", () => {
-  it("works inside a Base UI dialog without closing it", async () => {
+  it("works inside a dialog without closing it", async () => {
     const onValueChange = vi.fn();
     render(
-      <BaseDialog.Root open>
-        <BaseDialog.Portal>
-          <BaseDialog.Popup aria-label="Edit">
-            <Fruit onValueChange={onValueChange} />
-          </BaseDialog.Popup>
-        </BaseDialog.Portal>
-      </BaseDialog.Root>,
+      <Dialog open>
+        <DialogPopup aria-label="Edit" showCloseButton={false}>
+          <Fruit onValueChange={onValueChange} />
+        </DialogPopup>
+      </Dialog>,
     );
 
     await openByClick();
@@ -692,19 +683,16 @@ describe("Select in other layers", () => {
     expect(trigger()).toHaveTextContent("Banana");
   });
 
-  it("works inside a Base UI popover without closing it", async () => {
+  it("works inside a popover without closing it", async () => {
     const onValueChange = vi.fn();
     render(
-      <BasePopover.Root open>
-        <BasePopover.Trigger>Open</BasePopover.Trigger>
-        <BasePopover.Portal>
-          <BasePopover.Positioner>
-            <BasePopover.Popup aria-label="Filters">
-              <Fruit onValueChange={onValueChange} />
-            </BasePopover.Popup>
-          </BasePopover.Positioner>
-        </BasePopover.Portal>
-      </BasePopover.Root>,
+      <Popover open>
+        <PopoverTrigger>Open</PopoverTrigger>
+        <PopoverPopup>
+          <PopoverTitle className="sr-only">Filters</PopoverTitle>
+          <Fruit onValueChange={onValueChange} />
+        </PopoverPopup>
+      </Popover>,
     );
 
     await openByClick();
@@ -785,27 +773,24 @@ describe("Select parts and options", () => {
 // Base UI popups never contain events (record section 11), and Base UI's
 // select popup stops some keydowns itself, so this runs on the ported wrapper.
 describe("Select event containment", () => {
-  it.runIf(PORTED)(
-    "contains pointer and command events from its content",
-    async () => {
-      await expectPopupContainment({
-        render: ({ containEvents, contentProps, control }) => (
-          <Fruit
-            containEvents={containEvents}
-            contentProps={contentProps}
-            control={control}
-          />
-        ),
-        open: async () => {
-          press(trigger());
-          await waitFor(() => expect(shownListbox()).not.toBeNull());
-        },
-        content: () => {
-          const content = document.querySelector(`[data-slot="${SLOT}"]`);
-          if (!content) throw new Error("no select content");
-          return content;
-        },
-      });
-    },
-  );
+  it("contains pointer and command events from its content", async () => {
+    await expectPopupContainment({
+      render: ({ containEvents, contentProps, control }) => (
+        <Fruit
+          containEvents={containEvents}
+          contentProps={contentProps}
+          control={control}
+        />
+      ),
+      open: async () => {
+        press(trigger());
+        await waitFor(() => expect(shownListbox()).not.toBeNull());
+      },
+      content: () => {
+        const content = document.querySelector(`[data-slot="${SLOT}"]`);
+        if (!content) throw new Error("no select content");
+        return content;
+      },
+    });
+  });
 });
