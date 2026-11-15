@@ -9,6 +9,7 @@ const OVERLAY_SELECTOR = [
   '[data-slot="dialog-popup"]',
   '[data-slot="alert-dialog-popup"]',
   '[data-slot="sheet-popup"]',
+  "[data-sheet]",
   '[data-slot="menu-popup"]',
   '[data-slot="select-popup"]',
   '[data-slot="combobox-popup"]',

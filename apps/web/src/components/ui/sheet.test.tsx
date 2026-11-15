@@ -33,11 +33,15 @@ import {
 } from "./sheet";
 
 // Library names. Section 4 of the migration record renames the content slot
-// `sheet-popup` to `dialog-content`. `sheet-backdrop` is unchanged. The port
-// keeps a `data-sheet` identity on the content so sheet-only selectors still
-// match now that the part owns the slot name.
-const SLOT = { content: "sheet-popup", backdrop: "sheet-backdrop" };
-const PORTED = false;
+// `sheet-popup` to `dialog-content` and moves the backdrop to `dialog-backdrop`
+// with the other dialog kinds. The port keeps a `data-sheet` identity on the
+// content so sheet-only selectors still match now that the part owns the slot
+// name.
+const PORTED = true;
+const SLOT = {
+  content: PORTED ? "dialog-content" : "sheet-popup",
+  backdrop: PORTED ? "dialog-backdrop" : "sheet-backdrop",
+};
 
 type Side = "right" | "left" | "top" | "bottom";
 
@@ -657,7 +661,7 @@ describe.skipIf(!PORTED)("Sheet event containment", () => {
   it("warns when the content sits inside an anchor, and container fixes it", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const first = render(
-      <a href="/board">
+      <a href="#board">
         <Sheet>
           <SheetTrigger render={<button type="button" />}>
             Open panel
@@ -678,7 +682,7 @@ describe.skipIf(!PORTED)("Sheet event containment", () => {
     error.mockClear();
 
     render(
-      <a href="/board">
+      <a href="#board">
         <Sheet>
           <SheetTrigger render={<button type="button" />}>
             Open panel
