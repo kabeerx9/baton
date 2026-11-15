@@ -346,7 +346,7 @@ describe("TaskDescription", () => {
     fireEvent.click(image);
 
     const popup = await waitFor(() => {
-      const found = document.querySelector('[data-slot="dialog-popup"]');
+      const found = document.querySelector('[data-slot="dialog-content"]');
       expect(found).not.toBeNull();
       return found as HTMLElement;
     });
