@@ -30,14 +30,16 @@ const mocks = vi.hoisted(() => {
   const select = vi.fn(() => ({
     from: () => ({
       where: () => ({
-        limit: () => ({
-          for: async () => [
-            {
-              id: "victim-session",
-              expiresAt: new Date(Date.now() + 60_000),
-            },
-          ],
-        }),
+        // Awaited directly (credential account lookup): no password set.
+        limit: () =>
+          Object.assign(Promise.resolve([]), {
+            for: async () => [
+              {
+                id: "victim-session",
+                expiresAt: new Date(Date.now() + 60_000),
+              },
+            ],
+          }),
       }),
     }),
   }));
