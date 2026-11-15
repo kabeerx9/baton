@@ -38,11 +38,18 @@ function migrationStatements() {
     .filter(Boolean);
 }
 
-it("is the latest migration, so the old schema is today's without it", () => {
+// Later migrations that only add new, unrelated tables leave the premise
+// intact. Add one here only after checking it touches none of 0077's objects.
+const independentLaterMigrations = ["0078_mcp_grants"];
+
+it("is the latest migration that changes these tables, so the old schema is today's without it", () => {
   const journal = JSON.parse(
     readFileSync(resolve(drizzleFolder, "meta/_journal.json"), "utf8"),
   ) as { entries: Array<{ tag: string }> };
-  expect(journal.entries.at(-1)?.tag).toBe(migrationTag);
+  const tags = journal.entries.map((entry) => entry.tag);
+  expect(tags.slice(tags.indexOf(migrationTag) + 1)).toEqual(
+    independentLaterMigrations,
+  );
 });
 
 it("upgrades a populated database and backfills creators from history", async () => {
