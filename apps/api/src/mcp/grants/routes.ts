@@ -8,9 +8,14 @@ import {
 } from "../../openapi";
 import { authenticateApiRequest } from "../../utils/authenticate-api-request";
 import { requireUserSession } from "../../utils/require-user-session";
+import { decodeGrantCursor } from "../grant/grant-cursor";
 import { listUserGrants } from "../grant/list-grants";
 import { revokeOwnGrant } from "../grant/revoke-grants";
-import { mcpGrantListSchema, mcpGrantParamSchema } from "./schemas";
+import {
+  mcpGrantListQuerySchema,
+  mcpGrantListSchema,
+  mcpGrantParamSchema,
+} from "./schemas";
 
 // /api/mcp/* skips the app-wide auth middleware, so these routes sign in here.
 // Managing agents is account security: a browser session is required.
@@ -26,13 +31,12 @@ const listGrantsRoute = createRoute({
   tags: ["MCP"],
   summary: "List connected agents",
   description:
-    "List the caller's live MCP grants: one per agent that signed in through OAuth and was not revoked or left unused for 90 days. Tokens are never returned. Requires a user session; API keys and MCP tokens are rejected.",
+    "List the caller's live MCP grants: one per agent that signed in through OAuth and was not revoked or left unused for 90 days. Newest first, in pages; follow `nextCursor` until it is null. Tokens are never returned. Requires a user session; API keys and MCP tokens are rejected.",
   middleware: [requireSignedInUser] as const,
+  request: { query: mcpGrantListQuerySchema },
   responses: {
-    200: jsonResponse(
-      "Connected agents, most recently used first",
-      mcpGrantListSchema,
-    ),
+    200: jsonResponse("Connected agents, newest first", mcpGrantListSchema),
+    400: errorResponse("Invalid cursor or limit"),
     401: errorResponse("Unauthorized"),
     403: errorResponse("Not a user session"),
   },
@@ -57,9 +61,20 @@ const revokeGrantRoute = createRoute({
 });
 
 export const mcpGrantRoutes = apiRouter()
-  .openapi(listGrantsRoute, async (c) =>
-    c.json(await listUserGrants(c.get("userId")), 200),
-  )
+  .openapi(listGrantsRoute, async (c) => {
+    const query = c.req.valid("query");
+    const cursor = query.cursor ? decodeGrantCursor(query.cursor) : null;
+    if (query.cursor && !cursor) {
+      throw new ApiError(400, {
+        message: "Invalid cursor",
+        code: "MCP_GRANT_INVALID_CURSOR",
+      });
+    }
+    return c.json(
+      await listUserGrants(c.get("userId"), { limit: query.limit, cursor }),
+      200,
+    );
+  })
   .openapi(revokeGrantRoute, async (c) => {
     if (!(await revokeOwnGrant(c.get("userId"), c.req.valid("param").id))) {
       throw new ApiError(404, {

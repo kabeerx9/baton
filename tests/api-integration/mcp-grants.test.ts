@@ -466,7 +466,11 @@ describe("MCP grants API", () => {
       headers: asAlice,
     });
     expect(aliceList.status).toBe(200);
-    const grants = (await aliceList.json()) as Array<Record<string, unknown>>;
+    const { grants, nextCursor } = (await aliceList.json()) as {
+      grants: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+    };
+    expect(nextCursor).toBeNull();
     expect(grants).toEqual([
       {
         id: expect.any(String),
@@ -480,7 +484,7 @@ describe("MCP grants API", () => {
 
     expect(
       await (await app.request("/api/mcp/grants", { headers: asBob })).json(),
-    ).toEqual([]);
+    ).toEqual({ grants: [], nextCursor: null });
     const bobRevoke = await app.request(`/api/mcp/grants/${grantId}`, {
       method: "DELETE",
       headers: asBob,
@@ -513,7 +517,120 @@ describe("MCP grants API", () => {
     ).toBe(404);
     expect(
       await (await app.request("/api/mcp/grants", { headers: asAlice })).json(),
-    ).toEqual([]);
+    ).toEqual({ grants: [], nextCursor: null });
+  });
+
+  it.each([
+    "removed",
+    "custom role without workspace:read",
+    "archived",
+  ] as const)(
+    "hides the default workspace once the caller is %s",
+    async (change) => {
+      const { app } = createApp();
+      // The first account becomes the instance admin, who passes role checks.
+      await signUp(app, "Instance admin");
+      const owner = await signUp(app);
+      const workspace = await addWorkspace(owner.userId, "Acme");
+      await connectMcpAgent(app, { bearer: owner.token });
+      const list = async () =>
+        (await (
+          await app.request("/api/mcp/grants", {
+            headers: { authorization: `Bearer ${owner.token}` },
+          })
+        ).json()) as { grants: Array<{ id: string; workspace: unknown }> };
+      expect((await list()).grants[0]?.workspace).toEqual({
+        id: workspace.id,
+        name: "Acme",
+      });
+
+      if (change === "removed") {
+        await db
+          .delete(schema.workspaceUserTable)
+          .where(eq(schema.workspaceUserTable.workspaceId, workspace.id));
+      } else if (change === "archived") {
+        await db
+          .update(schema.workspaceTable)
+          .set({ archivedAt: new Date() })
+          .where(eq(schema.workspaceTable.id, workspace.id));
+      } else {
+        await db
+          .update(schema.workspaceUserTable)
+          .set({ role: "contractor" })
+          .where(eq(schema.workspaceUserTable.workspaceId, workspace.id));
+        await db.insert(schema.workspaceRoleTable).values({
+          workspaceId: workspace.id,
+          role: "contractor",
+          permission: JSON.stringify({ task: ["read"] }),
+          createdAt: new Date(),
+        });
+      }
+      await db
+        .update(schema.workspaceTable)
+        .set({ name: "Secret client" })
+        .where(eq(schema.workspaceTable.id, workspace.id));
+
+      const after = await list();
+      // The grant stays visible and revocable; the workspace does not leak.
+      expect(after.grants).toHaveLength(1);
+      expect(after.grants[0]?.workspace).toBeNull();
+      expect(JSON.stringify(after)).not.toContain("Secret client");
+      expect(JSON.stringify(after)).not.toContain(workspace.id);
+    },
+  );
+
+  it("pages through every live grant with a cursor", async () => {
+    const { app } = createApp();
+    const owner = await signUp(app);
+    const base = Date.now() - 60_000;
+    // Five grants; two share a creation time to exercise the id tiebreak.
+    const created = [0, 1, 1, 2, 3].map((offset, index) => ({
+      id: `grant-${index}`,
+      userId: owner.userId,
+      clientId: randomUUID(),
+      clientName: `Agent ${index}`,
+      resource: "http://localhost:1337/api/mcp",
+      createdAt: new Date(base + offset * 1000),
+      lastUsedAt: new Date(),
+      idleExpiresAt: new Date(Date.now() + 60_000),
+    }));
+    await db.insert(schema.mcpGrantTable).values(created);
+    const headers = { authorization: `Bearer ${owner.token}` };
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const query = new URLSearchParams({ limit: "2" });
+      if (cursor) query.set("cursor", cursor);
+      const response = await app.request(`/api/mcp/grants?${query}`, {
+        headers,
+      });
+      expect(response.status).toBe(200);
+      const page = (await response.json()) as {
+        grants: Array<{ id: string }>;
+        nextCursor: string | null;
+      };
+      expect(page.grants.length).toBeLessThanOrEqual(2);
+      seen.push(...page.grants.map((grant) => grant.id));
+      cursor = page.nextCursor;
+      pages++;
+    } while (cursor);
+    expect(pages).toBe(3);
+    expect(seen).toEqual([
+      "grant-4",
+      "grant-3",
+      "grant-2",
+      "grant-1",
+      "grant-0",
+    ]);
+
+    for (const query of ["cursor=garbage", "limit=0", "limit=101"]) {
+      expect(
+        (await app.request(`/api/mcp/grants?${query}`, { headers })).status,
+        query,
+      ).toBe(400);
+    }
   });
 
   it("revocation takes effect on the next call on another replica", async () => {
@@ -523,11 +640,13 @@ describe("MCP grants API", () => {
     vi.resetModules();
     const replica = (await import("../../apps/api/src/index")).createApp().app;
     expect((await authorized(replica, agent.accessToken)).status).toBe(200);
-    const [grant] = (await (
+    const {
+      grants: [grant],
+    } = (await (
       await app.request("/api/mcp/grants", {
         headers: { authorization: `Bearer ${owner.token}` },
       })
-    ).json()) as Array<{ id: string }>;
+    ).json()) as { grants: Array<{ id: string }> };
     await app.request(`/api/mcp/grants/${grant!.id}`, {
       method: "DELETE",
       headers: { authorization: `Bearer ${owner.token}` },
