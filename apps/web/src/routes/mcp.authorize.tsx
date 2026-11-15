@@ -148,6 +148,13 @@ function McpAuthorizePage() {
               <span className="font-medium text-sm">
                 {t("auth:mcp.authorize.workspace")}
               </span>
+              {/* The hint sits above the select so the open list never covers it. */}
+              <p
+                id="mcp-workspace-hint"
+                className="text-muted-foreground text-xs"
+              >
+                {t("auth:mcp.authorize.workspaceHint")}
+              </p>
               <Select
                 value={workspaceId}
                 onValueChange={(value) => {
@@ -155,10 +162,13 @@ function McpAuthorizePage() {
                 }}
                 disabled={decision.isPending}
               >
-                <SelectTrigger aria-label={t("auth:mcp.authorize.workspace")}>
+                <SelectTrigger
+                  aria-label={t("auth:mcp.authorize.workspace")}
+                  aria-describedby="mcp-workspace-hint"
+                >
                   <SelectValue>{pickedName}</SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent alignItemWithTrigger={false}>
                   {choices.map((choice) => (
                     <SelectItem key={choice.id} value={choice.id}>
                       {choice.name}
@@ -166,9 +176,6 @@ function McpAuthorizePage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-muted-foreground text-xs">
-                {t("auth:mcp.authorize.workspaceHint")}
-              </p>
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
