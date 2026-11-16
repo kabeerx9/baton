@@ -1,5 +1,7 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 import { activityOutboxConsumer } from "../../apps/api/src/activity/outbox-consumer";
+import { claimOutboxRows } from "../../apps/api/src/events/outbox/claim";
+import { deliverOutboxRow } from "../../apps/api/src/events/outbox/deliver";
 import { publishTaskMutation } from "../../apps/api/src/task/controllers/task-mutation-effects";
 import updateTaskStatus from "../../apps/api/src/task/controllers/update-task-status";
 import { resetTestDatabase } from "./helpers/database";
@@ -86,5 +88,30 @@ it("drops the row when the task is gone", async () => {
   // The task cascade does not reach the outbox: the row outlives the task.
   await db.delete(schema.taskTable).where(eq(schema.taskTable.id, task.id));
   await drainOutbox();
+  expect(await readOutbox()).toHaveLength(0);
+});
+
+it("keeps one activity row when a handler outlives its timeout", async () => {
+  const { user, task } = await outboxTaskFixture();
+  await updateTaskStatus({
+    id: task.id,
+    status: "done",
+    currentUserId: user.id,
+  });
+  const original = activityOutboxConsumer.deliver;
+  vi.spyOn(activityOutboxConsumer, "deliver").mockImplementationOnce(
+    async (...args) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return original(...args);
+    },
+  );
+  const [claimed] = await claimOutboxRows(["activity"], 1);
+  expect(await deliverOutboxRow(claimed!, { timeoutMs: 50 })).toBe("retry");
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(await readActivities(task.id)).toHaveLength(0);
+
+  await makeOutboxDue();
+  await drainOutbox();
+  expect(await readActivities(task.id)).toHaveLength(1);
   expect(await readOutbox()).toHaveLength(0);
 });

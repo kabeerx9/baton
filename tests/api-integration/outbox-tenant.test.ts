@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
-import { publishEvent } from "../../apps/api/src/events";
+import { publishEvent, subscribeToEvent } from "../../apps/api/src/events";
 import { enqueueEvent } from "../../apps/api/src/events/outbox/enqueue";
 import updateTaskStatus from "../../apps/api/src/task/controllers/update-task-status";
 import { resetTestDatabase } from "./helpers/database";
@@ -88,8 +88,10 @@ it("keeps the description and the task row out of the payload", async () => {
   });
 });
 
-it("logs a bridge failure without the payload", async () => {
+it("logs a bridge failure without the payload and still reaches live subscribers", async () => {
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const live = vi.fn(async () => undefined);
+  await subscribeToEvent("task.status_changed", live);
   await publishEvent("task.status_changed", {
     taskId: "task-x",
     projectId: "missing-project",
@@ -97,6 +99,9 @@ it("logs a bridge failure without the payload", async () => {
     type: "status_changed",
   });
   expect(await readOutbox()).toHaveLength(0);
+  expect(live).toHaveBeenCalledWith(
+    expect.objectContaining({ taskId: "task-x", title: "private title" }),
+  );
   const logged = JSON.stringify(log.mock.calls);
   expect(logged).toContain("task.status_changed");
   expect(logged).not.toContain("private title");

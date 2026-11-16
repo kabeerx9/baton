@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { ClaimedRow } from "../../../apps/api/src/events/outbox/claim";
 import { nudgeOutbox } from "../../../apps/api/src/events/outbox/nudge";
+import { publishLive } from "../../../apps/api/src/events/index";
 import {
   drainLane,
   startLoop,
@@ -65,6 +66,19 @@ describe("drainLane", () => {
   });
 });
 
+describe("drainLane stop", () => {
+  it("claims no batch after stop", async () => {
+    let stopped = false;
+    const claim = vi.fn(async () => [claimed("a")]);
+    const deliver = vi.fn(async () => {
+      stopped = true;
+      return "delivered" as const;
+    });
+    expect(await drainLane("local", { claim, deliver }, () => stopped)).toBe(1);
+    expect(claim).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("startLoop", () => {
   it("runs one tick at a time and runs once more after a nudge during a run", async () => {
     const gate = deferred();
@@ -123,5 +137,19 @@ describe("startLoop", () => {
     gate.resolve();
     await stopping;
     expect(finished).toBe(true);
+  });
+});
+
+describe("nudge", () => {
+  it("wakes the relay for a durable event and not for a live-only one", async () => {
+    const run = vi.fn(async () => undefined);
+    const stop = startLoop(run, { pollMs: 60_000, label: "test" });
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await publishLive("tasks.reordered", { projectId: "p" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(run).toHaveBeenCalledTimes(1);
+    await publishLive("task.status_changed", { taskId: "t", projectId: "p" });
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(2));
+    await stop();
   });
 });

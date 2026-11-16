@@ -92,7 +92,8 @@ export async function publishLive(
     console.error("Failed to publish event:", error);
     throw error;
   } finally {
-    nudgeOutbox();
+    // Only a durable event can have left a row for the relay.
+    if (isDurableEvent(eventType)) nudgeOutbox();
   }
 }
 

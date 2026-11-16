@@ -35,11 +35,14 @@ const defaultDeps: LaneDeps = {
 export async function drainLane(
   lane: Lane,
   deps: LaneDeps = defaultDeps,
+  isStopped: () => boolean = () => false,
 ): Promise<number> {
   const consumers = consumersInLane(lane);
   const config = LANES[lane];
   let total = 0;
-  for (;;) {
+  // A stopping relay finishes its batch and claims no more; the rest of
+  // the backlog stays pending for the next instance.
+  while (!isStopped()) {
     const batch = await deps.claim(consumers, config.batch);
     if (!batch.length) return total;
     total += batch.length;
@@ -54,6 +57,7 @@ export async function drainLane(
     if (config.mode === "parallel") await Promise.all(batch.map(run));
     else for (const claimed of batch) await run(claimed);
   }
+  return total;
 }
 
 /**
@@ -62,7 +66,7 @@ export async function drainLane(
  * claim does not wait for the poll.
  */
 export function startLoop(
-  run: () => Promise<unknown>,
+  run: (isStopped: () => boolean) => Promise<unknown>,
   { pollMs, label }: { pollMs: number; label: string },
 ) {
   let running: Promise<void> | null = null;
@@ -78,7 +82,7 @@ export function startLoop(
       do {
         again = false;
         try {
-          await run();
+          await run(() => stopped);
         } catch (error) {
           // A database outage: no claim committed, so no attempt is spent.
           console.error(`Outbox ${label} relay failed`, errorCode(error));
@@ -108,7 +112,12 @@ export function startLoop(
 export function startOutboxRelay({ pollMs = 1_000 }: { pollMs?: number } = {}) {
   const stops = (Object.keys(LANES) as Lane[])
     .filter((lane) => consumersInLane(lane).length > 0)
-    .map((lane) => startLoop(() => drainLane(lane), { pollMs, label: lane }));
+    .map((lane) =>
+      startLoop((isStopped) => drainLane(lane, defaultDeps, isStopped), {
+        pollMs,
+        label: lane,
+      }),
+    );
   return async () => {
     await Promise.all(stops.map((stop) => stop()));
   };

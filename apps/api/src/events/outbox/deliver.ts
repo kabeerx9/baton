@@ -50,12 +50,29 @@ class OutboxTimeout extends Error {
   }
 }
 
-function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+/**
+ * Bounds a handler that runs on `tx`. On timeout it still waits for the
+ * handler to settle before the transaction ends: a handler left running
+ * would write on a released connection, outside the fenced delete, and
+ * a redelivery would repeat its write. `statement_timeout` bounds that wait.
+ */
+async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  let timedOut = false;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new OutboxTimeout()), ms);
+    timer = setTimeout(() => {
+      timedOut = true;
+      reject(new OutboxTimeout());
+    }, ms);
   });
-  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+  try {
+    return await Promise.race([work, timeout]);
+  } catch (error) {
+    if (timedOut) await work.catch(() => undefined);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function runLocal(
@@ -69,6 +86,9 @@ async function runLocal(
     channel: (row.channel as Channel | null) ?? null,
   };
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT set_config('statement_timeout', ${String(timeoutMs)}, true)`,
+    );
     const result = await withTimeout(
       eventContext.run(context, () =>
         consumer.deliver(tx, row, { ageMs: claimed.ageMs }),
