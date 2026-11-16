@@ -12,6 +12,7 @@ import { canAccessProject } from "../../project-access/can-access-project";
 import { projectAccessCondition } from "../../project-access/project-access-condition";
 import { escapeLikePattern } from "../like-pattern";
 import { TASK_SHORT_ID_PATTERN } from "../task-short-id";
+import { isDemoWorkspace } from "../../workspace/kind/is-demo-workspace";
 
 type SearchParams = {
   query: string;
@@ -130,10 +131,24 @@ async function globalSearch(params: SearchParams): Promise<{
     return { results: [], totalCount: 0, searchQuery: query };
   }
 
+  // Search never reaches a product-tour sandbox, even when it is named.
+  if (workspaceId && (await isDemoWorkspace(workspaceId))) {
+    return { results: [], totalCount: 0, searchQuery: query };
+  }
+
   const userWorkspaces = await db
     .select({ workspaceId: workspaceUserTable.workspaceId })
     .from(workspaceUserTable)
-    .where(eq(workspaceUserTable.userId, resolvedUserId));
+    .innerJoin(
+      workspaceTable,
+      eq(workspaceTable.id, workspaceUserTable.workspaceId),
+    )
+    .where(
+      and(
+        eq(workspaceUserTable.userId, resolvedUserId),
+        eq(workspaceTable.kind, "team"),
+      ),
+    );
 
   const accessibleWorkspaceIds = userWorkspaces
     .map((w) => w.workspaceId)

@@ -31,6 +31,7 @@ subscribeToEvent<{
   await sendDm(
     blocker.ownerId,
     waitingOnYouMessage({ waiterName: blocked.ownerName, blocker, blocked }),
+    { workspaceId: blocker.workspaceId },
   );
 });
 
@@ -65,6 +66,7 @@ subscribeToEvent<{ taskId: string; userId?: string | null }>(
           blocked,
           stillWaitingOn: await openBlockersOf(blocked.id, config.clientUrl),
         }),
+        { workspaceId: blocked.workspaceId },
       );
     }
   },
@@ -99,6 +101,7 @@ subscribeToEvent<{
     await sendDm(
       event.newAssigneeId,
       waitingOnYouMessage({ waiterName: blocked.ownerName, blocker, blocked }),
+      { workspaceId: blocker.workspaceId },
     );
   }
 });

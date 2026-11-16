@@ -36,7 +36,11 @@ async function getWorkspace(workspaceId: string, userId: string) {
         eq(workspaceTable.id, workspaceId),
         or(
           isNotNull(workspaceUserTable.id),
-          instanceAdminRoleSql(userTable.role),
+          // Administrators may read team workspaces; a demo is members only.
+          and(
+            instanceAdminRoleSql(userTable.role),
+            eq(workspaceTable.kind, "team"),
+          ),
         ),
       ),
     )

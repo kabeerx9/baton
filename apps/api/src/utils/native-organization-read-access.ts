@@ -9,6 +9,9 @@ type AuthContext = Parameters<typeof getSessionFromCtx>[0];
 export async function readableNativeOrganizations(
   userId: string,
   workspaceIds: string[],
+  // A list never shows a product-tour sandbox; a direct read by its member
+  // (set-active, get-full-organization) still works.
+  { listing = false }: { listing?: boolean } = {},
 ) {
   const ids = [...new Set(workspaceIds)];
   if (ids.length === 0) return new Set<string>();
@@ -28,6 +31,7 @@ export async function readableNativeOrganizations(
         inArray(schema.workspaceUserTable.workspaceId, ids),
         // Archived workspaces drop out of organization lists.
         isNull(schema.workspaceTable.archivedAt),
+        listing ? eq(schema.workspaceTable.kind, "team") : undefined,
       ),
     );
   if (members.length === 0) return new Set<string>();

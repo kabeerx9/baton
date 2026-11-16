@@ -12,6 +12,7 @@ import {
   OLD_CHAIN_LENGTH,
   OLD_FINAL_MIGRATION,
 } from "../../apps/api/scripts/adopt-migration-baseline/classify-ledger";
+import { baselineOnlyMigrations } from "./helpers/baseline-only-migrations";
 import { ensureTestDatabaseMigrated } from "./helpers/database";
 
 // A throwaway ledger, so the suite's real drizzle ledger is never rewritten.
@@ -97,7 +98,17 @@ it("replaces the full old chain with the baseline, so migrate is a no-op", async
     { hash: baseline.hash, created_at: String(baseline.createdAt) },
   ]);
 
-  await migrate(db, { migrationsFolder, migrationsSchema: ledger.schema });
+  // Later migrations apply after the baseline; the adopted baseline itself
+  // must be recognized as applied, so a baseline-only migrate does nothing.
+  const baselineOnly = baselineOnlyMigrations();
+  try {
+    await migrate(db, {
+      migrationsFolder: baselineOnly.folder,
+      migrationsSchema: ledger.schema,
+    });
+  } finally {
+    baselineOnly.remove();
+  }
   expect(await readLedger()).toHaveLength(1);
 });
 

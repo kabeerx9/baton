@@ -29,7 +29,10 @@ async function listWorkspaces(userId: string) {
       ),
     )
     .innerJoin(userTable, eq(userTable.id, workspaceUserTable.userId))
-    .where(isNull(workspaceTable.archivedAt))
+    // Demo workspaces are reached only through the tour, never a list.
+    .where(
+      and(isNull(workspaceTable.archivedAt), eq(workspaceTable.kind, "team")),
+    )
     .orderBy(
       sortName,
       workspaceTable.id,

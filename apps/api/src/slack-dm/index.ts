@@ -129,7 +129,14 @@ const slackDm = apiRouter<BaseVariables>()
     return c.json(await statusFor(userId), 200);
   })
   .openapi(sendTestRoute, async (c) =>
-    c.json({ outcome: await sendDm(c.get("userId"), testMessage()) }, 200),
+    c.json(
+      {
+        outcome: await sendDm(c.get("userId"), testMessage(), {
+          personal: true,
+        }),
+      },
+      200,
+    ),
   );
 
 export default slackDm;

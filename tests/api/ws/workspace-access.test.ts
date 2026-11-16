@@ -26,7 +26,9 @@ vi.mock("../../../apps/api/src/database", () => ({
 }));
 beforeEach(() => {
   m.user.mockResolvedValue([{ role: "user" }]);
-  m.workspaces.mockResolvedValue([{ workspaceId: "admin-accessible" }]);
+  m.workspaces.mockResolvedValue([
+    { workspaceId: "admin-accessible", kind: "team" },
+  ]);
   m.memberships.mockResolvedValue([{ workspaceId: "still-authorized" }]);
 });
 it("sends current workspace access when reconnecting after an offline removal", async () => {
@@ -66,4 +68,14 @@ it("recognizes restored membership and administrator access for delayed revocati
   expect(await hasWorkspaceAccess("user", "removed")).toBe(true);
   m.user.mockResolvedValue([]);
   expect(await hasWorkspaceAccess("user", "removed")).toBe(false);
+});
+
+it("gives administrators no access to another user's demo workspace", async () => {
+  m.memberships.mockResolvedValue([]);
+  m.user.mockResolvedValue([{ role: "user,admin" }]);
+  m.workspaces.mockResolvedValue([{ kind: "demo" }]);
+  expect(await hasWorkspaceAccess("admin", "someone-elses-demo")).toBe(false);
+  // Their own demo comes through membership.
+  m.memberships.mockResolvedValue([{ userId: "admin" }]);
+  expect(await hasWorkspaceAccess("admin", "own-demo")).toBe(true);
 });

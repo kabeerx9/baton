@@ -90,6 +90,7 @@ import {
 } from "./utils/get-workspace-invitation-email-copy";
 import { getGithubSsoOAuthCredentials } from "./utils/github-sso-env";
 import { hasInstanceAdminRole } from "./utils/instance-admin-role";
+import { assertShareableOrganization } from "./workspace/kind/assert-shareable-workspace";
 import {
   assertNoOAuthSignIn,
   assertOAuthCallbackLinks,
@@ -279,6 +280,13 @@ export const auth = betterAuth({
               input: true,
               required: false,
             },
+            // "team" or "demo"; only the tour creates a demo, never a client.
+            kind: {
+              type: "string",
+              input: false,
+              required: false,
+              defaultValue: "team",
+            },
           },
         },
         member: {
@@ -400,7 +408,8 @@ export const auth = betterAuth({
             ownerId: user.id,
           });
         },
-        beforeCreateInvitation: async ({ invitation }) => {
+        beforeCreateInvitation: async ({ invitation, organization }) => {
+          assertShareableOrganization(organization);
           const role =
             normalizeInvitationRole(invitation.role) ?? invitation.role;
           await assertInvitationOwnerAllowed({ ...invitation, role });
@@ -410,7 +419,8 @@ export const auth = betterAuth({
           });
           return { data: { ...access, role } };
         },
-        beforeAcceptInvitation: async ({ invitation, user }) => {
+        beforeAcceptInvitation: async ({ invitation, user, organization }) => {
+          assertShareableOrganization(organization);
           assertStoredOwnerRoleSafe(invitation.role);
           await applyInvitationProjectAccess(invitation, user.id);
         },
@@ -421,6 +431,12 @@ export const auth = betterAuth({
           ).catch((error) => {
             console.error("Project member refresh failed:", error);
           });
+        },
+        beforeAddMember: async ({ organization }) => {
+          assertShareableOrganization(organization);
+        },
+        beforeUpdateMemberRole: async ({ organization }) => {
+          assertShareableOrganization(organization);
         },
         afterUpdateMemberRole: async ({ member }) => {
           if (isOwnerRole(member.role)) {
@@ -797,6 +813,7 @@ export const auth = betterAuth({
             organizations.map(
               (workspace) => workspace.organizationId ?? workspace.id,
             ),
+            { listing: true },
           );
           organizations.splice(
             0,

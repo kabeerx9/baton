@@ -56,6 +56,7 @@ import taskRelation from "./task-relation";
 import board from "./board";
 import taskChangeRequest from "./task-change-request";
 import slackDm from "./slack-dm";
+import tour from "./tour";
 import user from "./user";
 import getAvatar from "./user/controllers/get-avatar";
 import { apiKeyRejection } from "./utils/api-key-rejection";
@@ -620,6 +621,7 @@ export function createApp() {
     taskChangeRequest,
   );
   const slackDmApi = api.route("/slack-dm", slackDm);
+  const tourApi = api.route("/tour", tour);
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
   const invitationApi = api.route("/invitation", invitation);
@@ -752,6 +754,7 @@ export function createApp() {
     boardApi,
     taskChangeRequestApi,
     slackDmApi,
+    tourApi,
     userApi,
     adminApi,
     workflowRuleApi,
@@ -863,6 +866,7 @@ const {
   boardApi,
   taskChangeRequestApi,
   slackDmApi,
+  tourApi,
   userApi,
   adminApi,
   workflowRuleApi,
@@ -896,6 +900,7 @@ export type AppType =
   | typeof boardApi
   | typeof taskChangeRequestApi
   | typeof slackDmApi
+  | typeof tourApi
   | typeof externalLinkApi
   | typeof workflowRuleApi
   | typeof invitationApi

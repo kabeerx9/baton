@@ -61,6 +61,8 @@ export async function sendMorningDigests(now = new Date()) {
         })),
         `${config.clientUrl}/dashboard/workspace/${links[0]?.blocker.workspaceId}/my-tasks`,
       ),
+      // openBlockingLinks lists team workspaces only; the guard still checks.
+      { workspaceId: links[0]?.blocker.workspaceId ?? "" },
     );
     if (outcome === "sent") sent += 1;
   }

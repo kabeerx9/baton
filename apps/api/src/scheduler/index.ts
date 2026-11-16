@@ -1,4 +1,5 @@
 import { retryStorageCleanup } from "../storage/cleanup-queue";
+import { cleanupDemoWorkspaces } from "./demo-workspace-cleanup";
 import { cleanupDraftUploads } from "./draft-upload-cleanup";
 import { replayDeferredIssueEdits } from "../plugins/github/services/deferred-issue-edits";
 import { replayDeferredLabelFields } from "../plugins/sync/replay-deferred-label-fields";
@@ -106,6 +107,14 @@ export function initializeScheduler(): void {
       "43 * * * *",
       { protect: true },
       withCheckIn("outbox-prune", pruneOutbox),
+    ),
+  );
+  // Demo workspaces from abandoned product tours are removed after 7 days.
+  jobs.push(
+    new Cron(
+      "23 * * * *",
+      { protect: true },
+      withCheckIn("demo-workspace-cleanup", () => cleanupDemoWorkspaces()),
     ),
   );
   // The Slack digest exists only when a bot token is set.

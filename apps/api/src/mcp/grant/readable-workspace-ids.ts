@@ -10,7 +10,7 @@ import { filterReadableWorkspaces } from "../../workspace/filter-readable-worksp
 
 /**
  * The subset of `workspaceIds` the user can read now, by the same policy as
- * the workspace list: a member, not archived, and `workspace:read` through a
+ * the workspace list: a member, a team workspace, not archived, and `workspace:read` through a
  * built-in or custom role (instance admins pass the role check).
  */
 export async function readableWorkspaceIds(
@@ -33,6 +33,8 @@ export async function readableWorkspaceIds(
       and(
         inArray(workspaceTable.id, workspaceIds),
         isNull(workspaceTable.archivedAt),
+        // An agent never gets a product-tour sandbox as its workspace.
+        eq(workspaceTable.kind, "team"),
       ),
     );
   return new Set((await filterReadableWorkspaces(rows)).map((row) => row.id));

@@ -7,6 +7,7 @@ import {
   userTable,
 } from "../database/schema";
 import { taskIsCompleted } from "../task/task-is-completed";
+import { taskInTeamWorkspace } from "../workspace/kind/workspace-kind";
 import type { TaskRef } from "./messages";
 
 export type TaskFacts = TaskRef & {
@@ -109,7 +110,13 @@ export async function openBlockingLinks(clientUrl: string) {
       blockedId: taskRelationTable.targetTaskId,
     })
     .from(taskRelationTable)
-    .where(eq(taskRelationTable.relationType, "blocks"));
+    .where(
+      and(
+        eq(taskRelationTable.relationType, "blocks"),
+        // Demo workspaces are private sandboxes; the digest never lists them.
+        taskInTeamWorkspace(taskRelationTable.sourceTaskId),
+      ),
+    );
   const facts = await loadTasks(
     [...new Set(links.flatMap((l) => [l.blockerId, l.blockedId]))],
     clientUrl,

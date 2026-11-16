@@ -10,6 +10,10 @@ import {
  * `local` consumers write to Postgres in the row's own transaction.
  * `external` consumers call a provider (phase 2). Each lane has its own
  * relay loop, so a slow provider cannot delay local work.
+ *
+ * The first external consumer must skip rows whose workspace is a demo
+ * (`isDemoWorkspace` in workspace/kind): product-tour sandboxes never reach
+ * a provider. No external consumer exists yet, so no check runs here today.
  */
 export type Lane = "local" | "external";
 
