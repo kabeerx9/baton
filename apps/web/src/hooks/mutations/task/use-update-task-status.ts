@@ -20,6 +20,8 @@ export function useUpdateTaskStatus() {
       queryClient.invalidateQueries({
         queryKey: ["tasks", variables.projectId],
       });
+      // The board shows this status too; the detail page does not refetch it.
+      queryClient.invalidateQueries({ queryKey: ["task-board"] });
       queryClient.invalidateQueries({
         queryKey: ["notifications"],
       });

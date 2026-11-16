@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import {
   TARGET_WAITING,
   type TargetState,
@@ -7,34 +7,64 @@ import {
 
 /** How long to wait for a target to mount before centering the card. */
 export const TARGET_TIMEOUT_MS = 2000;
+/** A centered step on a new page waits this long for the page to settle. */
+export const PAGE_SETTLE_MS = 600;
 
-/** Follows one element on every frame, so layout shifts and scrolls track. */
-export function useTarget(selector: string | null): TargetState {
+/** The element is on screen sideways too (an off-canvas sidebar is not). */
+function visible(r: DOMRect) {
+  return r.width > 0 && r.right > 0 && r.left < window.innerWidth;
+}
+
+/**
+ * Follows one element on every frame, so layout shifts and scrolls track.
+ * A new `pageKey` forgets the old target (the page is changing); a new
+ * selector on the same page keeps it, so the hole can glide to the next one.
+ */
+export function useTarget(
+  selectors: readonly string[],
+  pageKey: string,
+): TargetState {
+  const selector = selectors.length ? selectors.join("\n") : null;
   const [state, dispatch] = useReducer(
     targetReducer,
     selector ? TARGET_WAITING : { kind: "fallback" },
   );
+  const lastPage = useRef(pageKey);
 
   useEffect(() => {
-    dispatch({ type: "RESET" });
+    const pageChanged = lastPage.current !== pageKey;
+    lastPage.current = pageKey;
+    if (pageChanged) dispatch({ type: "RESET" });
+
     if (!selector) {
-      dispatch({ type: "TIMEOUT" });
-      return;
+      const timer = window.setTimeout(
+        () => dispatch({ type: "CLEAR" }),
+        pageChanged ? PAGE_SETTLE_MS : 0,
+      );
+      return () => window.clearTimeout(timer);
     }
+
     let raf = 0;
-    let scrolled = false;
+    let scrolledTo: HTMLElement | null = null;
     const timer = window.setTimeout(
       () => dispatch({ type: "TIMEOUT" }),
       TARGET_TIMEOUT_MS,
     );
     const tick = () => {
-      const el = document.querySelector<HTMLElement>(selector);
-      if (el) {
-        if (!scrolled) {
-          scrolled = true;
+      let el: HTMLElement | null = null;
+      for (const candidate of selectors) {
+        const found = document.querySelector<HTMLElement>(candidate);
+        if (found && visible(found.getBoundingClientRect())) {
+          el = found;
+          break;
+        }
+      }
+      const r = el?.getBoundingClientRect();
+      if (el && r && visible(r)) {
+        if (scrolledTo !== el) {
+          scrolledTo = el;
           el.scrollIntoView?.({ block: "center", behavior: "smooth" });
         }
-        const r = el.getBoundingClientRect();
         dispatch({
           type: "SEEN",
           rect: { top: r.top, left: r.left, width: r.width, height: r.height },
@@ -49,7 +79,9 @@ export function useTarget(selector: string | null): TargetState {
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
     };
-  }, [selector]);
+    // `selector` is the stable key for `selectors`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selector, pageKey]);
 
   return state;
 }

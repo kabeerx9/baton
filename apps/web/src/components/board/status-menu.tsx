@@ -38,6 +38,7 @@ export function StatusMenu({
         render={
           <button
             type="button"
+            data-tour="status-menu"
             aria-label={`Status: ${STATUS_LABEL[status]}. Change status`}
             disabled={setStatus.isPending}
             tabIndex={tabIndex}
@@ -52,6 +53,7 @@ export function StatusMenu({
         {ORDER.map((s) => (
           <MenuItem
             key={s}
+            data-tour={s === "done" ? "status-done" : undefined}
             // The API refuses to finish a blocked task; say so here first.
             disabled={s === status || (blocked && s === "done")}
             onClick={() => setStatus.mutate({ taskId, status: SLUG[s] })}

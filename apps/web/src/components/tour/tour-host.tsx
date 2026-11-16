@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { finishTour } from "@/fetchers/tour/finish-tour";
@@ -10,6 +10,7 @@ import { TOUR_QUERY_KEY } from "@/hooks/queries/tour/use-tour-status";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "@/lib/toast";
 import type { CloseReason, TourSession } from "./tour-machine";
+import type { StepPage } from "./tour-steps";
 import { TourRunner, type TourEnv } from "./tour-runner";
 
 const WORKSPACE_PATH = /^\/dashboard\/workspace\/([^/]+)/;
@@ -24,14 +25,19 @@ export default function TourHost({
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The workspace the user was in when the tour began.
   const [origin] = useState(
     () => WORKSPACE_PATH.exec(router.state.location.pathname)?.[1] ?? null,
   );
 
   const env = useMemo<TourEnv>(() => {
-    const open = async (workspaceId: string, page: "board" | "my-tasks") => {
+    const open = async (workspaceId: string, page: StepPage) => {
       await authClient.organization.setActive({ organizationId: workspaceId });
+      if (page === "agents") {
+        await navigate({ to: "/dashboard/settings/account/agents" });
+        return;
+      }
       await navigate({
         to:
           page === "board"
@@ -70,11 +76,12 @@ export default function TourHost({
         })();
       },
       originWorkspaceId: origin,
+      pathname,
       onError: (kind) =>
         toast.error(kind === "start" ? t("startError") : t("finishError")),
       onClosed,
     };
-  }, [navigate, queryClient, origin, onClosed, t]);
+  }, [navigate, queryClient, origin, pathname, onClosed, t]);
 
   return <TourRunner env={env} />;
 }

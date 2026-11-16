@@ -221,7 +221,9 @@ export function TaskDetailPage({
               {t("tasks:hero.status.followsTasks")}
             </p>
           ) : (
-            <TaskStatusBar task={task} blocked={blocked} />
+            <div data-tour="status-bar">
+              <TaskStatusBar task={task} blocked={blocked} />
+            </div>
           )
         }
         diagram={

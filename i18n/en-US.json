@@ -3180,6 +3180,12 @@
 	"tour": {
 		"dialogLabel": "Product tour",
 		"progress": "Step {{current}} of {{total}}",
+		"back": "Back",
+		"sections": {
+			"board": "Board",
+			"my-tasks": "My tasks",
+			"agents": "Connect your agents"
+		},
 		"next": "Next",
 		"finish": "Finish",
 		"skip": "Skip tour",
@@ -3195,30 +3201,53 @@
 			"cancel": "Keep going"
 		},
 		"steps": {
-			"board": {
-				"title": "This is your board",
-				"body": "Every task lives in a column. Tasks can wait on each other, and Baton tells people when they can continue."
+			"welcome": {
+				"title": "Welcome to Baton",
+				"body": "This is a private demo workspace with five sample tasks. Nothing here touches your real work. The tour takes about two minutes."
 			},
-			"demo-tasks": {
-				"title": "We're adding 5 demo tasks",
-				"body": "They live in a private demo workspace that only you can see. Nothing here touches your real work."
+			"board-columns": {
+				"title": "Work moves from left to right",
+				"body": "Every task sits in a column: To do, In progress, In review or Done."
 			},
-			"my-tasks": {
-				"title": "My tasks is your personal list",
-				"body": "Everything assigned to you lands here, in the order you should do it."
+			"task-card": {
+				"title": "Each card is one task with one owner",
+				"body": "The key, the title and the owner are on the card. Open a card to see the details."
+			},
+			"waits-on": {
+				"title": "Tasks can wait on each other",
+				"body": "This task waits on the API endpoint. You can finish it only after its blocker is done."
+			},
+			"nav-my-tasks": {
+				"title": "My tasks: everything assigned to you",
+				"body": "It lists your tasks from every project, in the order to do them. Press Next to open it, or click it."
+			},
+			"my-tasks-intro": {
+				"title": "This is My tasks",
+				"body": "Your personal list. Baton ranks it so you always know what to do next."
+			},
+			"my-tasks-next": {
+				"title": "Your next task",
+				"body": "The top card is the task to do now."
+			},
+			"nav-board": {
+				"title": "Back to the board",
+				"body": "The Board shows the work of the whole team. Press Next, or click Board, to go back."
 			},
 			"move-task": {
-				"title": "Move “Build the payments API endpoint” to Done",
-				"body": "Drag the card to Done, or open its status menu. “Write tests for the payments API” is waiting on it."
+				"title": "Finish “Build the payments API endpoint”",
+				"body": "Click the status, then choose Done."
 			},
 			"unblocked": {
 				"title": "“Write tests for the payments API” is unblocked",
 				"body": "The lock is gone because its blocker is done. In your team, this is when the owner gets told they can start."
 			},
+			"nav-settings": {
+				"title": "Settings: connect your agents",
+				"body": "Your coding agents can work in Baton too. Press Next to open the setup page."
+			},
 			"mcp": {
-				"title": "Connect your agents",
-				"body": "Baton has an MCP server, so your coding agents can read and move tasks like a teammate. Set it up with an API key in your settings.",
-				"link": "Open agent settings"
+				"title": "Let your agents join in",
+				"body": "Baton has an MCP server, so agents can read and move tasks like a teammate. Create an API key on this page, then add it to your agent."
 			}
 		}
 	}

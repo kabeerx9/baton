@@ -13,6 +13,7 @@ export type TargetEvent =
   | { type: "SEEN"; rect: Rect }
   | { type: "LOST" }
   | { type: "TIMEOUT" }
+  | { type: "CLEAR" }
   | { type: "RESET" };
 
 export const TARGET_WAITING: TargetState = { kind: "waiting" };
@@ -32,6 +33,8 @@ export function targetReducer(
       return state.kind === "found" ? TARGET_WAITING : state;
     case "TIMEOUT":
       return state.kind === "waiting" ? { kind: "fallback" } : state;
+    case "CLEAR":
+      return state.kind === "fallback" ? state : { kind: "fallback" };
     case "RESET":
       return TARGET_WAITING;
     default:

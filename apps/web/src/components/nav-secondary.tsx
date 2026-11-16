@@ -55,6 +55,7 @@ export function NavSecondary() {
           <SidebarMenuButton
             size="default"
             className="h-8 text-sm"
+            data-tour="nav-settings"
             onClick={() =>
               navigate({ to: "/dashboard/settings/account/information" })
             }
