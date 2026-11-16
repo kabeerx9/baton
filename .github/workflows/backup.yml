@@ -1,277 +1,62 @@
 name: Backup
 
-# Nightly pg_dump of the production database (Supabase Postgres, reached over
-# its session-pooler URL) to S3-compatible storage, then prune old dumps.
+# Nightly pg_dump of the hosted database to S3-compatible storage.
 #
 # Secrets (Settings -> Secrets and variables -> Actions):
-#   BACKUP_DATABASE_URL         Supabase session-pooler URL with
-#                               sslmode=verify-full; the :6543 transaction
-#                               pooler cannot pg_dump
-#   BACKUP_DATABASE_CA_CERT     PEM root the pooler chains to. Supabase uses
-#                               its own CA, not a public one: download
-#                               prod-ca-2021.crt from the project's Database
-#                               Settings -> SSL Configuration. Unset falls back
-#                               to the runner's public CA bundle.
-#   BACKUP_S3_BUCKET            destination bucket
+#   BACKUP_DATABASE_URL         Supabase session-pooler URL, sslmode=require
+#   BACKUP_S3_BUCKET            bucket holding baton/<UTC stamp>.dump
 #   BACKUP_S3_ENDPOINT          optional, for Spaces/R2/MinIO
-#   BACKUP_S3_REGION            optional, default us-east-1
-#   BACKUP_S3_ACCESS_KEY_ID     key allowed put/list/delete under BACKUP_PREFIX
+#   BACKUP_S3_ACCESS_KEY_ID
 #   BACKUP_S3_SECRET_ACCESS_KEY
-#   BACKUP_PREFIX               optional, default baton/postgres; must not be
-#                               empty, "/", or contain ".." or "//"
-#   BACKUP_RETENTION_DAYS       optional, default 14, a decimal 0..3650
 #
-# Restore (same bucket credentials; pg_restore 17 matches this dump):
-#   aws [--endpoint-url "$BACKUP_S3_ENDPOINT"] --region "$BACKUP_S3_REGION" \
-#     s3 cp s3://$BACKUP_S3_BUCKET/${BACKUP_PREFIX:-baton/postgres}/<stamp>.dump .
-#   export PGSSLROOTCERT=prod-ca-2021.crt
-#   psql "${BACKUP_DATABASE_URL%/*}/postgres?sslmode=verify-full" -c 'CREATE DATABASE baton_restore'
-#   pg_restore --dbname "${BACKUP_DATABASE_URL%/*}/baton_restore?sslmode=verify-full" \
-#     --clean --if-exists --no-owner --no-privileges --exit-on-error <stamp>.dump
-# Create an empty baton_restore database on the same server and never restore
-# over the live one. The archive is an allowlist (public and drizzle) with no
-# extension entries, so --clean only drops objects this dump owns.
+# Set a bucket lifecycle rule (for example, expire baton/ after 14 days)
+# instead of pruning here.
+#
+# Restore: aws s3 cp s3://$BACKUP_S3_BUCKET/baton/<stamp>.dump .
+#   psql "$BACKUP_DATABASE_URL" -c 'CREATE DATABASE baton_restore'
+#   pg_restore --dbname "${BACKUP_DATABASE_URL%/*}/baton_restore" --no-owner --no-privileges --exit-on-error <stamp>.dump
 
 on:
   schedule:
-    # 03:15 UTC, a quiet hour for the database and the bucket.
     - cron: "15 3 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  # Never let a slow dump overlap the next night's run; queue instead of cancel.
-  group: backup-production
-  cancel-in-progress: false
-
 jobs:
   backup:
-    name: pg_dump to S3
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
     env:
       BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
       BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
       BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
-      BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION || 'us-east-1' }}
-      BACKUP_PREFIX: ${{ secrets.BACKUP_PREFIX || 'baton/postgres' }}
-      BACKUP_RETENTION_DAYS: ${{ secrets.BACKUP_RETENTION_DAYS || '14' }}
       AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'us-east-1' }}
+      AWS_DEFAULT_REGION: us-east-1
       AWS_EC2_METADATA_DISABLED: "true"
-      AWS_PAGER: ""
     steps:
-      - name: Check configuration
-        id: config
+      - name: Dump and upload
+        shell: bash
         run: |
           set -euo pipefail
-
-          if [ -z "${BACKUP_DATABASE_URL:-}" ]; then
-            echo "::notice title=Backup skipped::BACKUP_DATABASE_URL is not set, so there is nothing to back up."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
+          if [ -z "${BACKUP_DATABASE_URL}" ]; then
+            echo "::notice::BACKUP_DATABASE_URL is not set; skipping the backup."
             exit 0
           fi
 
-          : "${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET must be set when BACKUP_DATABASE_URL is set}"
-
-          case "$BACKUP_DATABASE_URL" in
-            *sslmode=verify-full*) ;;
-            *)
-              echo "::error::BACKUP_DATABASE_URL must include sslmode=verify-full"
-              exit 1
-              ;;
-          esac
-
-          # A root-wide prefix would let retention delete unrelated objects.
-          prefix="${BACKUP_PREFIX-}"
-          prefix="${prefix#/}"
-          prefix="${prefix%/}"
-          case "$prefix" in
-            '' | '.' | '..')
-              echo "::error::BACKUP_PREFIX must name a non-empty key prefix, not '', '/', '.', or '..'"
-              exit 1
-              ;;
-          esac
-          case "/$prefix/" in
-            *'/../'* | *'//'*)
-              echo "::error::BACKUP_PREFIX must not contain empty or '..' segments"
-              exit 1
-              ;;
-          esac
-          case "$prefix" in
-            *[!A-Za-z0-9._/-]*)
-              echo "::error::BACKUP_PREFIX may only contain letters, digits, '.', '_', '-' and '/'"
-              exit 1
-              ;;
-          esac
-
-          # Decimal only, 0..3650, no leading zeros: those break bash arithmetic.
-          retention="${BACKUP_RETENTION_DAYS:-14}"
-          case "$retention" in
-            '' | *[!0-9]*)
-              echo "::error::BACKUP_RETENTION_DAYS must be a whole number of days"
-              exit 1
-              ;;
-            0) ;;
-            [1-9]*) ;;
-            *)
-              echo "::error::BACKUP_RETENTION_DAYS must not have leading zeros"
-              exit 1
-              ;;
-          esac
-          if [ "$retention" -gt 3650 ]; then
-            echo "::error::BACKUP_RETENTION_DAYS must be 3650 or less"
-            exit 1
-          fi
-
-          {
-            echo "configured=true"
-            echo "prefix=$prefix"
-            echo "retention_days=$retention"
-          } >> "$GITHUB_OUTPUT"
-
-      # Supabase's pooler chains to Supabase's own root, which the image's
-      # (absent) public bundle cannot vouch for. libpq reads PGSSLROOTCERT, so
-      # write the trusted root there and mount it into both client containers.
-      - name: Prepare TLS root
-        if: steps.config.outputs.configured == 'true'
-        env:
-          BACKUP_DATABASE_CA_CERT: ${{ secrets.BACKUP_DATABASE_CA_CERT }}
-        run: |
-          set -euo pipefail
-          ca="$RUNNER_TEMP/db-ca.pem"
-          if [ -n "${BACKUP_DATABASE_CA_CERT:-}" ]; then
-            printf '%s\n' "$BACKUP_DATABASE_CA_CERT" > "$ca"
-          else
-            if [ ! -f /etc/ssl/certs/ca-certificates.crt ]; then
-              echo "::error::set BACKUP_DATABASE_CA_CERT; the runner has no system CA bundle"
-              exit 1
-            fi
-            cp /etc/ssl/certs/ca-certificates.crt "$ca"
-          fi
-          echo "backup: TLS root store ready ($(grep -c 'BEGIN CERTIFICATE' "$ca") certificate(s))"
-
-      # pg_dump must be at least the server's major version. Supabase projects
-      # run 15 or 17, so use the 17 client image and log what it connects to.
-      - name: Log server version
-        if: steps.config.outputs.configured == 'true'
-        run: |
-          set -euo pipefail
-          docker run --rm \
-            --volume "$RUNNER_TEMP/db-ca.pem:/etc/pg-ca.crt:ro" \
-            --env PGSSLROOTCERT=/etc/pg-ca.crt \
-            --env PGSSLMODE=verify-full \
-            postgres:17 \
-            psql --no-psqlrc --no-align --tuples-only \
-            --command "SELECT version()" "$BACKUP_DATABASE_URL"
-
-      - name: Dump database
-        id: dump
-        if: steps.config.outputs.configured == 'true'
-        run: |
-          set -euo pipefail
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-          name="baton-$stamp.dump"
-          {
-            echo "stamp=$stamp"
-            echo "name=$name"
-          } >> "$GITHUB_OUTPUT"
-
-          # An allowlist keeps the archive to what Baton owns: public data and
-          # the drizzle migration ledger. Managed Supabase schemas, and the
-          # extensions living in them, never enter the dump.
-          docker run --rm \
-            --volume "$RUNNER_TEMP:/backup" \
-            --volume "$RUNNER_TEMP/db-ca.pem:/etc/pg-ca.crt:ro" \
-            --env PGSSLROOTCERT=/etc/pg-ca.crt \
-            --env PGSSLMODE=verify-full \
-            postgres:17 \
-            pg_dump --format=custom --no-owner --no-privileges \
-            --schema=public \
-            --schema=drizzle \
-            --file="/backup/$name" \
-            "$BACKUP_DATABASE_URL"
-
-          bytes="$(wc -c <"$RUNNER_TEMP/$name" | tr -d ' ')"
-          echo "bytes=$bytes" >> "$GITHUB_OUTPUT"
-          echo "backup: dumped $name ($bytes bytes)"
-          test "$bytes" -gt 0
-
-      # A truncated or corrupt dump is worse than a failed job: check the
-      # archive reads as a TOC before it ever leaves the runner.
-      - name: Verify dump
-        if: steps.config.outputs.configured == 'true'
-        env:
-          DUMP_NAME: ${{ steps.dump.outputs.name }}
-        run: |
-          set -euo pipefail
+          dump="$RUNNER_TEMP/baton-$stamp.dump"
           docker run --rm --volume "$RUNNER_TEMP:/backup" postgres:17 \
-            pg_restore --list "/backup/$DUMP_NAME" > "$RUNNER_TEMP/toc.txt"
-          entries="$(grep -c '^[0-9]' "$RUNNER_TEMP/toc.txt" || true)"
-          echo "backup: verified $DUMP_NAME ($entries TOC entries)"
-          test "$entries" -gt 0
-          # The allowlist must leave the two schemas we own intact.
-          grep -q 'SCHEMA - drizzle' "$RUNNER_TEMP/toc.txt"
-          grep -q 'TABLE public ' "$RUNNER_TEMP/toc.txt"
-          # A restore target is a plain empty database, so nothing may require
-          # an extension to already exist there.
-          if grep -q 'EXTENSION' "$RUNNER_TEMP/toc.txt"; then
-            echo "::error::dump contains extension entries; the restore target will not have them"
-            exit 1
+            pg_dump --format=custom --no-owner --no-privileges \
+            --schema=public --schema=drizzle \
+            --file="/backup/baton-$stamp.dump" "$BACKUP_DATABASE_URL"
+
+          if [ -n "${BACKUP_S3_ENDPOINT}" ]; then
+            aws s3 cp --endpoint-url "$BACKUP_S3_ENDPOINT" "$dump" \
+              "s3://$BACKUP_S3_BUCKET/baton/$stamp.dump" --only-show-errors
+          else
+            aws s3 cp "$dump" "s3://$BACKUP_S3_BUCKET/baton/$stamp.dump" --only-show-errors
           fi
-
-      # One object per UTC stamp under the prefix, then delete objects older
-      # than the retention window by their LastModified timestamp.
-      - name: Upload and prune old dumps
-        if: steps.config.outputs.configured == 'true'
-        env:
-          PREFIX: ${{ steps.config.outputs.prefix }}
-          RETENTION_DAYS: ${{ steps.config.outputs.retention_days }}
-          DUMP_NAME: ${{ steps.dump.outputs.name }}
-          DUMP_STAMP: ${{ steps.dump.outputs.stamp }}
-          DUMP_BYTES: ${{ steps.dump.outputs.bytes }}
-        run: |
-          set -euo pipefail
-          export LC_ALL=C
-
-          s3() {
-            if [ -n "${BACKUP_S3_ENDPOINT:-}" ]; then
-              aws --endpoint-url "$BACKUP_S3_ENDPOINT" --region "$AWS_DEFAULT_REGION" "$@"
-            else
-              aws --region "$AWS_DEFAULT_REGION" "$@"
-            fi
-          }
-
-          key="$PREFIX/$DUMP_STAMP.dump"
-          s3 s3 cp "$RUNNER_TEMP/$DUMP_NAME" "s3://$BACKUP_S3_BUCKET/$key" --only-show-errors
-          echo "backup: uploaded s3://$BACKUP_S3_BUCKET/$key ($DUMP_BYTES bytes)"
-
-          if [ "$RETENTION_DAYS" -gt 0 ]; then
-            # ISO 8601 timestamps sort by time as plain strings, which is all this needs.
-            cutoff="$(date -u -d "@$(( $(date -u +%s) - RETENTION_DAYS * 86400 ))" +%Y-%m-%dT%H:%M:%S)"
-            # Only ever delete objects this job could have written:
-            # <prefix>/<YYYYMMDDTHHMMSSZ>.dump. Anything else in the bucket is
-            # not ours to remove.
-            prefix_re="${PREFIX//./\\.}"
-            key_pattern="^${prefix_re}/[0-9]{8}T[0-9]{6}Z[.]dump$"
-            # The dump is already uploaded, so a listing or delete failure only
-            # breaks retention; surface it instead of letting the bucket grow.
-            s3 s3api list-objects-v2 --bucket "$BACKUP_S3_BUCKET" \
-              --prefix "$PREFIX/" \
-              --query 'Contents[].[Key,LastModified]' --output text |
-              while IFS=$'\t' read -r expired modified; do
-                if [[ ! "$expired" =~ $key_pattern ]]; then
-                  continue
-                fi
-                if [[ "$modified" < "$cutoff" ]]; then
-                  s3 s3api delete-object --bucket "$BACKUP_S3_BUCKET" --key "$expired" >/dev/null
-                  echo "backup: removed expired s3://$BACKUP_S3_BUCKET/$expired"
-                fi
-              done
-          fi
+          echo "backup: uploaded s3://$BACKUP_S3_BUCKET/baton/$stamp.dump"
