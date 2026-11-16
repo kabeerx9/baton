@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { PendingIndicator } from "@/components/task/change-request/pending-indicator";
 import { useBoardMemberName } from "@/hooks/queries/board/use-board-member-name";
 import { DueDateLabel } from "@/components/my-work/due-date-text";
+import { cn } from "@/lib/cn";
 import { Avatar } from "./avatar";
 import { CardTree } from "./card-tree";
 import { BoardNav } from "./keyboard/board-nav-parts";
@@ -86,7 +87,13 @@ export function TaskCard({
       data-highlighted={highlighted || undefined}
       data-tour="task-card"
       data-tour-task={boardTask.id}
-      className="group rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-[border-color,box-shadow] duration-150 ease-out hover:border-foreground/15 hover:shadow-[0_4px_12px_rgb(0_0_0/0.06)] data-highlighted:border-primary data-highlighted:ring-2 data-highlighted:ring-primary/40"
+      className={cn(
+        "group rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-[border-color,box-shadow,opacity,filter] duration-150 ease-out motion-reduce:transition-none hover:border-foreground/15 hover:shadow-[0_4px_12px_rgb(0_0_0/0.06)] data-highlighted:border-primary data-highlighted:ring-2 data-highlighted:ring-primary/40",
+        // Done work recedes so open work stands out, and returns to full colour
+        // while the user hovers, focuses inside, or the card is highlighted.
+        boardTask.column === "done" &&
+          "opacity-55 grayscale-35 hover:opacity-100 hover:grayscale-0 focus-within:opacity-100 focus-within:grayscale-0 data-highlighted:opacity-100 data-highlighted:grayscale-0",
+      )}
     >
       {/* Only the card with the board's tab stop has tabbable inner controls:
           Tab visits that card, its controls, then leaves the board. */}
