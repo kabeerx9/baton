@@ -1,7 +1,8 @@
 // The squashed upstream chain ended at 0081_outbox. These values are what
 // drizzle recorded for its final version (sha256 of the SQL file and the
 // journal `when`). An earlier 0081 without outbox.exempt_claims had another
-// hash and timestamp, so it is refused rather than adopted.
+// hash and timestamp, so it is refused rather than adopted. The row count is
+// not checked: a database that re-applied 0081 records both versions.
 export const OLD_CHAIN_LENGTH = 82;
 export const OLD_FINAL_MIGRATION = {
   hash: "874deedc0a4580efa099219fa4936707a101e0f265f13b7d8e5b8bbf0e7432eb",
@@ -45,12 +46,6 @@ export function classifyLedger(
     return {
       kind: "unknown",
       reason: "the last recorded migration is not the final 0081_outbox",
-    };
-  }
-  if (rows.length !== OLD_CHAIN_LENGTH) {
-    return {
-      kind: "unknown",
-      reason: `expected ${OLD_CHAIN_LENGTH} recorded migrations, found ${rows.length}`,
     };
   }
   return { kind: "old-final" };

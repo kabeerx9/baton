@@ -101,6 +101,21 @@ it("replaces the full old chain with the baseline, so migrate is a no-op", async
   expect(await readLedger()).toHaveLength(1);
 });
 
+it("adopts a ledger that recorded both versions of 0081", async () => {
+  const earlier0081 = {
+    hash: "d174d3a1c473e4f06885be993d8f288beeee62d7a73b0ba4529156603202f827",
+    created_at: 1794818083439,
+  };
+  const rows = oldChain();
+  await writeLedger([...rows.slice(0, -1), earlier0081, rows.at(-1)!]);
+
+  expect(await adopt()).toEqual({
+    kind: "adopted",
+    replaced: OLD_CHAIN_LENGTH + 1,
+  });
+  expect(await readLedger()).toHaveLength(1);
+});
+
 it("is a no-op when run again", async () => {
   await writeLedger(oldChain());
   await adopt();
@@ -130,7 +145,6 @@ it.each([
       created_at: 1794818083439,
     }),
   ],
-  ["at 0081 with a gap in the chain", oldChain().slice(1)],
   [
     "holding both the old chain and the baseline",
     [...oldChain(), { hash: baseline.hash, created_at: baseline.createdAt }],
