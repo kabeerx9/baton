@@ -33,6 +33,9 @@ vi.mock("../../apps/api/src/events", async (original) => {
     // none still writes when the next test truncates the tables.
     publishEvent: (...args: Parameters<typeof events.publishEvent>) =>
       events.publishEvent(args[0], args[1], { waitForHandlers: true }),
+    // The status path publishes through publishLive after its outbox enqueue.
+    publishLive: (...args: Parameters<typeof events.publishLive>) =>
+      events.publishLive(args[0], args[1], { waitForHandlers: true }),
   };
 });
 
