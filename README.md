@@ -40,7 +40,7 @@ The API listens on http://localhost:1337 and applies migrations at startup. [ENV
 3. Run `docker compose up --build`.
 4. Open http://localhost:5173.
 
-[DEPLOY.md](DEPLOY.md) describes a hosted deployment.
+[docs/deploy.md](docs/deploy.md) describes the hosted deployments: one VPS, or DigitalOcean App Platform with Supabase.
 
 ## Environment variables
 
