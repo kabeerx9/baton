@@ -6,6 +6,11 @@ import { createApp } from "../../apps/api/src/index";
 import { providerIssue } from "../../apps/api/src/plugins/sync/provider-issue";
 import { deleteUserSessions } from "../../apps/api/src/sessions/delete-user-sessions";
 import getTaskByTicketId from "../../apps/api/src/task/controllers/get-task-by-ticket-id";
+import {
+  deleteDemoWorkspace,
+  lockDemoWorkspace,
+} from "../../apps/api/src/tour/demo/delete-demo-workspace";
+import { deleteLockedTask } from "../../apps/api/src/task/controllers/delete-task";
 import { deleteAccountData } from "../../apps/api/src/user/controllers/delete-account-data";
 import { deleteNativeWorkspace } from "../../apps/api/src/workspace/lifecycle/delete-native-workspace";
 import { createInstanceAdmin } from "./helpers/admin/create-instance-admin";
@@ -16,12 +21,13 @@ import {
   createWorkspaceMember,
 } from "./helpers/fixtures";
 
-const github = vi.hoisted(() => ({ octokit: vi.fn() }));
+const github = vi.hoisted(() => ({ octokit: vi.fn(), app: vi.fn() }));
 vi.mock(
   "../../apps/api/src/plugins/github/utils/github-app",
   async (original) => ({
     ...(await original<object>()),
     getVerifiedInstallationOctokit: github.octokit,
+    getGithubApp: github.app,
   }),
 );
 
@@ -29,6 +35,7 @@ beforeEach(async () => {
   await resetTestDatabase();
   vi.restoreAllMocks();
   github.octokit.mockReset();
+  github.app.mockReset();
 });
 
 type TourStart = {
@@ -252,12 +259,35 @@ describe("integrations in a demo workspace", () => {
         repositoryName: "repo",
       }),
       await send("POST", "/github-integration/import-issues", { projectId }),
+      await send("POST", "/github-integration/verify", {
+        projectId,
+        repositoryOwner: "team",
+        repositoryName: "repo",
+      }),
     ]) {
       expect(response.status).toBe(403);
       expect(await response.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
     }
     expect(await db.select().from(schema.integrationTable)).toEqual([]);
     expect(github.octokit).not.toHaveBeenCalled();
+    expect(github.app).not.toHaveBeenCalled();
+  });
+
+  it("lets a team project's verify past the demo guard", async () => {
+    const { user, workspace } = await createWorkspaceMember({ role: "owner" });
+    const { project } = await createProjectFixture({
+      workspaceId: workspace.id,
+    });
+    mockAuthenticatedSession(user);
+    const response = await send("POST", "/github-integration/verify", {
+      projectId: project.id,
+      repositoryOwner: "team",
+      repositoryName: "repo",
+    });
+    // The next check (a linked GitHub account) answers, not the demo guard.
+    expect(await response.json()).toMatchObject({
+      message: "Connect your GitHub account before linking a repository",
+    });
   });
 
   it("refuses review and resume before any provider call", async () => {
@@ -389,6 +419,59 @@ describe("notifications follow the resource they point at", () => {
       (await send("POST", "/tour/finish", { outcome: "skipped" })).status,
     ).toBe(200);
     expect(await notificationsFor(seeded.tasks.map((t) => t.id))).toEqual([]);
+  });
+
+  /**
+   * The deleter has already removed the notifications and holds its row
+   * locks; a POST that arrives now must not leave a row behind.
+   */
+  async function postDuring(
+    work: (tx: never) => Promise<unknown>,
+    taskId: string,
+  ) {
+    let posted: Promise<Response> | undefined;
+    await db.transaction(async (tx) => {
+      await work(tx as never);
+      posted = send("POST", "/notification", {
+        type: "task_comment",
+        title: "Late",
+        message: "Late",
+        relatedEntityId: taskId,
+        relatedEntityType: "task",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    const response = await posted!;
+    expect(response.status).toBe(200);
+    expect(await response.json()).toBeNull();
+  }
+
+  it("serializes a notification insert with tour finish", async () => {
+    const { user } = await createWorkspaceMember({ role: "owner" });
+    const seeded = await startTourAs(user);
+    const taskId = seeded.tasks[0]!.id;
+
+    await postDuring(async (tx) => {
+      const demo = await lockDemoWorkspace(tx, user.id);
+      await deleteDemoWorkspace(tx, demo!, user.id);
+    }, taskId);
+    expect(await notificationsFor(seeded.tasks.map((t) => t.id))).toEqual([]);
+  });
+
+  it("serializes a notification insert with task deletion", async () => {
+    const { user } = await createWorkspaceMember({ role: "owner" });
+    const seeded = await startTourAs(user);
+    const taskId = seeded.tasks.find((t) => t.key === "mcp-hello")!.id;
+
+    await postDuring(async (tx: typeof db) => {
+      const [task] = await tx
+        .select()
+        .from(schema.taskTable)
+        .where(eq(schema.taskTable.id, taskId))
+        .for("update");
+      await deleteLockedTask(tx as never, task!);
+    }, taskId);
+    expect(await notificationsFor([taskId])).toEqual([]);
   });
 
   it("deletes a team task's notifications with the task", async () => {

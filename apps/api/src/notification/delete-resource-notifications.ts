@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { notificationTable, projectTable, taskTable } from "../database/schema";
 import type { DbOrTx } from "../project-access/db-or-tx";
 
@@ -11,9 +11,9 @@ type Scope =
  * A notification names its resource by id, with no foreign key, so deleting
  * a task, project or workspace leaves its notifications behind as orphans.
  * Call this in the deleting transaction, before the delete, while the tasks
- * can still be found. A workspace scope also removes notifications whose
- * event data names the workspace, which covers tasks deleted before this
- * cleanup existed.
+ * can still be found, and after locking the rows being deleted:
+ * lockNotificationResource makes a concurrent insert wait for that lock.
+ * Both lookups use notification_resource_idx.
  */
 export async function deleteResourceNotifications(tx: DbOrTx, scope: Scope) {
   const ids =
@@ -48,10 +48,6 @@ export async function deleteResourceNotifications(tx: DbOrTx, scope: Scope) {
             and(
               eq(notificationTable.resourceType, "workspace"),
               inArray(notificationTable.resourceId, scope.workspaceIds),
-            ),
-            inArray(
-              sql`${notificationTable.eventData}->>'workspaceId'`,
-              scope.workspaceIds,
             ),
           )
         : byTask,

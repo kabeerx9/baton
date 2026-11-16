@@ -5,9 +5,31 @@ import { publishEvent } from "../../events";
 import { deliverNotification } from "../../notification-preferences/delivery";
 
 import { safeOutboundError } from "../../utils/outbound-request";
+import { lockNotificationResource } from "../lock-notification-resource";
 import { canReceiveResourceNotification } from "../resource-access";
 
+type NotificationInput = {
+  userId: string;
+  title?: string | null;
+  content?: string | null;
+  type?: string;
+  eventData?: Record<string, unknown> | null;
+  resourceId?: string;
+  resourceType?: string;
+};
+type NotificationDatabase = Pick<typeof db, "query" | "insert" | "select">;
+
+/** Lock the resource, check access and insert, in the caller's transaction or our own. */
 export async function persistNotification(
+  input: NotificationInput,
+  database: NotificationDatabase = db,
+) {
+  return database === db
+    ? db.transaction((tx) => insertNotification(input, tx))
+    : insertNotification(input, database);
+}
+
+async function insertNotification(
   {
     userId,
     title,
@@ -16,17 +38,10 @@ export async function persistNotification(
     eventData,
     resourceId,
     resourceType,
-  }: {
-    userId: string;
-    title?: string | null;
-    content?: string | null;
-    type?: string;
-    eventData?: Record<string, unknown> | null;
-    resourceId?: string;
-    resourceType?: string;
-  },
-  database: Pick<typeof db, "query" | "insert" | "select"> = db,
+  }: NotificationInput,
+  database: NotificationDatabase,
 ) {
+  await lockNotificationResource(database, userId, resourceId, resourceType);
   if (
     !(await canReceiveResourceNotification(
       userId,
@@ -92,9 +107,7 @@ export async function dispatchNotification(
   });
 }
 
-async function createNotification(
-  data: Parameters<typeof persistNotification>[0],
-) {
+async function createNotification(data: NotificationInput) {
   const notification = await persistNotification(data);
   if (notification) await dispatchNotification(notification);
   return notification;
