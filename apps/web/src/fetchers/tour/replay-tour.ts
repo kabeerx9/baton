@@ -1,5 +1,8 @@
-import { tourRequest } from "./tour-request";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-export function replayTour() {
-  return tourRequest<{ completed: false }>("/replay", { method: "POST" });
+export async function replayTour() {
+  const response = await client.tour.replay.$post();
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

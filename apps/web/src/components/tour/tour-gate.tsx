@@ -17,7 +17,7 @@ export function TourGate() {
   const owed = shouldHostTour({
     completed: status?.completed,
     hasRealWorkspace: (workspaces ?? []).some(
-      (workspace) => (workspace as { kind?: string }).kind !== "demo",
+      (workspace) => workspace.kind !== "demo",
     ),
     pathname,
   });

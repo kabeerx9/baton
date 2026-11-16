@@ -54,16 +54,19 @@ export default function TourHost({
       goTo: (workspaceId, page) => void open(workspaceId, page),
       leaveDemo: (session: TourSession) => {
         void (async () => {
-          const real =
-            session.originWorkspaceId ??
-            (await getWorkspaces().catch(() => []))[0]?.id;
+          // The list never holds a demo workspace. The remembered origin may
+          // be one (a reload mid-tour starts the host inside the demo).
+          const real = await getWorkspaces().catch(() => []);
+          const target =
+            real.find((w) => w.id === session.originWorkspaceId) ?? real[0];
+          await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+          if (target) await open(target.id, "board");
+          else await navigate({ to: "/dashboard" });
+          // Leave first: a mounted demo page would refetch into a 404.
           queryClient.removeQueries({
             predicate: (query) =>
               query.queryKey.includes(session.demoWorkspaceId),
           });
-          await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-          if (real) await open(real, "board");
-          else await navigate({ to: "/dashboard" });
         })();
       },
       originWorkspaceId: origin,

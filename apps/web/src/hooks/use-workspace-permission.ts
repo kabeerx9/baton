@@ -30,8 +30,7 @@ export function useWorkspacePermission() {
   const workspaceId = activeWorkspace?.id;
   // The tour's demo workspace is deleted by the tour itself. Hiding the
   // delete actions is a hint; the API stays the authority.
-  const isDemo =
-    (activeWorkspace as { kind?: string } | undefined)?.kind === "demo";
+  const isDemo = activeWorkspace?.kind === "demo";
   const role = activeMember?.role as string | undefined;
 
   // Cached by (workspaceId, role). Refetches when either changes, e.g., when

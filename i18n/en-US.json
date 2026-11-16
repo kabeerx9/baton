@@ -3208,11 +3208,11 @@
 				"body": "Everything assigned to you lands here, in the order you should do it."
 			},
 			"move-task": {
-				"title": "Move “Build the API endpoint” to Done",
-				"body": "Drag the card to Done, or open its status menu. “Write tests” is waiting on it."
+				"title": "Move “Build the payments API endpoint” to Done",
+				"body": "Drag the card to Done, or open its status menu. “Write tests for the payments API” is waiting on it."
 			},
 			"unblocked": {
-				"title": "“Write tests” is unblocked",
+				"title": "“Write tests for the payments API” is unblocked",
 				"body": "The lock is gone because its blocker is done. In your team, this is when the owner gets told they can start."
 			},
 			"mcp": {

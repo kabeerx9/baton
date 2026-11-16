@@ -1,5 +1,11 @@
-// Contract types for /api/tour. The route is not in the typed `@baton/libs`
-// client yet; when the backend lands, derive these from `AppType` instead.
+import type { InferResponseType } from "hono/client";
+import type { client } from "@baton/libs";
+
+// Derived from the API, so the contract cannot drift from the server.
+export type TourStatus = InferResponseType<typeof client.tour.$get, 200>;
+export type TourStart = InferResponseType<typeof client.tour.start.$post, 200>;
+export type DemoTaskKey = TourStart["tasks"][number]["key"];
+export type TourOutcome = "finished" | "skipped";
 
 export const DEMO_TASK_KEYS = [
   "design-review",
@@ -7,18 +13,4 @@ export const DEMO_TASK_KEYS = [
   "write-tests",
   "ship-release",
   "mcp-hello",
-] as const;
-
-export type DemoTaskKey = (typeof DEMO_TASK_KEYS)[number];
-
-export type TourStatus = {
-  completed: boolean;
-  demoWorkspace: { id: string; slug: string } | null;
-};
-
-export type TourStart = {
-  demoWorkspace: { id: string; slug: string; projectId: string };
-  tasks: { key: DemoTaskKey; id: string; number?: number }[];
-};
-
-export type TourOutcome = "finished" | "skipped";
+] as const satisfies readonly DemoTaskKey[];

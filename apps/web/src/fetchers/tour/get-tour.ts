@@ -1,6 +1,8 @@
-import { tourRequest } from "./tour-request";
-import type { TourStatus } from "./types";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-export function getTour() {
-  return tourRequest<TourStatus>("");
+export async function getTour() {
+  const response = await client.tour.$get();
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
