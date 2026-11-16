@@ -11,6 +11,8 @@ import {
   integrationTable,
   invitationTable,
   labelTable,
+  mcpGrantTable,
+  mcpTokenTable,
   notificationTable,
   projectTable,
   sessionTable,
@@ -44,6 +46,7 @@ export const userTableRelations = relations(userTable, ({ many, one }) => ({
   notificationWorkspaceRules: many(userNotificationWorkspaceRuleTable),
   sentInvitations: many(invitationTable),
   apikeys: many(apikeyTable),
+  mcpGrants: many(mcpGrantTable),
 }));
 
 export const sessionTableRelations = relations(sessionTable, ({ one }) => ({
@@ -375,5 +378,27 @@ export const commentTableRelations = relations(commentTable, ({ one }) => ({
   user: one(userTable, {
     fields: [commentTable.userId],
     references: [userTable.id],
+  }),
+}));
+
+export const mcpGrantTableRelations = relations(
+  mcpGrantTable,
+  ({ one, many }) => ({
+    user: one(userTable, {
+      fields: [mcpGrantTable.userId],
+      references: [userTable.id],
+    }),
+    defaultWorkspace: one(workspaceTable, {
+      fields: [mcpGrantTable.defaultWorkspaceId],
+      references: [workspaceTable.id],
+    }),
+    tokens: many(mcpTokenTable),
+  }),
+);
+
+export const mcpTokenTableRelations = relations(mcpTokenTable, ({ one }) => ({
+  grant: one(mcpGrantTable, {
+    fields: [mcpTokenTable.grantId],
+    references: [mcpGrantTable.id],
   }),
 }));

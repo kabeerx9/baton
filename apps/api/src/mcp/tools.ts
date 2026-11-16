@@ -1,8 +1,13 @@
-import { registerTools, type ToolRegistrar } from "@baton/mcp/tools";
+import {
+  registerTools,
+  type ToolCatalogOptions,
+  type ToolRegistrar,
+} from "@baton/mcp/tools";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { z } from "zod";
 
 export type McpToolRegistrar = ToolRegistrar;
+export type McpToolOptions = ToolCatalogOptions;
 
 type ShapeToolServer = {
   registerTool(
@@ -75,6 +80,7 @@ export function registerMcpTools(
   server: McpToolRegistrar,
   baseUrl: string,
   token: string,
+  options: McpToolOptions,
 ): void {
-  registerTools(server, { client: new ApiClient(baseUrl, token) });
+  registerTools(server, { client: new ApiClient(baseUrl, token), ...options });
 }

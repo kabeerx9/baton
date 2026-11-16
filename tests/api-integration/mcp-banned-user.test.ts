@@ -4,8 +4,7 @@ import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { resetTestDatabase } from "./helpers/database";
-
-const protocolVersion = "2026-07-28";
+import { connectMcpAgent, mcpPost, refresh } from "./helpers/mcp-oauth";
 
 async function signUp(app: ReturnType<typeof createApp>["app"]) {
   const response = await app.request("/api/auth/sign-up/email", {
@@ -28,45 +27,46 @@ async function signUp(app: ReturnType<typeof createApp>["app"]) {
   return { token: body.token, userId: body.user.id };
 }
 
-function initialize(app: ReturnType<typeof createApp>["app"], token: string) {
-  return app.request("/api/mcp", {
-    method: "POST",
-    headers: {
-      accept: "application/json, text/event-stream",
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-      "mcp-method": "initialize",
-      "mcp-protocol-version": protocolVersion,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion,
-        capabilities: {},
-        clientInfo: { name: "baton-banned-user-test", version: "1.0.0" },
-      },
-    }),
-  });
-}
-
 describe("API integration: MCP access for banned users", () => {
   beforeEach(async () => {
     await resetTestDatabase();
   });
 
-  it("stops serving a session token once its owner is banned", async () => {
+  it("refuses a plain browser session token on /api/mcp", async () => {
+    const { app } = createApp();
+    const { token } = await signUp(app);
+    const response = await mcpPost(app, token, "tools/list");
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toContain(
+      "resource_metadata=",
+    );
+  });
+
+  it("stops serving an MCP grant once its owner is banned, on both endpoints", async () => {
     const { app } = createApp();
     const { token, userId } = await signUp(app);
+    const agent = await connectMcpAgent(app, { bearer: token });
 
-    expect((await initialize(app, token)).status).not.toBe(401);
+    expect((await mcpPost(app, agent.accessToken, "tools/list")).status).toBe(
+      200,
+    );
 
+    // A direct write skips the auth hooks: the per-call ban check alone holds.
     await db
       .update(schema.userTable)
       .set({ banned: true })
       .where(eq(schema.userTable.id, userId));
 
-    expect((await initialize(app, token)).status).toBe(401);
+    expect((await mcpPost(app, agent.accessToken, "tools/list")).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await app.request("/api/workspace", {
+          headers: { authorization: `Bearer ${agent.accessToken}` },
+        })
+      ).status,
+    ).toBe(401);
+    expect((await refresh(app, agent)).status).toBe(400);
   });
 });

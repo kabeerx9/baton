@@ -77,7 +77,10 @@ describe("API integration: shared MCP OAuth state", () => {
     const thirdReplica = await import("../../apps/api/src/mcp/oauth");
     await expect(
       thirdReplica.exchangeCode(code, client.clientId, verifier, redirectUri),
-    ).resolves.toMatchObject({ expiresIn: 30 * 24 * 60 * 60 });
+    ).resolves.toMatchObject({
+      expiresIn: 60 * 60,
+      refreshToken: expect.stringMatching(/^baton_mcp_rt_/),
+    });
     await expect(
       thirdReplica.exchangeCode(code, client.clientId, verifier, redirectUri),
     ).resolves.toBeNull();

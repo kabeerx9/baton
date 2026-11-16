@@ -3,14 +3,21 @@ import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import mcpRoutes from "../../apps/api/src/mcp/index";
 
+const principal = vi.hoisted(() => ({
+  kind: "grant" as const,
+  token: "test-token",
+  userId: "test-user",
+  grantId: "grant-1",
+  defaultWorkspaceId: null,
+}));
 const authMocks = vi.hoisted(() => ({
-  getSession: vi.fn(async (): Promise<{ user: { id: string } } | null> => ({
-    user: { id: "test-user" },
-  })),
+  getSession: vi.fn(
+    async (_req: Request): Promise<typeof principal | null> => principal,
+  ),
 }));
 
-vi.mock("../../apps/api/src/auth", () => ({
-  auth: { api: { getSession: authMocks.getSession } },
+vi.mock("../../apps/api/src/mcp/authenticate-mcp-request", () => ({
+  authenticateMcpRequest: authMocks.getSession,
 }));
 vi.mock("@modelcontextprotocol/server", async (importOriginal) => {
   const original =
@@ -32,9 +39,7 @@ const app = new Hono().post("/register", oauthRequestBounds, async (c) =>
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
-  authMocks.getSession
-    .mockReset()
-    .mockResolvedValue({ user: { id: "test-user" } });
+  authMocks.getSession.mockReset().mockResolvedValue(principal);
 });
 
 describe("MCP bounded body admission", () => {
@@ -145,12 +150,12 @@ describe("MCP bounded body admission", () => {
   });
 
   it.each([
-    ["missing Authorization", undefined, 0],
-    ["invalid Bearer token", "Bearer invalid-test-token", 1],
+    ["missing Authorization", undefined],
+    ["invalid Bearer token", "Bearer invalid-test-token"],
   ] as const)(
     "rejects %s before reading request bytes",
-    async (_name, authorization, lookups) => {
-      if (authorization) authMocks.getSession.mockResolvedValueOnce(null);
+    async (_name, authorization) => {
+      authMocks.getSession.mockResolvedValueOnce(null);
       const pull = vi.fn();
       const body = new ReadableStream({ pull }, { highWaterMark: 0 });
       const request = new Request("http://mcp.test/mcp", {
@@ -165,7 +170,8 @@ describe("MCP bounded body admission", () => {
       try {
         const response = await mcpRoutes.request(request);
         expect(response.status).toBe(401);
-        expect(authMocks.getSession).toHaveBeenCalledTimes(lookups);
+        // The real check parses the header first and never reads the body.
+        expect(authMocks.getSession).toHaveBeenCalledTimes(1);
         expect(pull).not.toHaveBeenCalled();
         expect(request.bodyUsed).toBe(false);
       } finally {

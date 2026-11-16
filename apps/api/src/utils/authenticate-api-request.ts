@@ -2,6 +2,8 @@ import * as Sentry from "@sentry/node";
 import { APIError } from "better-auth/api";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { isMcpToken } from "../mcp/grant/token-secret";
+import { verifyAccessToken } from "../mcp/grant/verify-access-token";
 import { apiKeyRejection } from "./api-key-rejection";
 import { getUserSession } from "./get-user-session";
 import { type ApiKeyRateLimit, rateLimitHeaders } from "./rate-limit-headers";
@@ -89,6 +91,25 @@ function setApiKeyContext(c: Context, { key, rateLimit }: VerifiedApiKey) {
   attachUserToScope(key.userId);
 }
 
+/**
+ * MCP tools call REST with the agent's access token. It acts as its user, like
+ * an API key without a scope, but never as a browser session: session-only
+ * routes refuse it, and so do WebSocket upgrades, which revocation cannot close.
+ */
+async function setMcpTokenContext(c: Context, token: string) {
+  const grant =
+    c.req.header("upgrade")?.toLowerCase() === "websocket"
+      ? null
+      : await verifyAccessToken(token);
+  if (!grant) throw new HTTPException(401, { message: "Unauthorized" });
+  c.set("authMethod", "mcp" satisfies AuthMethod);
+  c.set("userId", grant.userId);
+  c.set("userEmail", "");
+  c.set("user", null);
+  c.set("session", null);
+  attachUserToScope(grant.userId);
+}
+
 export async function authenticateApiRequest(c: Context): Promise<void> {
   const { token, malformed } = parseBearerToken(c.req.header("Authorization"));
   if (malformed) {
@@ -102,6 +123,11 @@ export async function authenticateApiRequest(c: Context): Promise<void> {
       throw apiKeyRejection(apiKeyResult);
     }
     setApiKeyContext(c, apiKeyResult);
+    return;
+  }
+
+  if (token && isMcpToken(token)) {
+    await setMcpTokenContext(c, token);
     return;
   }
 

@@ -547,6 +547,27 @@
       "when": 1794662104880,
       "tag": "0077_task_change_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794751274686,
+      "tag": "0078_mcp_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1794756271952,
+      "tag": "0079_mcp_token_expiry_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794756349300,
+      "tag": "0080_mcp_credential_generation",
+      "breakpoints": true
     }
   ]
 }

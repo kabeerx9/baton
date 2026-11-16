@@ -4,6 +4,7 @@ import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { readRequest, readTask } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
+import { connectMcpAgent } from "./helpers/mcp-oauth";
 import { createProjectFixture } from "./helpers/fixtures";
 
 // Drives the HTTP MCP endpoint end to end. The tools call the API over
@@ -38,7 +39,7 @@ async function callTool(
   name: string,
   args: Record<string, unknown>,
 ) {
-  const response = await app.request("/api/mcp", {
+  const response = await app.request("/api/mcp?tools=all", {
     method: "POST",
     headers: {
       accept: "application/json, text/event-stream",
@@ -125,10 +126,19 @@ it("turns an outsider agent's status change into a request the creator's agent a
     })
     .returning();
 
-  const asked = await callTool(app, outsider.token, "update_task_status", {
-    taskId: task.id,
-    status: "in-progress",
-  });
+  // Each person connects an agent through OAuth; the tokens are MCP grants.
+  const creatorAgent = await connectMcpAgent(app, { bearer: creator.token });
+  const outsiderAgent = await connectMcpAgent(app, { bearer: outsider.token });
+
+  const asked = await callTool(
+    app,
+    outsiderAgent.accessToken,
+    "update_task_status",
+    {
+      taskId: task.id,
+      status: "in-progress",
+    },
+  );
   expect(asked).toMatchObject({
     outcome: "requested",
     task: { status: "to-do" },
@@ -137,24 +147,39 @@ it("turns an outsider agent's status change into a request the creator's agent a
   const requestId = asked.request.id as string;
   expect((await readTask(task.id))?.status).toBe("to-do");
 
-  const waiting = await callTool(app, creator.token, "list_change_requests", {
-    workspaceId: workspace.id,
-    canAnswer: true,
-  });
+  const waiting = await callTool(
+    app,
+    creatorAgent.accessToken,
+    "list_change_requests",
+    {
+      workspaceId: workspace.id,
+      canAnswer: true,
+    },
+  );
   expect(JSON.stringify(waiting)).toContain(requestId);
 
-  const accepted = await callTool(app, creator.token, "answer_change_request", {
-    requestId,
-    decision: "accept",
-  });
+  const accepted = await callTool(
+    app,
+    creatorAgent.accessToken,
+    "answer_change_request",
+    {
+      requestId,
+      decision: "accept",
+    },
+  );
   expect(accepted).toMatchObject({
     request: { id: requestId, state: "accepted", decidedChannel: "agent" },
     task: { status: "in-progress" },
   });
   expect((await readRequest(requestId))?.decidedBy).toBe(creator.user.id);
 
-  const read = await callTool(app, outsider.token, "get_change_request", {
-    requestId,
-  });
+  const read = await callTool(
+    app,
+    outsiderAgent.accessToken,
+    "get_change_request",
+    {
+      requestId,
+    },
+  );
   expect(read).toMatchObject({ state: "accepted" });
 });

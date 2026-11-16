@@ -13,7 +13,7 @@ import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
 
 const redirectUri = "https://client.example/callback";
-const verifier = "session-revocation-test-verifier";
+const verifier = "session-revocation-test-verifier-padded-to-43";
 const origin = "http://localhost:5173";
 
 beforeEach(resetTestDatabase);
@@ -215,25 +215,26 @@ describe("MCP code redemption and concurrent session revocation", () => {
                 })
               ).status,
             ).toBe(200);
-            if (redemption.status === 200) {
-              const token = (await redemption.json()) as {
-                access_token: string;
-              };
-              expect(
-                (
-                  await app.request("/api/workspace", {
-                    headers: { authorization: `Bearer ${token.access_token}` },
-                  })
-                ).status,
-              ).toBe(401);
-            }
           } else if (operation !== "revoke-one") {
             expect(sessions).toHaveLength(0);
-          } else if (redemption.status === 200) {
+          }
+          // Redemption mints an MCP grant, not a session. Signing out
+          // sessions leaves connected agents alone; a ban revokes them.
+          if (redemption.status === 200) {
             const token = (await redemption.json()) as { access_token: string };
             expect(
-              sessions.some((row) => row.token === token.access_token),
-            ).toBe(true);
+              (
+                await app.request("/api/workspace", {
+                  headers: { authorization: `Bearer ${token.access_token}` },
+                })
+              ).status,
+            ).toBe(operation === "ban" ? 401 : 200);
+            const grants = await db
+              .select()
+              .from(schema.mcpGrantTable)
+              .where(eq(schema.mcpGrantTable.userId, user.userId));
+            expect(grants).toHaveLength(1);
+            expect(grants[0]?.revokedAt !== null).toBe(operation === "ban");
           }
         } finally {
           await blocker.query("ROLLBACK");

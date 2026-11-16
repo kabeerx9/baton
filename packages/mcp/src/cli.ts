@@ -57,6 +57,7 @@ In a normal terminal, the default is the interactive installer.
 Environment:
   BATON_API_KEY          Required. Create it in Baton under Settings > Account > Developer.
   BATON_API_URL          Baton API origin (default http://localhost:1337)
+  BATON_MCP_TOOLS        "all" lists every tool; the default is the core set
 
 See also: baton-mcp install --help
 `);
