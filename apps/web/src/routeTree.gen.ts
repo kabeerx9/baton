@@ -19,7 +19,6 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
-import { Route as PrototypesConnectAgentRouteImport } from './routes/prototypes.connect-agent'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/dashboard'
 import { Route as LayoutAuthenticatedInvitationsRouteImport } from './routes/_layout/_authenticated/invitations'
 import { Route as LayoutAuthenticatedOnboardingRouteImport } from './routes/_layout/_authenticated/onboarding'
@@ -36,6 +35,7 @@ import { Route as LayoutAuthenticatedDashboardSettingsWorkspaceRouteImport } fro
 import { Route as LayoutAuthenticatedDashboardWorkspaceWorkspaceIdRouteImport } from './routes/_layout/_authenticated/dashboard/workspace/$workspaceId'
 import { Route as LayoutAuthenticatedDashboardWorkspaceCreateRouteImport } from './routes/_layout/_authenticated/dashboard/workspace/create'
 import { Route as LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125RouteImport } from './routes/_layout/_authenticated/$workspaceSlug/task.$ticketId.{-$title}'
+import { Route as LayoutAuthenticatedDashboardSettingsAccountAgentsRouteImport } from './routes/_layout/_authenticated/dashboard/settings/account/agents'
 import { Route as LayoutAuthenticatedDashboardSettingsAccountDeveloperRouteImport } from './routes/_layout/_authenticated/dashboard/settings/account/developer'
 import { Route as LayoutAuthenticatedDashboardSettingsAccountInformationRouteImport } from './routes/_layout/_authenticated/dashboard/settings/account/information'
 import { Route as LayoutAuthenticatedDashboardSettingsAccountNotificationsRouteImport } from './routes/_layout/_authenticated/dashboard/settings/account/notifications'
@@ -112,11 +112,6 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
 const McpAuthorizeRoute = McpAuthorizeRouteImport.update({
   id: '/mcp/authorize',
   path: '/mcp/authorize',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrototypesConnectAgentRoute = PrototypesConnectAgentRouteImport.update({
-  id: '/prototypes/connect-agent',
-  path: '/prototypes/connect-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutAuthenticatedDashboardRoute =
@@ -217,6 +212,12 @@ const LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125Route =
       getParentRoute: () => LayoutAuthenticatedRoute,
     } as any,
   )
+const LayoutAuthenticatedDashboardSettingsAccountAgentsRoute =
+  LayoutAuthenticatedDashboardSettingsAccountAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsAccountRoute,
+  } as any)
 const LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute =
   LayoutAuthenticatedDashboardSettingsAccountDeveloperRouteImport.update({
     id: '/developer',
@@ -410,7 +411,6 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/connect-agent': typeof PrototypesConnectAgentRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
@@ -427,6 +427,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/workspace/create': typeof LayoutAuthenticatedDashboardWorkspaceCreateRoute
   '/dashboard/settings/': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
   '/$workspaceSlug/task/$ticketId/{-$title}': typeof LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125Route
+  '/dashboard/settings/account/agents': typeof LayoutAuthenticatedDashboardSettingsAccountAgentsRoute
   '/dashboard/settings/account/developer': typeof LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute
   '/dashboard/settings/account/information': typeof LayoutAuthenticatedDashboardSettingsAccountInformationRoute
   '/dashboard/settings/account/notifications': typeof LayoutAuthenticatedDashboardSettingsAccountNotificationsRoute
@@ -466,7 +467,6 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/connect-agent': typeof PrototypesConnectAgentRoute
   '/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
@@ -479,6 +479,7 @@ export interface FileRoutesByTo {
   '/dashboard/workspace/create': typeof LayoutAuthenticatedDashboardWorkspaceCreateRoute
   '/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
   '/$workspaceSlug/task/$ticketId/{-$title}': typeof LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125Route
+  '/dashboard/settings/account/agents': typeof LayoutAuthenticatedDashboardSettingsAccountAgentsRoute
   '/dashboard/settings/account/developer': typeof LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute
   '/dashboard/settings/account/information': typeof LayoutAuthenticatedDashboardSettingsAccountInformationRoute
   '/dashboard/settings/account/notifications': typeof LayoutAuthenticatedDashboardSettingsAccountNotificationsRoute
@@ -521,7 +522,6 @@ export interface FileRoutesById {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/connect-agent': typeof PrototypesConnectAgentRoute
   '/_layout/_authenticated/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/_authenticated/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/_layout/_authenticated/onboarding': typeof LayoutAuthenticatedOnboardingRoute
@@ -538,6 +538,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/dashboard/workspace/create': typeof LayoutAuthenticatedDashboardWorkspaceCreateRoute
   '/_layout/_authenticated/dashboard/settings/': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
   '/_layout/_authenticated/$workspaceSlug/task/$ticketId/{-$title}': typeof LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125Route
+  '/_layout/_authenticated/dashboard/settings/account/agents': typeof LayoutAuthenticatedDashboardSettingsAccountAgentsRoute
   '/_layout/_authenticated/dashboard/settings/account/developer': typeof LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute
   '/_layout/_authenticated/dashboard/settings/account/information': typeof LayoutAuthenticatedDashboardSettingsAccountInformationRoute
   '/_layout/_authenticated/dashboard/settings/account/notifications': typeof LayoutAuthenticatedDashboardSettingsAccountNotificationsRoute
@@ -579,7 +580,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/connect-agent'
     | '/dashboard'
     | '/invitations'
     | '/onboarding'
@@ -596,6 +596,7 @@ export interface FileRouteTypes {
     | '/dashboard/workspace/create'
     | '/dashboard/settings/'
     | '/$workspaceSlug/task/$ticketId/{-$title}'
+    | '/dashboard/settings/account/agents'
     | '/dashboard/settings/account/developer'
     | '/dashboard/settings/account/information'
     | '/dashboard/settings/account/notifications'
@@ -635,7 +636,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/connect-agent'
     | '/invitations'
     | '/onboarding'
     | '/profile-setup'
@@ -648,6 +648,7 @@ export interface FileRouteTypes {
     | '/dashboard/workspace/create'
     | '/dashboard/settings'
     | '/$workspaceSlug/task/$ticketId/{-$title}'
+    | '/dashboard/settings/account/agents'
     | '/dashboard/settings/account/developer'
     | '/dashboard/settings/account/information'
     | '/dashboard/settings/account/notifications'
@@ -689,7 +690,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/connect-agent'
     | '/_layout/_authenticated/dashboard'
     | '/_layout/_authenticated/invitations'
     | '/_layout/_authenticated/onboarding'
@@ -706,6 +706,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/dashboard/workspace/create'
     | '/_layout/_authenticated/dashboard/settings/'
     | '/_layout/_authenticated/$workspaceSlug/task/$ticketId/{-$title}'
+    | '/_layout/_authenticated/dashboard/settings/account/agents'
     | '/_layout/_authenticated/dashboard/settings/account/developer'
     | '/_layout/_authenticated/dashboard/settings/account/information'
     | '/_layout/_authenticated/dashboard/settings/account/notifications'
@@ -742,7 +743,6 @@ export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   McpAuthorizeRoute: typeof McpAuthorizeRoute
-  PrototypesConnectAgentRoute: typeof PrototypesConnectAgentRoute
   InvitationAcceptInviteIdRoute: typeof InvitationAcceptInviteIdRoute
 }
 
@@ -816,13 +816,6 @@ declare module '@tanstack/react-router' {
       path: '/mcp/authorize'
       fullPath: '/mcp/authorize'
       preLoaderRoute: typeof McpAuthorizeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prototypes/connect-agent': {
-      id: '/prototypes/connect-agent'
-      path: '/prototypes/connect-agent'
-      fullPath: '/prototypes/connect-agent'
-      preLoaderRoute: typeof PrototypesConnectAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_layout/_authenticated/dashboard': {
@@ -936,6 +929,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$workspaceSlug/task/$ticketId/{-$title}'
       preLoaderRoute: typeof LayoutAuthenticatedWorkspaceSlugTaskTicketIdChar123TitleChar125RouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
+    }
+    '/_layout/_authenticated/dashboard/settings/account/agents': {
+      id: '/_layout/_authenticated/dashboard/settings/account/agents'
+      path: '/agents'
+      fullPath: '/dashboard/settings/account/agents'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsAccountAgentsRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsAccountRoute
     }
     '/_layout/_authenticated/dashboard/settings/account/developer': {
       id: '/_layout/_authenticated/dashboard/settings/account/developer'
@@ -1144,6 +1144,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface LayoutAuthenticatedDashboardSettingsAccountRouteChildren {
+  LayoutAuthenticatedDashboardSettingsAccountAgentsRoute: typeof LayoutAuthenticatedDashboardSettingsAccountAgentsRoute
   LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute: typeof LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute
   LayoutAuthenticatedDashboardSettingsAccountInformationRoute: typeof LayoutAuthenticatedDashboardSettingsAccountInformationRoute
   LayoutAuthenticatedDashboardSettingsAccountNotificationsRoute: typeof LayoutAuthenticatedDashboardSettingsAccountNotificationsRoute
@@ -1153,6 +1154,8 @@ interface LayoutAuthenticatedDashboardSettingsAccountRouteChildren {
 
 const LayoutAuthenticatedDashboardSettingsAccountRouteChildren: LayoutAuthenticatedDashboardSettingsAccountRouteChildren =
   {
+    LayoutAuthenticatedDashboardSettingsAccountAgentsRoute:
+      LayoutAuthenticatedDashboardSettingsAccountAgentsRoute,
     LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute:
       LayoutAuthenticatedDashboardSettingsAccountDeveloperRoute,
     LayoutAuthenticatedDashboardSettingsAccountInformationRoute:
@@ -1399,7 +1402,6 @@ const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   McpAuthorizeRoute: McpAuthorizeRoute,
-  PrototypesConnectAgentRoute: PrototypesConnectAgentRoute,
   InvitationAcceptInviteIdRoute: InvitationAcceptInviteIdRoute,
 }
 export const routeTree = rootRouteImport

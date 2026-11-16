@@ -1033,6 +1033,108 @@
 			"projectBackgroundsDescription": "Show the image a project sets behind its board.",
 			"advancedTitle": "Advanced"
 		},
+		"connectAgent": {
+			"navLabel": "Connect an agent",
+			"title": "Connect an agent",
+			"subtitle": "Add Baton to your agent once. It signs in through your browser, so there is no key to paste.",
+			"clientsLabel": "Agent",
+			"keysLink": "Create one in Developer settings",
+			"tryIt": "Connected? Ask your agent: <q>“what tasks do I have?”</q>",
+			"agentsNote": "Agents name themselves, so Baton cannot check the name. Match the date and workspace to what you did. Revoke anything you do not recognise.",
+			"url": {
+				"label": "MCP URL"
+			},
+			"copy": {
+				"idle": "Copy",
+				"copied": "Copied",
+				"failed": "Copy failed",
+				"label": "{{status}} {{what}}",
+				"announce": "Copied {{what}}"
+			},
+			"notice": {
+				"loopbackTitle": "Plain http works on localhost",
+				"loopbackBody": "Agents on this machine can connect. Another device needs an https address.",
+				"remoteTitle": "This address uses http on your network",
+				"remoteBody": "Some agents refuse plain http away from localhost. If sign-in fails, open Baton through localhost or set up https."
+			},
+			"setup": {
+				"claude-code": {
+					"add": { "title": "Add Baton" },
+					"signIn": {
+						"title": "Sign in once",
+						"body": "In Claude Code, run /mcp, choose baton, then Authenticate. Your browser opens."
+					}
+				},
+				"codex": {
+					"add": { "title": "Add Baton" },
+					"signIn": {
+						"title": "Sign in once",
+						"body": "Your browser opens. Approve access."
+					}
+				},
+				"opencode": {
+					"add": { "title": "Add Baton to your config" },
+					"signIn": {
+						"title": "Sign in once",
+						"body": "Your browser opens. Approve access."
+					}
+				},
+				"cursor": {
+					"add": { "title": "Add Baton to your config" },
+					"signIn": {
+						"title": "Sign in once",
+						"body": "Open Settings, then MCP, then choose Login next to baton."
+					}
+				},
+				"claude-desktop": {
+					"connector": {
+						"title": "Add a custom connector",
+						"body": "Open Settings, then Connectors, then Add custom connector. Paste the MCP URL."
+					},
+					"signIn": {
+						"title": "Sign in once",
+						"body": "Claude opens your browser. Approve access."
+					},
+					"key": {
+						"title": "Create an API key",
+						"body": "Claude Desktop cannot reach a private instance as a connector. Use an API key instead."
+					},
+					"bridge": {
+						"title": "Run baton-mcp with the key",
+						"body": "Point baton-mcp at the MCP URL and give it the key."
+					}
+				},
+				"headless": {
+					"header": {
+						"title": "Send the key as a header",
+						"body": "Create an API key, then add this header to every request to the MCP URL."
+					}
+				}
+			},
+			"grants": {
+				"title": "Connected agents",
+				"description": "Agents signed in as you. Revoke one to sign it out.",
+				"emptyTitle": "No agents connected yet",
+				"emptyDescription": "Set one up above. It appears here after you sign in.",
+				"loadError": "Could not load connected agents. Your agents still work.",
+				"loadMoreError": "Could not load more agents. Try again.",
+				"retry": "Retry",
+				"showMore": "Show more",
+				"loadingMore": "Loading…",
+				"stale": "Stale",
+				"noWorkspace": "No default workspace",
+				"details": "{{workspace}} · Used {{used}} · Connected {{connected}}",
+				"revoke": "Revoke",
+				"revokeLabel": "Revoke {{name}}"
+			},
+			"revoke": {
+				"title": "Revoke {{name}}?",
+				"description": "{{name}} loses access to Baton right away. This cannot be undone. To use it again, sign in again from that agent.",
+				"confirm": "Revoke access",
+				"pending": "Revoking…",
+				"error": "Could not revoke access. Try again."
+			}
+		},
 		"developerPage": {
 			"pageTitle": "API keys",
 			"title": "API keys",
