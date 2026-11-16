@@ -6,12 +6,14 @@ import {
   taskReminderSentTable,
   taskTable,
   userNotificationPreferenceTable,
+  workspaceTable,
   workspaceUserTable,
 } from "../database/schema";
 import {
   persistNotification,
   dispatchNotification,
 } from "../notification/controllers/create-notification";
+import { lockNotificationResource } from "../notification/lock-notification-resource";
 import { workspaceIsActive } from "../workspace/archive/active-workspace-sql";
 import {
   DUE_DATE_DURATION_MS,
@@ -60,6 +62,14 @@ async function getTasksNeedingReminder(
     })
     .from(taskTable)
     .innerJoin(projectTable, eq(projectTable.id, taskTable.projectId))
+    // A demo workspace never sends reminders.
+    .innerJoin(
+      workspaceTable,
+      and(
+        eq(workspaceTable.id, projectTable.workspaceId),
+        eq(workspaceTable.kind, "team"),
+      ),
+    )
     .innerJoin(
       workspaceUserTable,
       and(
@@ -117,6 +127,10 @@ async function processReminder(
   if (!task.userId) return;
 
   const notification = await db.transaction(async (tx) => {
+    // The claim's task foreign key takes a task lock; take user, workspace
+    // and task first, the order deletions use, or a delete can deadlock it.
+    if (!(await lockNotificationResource(tx, task.userId!, task.id, "task")))
+      return null;
     const [claimed] = await tx
       .insert(taskReminderSentTable)
       .values({

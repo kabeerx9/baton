@@ -11,6 +11,8 @@ import {
   lockDemoWorkspace,
 } from "../../apps/api/src/tour/demo/delete-demo-workspace";
 import { deleteLockedTask } from "../../apps/api/src/task/controllers/delete-task";
+import { checkDueDateReminders } from "../../apps/api/src/scheduler/due-date-reminders";
+import { DUE_DATE_DURATION_MS } from "../../apps/api/src/scheduler/reminder-timing";
 import { deleteAccountData } from "../../apps/api/src/user/controllers/delete-account-data";
 import { deleteNativeWorkspace } from "../../apps/api/src/workspace/lifecycle/delete-native-workspace";
 import { createInstanceAdmin } from "./helpers/admin/create-instance-admin";
@@ -517,5 +519,79 @@ describe("tour mutations need a browser session", () => {
         .from(schema.workspaceTable)
         .where(eq(schema.workspaceTable.demoOwnerUserId, user.id)),
     ).toEqual([]);
+  });
+});
+
+describe("due-date reminders", () => {
+  // Inside the default 1440-minute lead window, five minutes off its edge.
+  const dueInWindow = () =>
+    new Date(Date.now() + (1440 - 5) * 60_000 - DUE_DATE_DURATION_MS);
+  const remindersSent = () => db.select().from(schema.taskReminderSentTable);
+
+  it("never remind about a demo task", async () => {
+    const { user } = await createWorkspaceMember({ role: "owner" });
+    const seeded = await startTourAs(user);
+    await db
+      .update(schema.taskTable)
+      .set({ dueDate: dueInWindow(), userId: user.id })
+      .where(eq(schema.taskTable.id, seeded.tasks[0]!.id));
+
+    expect(await checkDueDateReminders()).toEqual({ degraded: false });
+    expect(await remindersSent()).toEqual([]);
+  });
+
+  it("lets a reminder and an overlapping workspace delete both finish", async () => {
+    const { user, workspace } = await createWorkspaceMember({ role: "owner" });
+    const { project, columns } = await createProjectFixture({
+      workspaceId: workspace.id,
+    });
+    await db.insert(schema.taskTable).values({
+      projectId: project.id,
+      columnId: columns.todo.id,
+      userId: user.id,
+      title: "Due",
+      number: 1,
+      status: columns.todo.slug,
+      dueDate: dueInWindow(),
+    });
+
+    let reminders: Promise<{ degraded: boolean }> | undefined;
+    await db.transaction(async (tx) => {
+      // A workspace delete locks the workspace row first ...
+      await tx
+        .select({ id: schema.workspaceTable.id })
+        .from(schema.workspaceTable)
+        .where(eq(schema.workspaceTable.id, workspace.id))
+        .for("update");
+      reminders = checkDueDateReminders();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      // ... then cascades to the task the reminder wants to claim.
+      await tx
+        .delete(schema.workspaceTable)
+        .where(eq(schema.workspaceTable.id, workspace.id));
+    });
+
+    expect(await reminders!).toEqual({ degraded: false });
+    expect(await remindersSent()).toEqual([]);
+    expect(await db.select().from(schema.notificationTable)).toEqual([]);
+  });
+});
+
+describe("notifications with no resource that name a workspace", () => {
+  it("go with the demo when the tour finishes", async () => {
+    const { user } = await createWorkspaceMember({ role: "owner" });
+    const demoId = (await startTourAs(user)).demoWorkspace.id;
+    const posted = await send("POST", "/notification", {
+      type: "info",
+      title: "Tour update",
+      eventData: { workspaceId: demoId },
+    });
+    expect(posted.status).toBe(200);
+    expect(await db.select().from(schema.notificationTable)).toHaveLength(1);
+
+    expect(
+      (await send("POST", "/tour/finish", { outcome: "skipped" })).status,
+    ).toBe(200);
+    expect(await db.select().from(schema.notificationTable)).toEqual([]);
   });
 });
