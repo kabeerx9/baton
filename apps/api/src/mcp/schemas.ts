@@ -27,8 +27,7 @@ const redirectUriSchema = z
   .max(2048)
   .refine(isValidRedirectUri, "Invalid redirect URI");
 
-// Clients such as Claude also ask for refresh_token. The server never issues
-// one, so the grant is accepted here and omitted from the registration response.
+// Every client gets refresh tokens, whether or not it lists the grant here.
 export const clientRegistrationSchema = z.object({
   redirect_uris: z.array(redirectUriSchema).min(1).max(10),
   client_name: z.string().max(100).optional(),
@@ -59,6 +58,10 @@ export const authorizationQuerySchema = z.object({
     description:
       "Opaque client state, returned unchanged. The complete authorization URL is limited to 8 KiB.",
   }),
+  resource: z.string().max(2048).optional().openapi({
+    description:
+      "RFC 8707 resource indicator. When present it must name this server's /api/mcp endpoint, or the client gets error=invalid_target.",
+  }),
 });
 
 export const authorizationRequestParamSchema = z.object({
@@ -67,6 +70,10 @@ export const authorizationRequestParamSchema = z.object({
 
 export const authorizationDecisionSchema = z.object({
   approved: z.boolean(),
+  workspaceId: z.string().min(1).max(128).nullable().optional().openapi({
+    description:
+      "Default workspace for this agent's board tools. Must be a workspace the user can read. Left out, the user's only workspace is used, or none.",
+  }),
 });
 
 export const oauthErrorSchema = z
@@ -80,7 +87,7 @@ export const clientRegistrationResponseSchema = z
     redirect_uris: z.array(z.string()),
     client_name: z.string().optional(),
     token_endpoint_auth_method: z.literal("none"),
-    grant_types: z.array(z.literal("authorization_code")),
+    grant_types: z.array(z.enum(["authorization_code", "refresh_token"])),
     response_types: z.array(z.literal("code")),
   })
   .openapi("McpClientRegistration");

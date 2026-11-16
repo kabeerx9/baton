@@ -5,17 +5,17 @@ import {
 } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { auth } from "../auth";
-import { apiRouter, createRoute, jsonResponse } from "../openapi";
-import { type BanState, isBanActive } from "../utils/user-ban";
+import { apiRouter, createRoute, jsonResponse, z } from "../openapi";
+import { authenticateMcpRequest } from "./authenticate-mcp-request";
 import {
   beginMcpAuthorization,
   decideMcpAuthorizationRequest,
   getMcpAuthorizationRequest,
   registerMcpClient,
 } from "./controllers/oauth-consent";
+import { mcpGrantRoutes } from "./grants/routes";
+import { handleTokenRequest } from "./handle-token-request";
 import { createModernMcpHandler } from "./modern";
-import { exchangeCode } from "./oauth";
 import {
   MCP_BODY_BYTES,
   mcpRequestBounds,
@@ -32,33 +32,13 @@ import {
   oauthErrorSchema,
 } from "./schemas";
 import { createMcpServerForUser } from "./legacy-server";
-
-const publicApiUrl = (process.env.BATON_API_URL || "http://localhost:1337")
-  .replace(/\/api\/?$/, "")
-  .replace(/\/+$/, "");
-const internalApiUrl = (
-  process.env.BATON_INTERNAL_API_URL || "http://127.0.0.1:1337"
-)
-  .replace(/\/api\/?$/, "")
-  .replace(/\/+$/, "");
-
-async function validateBearerToken(
-  req: Request,
-): Promise<{ userId: string; token: string } | null> {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader) return null;
-  const match = authHeader.match(/^Bearer\s+(\S+)$/i);
-  if (!match?.[1]) return null;
-  const token = match[1];
-
-  const headers = new Headers();
-  headers.set("authorization", `Bearer ${token}`);
-  const session = await auth.api.getSession({ headers });
-
-  if (!session?.user?.id) return null;
-  if (isBanActive(session.user as BanState)) return null;
-  return { userId: session.user.id, token };
-}
+import type { McpToolOptions } from "./tools";
+import {
+  authorizationServerMetadata,
+  internalApiUrl,
+  protectedResourceMetadata,
+  publicApiUrl,
+} from "./urls";
 
 const mcp = apiRouter();
 for (const path of [
@@ -131,12 +111,22 @@ const authorizeRoute = createRoute({
   tags: ["MCP"],
   summary: "Start MCP authorization",
   description:
-    "Begin an MCP OAuth authorization. Redirects the browser to the Baton consent page, which then approves or denies the request.",
+    "Begin an MCP OAuth authorization. Redirects the browser to the Baton consent page, which then approves or denies the request. A redirect URI on http loopback matches its registration on any port (RFC 8252). A resource other than this server's /api/mcp endpoint is sent back to the client as error=invalid_target. Every redirect back to the client carries iss (RFC 9207).",
   security: [],
   request: { query: authorizationQuerySchema },
   responses: {
-    302: { description: "Redirect to the Baton consent page" },
-    400: jsonError("Invalid authorization request"),
+    302: {
+      description:
+        "Redirect to the Baton consent page, or back to the client with error=invalid_target",
+    },
+    400: {
+      description:
+        "Invalid authorization request (JSON OAuth error). An unknown client_id gets an HTML page that tells the person how to reconnect their agent.",
+      content: {
+        "application/json": { schema: oauthErrorSchema },
+        "text/html": { schema: z.string() },
+      },
+    },
   },
 });
 
@@ -221,85 +211,20 @@ mcp
     oauthValidationHook("invalid_request"),
   );
 
-mcp.post("/mcp/token", async (c) => {
-  const contentType = c.req.header("content-type") || "";
-  let params: Record<string, unknown>;
-
-  try {
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      params = Object.fromEntries(new URLSearchParams(await c.req.text()));
-    } else {
-      const input: unknown = await c.req.json();
-      if (!input || typeof input !== "object" || Array.isArray(input))
-        return c.json({ error: "invalid_request" }, 400);
-      params = input as Record<string, unknown>;
-    }
-  } catch {
-    return c.json({ error: "invalid_request" }, 400);
-  }
-
-  const { grant_type, code, client_id, code_verifier, redirect_uri } = params;
-
-  if (grant_type !== "authorization_code") {
-    return c.json({ error: "unsupported_grant_type" }, 400);
-  }
-  if (
-    typeof code !== "string" ||
-    !code ||
-    code.length > 128 ||
-    typeof client_id !== "string" ||
-    !client_id ||
-    client_id.length > 128 ||
-    typeof code_verifier !== "string" ||
-    !code_verifier ||
-    code_verifier.length > 128 ||
-    typeof redirect_uri !== "string" ||
-    !redirect_uri ||
-    redirect_uri.length > 2048
-  ) {
-    return c.json({ error: "invalid_request" }, 400);
-  }
-
-  const result = await exchangeCode(
-    code,
-    client_id,
-    code_verifier,
-    redirect_uri,
-  );
-  if (!result) {
-    return c.json({ error: "invalid_grant" }, 400);
-  }
-
-  return c.json({
-    access_token: result.accessToken,
-    token_type: "bearer",
-    expires_in: result.expiresIn,
-  });
-});
+mcp.post("/mcp/token", handleTokenRequest);
+mcp.route("/", mcpGrantRoutes);
 
 mcp.get("/.well-known/oauth-protected-resource/api/mcp", (c) =>
-  c.json({
-    resource: `${publicApiUrl}/api/mcp`,
-    authorization_servers: [`${publicApiUrl}/api`],
-  }),
+  c.json(protectedResourceMetadata()),
 );
 
 mcp.get("/.well-known/oauth-authorization-server/api", (c) =>
-  c.json({
-    issuer: `${publicApiUrl}/api`,
-    authorization_endpoint: `${publicApiUrl}/api/mcp/authorize`,
-    token_endpoint: `${publicApiUrl}/api/mcp/token`,
-    registration_endpoint: `${publicApiUrl}/api/mcp/register`,
-    response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code"],
-    code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["none"],
-  }),
+  c.json(authorizationServerMetadata()),
 );
 
 mcp.all("/mcp", async (c) => {
-  const authResult = await validateBearerToken(c.req.raw);
-  if (!authResult) {
+  const principal = await authenticateMcpRequest(c.req.raw);
+  if (!principal) {
     // Canonical RFC 9728 URL: the well-known path goes before the resource
     // path. MCP clients discover from this header, so it must be the URL
     // auditors accept; the /api/.well-known alias below stays for clients
@@ -325,12 +250,22 @@ mcp.all("/mcp", async (c) => {
 
   await mcpRequestBounds(c, async () => {});
 
+  const options: McpToolOptions = {
+    catalog: c.req.query("tools") === "all" ? "all" : "core",
+    defaultWorkspaceId:
+      principal.kind === "grant" ? principal.defaultWorkspaceId : null,
+  };
+
   if (
     !(await isLegacyRequest(c.req.raw.clone(), undefined, {
       maxRequestBodySize: MCP_BODY_BYTES,
     }))
   ) {
-    const modern = createModernMcpHandler(authResult.token, internalApiUrl);
+    const modern = createModernMcpHandler(
+      principal.token,
+      internalApiUrl,
+      options,
+    );
     return modern.fetch(c.req.raw);
   }
 
@@ -340,7 +275,11 @@ mcp.all("/mcp", async (c) => {
     sessionIdGenerator: undefined,
     maxRequestBodySize: MCP_BODY_BYTES,
   });
-  const server = createMcpServerForUser(authResult.token, internalApiUrl);
+  const server = createMcpServerForUser(
+    principal.token,
+    internalApiUrl,
+    options,
+  );
   await server.connect(transport);
   return transport.handleRequest(c.req.raw);
 });
@@ -351,23 +290,11 @@ export function mcpWellKnownRoutes(baseUrl: string) {
   const wellKnown = new Hono();
 
   wellKnown.get("/.well-known/oauth-protected-resource/api/mcp", (c) =>
-    c.json({
-      resource: `${baseUrl}/api/mcp`,
-      authorization_servers: [`${baseUrl}/api`],
-    }),
+    c.json(protectedResourceMetadata(baseUrl)),
   );
 
   wellKnown.get("/.well-known/oauth-authorization-server/api", (c) =>
-    c.json({
-      issuer: `${baseUrl}/api`,
-      authorization_endpoint: `${baseUrl}/api/mcp/authorize`,
-      token_endpoint: `${baseUrl}/api/mcp/token`,
-      registration_endpoint: `${baseUrl}/api/mcp/register`,
-      response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code"],
-      code_challenge_methods_supported: ["S256"],
-      token_endpoint_auth_methods_supported: ["none"],
-    }),
+    c.json(authorizationServerMetadata(baseUrl)),
   );
 
   return wellKnown;

@@ -7,10 +7,12 @@ export function useMcpAuthorizationDecision() {
     mutationFn: ({
       requestId,
       approved,
+      workspaceId,
     }: {
       requestId: string;
       approved: boolean;
-    }) => submitMcpAuthorizationDecision(requestId, approved),
+      workspaceId?: string;
+    }) => submitMcpAuthorizationDecision(requestId, approved, workspaceId),
     onError: (error) => toast.error(error.message),
   });
 }

@@ -3,6 +3,7 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
 import { AuthDetails } from "@/components/auth/auth-details";
@@ -12,8 +13,16 @@ import { useSettledSession } from "@/components/auth/use-settled-session";
 import PageTitle from "@/components/page-title";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMcpAuthorizationDecision } from "@/hooks/mutations/mcp/use-authorization-decision";
 import { useMcpAuthorizationRequest } from "@/hooks/queries/mcp/use-authorization-request";
+import { useConsentWorkspaces } from "@/hooks/queries/mcp/use-consent-workspaces";
 
 const authorizationSearchSchema = z.object({
   request_id: z.string().optional(),
@@ -32,6 +41,8 @@ function McpAuthorizePage() {
   const request = useMcpAuthorizationRequest(requestId);
   const decision = useMcpAuthorizationDecision();
   const { session, isLoading: isSessionPending } = useSettledSession();
+  const workspaces = useConsentWorkspaces(Boolean(session?.user));
+  const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string>();
   const pageTitle = <PageTitle title={t("auth:mcp.authorize.title")} />;
 
   if (!requestId || request.isError) {
@@ -46,7 +57,7 @@ function McpAuthorizePage() {
     );
   }
 
-  if (request.isLoading || isSessionPending) {
+  if (request.isLoading || isSessionPending || workspaces.isLoading) {
     return (
       <>
         {pageTitle}
@@ -84,9 +95,15 @@ function McpAuthorizePage() {
     );
   }
 
+  // With one workspace the server picks it; with several, the person chooses.
+  const choices = workspaces.data ?? [];
+  const workspaceId =
+    choices.length > 1 ? (pickedWorkspaceId ?? choices[0]?.id) : undefined;
+  const pickedName = choices.find((choice) => choice.id === workspaceId)?.name;
+
   const submitDecision = (approved: boolean) => {
     decision.mutate(
-      { requestId, approved },
+      { requestId, approved, workspaceId: approved ? workspaceId : undefined },
       { onSuccess: (redirect) => window.location.assign(redirect) },
     );
   };
@@ -126,6 +143,41 @@ function McpAuthorizePage() {
               },
             ]}
           />
+          {choices.length > 1 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="font-medium text-sm">
+                {t("auth:mcp.authorize.workspace")}
+              </span>
+              {/* The hint sits above the select so the open list never covers it. */}
+              <p
+                id="mcp-workspace-hint"
+                className="text-muted-foreground text-xs"
+              >
+                {t("auth:mcp.authorize.workspaceHint")}
+              </p>
+              <Select
+                value={workspaceId}
+                onValueChange={(value) => {
+                  if (typeof value === "string") setPickedWorkspaceId(value);
+                }}
+                disabled={decision.isPending}
+              >
+                <SelectTrigger
+                  aria-label={t("auth:mcp.authorize.workspace")}
+                  aria-describedby="mcp-workspace-hint"
+                >
+                  <SelectValue>{pickedName}</SelectValue>
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {choices.map((choice) => (
+                    <SelectItem key={choice.id} value={choice.id}>
+                      {choice.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"

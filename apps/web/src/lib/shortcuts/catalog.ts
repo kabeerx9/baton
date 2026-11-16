@@ -9,6 +9,7 @@ export type ShortcutCategory =
   | "list"
   | "inbox"
   | "filters"
+  | "myTasks"
   | "editor";
 
 export type ShortcutDefinition = {
@@ -138,6 +139,13 @@ export const SHORTCUTS = {
   },
   clearLastFilter: { keys: ["shift+f"], category: "filters", scope: "view" },
 
+  // My tasks has no selection and no task scope, so these single keys are
+  // free there: "x" selects in lists and "s" changes status on a task page.
+  finishNextTask: { keys: ["d"], category: "myTasks", scope: "view" },
+  skipNextTask: { keys: ["s"], category: "myTasks", scope: "view" },
+  finishFocusedTask: { keys: ["x"], category: "myTasks", scope: "view" },
+  undoFinish: { keys: ["z"], category: "myTasks", scope: "view" },
+
   editorBold: { keys: ["mod+b"], ...editor },
   editorItalic: { keys: ["mod+i"], ...editor },
   editorUnderline: { keys: ["mod+u"], ...editor },
@@ -170,5 +178,6 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
   "list",
   "inbox",
   "filters",
+  "myTasks",
   "editor",
 ];

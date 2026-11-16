@@ -126,7 +126,9 @@ globalThis.fetch = async (input, init) => {
 try {
   for (const [index, testCase] of cases.entries()) {
     apiCalls = 0;
-    const modern = createModernMcpHandler("test-token", "http://api.test");
+    const modern = createModernMcpHandler("test-token", "http://api.test", {
+      catalog: "all",
+    });
     await assertToolResult(
       await modern.fetch(toolRequest(testCase.args, index + 1, true)),
       testCase.reject,
@@ -134,7 +136,9 @@ try {
     assert.equal(apiCalls, testCase.reject ? 0 : 1, `modern: ${testCase.name}`);
 
     apiCalls = 0;
-    const legacy = createMcpServerForUser("test-token", "http://api.test");
+    const legacy = createMcpServerForUser("test-token", "http://api.test", {
+      catalog: "all",
+    });
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       maxRequestBodySize: MCP_BODY_BYTES,

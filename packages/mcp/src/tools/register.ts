@@ -2,7 +2,18 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { buildFullTaskUpdateBody } from "../baton/task-helpers.js";
 import { errorResult, textResult } from "../utils/mcp-result.js";
+import { isToolListed, type ToolCatalogOptions } from "./catalog.js";
 import { getCurrentUser } from "./get-current-user.js";
+import { resolveWorkspaceId } from "./resolve-workspace.js";
+import { type AssignedTasks, withTaskKeys } from "./task-keys.js";
+
+export {
+  CORE_TOOLS,
+  parseToolCatalog,
+  type ToolCatalog,
+  type ToolCatalogOptions,
+} from "./catalog.js";
+export { MCP_SERVER_INSTRUCTIONS } from "./instructions.js";
 
 export type ToolClient = {
   readonly usingApiKey?: boolean;
@@ -50,16 +61,28 @@ function run(fn: () => Promise<unknown>): Promise<CallToolResult> {
     );
 }
 
+const workspaceRef = z
+  .string()
+  .trim()
+  .min(1)
+  .optional()
+  .describe(
+    "Workspace id, or its name or slug (any case). If the text names or slugs more than one workspace, the call is refused and lists their ids; pass the id. Leave out to use your default workspace, or your only one.",
+  );
+
 export function registerTools(
   server: ToolRegistrar,
-  ctx: { client: ToolClient },
+  ctx: { client: ToolClient } & ToolCatalogOptions,
 ): void {
   const { client } = ctx;
+  const workspace = (input: string | undefined) =>
+    resolveWorkspaceId(client, input, ctx.defaultWorkspaceId);
   const registerTool = <S extends z.ZodObject>(
     name: string,
     config: { description: string; inputSchema: S },
     callback: (args: z.output<S>) => Promise<CallToolResult>,
   ) =>
+    isToolListed(name, ctx.catalog) &&
     server.registerTool(name, config, async (args) => {
       const parsed = config.inputSchema.safeParse(args);
       if (!parsed.success) return errorResult(z.prettifyError(parsed.error));
@@ -80,11 +103,10 @@ export function registerTools(
     "list_workspaces",
     {
       description:
-        "List workspaces (Better Auth organizations) the signed-in user can access.",
+        "List the workspaces you can read, with your role in each. Board tools take a workspace name or id from here, or use your default workspace when you leave it out.",
       inputSchema: z.object({}),
     },
-    async () =>
-      run(() => client.json("/api/auth/organization/list", { method: "GET" })),
+    async () => run(() => client.json("/api/workspace", { method: "GET" })),
   );
 
   registerTool(
@@ -256,25 +278,33 @@ export function registerTools(
     "get_task_by_ticket_id",
     {
       description:
-        "Get one task by its ticket ID (project key and number, e.g. KAN-12). If multiple accessible tasks share the ID, provide workspaceId or projectId.",
+        "Read one task fully by its key (for example T-5 or API-12): the task and its `comments`. Leave out workspaceId to use your default workspace; pass a workspace name or id when the key could be in another one.",
       inputSchema: z.object({
         ticketId: nonEmptyString,
-        workspaceId: optionalNonEmptyString,
+        workspaceId: workspaceRef,
         projectId: optionalNonEmptyString,
       }),
     },
-    async ({ ticketId, workspaceId, projectId }) => {
-      const query = new URLSearchParams();
-      if (workspaceId) query.set("workspaceId", workspaceId);
-      if (projectId) query.set("projectId", projectId);
-      const suffix = query.toString();
-      return run(() =>
-        client.json(
+    async ({ ticketId, workspaceId, projectId }) =>
+      run(async () => {
+        const query = new URLSearchParams();
+        const resolved =
+          workspaceId || ctx.defaultWorkspaceId
+            ? await workspace(workspaceId)
+            : undefined;
+        if (resolved) query.set("workspaceId", resolved);
+        if (projectId) query.set("projectId", projectId);
+        const suffix = query.toString();
+        const task = await client.json<{ id: string }>(
           `/api/task/by-ticket-id/${encodeURIComponent(ticketId)}${suffix ? `?${suffix}` : ""}`,
           { method: "GET" },
-        ),
-      );
-    },
+        );
+        const comments = await client.json(
+          `/api/comment/${encodeURIComponent(task.id)}`,
+          { method: "GET" },
+        );
+        return { ...task, comments };
+      }),
   );
 
   registerTool(
@@ -427,7 +457,7 @@ export function registerTools(
       description:
         "List change requests in a workspace, newest first. A change request is a status change or delete asked for by someone not involved in the task; its creator, assignee or a workspace owner or admin accepts or rejects it. Use canAnswer: true for the requests waiting on the caller, and mine: true for the caller's own. state is one of pending, accepted, rejected, cancelled, superseded, expired, applied_on_timeout.",
       inputSchema: z.object({
-        workspaceId: nonEmptyString,
+        workspaceId: workspaceRef,
         taskId: optionalNonEmptyString,
         state: optionalNonEmptyString,
         canAnswer: z.boolean().optional(),
@@ -437,7 +467,13 @@ export function registerTools(
       }),
     },
     async (args) => {
-      const qs = new URLSearchParams({ workspaceId: args.workspaceId });
+      let workspaceId: string;
+      try {
+        workspaceId = await workspace(args.workspaceId);
+      } catch (e) {
+        return errorResult(e instanceof Error ? e.message : String(e));
+      }
+      const qs = new URLSearchParams({ workspaceId });
       if (args.taskId) qs.set("taskId", args.taskId);
       if (args.state) qs.set("state", args.state);
       if (args.canAnswer) qs.set("canAnswer", "me");
@@ -679,12 +715,12 @@ export function registerTools(
     {
       description:
         "Get the workspace board. Words the team uses: a TASK is one job with one owner. A FEATURE is a job that has tasks under it; each of those tasks has its own owner and lives in a repo (App, API, Engine...) or in no repo (QA, design). In this response every top-level entry of `tasks` is a task or a feature, and its `subtasks` array holds the tasks under a feature (empty for a single task). Each has a `key` such as T-5 or API-3, a status, `dueDate`, `finishedAt` (when it reached done; null while open) and pull requests. `waitsOn` lists the open tasks that block an item, in any repo or feature; `hiddenBlockers` counts open blockers in repos you cannot see. An item is blocked when either is non-empty: it can start but cannot be set to done. `blockedBy` on a subtask is map edges only, not a blocked signal. `column` is where the entry sits on the board (todo, doing, review, done); for a feature it follows its tasks: done when all are done, review when every unfinished one is in review, doing once any has started. A blocked item stays in its column. `projects` lists where a task under a feature can live: kind `repo` for repos, kind `board` for no repo. `members` lists everyone with the user id that assignment tools accept. `pendingRequest` is a status or delete change request waiting for an answer, or null. get_task_by_ticket_id finds one item by key.",
-      inputSchema: z.object({ workspaceId: nonEmptyString }),
+      inputSchema: z.object({ workspaceId: workspaceRef }),
     },
     async (args) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/board/workspace/${encodeURIComponent(args.workspaceId)}`,
+          `/api/board/workspace/${encodeURIComponent(await workspace(args.workspaceId))}`,
           { method: "GET" },
         ),
       ),
@@ -718,7 +754,7 @@ export function registerTools(
       description:
         "Create a task or a feature on the board in ONE call. A TASK is one job: give a title and an owner, and no `subtasks`. A FEATURE is a job with tasks under it: list them in `subtasks`, each with its own owner and repo, and say what waits on what. Use names or ids: owner 'Aakash', repo 'API'. One task has one owner. If a name is wrong nothing is created, and the error lists the valid names.",
       inputSchema: z.object({
-        workspaceId: nonEmptyString,
+        workspaceId: workspaceRef,
         title: nonEmptyString,
         description: z.string().optional(),
         owner: z
@@ -729,9 +765,9 @@ export function registerTools(
       }),
     },
     async ({ workspaceId, ...body }) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/board/workspace/${encodeURIComponent(workspaceId)}/plan`,
+          `/api/board/workspace/${encodeURIComponent(await workspace(workspaceId))}/plan`,
           { method: "POST", body: JSON.stringify(body) },
         ),
       ),
@@ -743,15 +779,15 @@ export function registerTools(
       description:
         "Add one or more tasks under an existing task or feature, found by its key (for example T-5). A single task that gets its first task under it becomes a feature. Same fields as `subtasks` in create_board_task: names or ids for owner and repo, and waitsOn for what must be finished first.",
       inputSchema: z.object({
-        workspaceId: nonEmptyString,
+        workspaceId: workspaceRef,
         taskKey: nonEmptyString,
         subtasks: z.array(subtaskPlan).min(1).max(50),
       }),
     },
     async ({ workspaceId, taskKey, subtasks }) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/board/workspace/${encodeURIComponent(workspaceId)}/item/${encodeURIComponent(taskKey)}/subtasks`,
+          `/api/board/workspace/${encodeURIComponent(await workspace(workspaceId))}/item/${encodeURIComponent(taskKey)}/subtasks`,
           { method: "POST", body: JSON.stringify({ subtasks }) },
         ),
       ),
@@ -760,9 +796,9 @@ export function registerTools(
   registerTool(
     "update_board_item",
     {
-      description: `Change a task or feature found by its key (T-5, API-3): set its status, its owner, or what it waits on. Status takes everyday words: todo, in progress, review, done. A blocked task cannot be set to done; the error names what blocks it. A feature has no status of its own: it follows its tasks. Only someone involved in the task can change its owner. To edit a title, description or comments, use the task tools with the returned id.${OUTCOME_NOTE}`,
+      description: `Change a task or feature found by its key (T-5, API-3): set its status, its owner, or what it waits on. Status takes everyday words: todo, in progress, review, done. A blocked task cannot be set to done; the error names what blocks it. A feature has no status of its own: it follows its tasks. Only someone involved in the task can change its owner. To comment, use create_task_comment with the returned id; title and description edits are in the full tool list (?tools=all).${OUTCOME_NOTE}`,
       inputSchema: z.object({
-        workspaceId: nonEmptyString,
+        workspaceId: workspaceRef,
         key: nonEmptyString,
         status: z.string().optional(),
         owner: z
@@ -777,9 +813,9 @@ export function registerTools(
       }),
     },
     async ({ workspaceId, key, ...body }) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/board/workspace/${encodeURIComponent(workspaceId)}/item/${encodeURIComponent(key)}`,
+          `/api/board/workspace/${encodeURIComponent(await workspace(workspaceId))}/item/${encodeURIComponent(key)}`,
           { method: "PATCH", body: JSON.stringify(body) },
         ),
       ),
@@ -791,14 +827,14 @@ export function registerTools(
       description:
         "Per person in a workspace: how many tasks they finished in the last N days (default 30), split by repo, their most recent finished tasks, and their current open count. A feature is not counted itself; the tasks under it are. Use it to answer 'who did what' and 'how much did X ship'.",
       inputSchema: z.object({
-        workspaceId: nonEmptyString,
+        workspaceId: workspaceRef,
         days: z.number().int().min(1).max(365).optional(),
       }),
     },
     async ({ workspaceId, days }) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/board/workspace/${encodeURIComponent(workspaceId)}/history${days ? `?days=${days}` : ""}`,
+          `/api/board/workspace/${encodeURIComponent(await workspace(workspaceId))}/history${days ? `?days=${days}` : ""}`,
           { method: "GET" },
         ),
       ),
@@ -808,14 +844,16 @@ export function registerTools(
     "list_my_tasks",
     {
       description:
-        "List the open tasks assigned to the caller across every active project in a workspace, ordered by due date then priority (at most 100). Each task has `dueDate`, `waiting` (open tasks that wait on it, so someone waits on the caller; tasks in repos the caller cannot see are left out), `waitsOn` (open tasks it waits on, in any repo) and `hiddenBlockers` (a count of open blockers in repos the caller cannot see). A task with blockers can start but cannot be set to done. `pendingRequest` is a change request waiting on the task, or null; answer it with answer_change_request.",
-      inputSchema: z.object({ workspaceId: nonEmptyString }),
+        "List the open tasks assigned to the caller across every active project in a workspace, ordered by due date then priority (at most 100). Each task has a `key` (T-5, API-3) to use with get_task_by_ticket_id and update_board_item, `dueDate`, `waiting` (open tasks that wait on it, so someone waits on the caller; tasks in repos the caller cannot see are left out), `waitsOn` (open tasks it waits on, in any repo) and `hiddenBlockers` (a count of open blockers in repos the caller cannot see). A task with blockers can start but cannot be set to done. `pendingRequest` is a change request waiting on the task, or null; answer it with answer_change_request.",
+      inputSchema: z.object({ workspaceId: workspaceRef }),
     },
     async (args) =>
-      run(() =>
-        client.json(
-          `/api/task/assigned?workspaceId=${encodeURIComponent(args.workspaceId)}`,
-          { method: "GET" },
+      run(async () =>
+        withTaskKeys(
+          await client.json<AssignedTasks>(
+            `/api/task/assigned?workspaceId=${encodeURIComponent(await workspace(args.workspaceId))}`,
+            { method: "GET" },
+          ),
         ),
       ),
   );
@@ -874,12 +912,12 @@ export function registerTools(
     {
       description:
         "List the members of a workspace. Use this to resolve the user ID an assignee tool expects.",
-      inputSchema: z.object({ workspaceId: nonEmptyString }),
+      inputSchema: z.object({ workspaceId: workspaceRef }),
     },
     async (args) =>
-      run(() =>
+      run(async () =>
         client.json(
-          `/api/workspace/${encodeURIComponent(args.workspaceId)}/members`,
+          `/api/workspace/${encodeURIComponent(await workspace(args.workspaceId))}/members`,
         ),
       ),
   );

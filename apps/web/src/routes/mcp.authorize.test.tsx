@@ -7,6 +7,13 @@ const m = vi.hoisted(() => ({
   mutate: vi.fn(),
   session: { data: null as unknown, isPending: false },
   search: { request_id: "request-1" } as { request_id?: string },
+  workspaces: {
+    isLoading: false,
+    data: [] as Array<{ id: string; name: string }>,
+  },
+}));
+vi.mock("@/hooks/queries/mcp/use-consent-workspaces", () => ({
+  useConsentWorkspaces: () => m.workspaces,
 }));
 vi.mock("@/hooks/queries/mcp/use-authorization-request", () => ({
   useMcpAuthorizationRequest: () => m.request,
@@ -40,6 +47,7 @@ const Page = Route.options.component as ComponentType;
 beforeEach(() => {
   vi.clearAllMocks();
   m.search = { request_id: "request-1" };
+  m.workspaces = { isLoading: false, data: [{ id: "w1", name: "Acme" }] };
   m.session = {
     data: { user: { email: "person@example.com" } },
     isPending: false,
@@ -74,7 +82,41 @@ it.each([
   render(<Page />);
   fireEvent.click(screen.getByRole("button", { name: label }));
   expect(m.mutate).toHaveBeenCalledWith(
-    { requestId: "request-1", approved },
+    { requestId: "request-1", approved, workspaceId: undefined },
+    expect.any(Object),
+  );
+});
+
+it("skips the workspace choice when the user has one workspace", () => {
+  render(<Page />);
+  expect(screen.queryByText("auth:mcp.authorize.workspace")).toBeNull();
+});
+
+it("offers a default workspace when the user has several and sends it on allow", () => {
+  m.workspaces = {
+    isLoading: false,
+    data: [
+      { id: "w1", name: "Acme" },
+      { id: "w2", name: "Side" },
+    ],
+  };
+  render(<Page />);
+  expect(screen.getByText("auth:mcp.authorize.workspace")).toBeInTheDocument();
+  expect(
+    screen.getByRole("combobox", { name: "auth:mcp.authorize.workspace" }),
+  ).toHaveTextContent("Acme");
+  fireEvent.click(
+    screen.getByRole("button", { name: "auth:mcp.authorize.allow" }),
+  );
+  expect(m.mutate).toHaveBeenCalledWith(
+    { requestId: "request-1", approved: true, workspaceId: "w1" },
+    expect.any(Object),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "auth:mcp.authorize.deny" }),
+  );
+  expect(m.mutate).toHaveBeenLastCalledWith(
+    { requestId: "request-1", approved: false, workspaceId: undefined },
     expect.any(Object),
   );
 });

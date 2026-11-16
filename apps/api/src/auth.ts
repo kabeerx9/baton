@@ -99,6 +99,7 @@ import {
   hasRegisteredUsers,
   promoteInitialAdministrator,
 } from "./utils/instance-bootstrap";
+import { revokeUserGrants } from "./mcp/grant/revoke-grants";
 import { isCloud } from "./utils/is-cloud";
 import { isDisposableEmail } from "./utils/is-disposable-email";
 import { trackPasswordResetDelivery } from "./utils/password-reset-delivery";
@@ -200,6 +201,10 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     revokeSessionsOnPasswordReset: true,
+    // A reset means someone else may know the password: disconnect agents too.
+    onPasswordReset: async ({ user }) => {
+      await revokeUserGrants(user.id);
+    },
     resetPasswordTokenExpiresIn: 60 * 60,
     sendResetPassword: async ({ user, url }, request) => {
       const requestContext = getEmailRequestContext(request?.headers);
@@ -515,6 +520,10 @@ export const auth = betterAuth({
         },
       },
       update: {
+        after: async (user) => {
+          // Covers /admin/ban-user. Each MCP call also re-checks the ban.
+          if (user.banned) await revokeUserGrants(user.id);
+        },
         before: async (user, ctx) => {
           if (
             (ctx?.path === "/admin/set-role" ||
@@ -748,6 +757,15 @@ export const auth = betterAuth({
     ),
     after: createAuthMiddleware(async (ctx) => {
       await recordAuthAdminAudit(ctx);
+      if (
+        ctx.path === "/admin/set-user-password" &&
+        !isAPIError(ctx.context.returned)
+      ) {
+        // An admin reset keeps sessions but must still disconnect agents.
+        // Codes approved before it fail in exchangeCode.
+        const userId = (ctx.body as { userId?: unknown } | undefined)?.userId;
+        if (typeof userId === "string") await revokeUserGrants(userId);
+      }
       if (ctx.path === "/api-key/delete" && !isAPIError(ctx.context.returned)) {
         const keyId = (ctx.body as { keyId?: unknown } | undefined)?.keyId;
         // better-auth only deletes the caller's own keys.

@@ -1,5 +1,7 @@
 import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { auth } from "../auth";
+import { isMcpToken } from "../mcp/grant/token-secret";
 import { withJsonNotFound } from "../errors/not-found-response";
 import { withJsonRateLimit } from "../errors/rate-limit-response";
 import { apiKeyRejection } from "./api-key-rejection";
@@ -14,6 +16,11 @@ export async function forwardAuthRequest(c: Context): Promise<Response> {
     ?.match(/^Bearer\s+(\S+)$/i)?.[1];
   const apiKeyHeader = headers.get("x-api-key")?.trim();
   let bearerKey: string | undefined;
+  // MCP access tokens reach REST for the tools, never the auth API: they must
+  // not read sessions, list organizations or manage the account.
+  if (bearerToken && isMcpToken(bearerToken)) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
   if (bearerToken && !apiKeyHeader) {
     // Explicit bearer credentials never fall back to a browser's cookie.
     // This also applies to the separately registered native get-session route.

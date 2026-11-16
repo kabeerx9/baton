@@ -8,15 +8,9 @@ const currentUserSchema = z.object({
   role: z.string().nullish(),
 });
 
+// /api/user/me works for API keys and MCP tokens alike; the auth API refuses
+// MCP tokens.
 export async function getCurrentUser(client: ToolClient) {
-  if (client.usingApiKey) {
-    const user = await client.json("/api/user/me", { method: "GET" });
-    return currentUserSchema.parse(user);
-  }
-
-  const response = await client.json<{ user: unknown } | null>(
-    "/api/auth/get-session",
-    { method: "GET" },
-  );
-  return response === null ? null : currentUserSchema.parse(response.user);
+  const user = await client.json("/api/user/me", { method: "GET" });
+  return currentUserSchema.parse(user);
 }

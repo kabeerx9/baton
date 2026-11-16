@@ -3,6 +3,7 @@ import { getApiUrl } from "@/fetchers/get-api-url";
 export async function submitMcpAuthorizationDecision(
   requestId: string,
   approved: boolean,
+  workspaceId?: string,
 ): Promise<string> {
   const response = await fetch(
     getApiUrl(`/mcp/authorize/request/${encodeURIComponent(requestId)}`),
@@ -10,7 +11,10 @@ export async function submitMcpAuthorizationDecision(
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approved }),
+      body: JSON.stringify({
+        approved,
+        ...(workspaceId ? { workspaceId } : {}),
+      }),
     },
   );
   if (!response.ok) {
