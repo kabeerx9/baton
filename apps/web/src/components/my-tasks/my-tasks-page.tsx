@@ -12,7 +12,7 @@ export function MyTasksPage({ workspaceId }: { workspaceId: string }) {
   return (
     // "user": people who ask for less motion get fades, not movement.
     <MotionConfig reducedMotion="user">
-      <ScrollArea>
+      <ScrollArea data-tour="my-tasks">
         {data ? (
           // Loaded tasks stay on screen when a background refresh fails.
           <FocusView

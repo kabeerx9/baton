@@ -3176,5 +3176,50 @@
 			"updateSuccess": "Project access updated",
 			"updateError": "Failed to update project access"
 		}
+	},
+	"tour": {
+		"dialogLabel": "Product tour",
+		"progress": "Step {{current}} of {{total}}",
+		"next": "Next",
+		"finish": "Finish",
+		"skip": "Skip tour",
+		"waitingForYou": "Waiting for you to move it…",
+		"finishError": "Could not finish the tour. Try again.",
+		"startError": "Could not start the tour.",
+		"replay": "Replay tour",
+		"replayError": "Could not replay the tour.",
+		"skipConfirm": {
+			"title": "Skip the tour?",
+			"body": "You can replay it any time from your account menu.",
+			"confirm": "Skip tour",
+			"cancel": "Keep going"
+		},
+		"steps": {
+			"board": {
+				"title": "This is your board",
+				"body": "Every task lives in a column. Tasks can wait on each other, and Baton tells people when they can continue."
+			},
+			"demo-tasks": {
+				"title": "We're adding 5 demo tasks",
+				"body": "They live in a private demo workspace that only you can see. Nothing here touches your real work."
+			},
+			"my-tasks": {
+				"title": "My tasks is your personal list",
+				"body": "Everything assigned to you lands here, in the order you should do it."
+			},
+			"move-task": {
+				"title": "Move “Build the API endpoint” to Done",
+				"body": "Drag the card to Done, or open its status menu. “Write tests” is waiting on it."
+			},
+			"unblocked": {
+				"title": "“Write tests” is unblocked",
+				"body": "The lock is gone because its blocker is done. In your team, this is when the owner gets told they can start."
+			},
+			"mcp": {
+				"title": "Connect your agents",
+				"body": "Baton has an MCP server, so your coding agents can read and move tasks like a teammate. Set it up with an API key in your settings.",
+				"link": "Open agent settings"
+			}
+		}
 	}
 }

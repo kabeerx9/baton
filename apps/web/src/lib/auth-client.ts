@@ -37,6 +37,16 @@ export const authClient = createAuthClient({
         enabled: true,
       },
       schema: inferOrgAdditionalFields({
+        // 'team' or 'demo'. The product tour's private demo workspace is
+        // 'demo'; the API leaves it out of every workspace list.
+        organization: {
+          additionalFields: {
+            kind: {
+              type: "string",
+              required: false,
+            },
+          },
+        },
         invitation: {
           additionalFields: {
             projectAccess: {

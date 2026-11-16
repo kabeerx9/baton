@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, Settings, LogOutIcon } from "lucide-react";
+import { Compass, LogOut, Settings, LogOutIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/menu";
 import { Separator } from "@/components/ui/separator";
 import useSignOut from "@/hooks/mutations/use-sign-out";
+import { useReplayTour } from "@/hooks/queries/tour/use-replay-tour";
 import { getInitials } from "@/lib/get-initials";
 import { toast } from "@/lib/toast";
 import useProjectStore from "@/store/project";
@@ -24,6 +25,7 @@ export function UserAvatar() {
   const { mutateAsync: signOut, isPending } = useSignOut();
   const { setProject } = useProjectStore();
   const navigate = useNavigate();
+  const { mutate: replayTour } = useReplayTour();
 
   const handleSignOut = async () => {
     try {
@@ -100,6 +102,18 @@ export function UserAvatar() {
           >
             <Settings className="size-3.5" />
             {t("navigation:userMenu.settings")}
+          </DropdownMenuItem>
+          {/* Clears the flag; the tour gate sees it and starts the tour. */}
+          <DropdownMenuItem
+            onClick={() =>
+              replayTour(undefined, {
+                onError: () => toast.error(t("tour:replayError")),
+              })
+            }
+            className="h-7 gap-2 px-2 text-sm font-normal"
+          >
+            <Compass className="size-3.5" />
+            {t("tour:replay")}
           </DropdownMenuItem>
         </div>
 

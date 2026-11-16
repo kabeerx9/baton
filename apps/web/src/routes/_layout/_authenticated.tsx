@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { TourGate } from "@/components/tour/tour-gate";
 import { GlobalShortcuts } from "@/components/shortcuts/global-shortcuts";
 import { useTrackSignup } from "@/hooks/use-track-signup";
 import { useUserWebSocket } from "@/hooks/use-user-websocket";
@@ -53,6 +54,7 @@ function AuthenticatedLayout() {
     <>
       <GlobalShortcuts />
       <Outlet />
+      <TourGate />
     </>
   );
 }

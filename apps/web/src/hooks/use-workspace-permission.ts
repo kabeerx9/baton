@@ -28,6 +28,10 @@ export function useWorkspacePermission() {
   const { data: activeWorkspace } = useActiveWorkspace();
   const { data: activeMember } = useGetActiveWorkspaceUser();
   const workspaceId = activeWorkspace?.id;
+  // The tour's demo workspace is deleted by the tour itself. Hiding the
+  // delete actions is a hint; the API stays the authority.
+  const isDemo =
+    (activeWorkspace as { kind?: string } | undefined)?.kind === "demo";
   const role = activeMember?.role as string | undefined;
 
   // Cached by (workspaceId, role). Refetches when either changes, e.g., when
@@ -54,17 +58,17 @@ export function useWorkspacePermission() {
       canCreateProjects: () => can.createProjects,
       canUpdateProjects: () => can.updateProjects,
       canShareProjects: () => can.shareProjects,
-      canDeleteProjects: () => can.deleteProjects,
+      canDeleteProjects: () => !isDemo && can.deleteProjects,
       canUpdateTasks: () => can.updateTasks,
       canCreateTasks: () => can.createTasks,
-      canDeleteTasks: () => can.deleteTasks,
+      canDeleteTasks: () => !isDemo && can.deleteTasks,
       canAssignTasks: () => can.assignTasks,
       canCreateLabels: () => can.createLabels,
       canUpdateLabels: () => can.updateLabels,
       canDeleteLabels: () => can.deleteLabels,
       canManageWorkspace: () => can.manageWorkspace,
       canManageSettings: () => can.manageSettings,
-      canDeleteWorkspace: () => can.deleteWorkspace,
+      canDeleteWorkspace: () => !isDemo && can.deleteWorkspace,
       canInviteUsers: () => can.inviteUsers,
       canManageTeam: () => can.manageTeam,
       canUpdateMembers: () => can.updateMembers,
@@ -84,7 +88,7 @@ export function useWorkspacePermission() {
         }
       },
     };
-  }, [can, workspaceId]);
+  }, [can, workspaceId, isDemo]);
 
   return {
     ...helpers,

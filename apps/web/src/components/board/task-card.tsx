@@ -84,6 +84,8 @@ export function TaskCard({
       index={index}
       label={boardTask.key}
       data-highlighted={highlighted || undefined}
+      data-tour="task-card"
+      data-tour-task={boardTask.id}
       className="group rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-[border-color,box-shadow] duration-150 ease-out hover:border-foreground/15 hover:shadow-[0_4px_12px_rgb(0_0_0/0.06)] data-highlighted:border-primary data-highlighted:ring-2 data-highlighted:ring-primary/40"
     >
       {/* Only the card with the board's tab stop has tabbable inner controls:

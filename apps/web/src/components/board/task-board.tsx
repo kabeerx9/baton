@@ -37,7 +37,10 @@ export function TaskBoard({
   const features = boardTasks.filter((t) => t.subtasks.length > 0).length;
   const single = boardTasks.length - features;
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+    <div
+      data-tour="board"
+      className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6"
+    >
       <div className="mb-4 flex items-center gap-3 sm:mb-5">
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground tabular-nums">
@@ -57,6 +60,7 @@ export function TaskBoard({
       <BoardNavRoot
         nav={nav}
         aria-label={t("workspace:board.nav.label")}
+        data-tour="board-columns"
         className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
       >
         {columns.map(({ status, items, olderCount }) => (

@@ -5,9 +5,10 @@ import { workspaceCapabilities } from "@baton/permissions";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { useWorkspacePermission } from "./use-workspace-permission";
 
-const { getMyCapabilities, hasPermission } = vi.hoisted(() => ({
+const { getMyCapabilities, hasPermission, active } = vi.hoisted(() => ({
   getMyCapabilities: vi.fn(),
   hasPermission: vi.fn(),
+  active: { workspace: { id: "workspace-1" } as { id: string; kind?: string } },
 }));
 
 vi.mock("@/fetchers/workspace/get-my-capabilities", () => ({
@@ -15,7 +16,7 @@ vi.mock("@/fetchers/workspace/get-my-capabilities", () => ({
 }));
 
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
-  default: () => ({ data: { id: "workspace-1" } }),
+  default: () => ({ data: active.workspace }),
 }));
 
 vi.mock("@/hooks/queries/workspace-users/use-active-workspace-user", () => ({
@@ -44,6 +45,49 @@ describe("useWorkspacePermission", () => {
   beforeEach(() => {
     getMyCapabilities.mockReset();
     hasPermission.mockReset();
+    active.workspace = { id: "workspace-1" };
+  });
+
+  it("hides every delete action in a demo workspace, even for an owner", async () => {
+    // The role grants everything; the demo workspace still hides deletes.
+    getMyCapabilities.mockResolvedValue(
+      Object.fromEntries(
+        Object.keys(workspaceCapabilities).map((name) => [name, true]),
+      ),
+    );
+    active.workspace = { id: "demo-1", kind: "demo" };
+
+    const { result } = renderHook(() => useWorkspacePermission(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => {
+      expect(result.current.isCheckingPermissions).toBe(false);
+    });
+
+    expect(result.current.canDeleteTasks()).toBe(false);
+    expect(result.current.canDeleteProjects()).toBe(false);
+    expect(result.current.canDeleteWorkspace()).toBe(false);
+    // Everything else still works, so the tour can move tasks.
+    expect(result.current.canUpdateTasks()).toBe(true);
+  });
+
+  it("keeps delete actions in a team workspace", async () => {
+    getMyCapabilities.mockResolvedValue(
+      Object.fromEntries(
+        Object.keys(workspaceCapabilities).map((name) => [name, true]),
+      ),
+    );
+    active.workspace = { id: "team-1", kind: "team" };
+
+    const { result } = renderHook(() => useWorkspacePermission(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => {
+      expect(result.current.isCheckingPermissions).toBe(false);
+    });
+
+    expect(result.current.canDeleteTasks()).toBe(true);
+    expect(result.current.canDeleteWorkspace()).toBe(true);
   });
 
   it("keeps update capabilities independent from delete capabilities", async () => {
