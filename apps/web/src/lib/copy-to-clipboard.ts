@@ -1,10 +1,9 @@
 /**
  * Copies text to the clipboard, degrading gracefully outside secure contexts.
  *
- * navigator.clipboard is only defined over HTTPS or on localhost. A self-hosted
- * instance reached over plain HTTP (a normal deployment for this project) has
- * no such API, so the deprecated execCommand path is the only one that works
- * there and is kept deliberately.
+ * navigator.clipboard is only defined over HTTPS or on localhost. A page
+ * reached over plain HTTP (for example a LAN address in local dev) has no such
+ * API, so the deprecated execCommand path is the only one that works there.
  *
  * Returns whether the text made it to the clipboard by either route.
  */

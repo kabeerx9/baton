@@ -46,7 +46,6 @@ import notification from "./notification";
 import notificationPreferences from "./notification-preferences";
 import { createRoute, errorResponse, jsonResponse, z } from "./openapi";
 import { initializePlugins, integrationPlugins } from "./plugins";
-import { migrateGitHubIntegration } from "./plugins/github/migration";
 import project from "./project";
 import { assertProjectAccess } from "./project-access/assert-project-access";
 import { initializeScheduler, shutdownScheduler } from "./scheduler";
@@ -67,10 +66,6 @@ import { requireIntegrationProviderEnabled } from "./instance-settings/require-i
 import { authorizeAssetAccess } from "./utils/authorize-asset-access";
 import { getInvitationDetails } from "./utils/check-registration-allowed";
 import { clientIpMiddleware } from "./utils/client-ip";
-import { migrateApiKeyReferenceId } from "./utils/migrate-apikey-reference-id";
-import { migrateNotificationPreferencesSchema } from "./utils/migrate-notification-preferences-schema";
-import { migrateSessionColumn } from "./utils/migrate-session-column";
-import { migrateWorkspaceUserEmail } from "./utils/migrate-workspace-user-email";
 import { normalizeApiServerUrl } from "./utils/openapi-spec";
 import { seedDefaultWorkspaceRoles } from "./utils/seed-default-workspace-roles";
 import { validateWorkspaceAccess } from "./utils/validate-workspace-access";
@@ -776,9 +771,6 @@ export async function runStartupTasks() {
       });
     },
     runStartupMigrations: async () => {
-      await migrateWorkspaceUserEmail();
-      await migrateSessionColumn();
-
       console.log("🔄 Migrating database...");
       await migrate(getDatabase(), {
         migrationsFolder: `${currentDir}/../drizzle`,
@@ -787,12 +779,6 @@ export async function runStartupTasks() {
     },
   });
 
-  // After Drizzle migrations: apikey table must exist so we can align columns
-  // with Better Auth (reference_id + nullable user_id).
-  await migrateApiKeyReferenceId();
-
-  await migrateNotificationPreferencesSchema();
-  await migrateGitHubIntegration();
   await migrateColumns();
   await seedDefaultWorkspaceRoles();
 

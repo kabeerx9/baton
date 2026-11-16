@@ -8,7 +8,7 @@
 
 ## What it is
 
-Baton is a self-hosted team task tracker built around one board.
+Baton is a hosted team task tracker built around one board. It runs on DigitalOcean App Platform with a Supabase Postgres database.
 
 - **Task:** one job with one owner.
 - **Feature:** a task with tasks under it. Its column comes from its tasks.
@@ -31,16 +31,7 @@ You need Node.js 24.15+ (or 26+), pnpm 12, and PostgreSQL.
 
 The API listens on http://localhost:1337 and applies migrations at startup. [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) has the details and troubleshooting.
 
-## Run it with Docker
-
-`compose.yml` builds one image from `Dockerfile.baton` (nginx serves the web app and passes `/api` to the API) and starts PostgreSQL next to it.
-
-1. Copy `.env.sample` to `.env`.
-2. Set `POSTGRES_PASSWORD` and `AUTH_SECRET`.
-3. Run `docker compose up --build`.
-4. Open http://localhost:5173.
-
-[DEPLOY.md](DEPLOY.md) describes a hosted deployment.
+[docs/deploy.md](docs/deploy.md) describes the hosted deployment.
 
 ## Environment variables
 
@@ -49,7 +40,7 @@ The API listens on http://localhost:1337 and applies migrations at startup. [ENV
 | Variable | Use |
 | --- | --- |
 | `BATON_CLIENT_URL` | The browser origin of the web app, for example `http://localhost:5173`. |
-| `BATON_API_URL` | The API origin. The Docker image derives it from `BATON_CLIENT_URL`. |
+| `BATON_API_URL` | The API origin. The hosted image derives it from `BATON_CLIENT_URL`. |
 | `DATABASE_URL` | PostgreSQL connection string. `POSTGRES_*` is the alternative. |
 | `AUTH_SECRET` | Protects sign-in sessions. Keep it stable. |
 | `SMTP_*` | Email for invitations, verification and password resets. |

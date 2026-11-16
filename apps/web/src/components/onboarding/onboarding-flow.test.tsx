@@ -202,7 +202,7 @@ describe("OnboardingFlow steps", () => {
     await waitFor(() => expect(m.navigate).toHaveBeenCalledWith(toWorkspace));
   });
 
-  it("skips invites on a self-hosted instance that cannot send email", async () => {
+  it("skips invites on an instance that cannot send email", async () => {
     await createWorkspace({ smtp: false });
 
     expect(

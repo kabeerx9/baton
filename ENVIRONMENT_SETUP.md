@@ -79,4 +79,4 @@ The first account completes instance setup. Keep this local instance private unt
 | Sign-in breaks after restarting | Keep `AUTH_SECRET` unchanged and ensure every API process uses the same value. |
 | Upload URL cannot be reached | Use an endpoint the browser can resolve, not a Docker-only storage hostname. |
 
-For a deployed instance, see `DEPLOY.md`.
+For the hosted deployment, see [docs/deploy.md](docs/deploy.md).

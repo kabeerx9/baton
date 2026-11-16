@@ -1,44 +1,176 @@
-# DigitalOcean App Platform spec for the tracker.
-# One service (web app + API in one container) and one Postgres database.
-# Create the app with:  doctl apps create --spec .do/app.yaml
-# Then set the SECRET values in the dashboard. See DEPLOY.md.
+# DigitalOcean App Platform spec for Baton (hosted instance).
+#
+# One service, the bundled image from Dockerfile.baton: nginx serves the web
+# build on 5173 and proxies /api and the WebSocket upgrade to the Node API on
+# 1337. The database is an external Supabase Postgres (see docs/deploy.md), not
+# an App Platform database, so nothing here provisions or bills a managed
+# cluster.
+#
+#   doctl apps spec validate .do/app.yaml
+#   doctl apps create --spec .do/app.yaml
+
 name: baton
-region: blr
+
+# Match the Supabase region. nyc pairs with Supabase East US (North Virginia,
+# us-east-1) because most of the team is in the US; sfo pairs with
+# us-west-1 if that changes. Never split the two: every API request crosses
+# between app and database.
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+
+ingress:
+  rules:
+    # One component serves both the web app and the API, same origin.
+    - match:
+        path:
+          prefix: /
+      component:
+        name: baton
 
 services:
-  - name: tracker
+  - name: baton
     github:
       repo: kabeerx9/baton
       branch: main
       deploy_on_push: true
     dockerfile_path: Dockerfile.baton
+    # Dockerfile builds use source_dir as the build context.
+    source_dir: /
     http_port: 5173
-    # Keep this at 1. Live updates, the event bus and the scheduler live in the
-    # memory of one process. A second instance needs Redis (REDIS_URL) first.
+
+    # Keep this at 1. Live updates, the event bus and the scheduler live in one
+    # process's memory. More than one instance needs Redis first: uncomment
+    # REDIS_URL below (and set DATABASE_POOL_MAX so the instances together stay
+    # under Supabase's connection limit).
     instance_count: 1
+    # 1 vCPU / 1 GB: leaves room for a migration run and for Node's heap.
     instance_size_slug: apps-s-1vcpu-1gb
+
     health_check:
       http_path: /api/health
-      initial_delay_seconds: 60
+      # The API runs its migrations before it serves traffic (and exits if they
+      # fail), so give the first boot on an empty database room to finish.
+      initial_delay_seconds: 180
       period_seconds: 30
+      timeout_seconds: 10
+      failure_threshold: 5
+      success_threshold: 1
+
     envs:
+      # --- URLs (same-origin deployment) ---
+      # ${APP_URL} is the app's own public URL. It resolves to the
+      # ondigitalocean.app starter domain even after a custom domain is
+      # attached, so set this to https://<your-domain> once you add one (see
+      # docs/deploy.md). Pointing at the wrong origin breaks sign-in redirects
+      # and CORS.
       - key: BATON_CLIENT_URL
         scope: RUN_TIME
-        value: ${APP_URL}
+        value: "${APP_URL}"
+      # BATON_API_URL stays unset: the entrypoint derives ${BATON_CLIENT_URL}/api.
+
+      # --- Database (Supabase session pooler) ---
+      # postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=no-verify
+      # Port 5432 (session pooler), never 6543 (transaction pooler): Baton holds
+      # transactions across handler work, uses SET LOCAL statement_timeout and
+      # session advisory locks.
+      # pg-connection-string treats sslmode=require as verify-full, which fails on Supabase's own CA; no-verify keeps TLS on without the cert check.
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        type: SECRET
+      # Pooled client connections per instance. Supabase's pooler has a client
+      # limit, and every instance's pool counts, so 10 stays safe on the free
+      # tier; raise it only with a bigger plan.
+      - key: DATABASE_POOL_MAX
+        scope: RUN_TIME
+        value: "10"
+
+      # --- Authentication ---
+      # openssl rand -base64 32. Set once and never change it: a new value signs
+      # everyone out. The API refuses to start with fewer than 32 characters.
       - key: AUTH_SECRET
         scope: RUN_TIME
         type: SECRET
-      # After the four accounts exist, set this to "true" so nobody else can sign up.
+      # openssl rand -base64 32. Encrypts webhook signing secrets. Required to
+      # create webhooks; changing it makes stored ones unreadable.
+      - key: NOTIFICATION_SECRET_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+
+      # --- Access policy ---
+      # First account becomes the instance admin. Set to "true" once your team
+      # has accounts so nobody else can sign up; invitations keep working.
       - key: DISABLE_REGISTRATION
         scope: RUN_TIME
         value: "false"
-      - key: DISABLE_GUEST_ACCESS
+      # Hosted instance: tightens rate limits and rejects disposable email
+      # domains at signup.
+      - key: BATON_CLOUD
         scope: RUN_TIME
         value: "true"
-      # Optional: Slack direct messages. Leave unset to keep them off.
+      # The API's socket peer is nginx in this container (loopback), and the hop
+      # before nginx is App Platform's ingress, which is on DigitalOcean's
+      # private network. DigitalOcean does not publish the ingress range, so
+      # 10.0.0.0/8 is the safe value here: the container only ever receives
+      # traffic from that ingress. nginx maps do-connecting-ip to the client.
+      - key: TRUSTED_PROXIES
+        scope: RUN_TIME
+        value: "127.0.0.0/8,10.0.0.0/8"
+      # Optional locks, both default to false:
+      # DISABLE_WORKSPACE_CREATION, DISABLE_PASSWORD_REGISTRATION.
+      # Leave BATON_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS unset (deny) on shared
+      # infrastructure.
+
+      # --- Email (optional; empty values mean no email is sent) ---
+      # Invitations and password resets still work from copied links.
+      - key: SMTP_HOST
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_PORT
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_SECURE
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_USER
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_FROM
+        scope: RUN_TIME
+        value: ""
+      - key: SMTP_REQUIRE_TLS
+        scope: RUN_TIME
+        value: ""
+      - key: BATON_EMAIL_ASSETS_URL
+        scope: RUN_TIME
+        value: ""
+
+      # --- GitHub (optional): account linking and the GitHub App webhook ---
+      - key: GITHUB_OAUTH_CLIENT_ID
+        scope: RUN_TIME
+        value: ""
+      - key: GITHUB_OAUTH_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: GITHUB_APP_ID
+        scope: RUN_TIME
+        value: ""
+      - key: GITHUB_APP_NAME
+        scope: RUN_TIME
+        value: ""
+      - key: GITHUB_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      # base64 of the PEM, so newlines survive the environment.
+      - key: GITHUB_PRIVATE_KEY_BASE64
+        scope: RUN_TIME
+        type: SECRET
+
+      # --- Slack direct messages (optional; no token means nothing is sent) ---
       - key: SLACK_BOT_TOKEN
         scope: RUN_TIME
         type: SECRET
@@ -47,9 +179,53 @@ services:
         value: "0 10 * * 1-5"
       - key: SLACK_DIGEST_TZ
         scope: RUN_TIME
-        value: Asia/Kolkata
+        value: "Asia/Kolkata"
 
-databases:
-  - name: db
-    engine: PG
-    production: false
+      # --- Uploads (optional). Empty values disable attachments; the container
+      # filesystem is not a safe place for files. ---
+      - key: S3_ENDPOINT
+        scope: RUN_TIME
+        value: ""
+      - key: S3_BUCKET
+        scope: RUN_TIME
+        value: ""
+      - key: S3_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: S3_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: S3_REGION
+        scope: RUN_TIME
+        value: "us-east-1"
+      - key: S3_FORCE_PATH_STYLE
+        scope: RUN_TIME
+        value: ""
+      - key: S3_MAX_IMAGE_UPLOAD_BYTES
+        scope: RUN_TIME
+        value: ""
+      - key: S3_PRESIGN_TTL_SECONDS
+        scope: RUN_TIME
+        value: ""
+      - key: S3_KEY_PREFIX
+        scope: RUN_TIME
+        value: ""
+
+      # --- Error tracking (optional). Nothing is reported while DSN is empty. ---
+      - key: SENTRY_DSN
+        scope: RUN_TIME
+        type: SECRET
+      - key: SENTRY_ENVIRONMENT
+        scope: RUN_TIME
+        value: "production"
+      - key: SENTRY_RELEASE
+        scope: RUN_TIME
+        value: ""
+
+      # --- Redis fan-out (only for more than one instance) ---
+      # With instance_count above 1, uncomment and point at a Redis instance;
+      # live updates do not reach clients connected to another instance
+      # without it.
+      # - key: REDIS_URL
+      #   scope: RUN_TIME
+      #   type: SECRET
