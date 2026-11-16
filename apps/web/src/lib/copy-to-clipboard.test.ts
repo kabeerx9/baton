@@ -36,7 +36,7 @@ describe("copyToClipboard", () => {
   });
 
   it("falls back to execCommand when the clipboard API is missing", async () => {
-    // Plain-HTTP self-hosted instances land here: not a secure context.
+    // Plain-HTTP origins land here: not a secure context.
     setClipboard(undefined);
     const textareaState: {
       value?: string;

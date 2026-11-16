@@ -8,9 +8,6 @@
 #
 #   doctl apps spec validate .do/app.yaml
 #   doctl apps create --spec .do/app.yaml
-#
-# The VPS Compose stack in deploy/ is unchanged and remains the self-host and
-# fallback path.
 
 name: baton
 
@@ -25,8 +22,7 @@ alerts:
 
 ingress:
   rules:
-    # One component serves both the web app and the API, same origin, like the
-    # VPS stack behind Caddy.
+    # One component serves both the web app and the API, same origin.
     - match:
         path:
           prefix: /
@@ -49,9 +45,7 @@ services:
     # REDIS_URL below (and set DATABASE_POOL_MAX so the instances together stay
     # under Supabase's connection limit).
     instance_count: 1
-    # 1 vCPU / 1 GB: the same capacity the container was tuned for on the VPS,
-    # now with the database elsewhere. Smaller plans exist; this one leaves room
-    # for a migration run and for Node's heap.
+    # 1 vCPU / 1 GB: leaves room for a migration run and for Node's heap.
     instance_size_slug: apps-s-1vcpu-1gb
 
     health_check:
@@ -77,11 +71,11 @@ services:
       # BATON_API_URL stays unset: the entrypoint derives ${BATON_CLIENT_URL}/api.
 
       # --- Database (Supabase session pooler) ---
-      # postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full
+      # postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=no-verify
       # Port 5432 (session pooler), never 6543 (transaction pooler): Baton holds
       # transactions across handler work, uses SET LOCAL statement_timeout and
-      # session advisory locks. The sslmode parameter turns on TLS;
-      # node-postgres reads it from the URL, so no code change is needed.
+      # session advisory locks.
+      # pg-connection-string treats sslmode=require as verify-full, which fails on Supabase's own CA; no-verify keeps TLS on without the cert check.
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
@@ -111,7 +105,7 @@ services:
         scope: RUN_TIME
         value: "false"
       # Hosted instance: tightens rate limits and rejects disposable email
-      # domains at signup. Leave true unless this is a private self-host.
+      # domains at signup.
       - key: BATON_CLOUD
         scope: RUN_TIME
         value: "true"
@@ -119,8 +113,7 @@ services:
       # before nginx is App Platform's ingress, which is on DigitalOcean's
       # private network. DigitalOcean does not publish the ingress range, so
       # 10.0.0.0/8 is the safe value here: the container only ever receives
-      # traffic from that ingress. See docs/deploy.md for the known gap
-      # (do-connecting-ip is the real client address).
+      # traffic from that ingress. nginx maps do-connecting-ip to the client.
       - key: TRUSTED_PROXIES
         scope: RUN_TIME
         value: "127.0.0.0/8,10.0.0.0/8"

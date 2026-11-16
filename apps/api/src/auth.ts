@@ -501,7 +501,7 @@ export const auth = betterAuth({
     },
   },
   rateLimit: {
-    // Enable in cloud; self-hosted instances opt in by setting BATON_CLOUD.
+    // On when BATON_CLOUD=true (production); off for local dev and tests.
     // Default better-auth rate-limit only kicks in for production; we keep the
     // global limits conservative and tighten signup/invite via customRules.
     enabled: isCloud(),
@@ -703,7 +703,7 @@ export const auth = betterAuth({
 
         // Block invite-member calls on cloud to disposable-email addresses. The 2026-05-28 incident saw ~14k phishing
         // invites sent from throwaway disposable-email signups; gating here
-        // shuts that path off without affecting self-hosted instances.
+        // shuts that path off; local dev and tests leave BATON_CLOUD off.
         if (ctx.path === "/organization/invite-member" && isCloud()) {
           const inviteeEmail = (ctx.body?.email as string | undefined) ?? "";
           if (inviteeEmail && isDisposableEmail(inviteeEmail)) {

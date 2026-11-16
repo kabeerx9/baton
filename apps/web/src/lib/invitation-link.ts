@@ -4,7 +4,7 @@
  * The origin defaults to the browser's own origin rather than BATON_CLIENT_URL:
  * whoever copies the link is already reaching the app through a URL that works,
  * while BATON_CLIENT_URL is a server-side setting that can be stale or wrong on
- * a self-hosted instance, producing a link the admin cannot notice is broken.
+ * a misconfigured deployment, producing a link the admin cannot notice is broken.
  *
  * The `origin` parameter exists so this stays testable without a DOM.
  */

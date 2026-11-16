@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 describe("track", () => {
-  it("does nothing when Plausible is not loaded, as on self-hosted instances", () => {
+  it("does nothing when Plausible is not loaded, as in local dev", () => {
     expect(isTrackingEnabled()).toBe(false);
     expect(() => track("Signup")).not.toThrow();
   });
