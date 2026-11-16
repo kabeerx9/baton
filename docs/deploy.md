@@ -1,12 +1,13 @@
 # Deploy Baton: App Platform + Supabase
 
-The hosted instance: DigitalOcean App Platform runs the image from `Dockerfile.baton`
-(nginx serves the web build on 5173 and proxies `/api` and WebSockets to the API), and
-the database is a Supabase Postgres outside the app. The spec is `.do/app.yaml`.
+The hosted instance: DigitalOcean App Platform runs the image CI publishes to GHCR
+(`ghcr.io/kabeerx9/baton:latest`, built from `Dockerfile.baton`; nginx serves the web
+build on 5173 and proxies `/api` and WebSockets to the API), and the database is a
+Supabase Postgres outside the app. The spec is `.do/app.yaml`.
 
 | Part | Where | Detail |
 | --- | --- | --- |
-| App (web + API) | App Platform, region `nyc` | one service, one instance, `Dockerfile.baton`, port 5173 |
+| App (web + API) | App Platform, region `nyc` | one service, one instance, `ghcr.io/kabeerx9/baton:latest`, port 5173 |
 | Database | Supabase, region `us-east-1` | **session pooler** connection string, TLS required |
 | Migrations | the API, at startup | the container runs them before it serves traffic |
 | Health check | App Platform | `GET /api/health`, first check delayed 180s for those migrations |
@@ -82,15 +83,14 @@ doctl apps spec validate .do/app.yaml                      # must print the spec
 doctl apps create --spec .do/app.yaml                      # prints the app ID
 ```
 
-In the dashboard instead: **Create App → Other → paste the spec**, or upload the file. The
-first time, App Platform asks for access to the `kabeerx9/baton` GitHub repository so it
-can build `main` on every push.
+In the dashboard instead: **Create App → Other → paste the spec**, or upload the file. No
+GitHub connection is needed: App Platform pulls the public image from GHCR.
 
-The spec already sets the pieces that matter: Dockerfile build with the repository root as
-context, `http_port: 5173`, health check `/api/health` after a 180 s grace (the first boot
-has to migrate an empty database), `instance_count: 1`, a 1 vCPU / 1 GB instance,
-`BATON_CLOUD=true`, and `BATON_CLIENT_URL=${APP_URL}`. Check the region against step 1
-before you create it.
+The spec already sets the pieces that matter: the GHCR image
+(`ghcr.io/kabeerx9/baton:latest`, built from `Dockerfile.baton` by CI), `http_port: 5173`,
+health check `/api/health` after a 180 s grace (the first boot has to migrate an empty
+database), `instance_count: 1`, a 1 vCPU / 1 GB instance, `BATON_CLOUD=true`, and
+`BATON_CLIENT_URL=${APP_URL}`. Check the region against step 1 before you create it.
 
 ## 4. Fill in the secrets
 
@@ -166,12 +166,20 @@ deployment keeps serving traffic when there is one.
    the starter domain. Changing it while people are signed in signs them out once.
 3. `curl -fsS https://tracker.example.com/api/health` and open the site on the new domain.
 
-## 8. Deploy on push
+## 8. Deploy
 
-`deploy_on_push: true` in the spec means each push to `main` of `kabeerx9/baton` builds the
-image from `Dockerfile.baton` and rolls out a new deployment. The health check gates the
-switch: output stays on the old deployment until `/api/health` answers, and a failed build
-or health check leaves the old one in place.
+Deploys are manual. A push to `main` builds and publishes the image; it does not roll it
+out:
+
+1. CI pushes `ghcr.io/kabeerx9/baton:latest` and `ghcr.io/kabeerx9/baton:<commit sha>`
+   once the checks pass.
+2. Click **Deploy** in the app (or run `doctl apps create-deployment <app-id>`) to pull
+   `:latest`. The health check gates the switch: output stays on the old deployment until
+   `/api/health` answers, and a failed pull or health check leaves the old one in place.
+
+After the first push, make the package public once: GitHub → **Packages** → `baton` →
+**Package settings** → **Change visibility** → **Public**. App Platform cannot pull the
+image while it is private.
 
 Migrations run at startup, before the new container serves traffic, and there is no
 migration undo. App Platform keeps the old container serving until the new one is healthy,

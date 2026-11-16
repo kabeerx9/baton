@@ -1,10 +1,10 @@
 # DigitalOcean App Platform spec for Baton (hosted instance).
 #
-# One service, the bundled image from Dockerfile.baton: nginx serves the web
-# build on 5173 and proxies /api and the WebSocket upgrade to the Node API on
-# 1337. The database is an external Supabase Postgres (see docs/deploy.md), not
-# an App Platform database, so nothing here provisions or bills a managed
-# cluster.
+# One service, the prebuilt image from GHCR (built from Dockerfile.baton by
+# .github/workflows/ci.yml when main moves): nginx serves the web build on 5173
+# and proxies /api and the WebSocket upgrade to the Node API on 1337. The
+# database is an external Supabase Postgres (see docs/deploy.md), not an App
+# Platform database, so nothing here provisions or bills a managed cluster.
 #
 #   doctl apps spec validate .do/app.yaml
 #   doctl apps create --spec .do/app.yaml
@@ -31,13 +31,11 @@ ingress:
 
 services:
   - name: baton
-    github:
-      repo: kabeerx9/baton
-      branch: main
-      deploy_on_push: true
-    dockerfile_path: Dockerfile.baton
-    # Dockerfile builds use source_dir as the build context.
-    source_dir: /
+    image:
+      registry_type: GHCR
+      registry: kabeerx9
+      repository: baton
+      tag: latest
     http_port: 5173
 
     # Keep this at 1. Live updates, the event bus and the scheduler live in one

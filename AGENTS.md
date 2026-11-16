@@ -46,7 +46,7 @@ The common mistake is finishing one path while leaving another stale. Check the 
 - Never use production data or credentials for development or tests. Preserve unrelated work in a dirty worktree.
 - Stop only processes you started and tracked. Never kill processes by a broad name or path match.
 - Root and package `lint` scripts run Vite+ checks without writing; use `pnpm exec vp check --fix` for safe fixes and inspect any formatting changes. `pnpm typecheck` runs the package-specific TypeScript checks.
-- Do not commit, push, or open a pull request unless asked. A push to `main` deploys to App Platform.
+- Do not commit, push, or open a pull request unless asked. A push to `main` builds and publishes the image; deploys are manual (Deploy in App Platform, or `doctl apps create-deployment <id>`).
 
 ## Verifying
 
