@@ -105,8 +105,11 @@ describe("user WebSocket lifecycle", () => {
     auth.workspaceId = "workspace";
     auth.pathname = "";
     vi.clearAllMocks();
+    // Midpoint jitter makes the reconnect schedule exact.
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -232,7 +235,7 @@ describe("user WebSocket lifecycle", () => {
   it("keeps retrying through long outages with bounded delays and one timer", () => {
     const { unmount } = renderHook(useUserWebSocket);
     for (const [retry, delay] of [
-      1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000,
+      750, 1250, 2250, 4250, 8250, 15250, 15250, 15250,
     ].entries()) {
       act(() => {
         const current = TestSocket.instances.at(-1);
@@ -320,13 +323,73 @@ describe("user WebSocket lifecycle", () => {
       await act(async () => socket.onclose?.({ code: 4001 }));
       expect(client.clear).not.toHaveBeenCalled();
       expect(navigate).not.toHaveBeenCalled();
-      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await act(() => vi.advanceTimersByTimeAsync(1250));
       expect(auth.getSession).toHaveBeenCalledTimes(2);
       expect(client.clear).toHaveBeenCalledOnce();
       expect(navigate).toHaveBeenCalledWith({ to: "/auth/sign-in" });
       expect(TestSocket.instances).toHaveLength(1);
     },
   );
+
+  it("keeps checking with growing waits until the session is gone", async () => {
+    auth.getSession
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ data: null });
+    renderHook(useUserWebSocket);
+    act(() => TestSocket.instances[0].open());
+    await act(async () => TestSocket.instances[0].onclose?.({ code: 4001 }));
+    await act(() => vi.advanceTimersByTimeAsync(1250));
+    expect(auth.getSession).toHaveBeenCalledTimes(2);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(2250));
+    expect(auth.getSession).toHaveBeenCalledTimes(3);
+    expect(navigate).toHaveBeenCalledWith({ to: "/auth/sign-in" });
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+
+  it("refreshes notifications and workspaces after a reconnect, not the first open", () => {
+    const invalidated = () =>
+      client.invalidateQueries.mock.calls.map(
+        ([filters]) => (filters as { queryKey: string[] }).queryKey,
+      );
+    renderHook(useUserWebSocket);
+    act(() => TestSocket.instances[0].open());
+    expect(invalidated()).toEqual([]);
+    act(() => {
+      TestSocket.instances[0].onclose?.();
+      vi.advanceTimersByTime(750);
+      TestSocket.instances[1].open();
+    });
+    expect(invalidated()).toEqual([
+      ["notifications"],
+      ["workspaces"],
+      ["admin", "workspaces"],
+    ]);
+    expect(invalidated().some((key) => key[0] === "projects")).toBe(false);
+  });
+
+  it("backs off further when the server closes right after each open", () => {
+    renderHook(useUserWebSocket);
+    for (const delay of [750, 1250, 2250, 4250]) {
+      const count = TestSocket.instances.length;
+      act(() => {
+        TestSocket.instances.at(-1)?.open();
+        TestSocket.instances.at(-1)?.onclose?.({ code: 1011 });
+        vi.advanceTimersByTime(delay - 1);
+      });
+      expect(TestSocket.instances).toHaveLength(count);
+      act(() => vi.advanceTimersByTime(1));
+      expect(TestSocket.instances).toHaveLength(count + 1);
+    }
+  });
+
+  it("goes to sign-in when the server closes with 1008", () => {
+    renderHook(useUserWebSocket);
+    act(() => TestSocket.instances[0].onclose?.({ code: 1008 }));
+    expect(navigate).toHaveBeenCalledWith({ to: "/auth/sign-in" });
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it("reconnects when the session changes but not on a plain rerender", () => {
     const { rerender } = renderHook(useUserWebSocket);

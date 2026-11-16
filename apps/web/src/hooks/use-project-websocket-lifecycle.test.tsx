@@ -63,6 +63,7 @@ describe("project WebSocket lifecycle", () => {
     client.invalidateQueries.mockClear();
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -157,17 +158,40 @@ describe("project WebSocket lifecycle", () => {
     });
   });
 
-  it("preserves bounded exponential reconnects and active message invalidation", () => {
+  it("keeps reconnecting at the cap, polls while degraded and stops polling on open", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
     const { unmount } = renderHook(() => useProjectWebSocket("project-a"));
-    for (let retry = 0; retry < 5; retry++) {
+    const polled = () =>
+      client.invalidateQueries.mock.calls.filter(
+        ([filters]) =>
+          (filters as { queryKey: unknown[] }).queryKey[0] === "tasks",
+      ).length;
+    for (const [retry, delay] of [
+      750, 1250, 2250, 4250, 8250, 15250, 15250, 15250,
+    ].entries()) {
       act(() => {
         TestSocket.instances.at(-1)?.open();
         TestSocket.instances.at(-1)?.onclose?.();
-        vi.advanceTimersByTime(1000 * 2 ** retry);
+        vi.advanceTimersByTime(delay - 1);
       });
+      expect(TestSocket.instances).toHaveLength(retry + 1);
+      act(() => vi.advanceTimersByTime(1));
       expect(TestSocket.instances).toHaveLength(retry + 2);
     }
+    // Four reconnects in, the fifth failure started the poll.
+    client.invalidateQueries.mockClear();
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(polled()).toBeGreaterThanOrEqual(1);
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["task-relations", "project", "project-a"],
+    });
     const last = TestSocket.instances.at(-1);
+    act(() => last?.open());
+    client.invalidateQueries.mockClear();
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(client.invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ["task-relations", "project", "project-a"],
+    });
     act(() => {
       last?.onmessage?.({
         data: JSON.stringify({
@@ -176,17 +200,49 @@ describe("project WebSocket lifecycle", () => {
           taskId: "task-a",
         }),
       });
-      last?.onclose?.();
-      vi.advanceTimersByTime(60_000);
-    });
-    expect(TestSocket.instances).toHaveLength(6);
-    expect(client.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ["tasks", "project-a"],
     });
     expect(client.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["task", "task-a"],
     });
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("unmounting leaves no timers and no window listeners", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const added = vi.spyOn(window, "addEventListener");
+    const removed = vi.spyOn(window, "removeEventListener");
+    const { unmount } = renderHook(() => useProjectWebSocket("project-a"));
+    act(() => {
+      TestSocket.instances[0].open();
+      TestSocket.instances[0].onclose?.();
+    });
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    const types = (calls: unknown[][]) =>
+      calls.map(([type]) => type).filter((t) => t === "online");
+    expect(types(removed.mock.calls)).toEqual(types(added.mock.calls));
+  });
+
+  it("reconnects within a second when the browser comes back online", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    renderHook(() => useProjectWebSocket("project-a"));
+    for (let failure = 0; failure < 4; failure++)
+      act(() => {
+        TestSocket.instances.at(-1)?.onclose?.();
+        vi.advanceTimersByTime(30_000);
+      });
+    act(() => TestSocket.instances.at(-1)?.onclose?.());
+    const before = TestSocket.instances.length;
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+      vi.advanceTimersByTime(1000);
+    });
+    expect(TestSocket.instances).toHaveLength(before + 1);
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+      vi.advanceTimersByTime(1000);
+    });
+    expect(TestSocket.instances).toHaveLength(before + 1);
   });
 });

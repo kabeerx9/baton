@@ -83,6 +83,7 @@ describe("project WebSocket access", () => {
     vi.clearAllMocks();
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -208,9 +209,13 @@ describe("project WebSocket access", () => {
         }),
     ],
   ])(
-    "keeps reconnecting after the provider ends the session when the session check %s",
+    "checks the session again, then reconnects, when the session check %s",
     async (_, failCheck) => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
       failCheck();
+      auth.getSession.mockResolvedValueOnce({
+        data: { session: { id: "session-a" }, user: { id: "user-a" } },
+      });
       renderHook(() => useProjectWebSocket("project-a"));
       act(() => TestSocket.instances[0].open());
       await act(async () =>
@@ -219,7 +224,10 @@ describe("project WebSocket access", () => {
           reason: "Session ended",
         }),
       );
-      act(() => vi.advanceTimersByTime(1000));
+      // A failed check waits, then repeats the check; it opens no socket.
+      expect(TestSocket.instances).toHaveLength(1);
+      await act(() => vi.advanceTimersByTimeAsync(1250));
+      expect(auth.getSession).toHaveBeenCalledTimes(2);
       expect(TestSocket.instances).toHaveLength(2);
       expect(client.clear).not.toHaveBeenCalled();
       expect(navigate).not.toHaveBeenCalled();

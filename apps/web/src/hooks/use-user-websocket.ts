@@ -10,16 +10,18 @@ import {
 } from "@/lib/evict-workspace-cache";
 import { authClient } from "@/lib/auth-client";
 import { reconcileProjectAccess } from "@/lib/reconcile-project-access";
+import {
+  classifyUserClose,
+  type UserEndReason,
+} from "@/lib/realtime-connection/classify-user-close";
+import type { ConnectionState } from "@/lib/realtime-connection/connection-state";
+import { createConnection } from "@/lib/realtime-connection/create-connection";
 
 export function getUserWsUrl() {
   const base = getApiUrl("ws");
   const wsBase = base.replace(/^http/, "ws");
   return `${wsBase}/user?windowId=${encodeURIComponent(windowId)}`;
 }
-
-const MAX_RETRY_DELAY = 30_000;
-const BASE_DELAY = 1000;
-const WS_PING_INTERVAL_MS = 30_000;
 
 /**
  * Maintains a user-scoped WebSocket connection for receiving user-targeted
@@ -39,20 +41,8 @@ export function useUserWebSocket() {
     if (!session?.user?.id) return;
     const userId = session.user.id;
 
-    // A previous session's delayed socket events must not control this session.
-    let disposed = false;
-    let userRevoked = false;
-    let activeSocket: WebSocket | null = null;
-    let retryDelay = BASE_DELAY;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-    let pingInterval: ReturnType<typeof setInterval> | null = null;
-
-    function clearPing() {
-      if (pingInterval !== null) {
-        clearInterval(pingInterval);
-        pingInterval = null;
-      }
-    }
+    // Dispose ends the connection, so a previous session cannot act late.
+    const isEnded = () => connection.state().status === "ended";
 
     function refreshOrganizationState() {
       for (const signal of [
@@ -66,165 +56,132 @@ export function useUserWebSocket() {
 
     // The cookie may hold another tab's newer session, so never sign it out.
     function leaveSession() {
-      if (userRevoked) return;
-      userRevoked = true;
-      clearPing();
       queryClient.clear();
       refreshOrganizationState();
       void navigate({ to: "/auth/sign-in" });
     }
 
-    function checkEndedSession() {
-      void authClient
-        .getSession()
-        .then(({ data, error }) => {
-          if (disposed) return;
-          if (error && error.status !== 401) throw error;
-          if (data?.user.id === userId) connect();
-          else leaveSession();
-        })
-        .catch(() => {
-          if (disposed) return;
-          const delay = retryDelay;
-          retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
-          retryTimeout = setTimeout(checkEndedSession, delay);
-        });
+    function onState(state: ConnectionState<UserEndReason>) {
+      if (
+        state.status === "ended" &&
+        (state.reason === "user-access-revoked" ||
+          state.reason === "session-ended")
+      )
+        leaveSession();
     }
 
-    function connect() {
-      if (disposed) return;
-      retryTimeout = null;
-      const url = getUserWsUrl();
-      const ws = new WebSocket(url);
-      activeSocket = ws;
-
-      ws.onopen = () => {
-        if (disposed || activeSocket !== ws) return;
-        retryDelay = BASE_DELAY;
-        clearPing();
-        pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "ping" }));
-          }
-        }, WS_PING_INTERVAL_MS);
-      };
-
-      ws.onmessage = (event) => {
-        if (disposed || activeSocket !== ws) return;
-        try {
-          const message = JSON.parse(event.data as string) as {
-            type?: string;
-            workspaceId?: string;
-            workspaceIds?: string[] | null;
-            reason?: string;
-          };
-          if (message.type === "USER_ACCESS_REVOKED") {
-            leaveSession();
-            return;
-          }
-          if (
-            message.type === "WORKSPACE_ACCESS_SYNC" &&
-            Array.isArray(message.workspaceIds) &&
-            message.workspaceIds.every((id) => typeof id === "string")
-          ) {
-            evictInaccessibleWorkspaceCache(queryClient, message.workspaceIds);
-            void queryClient.invalidateQueries({
-              queryKey: ["workspace-status"],
-            });
-            for (const workspaceId of message.workspaceIds)
-              reconcileProjectAccess(queryClient, workspaceId, () => !disposed);
-            refreshOrganizationState();
-            const path = pathnameRef.current;
-            const current =
-              /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
-                ? activeWorkspaceRef.current
-                : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
-            if (current && !message.workspaceIds.includes(current))
-              void navigate({ to: "/dashboard" });
-          }
-          if (
-            message.type === "WORKSPACE_ACCESS_REVOKED" &&
-            message.workspaceId
-          ) {
-            evictWorkspaceCache(queryClient, message.workspaceId);
-            refreshOrganizationState();
-            const path = pathnameRef.current;
-            const current =
-              /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
-                ? activeWorkspaceRef.current
-                : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
-            void queryClient.invalidateQueries({
-              queryKey: workspaceStatusQueryKey(message.workspaceId),
-            });
-            if (
-              current === message.workspaceId &&
-              (message.reason !== "archived" ||
-                !path.startsWith("/dashboard/workspace/"))
-            )
-              void navigate({ to: "/dashboard" });
-          }
-          if (message.type === "WORKSPACE_RESTORED" && message.workspaceId) {
-            void queryClient.invalidateQueries({
-              queryKey: ["admin", "workspaces"],
-            });
-            void queryClient.invalidateQueries({
-              queryKey: workspaceStatusQueryKey(message.workspaceId),
-            });
-            void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-            refreshOrganizationState();
-          }
-          if (
-            message.type === "PROJECT_ACCESS_CHANGED" &&
-            message.workspaceId
-          ) {
-            const { workspaceId } = message;
-            for (const queryKey of [
-              ["projects", workspaceId],
-              ["assigned-tasks", workspaceId],
-              ["search", { workspaceId }],
-              ["workspace-activity", workspaceId],
-              ["labels", workspaceId],
-              ["workspace-users", workspaceId, "project-access"],
-              ["notifications"],
-            ])
-              void queryClient.invalidateQueries({ queryKey });
-            reconcileProjectAccess(queryClient, workspaceId, () => !disposed);
-          }
-          if (message.type === "NOTIFICATION_CREATED") {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-          }
-        } catch {
-          // Ignore malformed messages
-        }
-      };
-
-      ws.onclose = (event) => {
-        if (disposed || activeSocket !== ws) return;
-        clearPing();
-        activeSocket = null;
-        // 4001 reaches only the sockets of a session the provider ended.
-        if (event?.code === 4001) {
-          checkEndedSession();
+    function handleMessage(data: string) {
+      try {
+        const message = JSON.parse(data) as {
+          type?: string;
+          workspaceId?: string;
+          workspaceIds?: string[] | null;
+          reason?: string;
+        };
+        if (message.type === "USER_ACCESS_REVOKED") {
+          connection.end("user-access-revoked");
           return;
         }
-        if (event?.code === 1008) leaveSession();
-        if (userRevoked) return;
-
-        const delay = retryDelay;
-        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
-        retryTimeout = setTimeout(connect, delay);
-      };
+        if (
+          message.type === "WORKSPACE_ACCESS_SYNC" &&
+          Array.isArray(message.workspaceIds) &&
+          message.workspaceIds.every((id) => typeof id === "string")
+        ) {
+          evictInaccessibleWorkspaceCache(queryClient, message.workspaceIds);
+          void queryClient.invalidateQueries({
+            queryKey: ["workspace-status"],
+          });
+          for (const workspaceId of message.workspaceIds)
+            reconcileProjectAccess(queryClient, workspaceId, () => !isEnded());
+          refreshOrganizationState();
+          const path = pathnameRef.current;
+          const current =
+            /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
+              ? activeWorkspaceRef.current
+              : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
+          if (current && !message.workspaceIds.includes(current))
+            void navigate({ to: "/dashboard" });
+        }
+        if (
+          message.type === "WORKSPACE_ACCESS_REVOKED" &&
+          message.workspaceId
+        ) {
+          evictWorkspaceCache(queryClient, message.workspaceId);
+          refreshOrganizationState();
+          const path = pathnameRef.current;
+          const current =
+            /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
+              ? activeWorkspaceRef.current
+              : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
+          void queryClient.invalidateQueries({
+            queryKey: workspaceStatusQueryKey(message.workspaceId),
+          });
+          if (
+            current === message.workspaceId &&
+            (message.reason !== "archived" ||
+              !path.startsWith("/dashboard/workspace/"))
+          )
+            void navigate({ to: "/dashboard" });
+        }
+        if (message.type === "WORKSPACE_RESTORED" && message.workspaceId) {
+          void queryClient.invalidateQueries({
+            queryKey: ["admin", "workspaces"],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: workspaceStatusQueryKey(message.workspaceId),
+          });
+          void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+          refreshOrganizationState();
+        }
+        if (message.type === "PROJECT_ACCESS_CHANGED" && message.workspaceId) {
+          const { workspaceId } = message;
+          for (const queryKey of [
+            ["projects", workspaceId],
+            ["assigned-tasks", workspaceId],
+            ["search", { workspaceId }],
+            ["workspace-activity", workspaceId],
+            ["labels", workspaceId],
+            ["workspace-users", workspaceId, "project-access"],
+            ["notifications"],
+          ])
+            void queryClient.invalidateQueries({ queryKey });
+          reconcileProjectAccess(queryClient, workspaceId, () => !isEnded());
+        }
+        if (message.type === "NOTIFICATION_CREATED") {
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        }
+      } catch {
+        // Ignore malformed messages
+      }
     }
 
-    connect();
+    const connection = createConnection<UserEndReason>({
+      url: getUserWsUrl(),
+      classifyClose: classifyUserClose,
+      // The cookie may hold another tab's newer session: same means reconnect.
+      checkSession: async (signal) => {
+        const { data, error } = await authClient.getSession({
+          fetchOptions: { signal },
+        });
+        if (error && error.status !== 401) return "unknown";
+        return data?.user.id === userId ? "same" : "gone";
+      },
+      // The server sends WORKSPACE_ACCESS_SYNC on every open. These keys
+      // miss events from while the socket was down. "projects" is left out:
+      // a refetch could land before reconcileProjectAccess reads its cache.
+      onOpen: ({ reconnect }) => {
+        if (!reconnect) return;
+        for (const queryKey of [
+          ["notifications"],
+          ["workspaces"],
+          ["admin", "workspaces"],
+        ])
+          void queryClient.invalidateQueries({ queryKey });
+      },
+      onMessage: handleMessage,
+      onState,
+    });
 
-    return () => {
-      disposed = true;
-      clearPing();
-      if (retryTimeout !== null) {
-        clearTimeout(retryTimeout);
-      }
-      activeSocket?.close();
-    };
+    return () => connection.dispose();
   }, [session?.user?.id, session?.session?.id, queryClient, navigate]);
 }
