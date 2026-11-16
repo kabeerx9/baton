@@ -1,8 +1,8 @@
 # Baton
 
-Baton is a fast, simple, self-hosted team tracker built around one board. Tasks wait on each other, and people get told when they can continue. The Hono API owns domain behavior and authorization; the React app uses its typed client. PostgreSQL stores durable state, events and WebSockets keep clients current, and Redis is optional for delivery across API instances.
+Baton is a fast, simple, multi-tenant team tracker that the owner runs as a paid hosted service; it can still be self-hosted. Tasks wait on each other, and people get told when they can continue. The Hono API owns domain behavior and authorization; the React app uses its typed client. PostgreSQL stores durable state, events and WebSockets keep clients current, and Redis carries delivery across API instances in the hosted deployment.
 
-People use Baton to manage active work on instances they control. Changes reach existing tasks, workspaces, and deployments, not just a fresh dev setup. Protect what they rely on: quick boards, straightforward workflows, reliable live updates, and self-hosting that stays simple. A change that weakens those needs a compelling product reason.
+Paying teams use Baton to manage active work on one instance the owner operates. Changes reach existing tasks, workspaces, and deployments, not just a fresh dev setup. Protect what they rely on: quick boards, straightforward workflows, reliable live updates, and tenant isolation. A change that weakens those needs a compelling product reason.
 
 Treat this guide as a set of defaults. The developer's request takes precedence.
 
@@ -10,11 +10,11 @@ Treat this guide as a set of defaults. The developer's request takes precedence.
 
 Read [BOARD.md](BOARD.md) first: it defines the words, the rules and where they live in code.
 
-- Keep routine work simple. Solve the user's problem with the smallest model that makes the behavior clear. Read the relevant code first, but do not keep complexity just because it is already there.
+- Keep routine work simple. Solve the user's problem with the smallest model that makes the behavior clear. Read the relevant code first, but Baton began as an upstream self-host project: keep the complexity that serves the hosted product and drop constraints that only made sense upstream.
 - Keep modules small. Across the whole repo, give each file one responsibility: one component per file, and pure helpers and types in their own modules next to the code that uses them, with tests beside them. When a file grows a second concern, split it into a folder. Do not extract one-line wrappers; inline those.
 - Keep boards fast. Task-heavy views and realtime updates should not move or render more data than they need.
-- Keep self-hosting easy. A single instance must work without Redis or another managed service. Support both bundled same-origin and separately hosted API and web deployments.
-- Respect workspace boundaries. The API enforces authentication and permissions; a hidden UI control is not an authorization check. Never leak secrets or private workspace data through responses, logs, events, WebSockets, or MCP.
+- Keep the hosted instance lean. Judge schema, queries and realtime fan-out for scale, cost and tenancy on one instance serving many workspaces. Redis is expected in the hosted deployment, but a single instance without Redis must still work for local dev and self-hosters. Keep realtime transport behind the broadcast adapter in `apps/api/src/ws/broadcast-adapter.ts`, and support both bundled same-origin and separately hosted API and web deployments.
+- Respect workspace boundaries. A workspace is a tenant: one workspace must never see another's data. The API enforces authentication and permissions; a hidden UI control is not an authorization check. Never leak secrets or private workspace data through responses, logs, events, WebSockets, or MCP.
 
 ## Where code lives
 
