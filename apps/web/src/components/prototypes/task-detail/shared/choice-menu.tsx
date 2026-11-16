@@ -19,7 +19,14 @@ export function ChoiceMenu({
   onChange,
   trigger,
   align = "start",
+  open,
+  onOpenChange,
+  footer,
 }: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Plain text under the choices, e.g. what the choice will do. */
+  footer?: ReactNode;
   value: string;
   choices: Choice[];
   onChange: (value: string) => void;
@@ -28,7 +35,7 @@ export function ChoiceMenu({
   align?: "start" | "center" | "end";
 }) {
   return (
-    <Menu>
+    <Menu open={open} onOpenChange={onOpenChange}>
       <MenuTrigger asChild>{trigger}</MenuTrigger>
       <MenuPopup align={align} className="min-w-44">
         <MenuRadioGroup
@@ -41,6 +48,11 @@ export function ChoiceMenu({
             </MenuRadioItem>
           ))}
         </MenuRadioGroup>
+        {footer && (
+          <p className="max-w-60 border-t border-border px-2 pt-1.5 pb-1 text-xs text-muted-foreground">
+            {footer}
+          </p>
+        )}
       </MenuPopup>
     </Menu>
   );

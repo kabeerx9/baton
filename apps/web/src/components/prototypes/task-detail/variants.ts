@@ -1,7 +1,10 @@
 import type { ComponentType } from "react";
-import { ConsoleVariant } from "./variants/console/console-variant";
+import {
+  HandoffActionVariant,
+  HandoffBarVariant,
+  HandoffNodeVariant,
+} from "./variants/handoff2/handoff2-variants";
 import { HandoffVariant } from "./variants/handoff/handoff-variant";
-import { PulseVariant } from "./variants/pulse/pulse-variant";
 import type { PageProps } from "./page-props";
 
 export type VariantDef = {
@@ -12,18 +15,23 @@ export type VariantDef = {
 
 export const VARIANTS: readonly VariantDef[] = [
   {
-    name: "Handoff",
-    axis: "Waiting made visible: a relay of people around one task",
+    name: "Handoff v1",
+    axis: "The original: status lives in the properties column",
     Component: HandoffVariant,
   },
   {
-    name: "Pulse",
-    axis: "What happened: a status band over a living timeline",
-    Component: PulseVariant,
+    name: "Handoff: node",
+    axis: "The circle is the status control",
+    Component: HandoffNodeVariant,
   },
   {
-    name: "Console",
-    axis: "Keyboard first: dense properties, command bar, context rail",
-    Component: ConsoleVariant,
+    name: "Handoff: bar",
+    axis: "A full-width segmented status bar under the title",
+    Component: HandoffBarVariant,
+  },
+  {
+    name: "Handoff: action",
+    axis: "A changing primary button plus a status dropdown",
+    Component: HandoffActionVariant,
   },
 ];
