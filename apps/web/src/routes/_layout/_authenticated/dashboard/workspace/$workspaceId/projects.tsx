@@ -31,7 +31,6 @@ import { useTranslation } from "react-i18next";
 import WorkspaceLayout from "@/components/common/workspace-layout";
 import PageTitle from "@/components/page-title";
 import CreateProjectModal from "@/components/shared/modals/create-project-modal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -251,9 +250,6 @@ function RouteComponent() {
                 <TableHead className="text-foreground font-medium">
                   {t("workspace:projects.targetDate")}
                 </TableHead>
-                <TableHead className="text-foreground font-medium">
-                  {t("workspace:projects.status")}
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="delayed-reveal">
@@ -270,9 +266,6 @@ function RouteComponent() {
                   </TableCell>
                   <TableCell className="py-3">
                     <Skeleton className="h-4 w-20" />
-                  </TableCell>
-                  <TableCell className="py-3">
-                    <Skeleton className="h-5 w-16" />
                   </TableCell>
                 </TableRow>
               ))}
@@ -373,9 +366,6 @@ function RouteComponent() {
                 <TableHead className="text-foreground font-medium">
                   {t("workspace:projects.dueDate")}
                 </TableHead>
-                <TableHead className="text-foreground font-medium">
-                  {t("workspace:projects.status")}
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -388,21 +378,6 @@ function RouteComponent() {
 
                   const IconComponent =
                     icons[project.icon as keyof typeof icons] || icons.Layout;
-
-                  const getStatusText = () => {
-                    if (project.statistics.totalTasks === 0)
-                      return t("workspace:projects.projectStatus.notStarted");
-                    if (project.statistics.completionPercentage === 100)
-                      return t("workspace:projects.projectStatus.complete");
-                    return t("workspace:projects.projectStatus.inProgress");
-                  };
-
-                  const getStatusVariant = () => {
-                    if (project.statistics.totalTasks === 0) return "secondary";
-                    if (project.statistics.completionPercentage === 100)
-                      return "default";
-                    return "outline";
-                  };
 
                   return (
                     <SortableProjectRow
@@ -434,11 +409,6 @@ function RouteComponent() {
                             ? formatDateMedium(project.statistics.dueDate)
                             : t("workspace:projects.noDueDate")}
                         </span>
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Badge variant={getStatusVariant()}>
-                          {getStatusText()}
-                        </Badge>
                       </TableCell>
                     </SortableProjectRow>
                   );
