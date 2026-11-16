@@ -1,4 +1,5 @@
 import { startWebhookWorker } from "./admin/webhooks/start-webhook-worker";
+import { startOutboxRelay } from "./events/outbox/start-relay";
 import integrationSync from "./integration-sync";
 import { syncWorkspaceAccess } from "./ws/workspace-access";
 import { drainPasswordResetDeliveries } from "./utils/password-reset-delivery";
@@ -827,6 +828,7 @@ export async function startServer(
 
   injectWebSocket(server);
   const stopWebhookWorker = startWebhookWorker();
+  const stopOutboxRelay = startOutboxRelay();
 
   const gracefulShutdown = async () => {
     if (shuttingDown) return;
@@ -835,6 +837,8 @@ export async function startServer(
     console.log("🛑 Shutting down gracefully...");
     shutdownScheduler();
     await stopWebhookWorker();
+    // Waits for in-flight deliveries; unfinished rows run after their lease.
+    await stopOutboxRelay();
     await shutdownWebSocketAdapter();
     server.close();
     await drainPasswordResetDeliveries();

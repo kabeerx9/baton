@@ -769,6 +769,49 @@ export const taskChangeRequestTable = pgTable(
   ],
 );
 
+// One delivery of one domain event to one durable consumer (a
+// transactional outbox). Written in the domain transaction, run by the
+// relay in events/outbox, and deleted once delivered, so the table holds
+// only the backlog and dead rows.
+export const outboxTable = pgTable(
+  "outbox",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    consumer: text("consumer").notNull(),
+    // { v, ...ids and the facts the consumer reads }: never a whole row.
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    initiatorId: text("initiator_id"),
+    channel: text("channel"),
+    // "pending" or "dead"; any other value reads as dead.
+    state: text("state").default("pending").notNull(),
+    // Counts claims; also the fencing token for outcome writes.
+    attempts: integer("attempts").default(0).notNull(),
+    // Pending: when the row is next due (also the lease end).
+    // Dead: when it died, for the health and prune jobs.
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+    // An error class or code, never payload text.
+    lastError: text("last_error"),
+    // Use the enqueue statement's snapshot time, even inside an older action transaction.
+    createdAt: timestamp("created_at", { mode: "date" })
+      .default(sql`(statement_timestamp() AT TIME ZONE 'utc')`)
+      .notNull(),
+  },
+  (table) => [
+    index("outbox_due_idx")
+      .on(table.nextAttemptAt, table.id)
+      .where(sql`${table.state} = 'pending'`),
+    index("outbox_workspace_idx").on(table.workspaceId),
+  ],
+);
+
 export const jobLeaseTable = pgTable("job_lease", {
   name: text("name").primaryKey(),
   owner: text("owner").notNull(),

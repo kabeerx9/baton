@@ -26,6 +26,7 @@ import { personActor } from "../../apps/api/src/task-change-request/actor";
 import { decideChangeRequest } from "../../apps/api/src/task-change-request/decide-change-request";
 import deleteAccountData from "../../apps/api/src/user/controllers/delete-account-data";
 import { resetTestDatabase } from "./helpers/database";
+import { drainOutbox } from "./helpers/outbox";
 import { createProjectFixture } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 
@@ -65,6 +66,7 @@ async function waitForLockWaiters(count = 1) {
 }
 
 async function statusActivities(taskIds: string[]) {
+  await drainOutbox();
   return db
     .select()
     .from(schema.activityTable)

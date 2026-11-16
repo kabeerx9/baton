@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { mockAnonymousSession, mockAuthenticatedSession } from "./helpers/auth";
 import { resetTestDatabase } from "./helpers/database";
+import { drainOutbox } from "./helpers/outbox";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 import { createRestrictedWorkspace } from "./helpers/project-access/create-restricted-workspace";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
@@ -253,6 +254,7 @@ describe("project access enforcement", () => {
       body: { destinationProjectId: ctx.beta.id },
     });
     expect(moved.status).toBe(200);
+    await drainOutbox();
 
     const expectHiddenSource = () =>
       vi.waitFor(async () => {

@@ -2,7 +2,10 @@ import { HTTPException } from "hono/http-exception";
 import { withLockedProjectTask } from "./with-locked-task";
 import type { taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
-import { publishTaskMutation } from "./task-mutation-effects";
+import {
+  enqueueTaskMutation,
+  publishTaskMutation,
+} from "./task-mutation-effects";
 import { personActor, type TaskActor } from "../../task-change-request/actor";
 import { applyTaskChange } from "../../task-change-request/apply-task-change";
 import { decideConsent } from "../../task-change-request/consent";
@@ -88,6 +91,10 @@ async function updateTaskStatus({
         });
       effects.push(...finishedEffects(applied.cancelled, currentUserId));
       const updatedTask = applied.after;
+      // The activity row commits with the status write (no loss window).
+      await enqueueTaskMutation(tx, existingTask, updatedTask, currentUserId, {
+        fields: ["status"],
+      });
       return { outcome: "applied", task: updatedTask };
     },
   );
@@ -98,6 +105,7 @@ async function updateTaskStatus({
 
   await publishTaskMutation(existingTask, updatedTask, currentUserId, {
     fields: ["status"],
+    enqueued: true,
   });
 
   if (

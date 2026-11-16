@@ -8,6 +8,8 @@ import { checkDueDateReminders } from "./due-date-reminders";
 import { slackConfig } from "../slack-dm/config";
 import { sendMorningDigests } from "../slack-dm/digest";
 import { expireChangeRequests } from "../task-change-request/expire-change-requests";
+import { checkOutboxHealth } from "../events/outbox/health";
+import { pruneOutbox } from "../events/outbox/prune";
 
 const jobs: Cron[] = [];
 
@@ -88,6 +90,22 @@ export function initializeScheduler(): void {
       "17 * * * *",
       { protect: true },
       withCheckIn("task-change-request-timeouts", expireChangeRequests),
+    ),
+  );
+  // A due row unclaimed for 5 minutes, or a new dead row, is degraded.
+  jobs.push(
+    new Cron(
+      "*/5 * * * *",
+      { protect: true },
+      withCheckIn("outbox-health", checkOutboxHealth),
+    ),
+  );
+  // Dead outbox rows are kept 30 days for diagnosis.
+  jobs.push(
+    new Cron(
+      "43 * * * *",
+      { protect: true },
+      withCheckIn("outbox-prune", pruneOutbox),
     ),
   );
   // The Slack digest exists only when a bot token is set.

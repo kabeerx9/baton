@@ -19,6 +19,7 @@ import {
   requestStatus,
 } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
+import { drainOutbox } from "./helpers/outbox";
 
 beforeEach(resetTestDatabase);
 afterEach(() => vi.restoreAllMocks());
@@ -41,6 +42,7 @@ describe("timeouts", () => {
       decidedBy: null,
     });
     expect((await readTask(f.task.id))?.status).toBe("in-progress");
+    await drainOutbox();
     const [activity] = await db
       .select()
       .from(schema.activityTable)
@@ -163,6 +165,7 @@ describe("accepting", () => {
     expect((await again.json()).request).toEqual(first.request);
     expect((await answer(f.creator, requestId, "reject")).status).toBe(409);
 
+    await drainOutbox();
     const activities = await db
       .select()
       .from(schema.activityTable)

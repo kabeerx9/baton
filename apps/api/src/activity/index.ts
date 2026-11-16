@@ -1,6 +1,5 @@
 import { HTTPException } from "hono/http-exception";
 import { isReservedActivityType } from "./reserved-activity-types";
-import { subscribeToEvent } from "../events";
 import {
   apiRouter,
   createRoute,
@@ -240,121 +239,7 @@ const activity = apiRouter()
     ),
   );
 
-subscribeToEvent<{
-  taskId: string;
-  currentUserId: string;
-  type: string;
-  content: string | null;
-}>("task.created", async (data) => {
-  if (!data.currentUserId || !data.taskId || !data.type) {
-    return;
-  }
-  await createActivity(data.taskId, data.type, data.currentUserId, null, {});
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  type: string;
-  content: string;
-  fromProjectId: string;
-  fromProjectName: string;
-  toProjectId: string;
-  toProjectName: string;
-  oldStatus: string;
-  newStatus: string;
-}>("task.moved", async (data) => {
-  const {
-    fromProjectId,
-    fromProjectName,
-    toProjectId,
-    toProjectName,
-    oldStatus,
-    newStatus,
-  } = data;
-
-  await createActivity(data.taskId, data.type, data.userId, null, {
-    fromProjectId,
-    fromProjectName,
-    toProjectId,
-    toProjectName,
-    oldStatus,
-    newStatus,
-  });
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  oldStatus: string;
-  newStatus: string;
-  title: string;
-  assigneeId?: string;
-  type: string;
-}>("task.status_changed", async (data) => {
-  await createActivity(data.taskId, data.type, data.userId, null, {
-    oldStatus: data.oldStatus,
-    newStatus: data.newStatus,
-  });
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  oldPriority: string;
-  newPriority: string;
-  title: string;
-  type: string;
-}>("task.priority_changed", async (data) => {
-  await createActivity(data.taskId, data.type, data.userId, null, {
-    oldPriority: data.oldPriority,
-    newPriority: data.newPriority,
-  });
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  title: string;
-  type: string;
-}>("task.unassigned", async (data) => {
-  await createActivity(data.taskId, data.type, data.userId, null, {});
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  oldAssignee: string | null;
-  newAssignee: string;
-  newAssigneeId: string;
-  title: string;
-  type: string;
-}>("task.assignee_changed", async (data) => {
-  await createActivity(data.taskId, data.type, data.userId, null, {
-    newAssigneeId: data.newAssigneeId,
-    newAssignee: data.newAssignee,
-    isSelfAssigned: data.userId === data.newAssigneeId,
-  });
-});
-
-subscribeToEvent<{
-  taskId: string;
-  userId: string;
-  oldDueDate: Date | null;
-  newDueDate: Date;
-  title: string;
-  type: string;
-}>("task.due_date_changed", async (data) => {
-  await createActivity(data.taskId, data.type, data.userId, null, {
-    oldDueDate:
-      data.oldDueDate instanceof Date
-        ? data.oldDueDate.toISOString()
-        : data.oldDueDate,
-    newDueDate:
-      data.newDueDate instanceof Date
-        ? data.newDueDate.toISOString()
-        : data.newDueDate,
-  });
-});
+// Activity rows for task events come from the outbox: see
+// activity/outbox-consumer.ts and events/outbox/routes.ts.
 
 export default activity;

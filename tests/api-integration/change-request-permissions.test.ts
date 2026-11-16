@@ -20,6 +20,7 @@ import {
   setStatus,
 } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
+import { drainOutbox } from "./helpers/outbox";
 import { createProjectFixture } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 import { restrictToProjects } from "./helpers/project-access/restrict-to-projects";
@@ -174,8 +175,9 @@ describe("status change consent", () => {
     expect(
       (await setStatusWithKey(creatorKey, f.task.id, "in-review")).status,
     ).toBe(200);
-    // The status activity is written by an event subscriber after the
-    // response, so wait for it, within a bound.
+    // The status activity is written by the outbox relay after the
+    // response; run it, then read.
+    await drainOutbox();
     await vi.waitFor(
       async () => {
         const activities = await db

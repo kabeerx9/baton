@@ -12,7 +12,10 @@ import {
   createWorkspaceMember,
 } from "./helpers/fixtures";
 const publish = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock("../../apps/api/src/events", () => ({ publishEvent: publish }));
+vi.mock("../../apps/api/src/events", () => ({
+  publishEvent: publish,
+  publishLive: publish,
+}));
 beforeEach(async () => {
   await resetTestDatabase();
   vi.clearAllMocks();
