@@ -1,0 +1,45 @@
+# Baton on one VPS: terminate TLS here and hand everything to the bundled
+# web + API container. The domain and ACME contact come from the environment
+# (deploy/.env.production); nothing secret is stored in this file.
+#
+# Automatic HTTPS: a public domain gets a Let's Encrypt certificate. A name
+# without a dot, such as `localhost`, gets a certificate from Caddy's local CA
+# instead, which is what the local smoke test uses (`curl -k`).
+
+{
+	email {$BATON_ACME_EMAIL}
+	# Nothing talks to the admin API, so keep it off the network.
+	admin off
+	servers {
+		# If a CDN sits in front later, keep reading the client address from its
+		# headers instead of the CDN's own address.
+		trusted_proxies static private_ranges
+	}
+}
+
+{$BATON_DOMAIN} {
+	# nginx already compresses what it serves; this covers API JSON and any
+	# response that reaches Caddy uncompressed.
+	encode zstd gzip
+
+	header {
+		# nginx inside the container sets the other security headers; adding
+		# them here too would duplicate them on every response.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# WebSocket upgrades (live board updates) pass through untouched.
+	reverse_proxy baton:5173 {
+		# Replace, never append: the API walks the chain from the nearest hop
+		# and must not be able to be told a fake earlier address. Caddy knows
+		# the real peer, and baton trusts the compose subnet.
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
