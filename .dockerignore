@@ -11,4 +11,9 @@
 .env
 .env.*
 !apps/web/.env.production
+# The root .env.* pattern only matches the repository root, so name the
+# deploy env files explicitly: they hold real secrets and must never be sent
+# in the build context. The committed .sample files stay.
+deploy/.env.production
+deploy/.env.smoke
 *.log
