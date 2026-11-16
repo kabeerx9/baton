@@ -47,6 +47,9 @@ export async function deleteNativeWorkspace(
       hasInstanceAdminRole(member.instanceRole)
         ? { ...request, actorUserId: userId }
         : undefined,
+      // The caller is a member with delete permission, so their own demo
+      // workspace may go too; its audit entry never leaves Baton.
+      { allowDemo: true },
     );
     let metadata: unknown;
     try {

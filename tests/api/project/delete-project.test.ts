@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   publishEvent: vi.fn(),
   getProjectSubtaskParentProjects: vi.fn(),
   cancelPendingRequestsInProject: vi.fn(),
+  deleteResourceNotifications: vi.fn(),
 }));
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
@@ -29,6 +30,12 @@ vi.mock("../../../apps/api/src/task/get-subtask-parent-projects", () => ({
 vi.mock("../../../apps/api/src/task-change-request/cancel-pending", () => ({
   cancelPendingRequestsInProject: mocks.cancelPendingRequestsInProject,
 }));
+vi.mock(
+  "../../../apps/api/src/notification/delete-resource-notifications",
+  () => ({
+    deleteResourceNotifications: mocks.deleteResourceNotifications,
+  }),
+);
 import deleteProject from "../../../apps/api/src/project/controllers/delete-project";
 function seed(backgroundObjectKey: string | null, assets: string[] = []) {
   const project = {
@@ -71,6 +78,10 @@ describe("deleteProject", () => {
   it("queues all attachment keys and the background before the cascade", async () => {
     seed("background", ["attachment-a", "attachment-b"]);
     await deleteProject("project-1", "workspace-1");
+    expect(mocks.deleteResourceNotifications).toHaveBeenCalledWith(
+      expect.anything(),
+      { projectIds: ["project-1"] },
+    );
     expect(mocks.queueStorageCleanup).toHaveBeenCalledWith(expect.anything(), [
       "attachment-a",
       "attachment-b",

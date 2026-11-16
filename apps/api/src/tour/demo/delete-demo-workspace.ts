@@ -1,12 +1,7 @@
-import { and, eq, inArray, or } from "drizzle-orm";
-import {
-  notificationTable,
-  projectTable,
-  sessionTable,
-  taskTable,
-  workspaceTable,
-} from "../../database/schema";
+import { and, eq } from "drizzle-orm";
+import { sessionTable, workspaceTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 import type { OutboxTransaction } from "../../events/outbox/consumer";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { listWorkspaceObjectKeys } from "../../workspace/lifecycle/list-workspace-object-keys";
@@ -33,7 +28,8 @@ export async function lockDemoWorkspace(tx: OutboxTransaction, userId: string) {
  * Deletes a demo workspace in the caller's transaction. The foreign keys
  * cascade to members, roles, projects, columns, tasks, relations, comments,
  * activity, change requests and outbox rows. Notifications have no foreign
- * key to their resource, so they are deleted here first. Call
+ * key to their resource, so they are deleted here first, including those
+ * of tasks deleted earlier (by the workspace named in their event data). Call
  * `afterDemoDeleted` once the transaction commits.
  */
 export async function deleteDemoWorkspace(
@@ -41,32 +37,23 @@ export async function deleteDemoWorkspace(
   demo: { id: string },
   ownerId: string,
 ): Promise<DeletedDemo> {
-  const taskIds = tx
-    .select({ id: taskTable.id })
-    .from(taskTable)
-    .innerJoin(projectTable, eq(projectTable.id, taskTable.projectId))
-    .where(eq(projectTable.workspaceId, demo.id));
-  await tx
-    .delete(notificationTable)
-    .where(
-      or(
-        and(
-          eq(notificationTable.resourceType, "task"),
-          inArray(notificationTable.resourceId, taskIds),
-        ),
-        and(
-          eq(notificationTable.resourceType, "workspace"),
-          eq(notificationTable.resourceId, demo.id),
-        ),
-      ),
-    );
+  await deleteResourceNotifications(tx, { workspaceIds: [demo.id] });
   // Uploads made during the tour are removed only if the rows go too.
   await queueStorageCleanup(tx, await listWorkspaceObjectKeys(demo.id, tx));
   await tx
     .update(sessionTable)
     .set({ activeOrganizationId: null, activeTeamId: null })
     .where(eq(sessionTable.activeOrganizationId, demo.id));
-  await tx.delete(workspaceTable).where(eq(workspaceTable.id, demo.id));
+  // Kind and owner too: this helper never deletes a team workspace.
+  await tx
+    .delete(workspaceTable)
+    .where(
+      and(
+        eq(workspaceTable.id, demo.id),
+        eq(workspaceTable.kind, "demo"),
+        eq(workspaceTable.demoOwnerUserId, ownerId),
+      ),
+    );
   return { workspaceId: demo.id, ownerId };
 }
 

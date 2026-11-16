@@ -1,12 +1,7 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { schema } from "../database";
-import { ApiError } from "../errors/api-error";
 import type { DbOrTx } from "../project-access/db-or-tx";
-import {
-  DEMO_WORKSPACE_CODE,
-  DEMO_WORKSPACE_MESSAGE,
-} from "../workspace/kind/assert-shareable-workspace";
 
 export async function lockWorkspace(database: DbOrTx, workspaceId: string) {
   const [workspace] = await database
@@ -17,12 +12,10 @@ export async function lockWorkspace(database: DbOrTx, workspaceId: string) {
   if (!workspace) {
     throw new HTTPException(404, { message: "Workspace not found" });
   }
-  // A tour workspace keeps exactly one member, its owner.
+  // A demo workspace is its owner's private sandbox: administrators do not
+  // see it, so it is not found here.
   if (workspace.kind !== "team") {
-    throw new ApiError(403, {
-      code: DEMO_WORKSPACE_CODE,
-      message: DEMO_WORKSPACE_MESSAGE,
-    });
+    throw new HTTPException(404, { message: "Workspace not found" });
   }
 
   return database

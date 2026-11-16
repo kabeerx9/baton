@@ -4,6 +4,7 @@ import {
   formatTaskDescriptionFromIssue,
 } from "../github/utils/format";
 import { getVerifiedInstallationOctokit } from "../github/utils/github-app";
+import { isDemoProject } from "../../workspace/kind/is-demo-workspace";
 
 export type IssueValues = {
   title: string;
@@ -12,9 +13,12 @@ export type IssueValues = {
 };
 
 export async function providerIssue(
-  integration: { type: string; config: string },
+  integration: { type: string; config: string; projectId: string },
   link: { externalId: string; taskId: string },
 ) {
+  // The write boundary of every explicit sync: a demo never reaches GitHub.
+  if (await isDemoProject(integration.projectId))
+    throw new Error("Integrations do not act in a demo workspace");
   const number = Number(link.externalId);
   if (!Number.isSafeInteger(number) || number <= 0)
     throw new Error("Invalid issue number");

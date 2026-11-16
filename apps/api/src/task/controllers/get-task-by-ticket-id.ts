@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable, workspaceTable } from "../../database/schema";
@@ -47,11 +47,15 @@ export default async function getTaskByTicketId(
   let slugWorkspaceIds: string[] | undefined;
   if (workspaceSlug) {
     const slugMatches = await db
-      .select({ id: workspaceTable.id, slug: workspaceTable.slug })
+      .select({
+        id: workspaceTable.id,
+        slug: workspaceTable.slug,
+        kind: workspaceTable.kind,
+      })
       .from(workspaceTable)
       .where(sql`lower(${workspaceTable.slug}) = lower(${workspaceSlug})`);
     const readableMatches = slugMatches.filter((workspace) =>
-      grants.allows(workspace.id, taskRead),
+      grants.allows(workspace.id, taskRead, workspace.kind),
     );
     const exactMatch = readableMatches.find(
       (workspace) => workspace.slug === workspaceSlug,
@@ -68,11 +72,13 @@ export default async function getTaskByTicketId(
     .select({
       id: taskTable.id,
       workspaceId: projectTable.workspaceId,
+      workspaceKind: workspaceTable.kind,
       slug: projectTable.slug,
       archivedAt: projectTable.archivedAt,
     })
     .from(taskTable)
     .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+    .innerJoin(workspaceTable, eq(workspaceTable.id, projectTable.workspaceId))
     .where(
       and(
         eq(taskTable.number, number),
@@ -83,8 +89,13 @@ export default async function getTaskByTicketId(
           ? inArray(projectTable.workspaceId, slugWorkspaceIds)
           : undefined,
         projectId ? eq(projectTable.id, projectId) : undefined,
+        // Administrators reach every team workspace; a demo (theirs too)
+        // only through membership, so demos never make a lookup ambiguous.
         grants.isInstanceAdmin
-          ? undefined
+          ? or(
+              eq(workspaceTable.kind, "team"),
+              inArray(projectTable.workspaceId, readableWorkspaceIds),
+            )
           : inArray(projectTable.workspaceId, readableWorkspaceIds),
         projectAccessCondition(userId, projectTable.id),
       ),
@@ -92,10 +103,17 @@ export default async function getTaskByTicketId(
 
   const rank = (candidate: { archivedAt: Date | null }) =>
     candidate.archivedAt?.getTime() ?? Number.POSITIVE_INFINITY;
-  const [matchedTask, nextMatch] = candidates
-    .filter((candidate) => grants.allows(candidate.workspaceId, taskRead))
-    .filter((candidate) => isSameProjectKey(candidate.slug, projectKey))
-    .sort((a, b) => (rank(a) === rank(b) ? 0 : rank(a) > rank(b) ? -1 : 1));
+  const matches = candidates
+    .filter((candidate) =>
+      grants.allows(candidate.workspaceId, taskRead, candidate.workspaceKind),
+    )
+    .filter((candidate) => isSameProjectKey(candidate.slug, projectKey));
+  // Every demo has a T-1: a team match wins, so a tour never makes a
+  // lookup ambiguous. A demo task still resolves when it is the only match.
+  const teamMatches = matches.filter((m) => m.workspaceKind === "team");
+  const [matchedTask, nextMatch] = (
+    teamMatches.length ? teamMatches : matches
+  ).sort((a, b) => (rank(a) === rank(b) ? 0 : rank(a) > rank(b) ? -1 : 1));
   if (!matchedTask) {
     throw new HTTPException(404, { message: "Task not found" });
   }

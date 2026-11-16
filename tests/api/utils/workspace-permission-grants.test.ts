@@ -71,12 +71,29 @@ describe("batched workspace permission grants", () => {
     const grants = await workspacePermissionGrants("user", {
       apiKeyPermissions: { label: ["read"] },
     });
-    expect(grants.allows("any-workspace", { task: ["read"] })).toBe(false);
-    expect(grants.allows("any-workspace", { label: ["read"] })).toBe(true);
+    expect(grants.allows("any-workspace", { task: ["read"] }, "team")).toBe(
+      false,
+    );
+    expect(grants.allows("any-workspace", { label: ["read"] }, "team")).toBe(
+      true,
+    );
     const emptyScope = await workspacePermissionGrants("user", {
       apiKeyPermissions: {},
     });
-    expect(emptyScope.allows("any-workspace", { task: ["read"] })).toBe(false);
+    expect(emptyScope.allows("any-workspace", { task: ["read"] }, "team")).toBe(
+      false,
+    );
+  });
+
+  it("gives an administrator team workspaces only, never someone else's demo", async () => {
+    state.rows.set(schema.userTable, [{ role: "admin" }]);
+    const grants = await workspacePermissionGrants("user", {
+      apiKeyPermissions: null,
+    });
+    expect(grants.allows("team", { task: ["read"] }, "team")).toBe(true);
+    expect(grants.allows("demo", { task: ["read"] }, "demo")).toBe(false);
+    // A workspace whose kind was never read is treated as a demo.
+    expect(grants.allows("unknown", { task: ["read"] })).toBe(false);
   });
 
   it("reloads role changes for the next request and denies a missing user", async () => {

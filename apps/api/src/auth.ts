@@ -90,7 +90,10 @@ import {
 } from "./utils/get-workspace-invitation-email-copy";
 import { getGithubSsoOAuthCredentials } from "./utils/github-sso-env";
 import { hasInstanceAdminRole } from "./utils/instance-admin-role";
-import { assertShareableOrganization } from "./workspace/kind/assert-shareable-workspace";
+import {
+  assertRolesEditable,
+  assertShareableOrganization,
+} from "./workspace/kind/assert-shareable-workspace";
 import {
   assertNoOAuthSignIn,
   assertOAuthCallbackLinks,
@@ -626,6 +629,7 @@ export const auth = betterAuth({
           // First, so members of an archived workspace get its stable code.
           await assertNativeOrganizationActive(ctx, organizationViewer);
           await assertNativeOrganizationReadAllowed(ctx, organizationViewer);
+          await assertRolesEditable(ctx, organizationViewer);
         }
         if (ctx.path === "/organization/delete") {
           // This short-circuits the provider endpoint; retain its key usage check.

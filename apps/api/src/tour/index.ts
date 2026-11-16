@@ -5,6 +5,7 @@ import {
   errorResponse,
   jsonResponse,
 } from "../openapi";
+import { requireUserSession } from "../utils/require-user-session";
 import finishTour from "./controllers/finish-tour";
 import getTour from "./controllers/get-tour";
 import replayTour from "./controllers/replay-tour";
@@ -36,10 +37,15 @@ const startTourRoute = createRoute({
   summary: "Start the tour",
   description:
     "Deletes the caller's demo workspace, if any, and seeds a fresh one with five demo tasks, in one transaction. A user has at most one demo workspace. A demo workspace sends nothing outside Baton: no Slack, email, push, webhook or integration.",
+  // A reset deletes data: only the person, never an API key or agent.
+  middleware: [requireUserSession] as const,
   responses: {
     200: jsonResponse(
       "The fresh demo workspace and its tasks",
       tourStartSchema,
+    ),
+    403: errorResponse(
+      "A user session is required; API keys and agents cannot",
     ),
     409: errorResponse(
       "The tour is already completed. Call replay before starting it again.",
@@ -61,9 +67,14 @@ const finishTourRoute = createRoute({
       content: { "application/json": { schema: tourFinishBody } },
     },
   },
+  // A reset deletes data: only the person, never an API key or agent.
+  middleware: [requireUserSession] as const,
   responses: {
     200: jsonResponse("The tour is completed", tourFinishSchema),
     400: errorResponse("Invalid request"),
+    403: errorResponse(
+      "A user session is required; API keys and agents cannot",
+    ),
   },
 });
 
@@ -75,7 +86,14 @@ const replayTourRoute = createRoute({
   summary: "Replay the tour",
   description:
     "Clears the caller's completion so the tour can start again. Call start next.",
-  responses: { 200: jsonResponse("The tour is open again", tourReplaySchema) },
+  // A reset deletes data: only the person, never an API key or agent.
+  middleware: [requireUserSession] as const,
+  responses: {
+    200: jsonResponse("The tour is open again", tourReplaySchema),
+    403: errorResponse(
+      "A user session is required; API keys and agents cannot",
+    ),
+  },
 });
 
 const tour = apiRouter<BaseVariables>()

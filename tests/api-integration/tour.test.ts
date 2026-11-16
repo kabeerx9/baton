@@ -352,8 +352,7 @@ describe("demo workspace visibility", () => {
       userId: admin.id,
       role: "member",
     });
-    expect(addMember.status).toBe(403);
-    expect(await addMember.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
+    expect(addMember.status).toBe(404);
   });
 
   it("refuses another user on every read path", async () => {

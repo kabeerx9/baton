@@ -24,11 +24,21 @@ function quoteIdentifier(identifier: string) {
 
 // Hash and timestamp come from the migration file and journal, exactly as
 // drizzle's migrator computes them, so they cannot drift from the baseline.
-export function readBaselineEntry(migrationsFolder: string): BaselineEntry {
-  // The baseline is the first migration; later ones apply after it.
-  const [baseline] = readMigrationFiles({ migrationsFolder });
+// The baseline is the first migration; `later` are the ones shipped after it,
+// so a ledger that already applied them still reads as adopted.
+export function readBaselineEntry(
+  migrationsFolder: string,
+): BaselineEntry & { later: BaselineEntry[] } {
+  const [baseline, ...later] = readMigrationFiles({ migrationsFolder });
   if (!baseline) throw new Error("Expected the baseline migration, found none");
-  return { hash: baseline.hash, createdAt: baseline.folderMillis };
+  return {
+    hash: baseline.hash,
+    createdAt: baseline.folderMillis,
+    later: later.map((entry) => ({
+      hash: entry.hash,
+      createdAt: entry.folderMillis,
+    })),
+  };
 }
 
 function refusal(state: LedgerState): string {
@@ -46,7 +56,7 @@ function refusal(state: LedgerState): string {
 // concurrent startup migrate cannot read it half-written.
 export async function adoptMigrationBaseline(
   client: ClientBase,
-  baseline: BaselineEntry,
+  baseline: BaselineEntry & { later?: readonly BaselineEntry[] },
   ledger: LedgerLocation = DRIZZLE_LEDGER,
 ): Promise<AdoptResult> {
   const table = `${quoteIdentifier(ledger.schema)}.${quoteIdentifier(ledger.table)}`;
@@ -75,6 +85,7 @@ export async function adoptMigrationBaseline(
         createdAt: Number(row.created_at),
       })),
       baseline,
+      baseline.later,
     );
 
     if (state.kind === "adopted") {

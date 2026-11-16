@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import db, { schema } from "../../database";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 import { enqueueAuditWebhooks } from "../webhooks/enqueue-audit-webhooks";
@@ -18,6 +18,21 @@ export type AdminActionInput = {
   ipAddress?: string | null;
   userAgent?: string | null;
 };
+
+/**
+ * The side-effect guard for audit webhooks: an entry about a demo workspace
+ * stays in the audit log and never reaches a webhook. A workspace target
+ * that cannot be read is treated as a demo, the kind that sends nothing.
+ */
+async function auditMayLeaveBaton(input: AdminActionInput, database: DbOrTx) {
+  if (input.targetType !== "workspace" || !input.targetId) return true;
+  const [workspace] = await database
+    .select({ kind: schema.workspaceTable.kind })
+    .from(schema.workspaceTable)
+    .where(eq(schema.workspaceTable.id, input.targetId))
+    .limit(1);
+  return workspace?.kind === "team";
+}
 
 /**
  * Append an entry to the admin audit log. Pass the transaction when the action
@@ -54,6 +69,7 @@ export async function recordAdminAction(
     })
     .returning({ id: schema.adminAuditLogTable.id });
   if (!entry) return;
+  if (!(await auditMayLeaveBaton(input, database))) return;
   if (database !== db) {
     await enqueueAuditWebhooks(database, entry.id);
   } else {

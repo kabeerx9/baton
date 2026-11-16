@@ -15,6 +15,7 @@ import {
   planAccountDeletion,
   type WorkspaceMembershipSummary,
 } from "../account-deletion";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 async function collectMemberships(
   userId: string,
@@ -83,6 +84,15 @@ async function lockWorkspacesForDeletion(
 }
 
 async function deleteAccountRows(userId: string, database: DbOrTx) {
+  // Lock order everywhere: the user row first, then workspaces (the tour
+  // routes and the demo cleanup do the same). NO KEY UPDATE still lets other
+  // transactions insert rows that reference this user, such as the audit
+  // entry of an administrator deleting a workspace this deletion waits on.
+  await database
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .for("no key update");
   const plan = planAccountDeletion(await collectMemberships(userId, database));
 
   if (plan.blockedWorkspaceNames.length > 0) {
@@ -100,6 +110,9 @@ async function deleteAccountRows(userId: string, database: DbOrTx) {
       .where(instanceAdminRoleSql(userTable.role));
     for (const admin of admins) recipients.add(admin.userId);
     await lockWorkspacesForDeletion(database, plan.workspaceIdsToDelete);
+    await deleteResourceNotifications(database, {
+      workspaceIds: plan.workspaceIdsToDelete,
+    });
     await database
       .delete(workspaceTable)
       .where(inArray(workspaceTable.id, plan.workspaceIdsToDelete));

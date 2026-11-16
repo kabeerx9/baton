@@ -61,7 +61,8 @@ async function deleteUser(
       });
     }
     await removeAccountData(userId, tx);
-    // Lock the user only after workspaces: their deletion audit locks its actor.
+    // removeAccountData locked the user (NO KEY UPDATE), then workspaces.
+    // Sessions take the full user lock last, after the workspace deletes.
     await deleteUserSessions(tx, userId, { exceptSessionId: null });
     await tx.delete(userTable).where(eq(userTable.id, userId));
     await recordAdminAction(
