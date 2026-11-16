@@ -101,6 +101,7 @@ const verifyRoute = createRoute({
     requireUserSession,
     scopeToProjectFromBody,
     requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    refuseDemoWorkspace,
   ],
   request: {
     body: {

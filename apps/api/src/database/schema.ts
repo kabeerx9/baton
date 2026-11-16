@@ -1040,7 +1040,11 @@ export const notificationTable = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("notification_userId_idx").on(table.userId)],
+  (table) => [
+    index("notification_userId_idx").on(table.userId),
+    // Resource deletion removes the notifications that name it.
+    index("notification_resource_idx").on(table.resourceType, table.resourceId),
+  ],
 );
 
 export const userNotificationPreferenceTable = pgTable(

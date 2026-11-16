@@ -28,8 +28,8 @@ export async function lockDemoWorkspace(tx: OutboxTransaction, userId: string) {
  * Deletes a demo workspace in the caller's transaction. The foreign keys
  * cascade to members, roles, projects, columns, tasks, relations, comments,
  * activity, change requests and outbox rows. Notifications have no foreign
- * key to their resource, so they are deleted here first, including those
- * of tasks deleted earlier (by the workspace named in their event data). Call
+ * key to their resource, so they are deleted here first; the caller holds
+ * the demo row lock, which a concurrent notification insert waits for. Call
  * `afterDemoDeleted` once the transaction commits.
  */
 export async function deleteDemoWorkspace(
