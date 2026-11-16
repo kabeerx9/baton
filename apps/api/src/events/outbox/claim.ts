@@ -5,6 +5,9 @@ import { outboxTable } from "../../database/schema";
 /** A claimed row may run until its lease ends; then another relay may take it. */
 export const LEASE_MS = 60_000;
 
+// Statement-stable, so the planner can bound the partial due index by it;
+// clock_timestamp() is volatile and turns the bound into a row filter.
+const dueCutoff = sql`(statement_timestamp() AT TIME ZONE 'utc')`;
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
 
 export type OutboxRow = typeof outboxTable.$inferSelect;
@@ -33,7 +36,7 @@ export async function claimOutboxRows(
     .where(
       and(
         eq(outboxTable.state, "pending"),
-        lte(outboxTable.nextAttemptAt, dbNow),
+        lte(outboxTable.nextAttemptAt, dueCutoff),
         inArray(outboxTable.consumer, consumers),
       ),
     )

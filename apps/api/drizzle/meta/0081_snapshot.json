@@ -1,5 +1,5 @@
 {
-  "id": "24c440d0-c50d-437d-854b-b0dc0d047ed0",
+  "id": "2bb13cc2-d13d-4eb4-a998-7ac8201d46f8",
   "prevId": "c9a5dc2b-a6c3-4278-8ef2-f11661951ae8",
   "version": "7",
   "dialect": "postgresql",
@@ -2938,6 +2938,13 @@
         },
         "attempts": {
           "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "exempt_claims": {
+          "name": "exempt_claims",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

@@ -19,6 +19,13 @@ export async function checkOutboxHealth() {
   const stuck = Number(counts?.stuck ?? 0);
   const newDead = Number(counts?.newDead ?? 0);
   const degraded = stuck > 0 || newDead > 0;
-  if (degraded) console.error("Outbox is degraded", { stuck, newDead });
+  if (degraded)
+    console.error("Outbox is degraded", {
+      stuck,
+      newDead,
+      // Never reset attempts: it is the fence (see requeue.ts).
+      requeue:
+        "UPDATE outbox SET state = 'pending', exempt_claims = attempts, next_attempt_at = (now() AT TIME ZONE 'utc') WHERE id = '<id>' AND state <> 'pending'",
+    });
   return { degraded, stuck, newDead };
 }

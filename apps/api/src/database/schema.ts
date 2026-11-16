@@ -790,8 +790,11 @@ export const outboxTable = pgTable(
     channel: text("channel"),
     // "pending" or "dead"; any other value reads as dead.
     state: text("state").default("pending").notNull(),
-    // Counts claims; also the fencing token for outcome writes.
+    // Counts claims; the fencing token for outcome writes, so it only grows.
     attempts: integer("attempts").default(0).notNull(),
+    // Claims that do not count against the failure budget (unknown
+    // payloads, requeues). Budget spent = attempts - exempt_claims.
+    exemptClaims: integer("exempt_claims").default(0).notNull(),
     // Pending: when the row is next due (also the lease end).
     // Dead: when it died, for the health and prune jobs.
     nextAttemptAt: timestamp("next_attempt_at", { mode: "date" })

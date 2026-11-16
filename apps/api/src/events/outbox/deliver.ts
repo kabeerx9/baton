@@ -1,23 +1,30 @@
 import * as Sentry from "@sentry/node";
 import { and, eq, sql } from "drizzle-orm";
-import db from "../../database";
+import { drizzle } from "drizzle-orm/node-postgres";
+import db, { getDatabasePool, schema } from "../../database";
 import { outboxTable } from "../../database/schema";
 import type { Channel } from "../../utils/request-channel";
 import { eventContext } from "../context";
 import { publishLive } from "../index";
 import { type ClaimedRow, LEASE_MS, type OutboxRow } from "./claim";
 import type { ConsumerResult, LocalConsumer } from "./consumer";
-import {
-  MAX_ATTEMPTS,
-  type Outcome,
-  type Step,
-  readDelivery,
-  transition,
-} from "./lifecycle";
 import { errorCode } from "./error-code";
+import { type Step, preflight, readDelivery, transition } from "./lifecycle";
 import { findConsumer } from "./registry";
 
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
+
+/**
+ * After the call timeout, a handler gets this long to settle (and roll
+ * back). Then its connection is destroyed and the lane moves on.
+ */
+export const HARD_TIMEOUT_GRACE_MS = 1_000;
+
+/**
+ * A delivery that commits later than this after its event may land after
+ * the board refetched, so it sends the consumer's late hint.
+ */
+export const LATE_DELIVERY_MS = 1_000;
 
 export type DeliveryResult =
   | "delivered"
@@ -51,30 +58,16 @@ class OutboxTimeout extends Error {
 }
 
 /**
- * Bounds a handler that runs on `tx`. On timeout it still waits for the
- * handler to settle before the transaction ends: a handler left running
- * would write on a released connection, outside the fenced delete, and
- * a redelivery would repeat its write. `statement_timeout` bounds that wait.
+ * Runs a local handler and the fenced delete in one transaction on its own
+ * connection, so a timeout can never leave the handler writing outside it.
+ * - Soft timeout (`timeoutMs`, also `statement_timeout`): the transaction
+ *   is marked; when the handler settles it rolls back instead of committing.
+ * - Hard timeout (`timeoutMs + HARD_TIMEOUT_GRACE_MS`): the connection is
+ *   destroyed. Postgres rolls the transaction back, and any later query
+ *   from the abandoned handler fails, so it cannot write in autocommit.
+ * A commit that races the hard timeout already deleted the row, so the
+ * retry write that follows is fenced out and nothing repeats.
  */
-async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  let timedOut = false;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      timedOut = true;
-      reject(new OutboxTimeout());
-    }, ms);
-  });
-  try {
-    return await Promise.race([work, timeout]);
-  } catch (error) {
-    if (timedOut) await work.catch(() => undefined);
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function runLocal(
   consumer: LocalConsumer,
   claimed: ClaimedRow,
@@ -85,16 +78,22 @@ async function runLocal(
     initiatorId: row.initiatorId ?? "",
     channel: (row.channel as Channel | null) ?? null,
   };
-  return db.transaction(async (tx) => {
+  const client = await getDatabasePool().connect();
+  let released = false;
+  const release = (error?: Error) => {
+    if (released) return;
+    released = true;
+    client.release(error);
+  };
+  let timedOut = false;
+  const work = drizzle(client, { schema }).transaction(async (tx) => {
     await tx.execute(
       sql`SELECT set_config('statement_timeout', ${String(timeoutMs)}, true)`,
     );
-    const result = await withTimeout(
-      eventContext.run(context, () =>
-        consumer.deliver(tx, row, { ageMs: claimed.ageMs }),
-      ),
-      timeoutMs,
+    const result = await eventContext.run(context, () =>
+      consumer.deliver(tx, row),
     );
+    if (timedOut) throw new OutboxTimeout();
     if (result.kind === "unknown") return result;
     // The delete shares the handler's transaction: if another relay took
     // the row, nothing is deleted and the handler's write rolls back.
@@ -103,8 +102,29 @@ async function runLocal(
       .where(fence(row))
       .returning({ id: outboxTable.id });
     if (!deleted.length) throw new StaleCompletion();
+    if (timedOut) throw new OutboxTimeout();
     return result;
   });
+  // The abandoned transaction rejects once its connection is gone.
+  work.catch(() => undefined);
+  const timers: NodeJS.Timeout[] = [];
+  const hard = new Promise<never>((_, reject) => {
+    timers.push(
+      setTimeout(() => {
+        timedOut = true;
+      }, timeoutMs),
+      setTimeout(() => {
+        release(new OutboxTimeout());
+        reject(new OutboxTimeout());
+      }, timeoutMs + HARD_TIMEOUT_GRACE_MS),
+    );
+  });
+  try {
+    return await Promise.race([work, hard]);
+  } finally {
+    for (const timer of timers) clearTimeout(timer);
+    release();
+  }
 }
 
 async function applyStep(row: OutboxRow, step: Step, error: string) {
@@ -115,6 +135,9 @@ async function applyStep(row: OutboxRow, step: Step, error: string) {
       .set({
         nextAttemptAt: sql`${dbNow} + ${step.delayMs} * interval '1 millisecond'`,
         lastError: error,
+        ...(step.exempt
+          ? { exemptClaims: sql`${outboxTable.exemptClaims} + 1` }
+          : {}),
       })
       .where(fence(row))
       .returning({ id: outboxTable.id });
@@ -158,23 +181,27 @@ export async function deliverOutboxRow(
   const delivery = readDelivery(row);
   const consumer = findConsumer(row.consumer);
   if (delivery.state === "dead" || !consumer) return "skipped";
-  // Batch size times timeout stays under the lease, so this only trips
+  // A batch run in its mode ends within the lease, so this only trips
   // after a stall. Another relay may already own the row; leave it.
-  if (performance.now() - claimed.claimedAt >= LEASE_MS - timeoutMs)
+  if (
+    performance.now() - claimed.claimedAt >=
+    LEASE_MS - timeoutMs - HARD_TIMEOUT_GRACE_MS
+  )
     return "skipped";
 
-  let outcome: Outcome;
-  if (row.attempts > MAX_ATTEMPTS) {
-    // A crash after the final claim: the last attempt is spent.
-    outcome = { kind: "failed", error: "interrupted" };
-  } else {
+  let outcome = preflight(delivery, consumer.reads(row));
+  if (!outcome) {
     try {
       const result = await runLocal(consumer, claimed, timeoutMs);
+      if (result.kind === "dropped") return "dropped";
       if (result.kind === "delivered") {
-        if (result.live) await publishLive(result.live.type, result.live.data);
+        // Age at commit: the row's age at claim (database clock) plus the
+        // time since, which covers the batch, the pool and the handler.
+        const age = claimed.ageMs + (performance.now() - claimed.claimedAt);
+        if (result.lateHint && age > LATE_DELIVERY_MS)
+          await publishLive(result.lateHint.type, result.lateHint.data);
         return "delivered";
       }
-      if (result.kind === "dropped") return "dropped";
       outcome = { kind: "unknown" };
     } catch (error) {
       if (error instanceof StaleCompletion) return "stale";

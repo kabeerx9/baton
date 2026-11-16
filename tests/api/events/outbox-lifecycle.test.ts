@@ -4,6 +4,7 @@ import {
   RETRY_DELAYS_MS,
   UNKNOWN_DEAD_AFTER_MS,
   UNKNOWN_RETRY_MS,
+  preflight,
   readDelivery,
   transition,
   type Delivery,
@@ -13,28 +14,78 @@ import {
 const now = new Date("2026-11-16T12:00:00.000Z");
 const created = new Date("2026-11-16T11:59:00.000Z");
 const mid = () => 0.5;
-const pending = (attempts: number, createdAt = created): Delivery => ({
+const pending = (spent: number, createdAt = created): Delivery => ({
   state: "pending",
-  attempts,
+  spent,
   createdAt,
 });
 
 describe("readDelivery", () => {
   it("reads pending rows as pending", () => {
     expect(
-      readDelivery({ state: "pending", attempts: 2, createdAt: created }),
+      readDelivery({
+        state: "pending",
+        attempts: 2,
+        exemptClaims: 0,
+        createdAt: created,
+      }),
     ).toEqual(pending(2));
   });
 
   it.each(["dead", "delivered", "", "PENDING"])(
     "reads stored state %j as dead",
     (state) => {
-      expect(readDelivery({ state, attempts: 0, createdAt: created })).toEqual({
+      expect(
+        readDelivery({
+          state,
+          attempts: 0,
+          exemptClaims: 0,
+          createdAt: created,
+        }),
+      ).toEqual({
         state: "dead",
         reason: "unknown_state",
       });
     },
   );
+});
+
+describe("readDelivery budget", () => {
+  it("does not count exempt claims against the failure budget", () => {
+    expect(
+      readDelivery({
+        state: "pending",
+        attempts: 12,
+        exemptClaims: 9,
+        createdAt: created,
+      }),
+    ).toEqual(pending(3));
+  });
+});
+
+describe("preflight", () => {
+  it("runs a readable row within its budget", () => {
+    expect(preflight(pending(MAX_ATTEMPTS), true)).toBeNull();
+  });
+
+  it("treats an unreadable payload as unknown even past the budget", () => {
+    expect(preflight(pending(MAX_ATTEMPTS + 5), false)).toEqual({
+      kind: "unknown",
+    });
+  });
+
+  it("treats a readable row past the budget as interrupted", () => {
+    expect(preflight(pending(MAX_ATTEMPTS + 1), true)).toEqual({
+      kind: "failed",
+      error: "interrupted",
+    });
+  });
+
+  it("never runs a dead row", () => {
+    expect(preflight({ state: "dead", reason: "expired" }, true)).toEqual({
+      kind: "unknown",
+    });
+  });
 });
 
 describe("transition", () => {
@@ -52,7 +103,7 @@ describe("transition", () => {
     (attempts, delay) => {
       expect(
         transition(pending(attempts), { kind: "failed", error: "E" }, now, mid),
-      ).toEqual({ op: "retry", delayMs: delay });
+      ).toEqual({ op: "retry", delayMs: delay, exempt: false });
     },
   );
 
@@ -69,8 +120,8 @@ describe("transition", () => {
       now,
       () => 0.999999,
     );
-    expect(low).toEqual({ op: "retry", delayMs: 4_000 });
-    expect(high).toEqual({ op: "retry", delayMs: 6_000 });
+    expect(low).toEqual({ op: "retry", delayMs: 4_000, exempt: false });
+    expect(high).toEqual({ op: "retry", delayMs: 6_000, exempt: false });
   });
 
   it("makes the sixth failure dead", () => {
@@ -99,6 +150,7 @@ describe("transition", () => {
     expect(transition(pending(30), { kind: "unknown" }, now, mid)).toEqual({
       op: "retry",
       delayMs: UNKNOWN_RETRY_MS,
+      exempt: true,
     });
   });
 

@@ -8,6 +8,7 @@ CREATE TABLE "outbox" (
 	"channel" text,
 	"state" text DEFAULT 'pending' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
+	"exempt_claims" integer DEFAULT 0 NOT NULL,
 	"next_attempt_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
 	"last_error" text,
 	"created_at" timestamp DEFAULT (statement_timestamp() AT TIME ZONE 'utc') NOT NULL

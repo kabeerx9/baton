@@ -10,7 +10,8 @@ export type OutboxTransaction = Parameters<
 export type LiveEvent = { type: string; data: Record<string, unknown> };
 
 export type ConsumerResult =
-  | { kind: "delivered"; live?: LiveEvent }
+  /** `lateHint` is published only if the delivery commits late. */
+  | { kind: "delivered"; lateHint?: LiveEvent }
   | { kind: "dropped"; reason: string }
   | { kind: "unknown" };
 
@@ -21,9 +22,7 @@ export type ConsumerResult =
 export type LocalConsumer = {
   name: ConsumerName;
   lane: Extract<Lane, "local">;
-  deliver: (
-    tx: OutboxTransaction,
-    row: OutboxRow,
-    context: { ageMs: number },
-  ) => Promise<ConsumerResult>;
+  /** Whether this version can read the row's payload; pure. */
+  reads: (row: OutboxRow) => boolean;
+  deliver: (tx: OutboxTransaction, row: OutboxRow) => Promise<ConsumerResult>;
 };
