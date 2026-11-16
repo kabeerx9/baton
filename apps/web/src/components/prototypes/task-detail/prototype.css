@@ -1,0 +1,70 @@
+/* Motion for the task detail prototypes. Transform, opacity and dash offset only. */
+@keyframes proto-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes proto-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  80%,
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes proto-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes proto-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.proto-flow {
+  animation: proto-flow 900ms linear infinite;
+}
+
+.proto-ping {
+  animation: proto-ping 2200ms cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+.proto-breathe {
+  animation: proto-breathe 2400ms ease-in-out infinite;
+}
+
+.proto-sweep {
+  animation: proto-sweep 2600ms cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.proto-dots {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--color-foreground) 14%, transparent) 1px,
+    transparent 1.2px
+  );
+  background-size: 18px 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-flow,
+  .proto-ping,
+  .proto-breathe,
+  .proto-sweep {
+    animation: none;
+  }
+}
