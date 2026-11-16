@@ -12,7 +12,7 @@ name: Backup
 # Set a bucket lifecycle rule (for example, expire baton/ after 14 days)
 # instead of pruning here.
 #
-# Restore: aws s3 cp s3://$BACKUP_S3_BUCKET/baton/<stamp>.dump .
+# Restore: aws s3 cp ${BACKUP_S3_ENDPOINT:+--endpoint-url "$BACKUP_S3_ENDPOINT"} s3://$BACKUP_S3_BUCKET/baton/<stamp>.dump .
 #   psql "$BACKUP_DATABASE_URL" -c 'CREATE DATABASE baton_restore'
 #   pg_restore --dbname "${BACKUP_DATABASE_URL%/*}/baton_restore" --clean --if-exists --no-owner --no-privileges --exit-on-error <stamp>.dump
 
