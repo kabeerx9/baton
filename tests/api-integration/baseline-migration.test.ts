@@ -8,6 +8,7 @@ import { beforeEach, expect, it } from "vite-plus/test";
 import db from "../../apps/api/src/database";
 import * as tables from "../../apps/api/src/database/schema";
 import { resetTestDatabase } from "./helpers/database";
+import { createWorkspaceMember } from "./helpers/fixtures";
 import { outboxTaskFixture } from "./helpers/outbox";
 
 const migrationsFolder = resolve(
@@ -110,4 +111,28 @@ it("carries the hand-written triggers and stricter columns of the old chain", as
       is_nullable: "NO",
     },
   ]);
+});
+
+it.each([null, "nonexistent-user"])(
+  "rejects an API key without a real owner: %s",
+  async (owner) => {
+    await expect(
+      db.execute(
+        sql`INSERT INTO apikey (id, key, reference_id, created_at, updated_at)
+            VALUES ('bad', 'bad-hash', ${owner}, now(), now())`,
+      ),
+    ).rejects.toThrow();
+  },
+);
+
+it("deletes a user's API keys with the user", async () => {
+  const { user } = await createWorkspaceMember();
+  await db.execute(
+    sql`INSERT INTO apikey (id, key, reference_id, created_at, updated_at)
+        VALUES ('owned', 'owned-hash', ${user.id}, now(), now())`,
+  );
+  expect(await rows(sql`SELECT id FROM apikey`)).toEqual([{ id: "owned" }]);
+
+  await db.execute(sql`DELETE FROM "user" WHERE id = ${user.id}`);
+  expect(await rows(sql`SELECT id FROM apikey`)).toEqual([]);
 });
