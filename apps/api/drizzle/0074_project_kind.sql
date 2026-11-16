@@ -1,2 +1,0 @@
-ALTER TABLE "project" ADD COLUMN "kind" text DEFAULT 'repo' NOT NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX "project_one_board_per_workspace_idx" ON "project" USING btree ("workspace_id") WHERE "project"."kind" = 'board';
