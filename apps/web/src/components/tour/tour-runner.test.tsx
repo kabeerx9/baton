@@ -18,6 +18,7 @@ import {
 import { HttpError } from "@/lib/http-error";
 import type { BoardResponse } from "@/fetchers/board/get-board";
 import { demoBoard, TASK_IDS } from "./test-fixtures";
+import { STEP_IDS } from "./tour-steps";
 import { TourRunner, type TourEnv } from "./tour-runner";
 
 vi.mock("@/lib/i18n", () => ({ i18n: { t: (key: string) => key } }));
@@ -67,19 +68,40 @@ function setup(overrides: Partial<TourEnv> = {}) {
 
 /** Elements the tour points at. The real pages provide these. */
 function mountTargets() {
-  const ids = ["board", "board-columns", "my-tasks"];
-  const els = ids.map((tour) => {
+  const els: HTMLElement[] = [];
+  const add = (attrs: Record<string, string>) => {
     const el = document.createElement("div");
-    el.dataset.tour = tour;
-    document.body.append(el);
-    return el;
-  });
-  for (const id of [TASK_IDS["api-endpoint"], TASK_IDS["write-tests"]]) {
-    const el = document.createElement("div");
-    el.dataset.tour = "task-card";
-    el.dataset.tourTask = id;
+    Object.assign(el.dataset, attrs);
+    // jsdom has no layout; a target needs a size to count as on screen.
+    el.getBoundingClientRect = () =>
+      ({
+        top: 10,
+        left: 10,
+        width: 120,
+        height: 40,
+        right: 130,
+        bottom: 50,
+      }) as DOMRect;
     document.body.append(el);
     els.push(el);
+    return el;
+  };
+  for (const tour of [
+    "board-columns",
+    "nav-my-tasks",
+    "my-tasks-hero",
+    "nav-board",
+    "nav-settings",
+  ]) {
+    add({ tour });
+  }
+  for (const key of ["design-review", "api-endpoint", "write-tests"] as const) {
+    const card = add({ tour: "task-card", tourTask: TASK_IDS[key] });
+    // The card's inline status button.
+    const button = document.createElement("div");
+    button.dataset.tour = "status-menu";
+    button.getBoundingClientRect = card.getBoundingClientRect;
+    card.append(button);
   }
   return els;
 }
@@ -106,50 +128,76 @@ const heading = (step: string) =>
 const next = () =>
   fireEvent.click(screen.getByRole("button", { name: "next" }));
 
+/** Clicks Next until `step` shows. Never walks past an interactive step. */
+async function walkTo(step: string) {
+  for (;;) {
+    const current = STEP_IDS.find((id) =>
+      screen.queryByRole("heading", { name: `steps.${id}.title` }),
+    );
+    if (current === step) return;
+    if (!current) {
+      await heading(STEP_IDS[0]);
+      continue;
+    }
+    const after = STEP_IDS[STEP_IDS.indexOf(current) + 1];
+    if (!after) throw new Error(`no step ${step}`);
+    next();
+    await heading(after);
+  }
+}
+
 describe("TourRunner", () => {
   it("walks every step, advancing the interactive one on data, not on a click", async () => {
-    const { env, queryClient, board } = setup();
+    const { env, board } = setup();
 
-    expect(await heading("board")).toBeInTheDocument();
+    expect(await heading("welcome")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(env.goTo).toHaveBeenLastCalledWith("demo", "board"),
+    );
+    // A sidebar step leaves the page only on Next, and the next step explains
+    // the new page.
+    await walkTo("nav-my-tasks");
     expect(env.goTo).toHaveBeenLastCalledWith("demo", "board");
     next();
-    expect(await heading("demo-tasks")).toBeInTheDocument();
-    next();
-    expect(await heading("my-tasks")).toBeInTheDocument();
-    expect(env.goTo).toHaveBeenLastCalledWith("demo", "my-tasks");
+    expect(await heading("my-tasks-intro")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(env.goTo).toHaveBeenLastCalledWith("demo", "my-tasks"),
+    );
+    await walkTo("nav-board");
     next();
 
-    // Interactive step: no Next button, and clicking the target does nothing.
+    // Interactive step: no Next or Back, and clicking the card does nothing.
     expect(await heading("move-task")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "next" })).toBeNull();
-    fireEvent.click(targets.at(-2) as HTMLElement);
+    expect(screen.queryByRole("button", { name: "back" })).toBeNull();
+    fireEvent.click(targets[6] as HTMLElement);
     expect(
       screen.getByRole("heading", { name: "steps.move-task.title" }),
     ).toBeInTheDocument();
-    expect(env.goTo).toHaveBeenLastCalledWith("demo", "board");
+    await waitFor(() =>
+      expect(env.goTo).toHaveBeenLastCalledWith("demo", "board"),
+    );
 
     // The query cache says the task is done: the tour moves on its own.
     act(() => board(demoBoard({ apiDone: true })));
     expect(await heading("unblocked")).toBeInTheDocument();
-    expect(queryClient.getQueryData(BOARD_KEY)).toBeDefined();
+    next();
+    expect(await heading("nav-settings")).toBeInTheDocument();
     next();
 
     expect(await heading("mcp")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "steps.mcp.link" }),
-    ).toHaveAttribute("href", "/dashboard/settings/account/agents");
+    await waitFor(() =>
+      expect(env.goTo).toHaveBeenLastCalledWith("demo", "agents"),
+    );
     fireEvent.click(screen.getByRole("button", { name: "finish" }));
 
     await waitFor(() => expect(env.finish).toHaveBeenCalledWith("finished"));
-    // finishing -> animating: the finish animation covers the screen ...
     await waitFor(() =>
       expect(
         document.querySelector('[data-slot="finish-break"]'),
       ).not.toBeNull(),
     );
-    // ... the real workspace loads underneath once it is covered ...
     await waitFor(() => expect(env.leaveDemo).toHaveBeenCalledTimes(1));
-    // ... and the tour closes when the animation ends.
     await waitFor(() => expect(env.onClosed).toHaveBeenCalledWith("finished"), {
       timeout: 3000,
     });
@@ -159,15 +207,117 @@ describe("TourRunner", () => {
     });
   });
 
+  describe("the status step", () => {
+    const DETAIL = "/dashboard/workspace/demo/project/p1/task/id-api-endpoint";
+    const doneWrite = (queryClient: QueryClient, shape: "menu" | "bar") =>
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: async () => ({ outcome: "applied" }),
+        })
+        .execute(
+          shape === "menu"
+            ? { taskId: TASK_IDS["api-endpoint"], status: "done" }
+            : { id: TASK_IDS["api-endpoint"], status: "done" },
+        );
+
+    it("advances the moment the inline status menu's write succeeds", async () => {
+      const { queryClient } = setup();
+      await walkTo("nav-board");
+      next();
+      await heading("move-task");
+      // The board is never refetched or updated: only the write says so.
+      await act(async () => {
+        await doneWrite(queryClient, "menu");
+      });
+      expect(await heading("unblocked")).toBeInTheDocument();
+    });
+
+    it("follows the user to the task page and advances there without going back", async () => {
+      const bar = document.createElement("div");
+      bar.dataset.tour = "status-bar";
+      bar.getBoundingClientRect = targets[0]!.getBoundingClientRect;
+      document.body.append(bar);
+      targets.push(bar);
+
+      const { env, queryClient } = setup({ pathname: DETAIL });
+      await walkTo("nav-board");
+      next();
+      // On the task page the step stays, with its Done instruction.
+      expect(await heading("move-task")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(env.goTo).toHaveBeenLastCalledWith("demo", "board"),
+      );
+      vi.mocked(env.goTo).mockClear();
+      await new Promise((r) => setTimeout(r, 400));
+      expect(env.goTo).not.toHaveBeenCalled();
+
+      // The detail query says done; the board is untouched.
+      act(() =>
+        queryClient.setQueryData(["task", TASK_IDS["api-endpoint"]], {
+          status: "done",
+        }),
+      );
+      expect(await heading("unblocked")).toBeInTheDocument();
+      // Off a status step, the tour brings the user back to the board.
+      await waitFor(() =>
+        expect(env.goTo).toHaveBeenLastCalledWith("demo", "board"),
+      );
+    });
+
+    it("advances from the detail bar's write too", async () => {
+      const { queryClient } = setup({ pathname: DETAIL });
+      await walkTo("nav-board");
+      next();
+      await heading("move-task");
+      await act(async () => {
+        await doneWrite(queryClient, "bar");
+      });
+      expect(await heading("unblocked")).toBeInTheDocument();
+    });
+
+    it("ignores a request for approval: the task is not done yet", async () => {
+      const { queryClient } = setup();
+      await walkTo("nav-board");
+      next();
+      await heading("move-task");
+      await act(async () => {
+        await queryClient
+          .getMutationCache()
+          .build(queryClient, {
+            mutationFn: async () => ({ outcome: "requested" }),
+          })
+          .execute({ taskId: TASK_IDS["api-endpoint"], status: "done" });
+      });
+      expect(await heading("move-task")).toBeInTheDocument();
+    });
+  });
+
+  it("moves on when the user clicks the sidebar link a step points at", async () => {
+    setup();
+    await walkTo("nav-my-tasks");
+    fireEvent.click(targets[1] as HTMLElement);
+    expect(await heading("my-tasks-intro")).toBeInTheDocument();
+  });
+
+  it("goes Back one step", async () => {
+    setup();
+    await heading("welcome");
+    next();
+    await heading("board-columns");
+    fireEvent.click(screen.getByRole("button", { name: "back" }));
+    expect(await heading("welcome")).toBeInTheDocument();
+  });
+
   it("skips on any step after a confirmation, without the animation", async () => {
     const { env } = setup();
-    await heading("board");
+    await heading("welcome");
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(await screen.findByText("skipConfirm.title")).toBeInTheDocument();
     // Escape again goes back to the step.
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(await heading("board")).toBeInTheDocument();
+    expect(await heading("welcome")).toBeInTheDocument();
     expect(env.finish).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "skip" }));
@@ -183,7 +333,7 @@ describe("TourRunner", () => {
 
   it("closes quietly, with no finish call, when a demo task disappears", async () => {
     const { env, board } = setup();
-    await heading("board");
+    await heading("welcome");
     act(() => board(demoBoard({ without: "write-tests" })));
     await waitFor(() =>
       expect(env.onClosed).toHaveBeenCalledWith("demo-missing"),
@@ -194,7 +344,7 @@ describe("TourRunner", () => {
 
   it("closes quietly when the demo workspace is gone", async () => {
     const { env, queryClient } = setup();
-    await heading("board");
+    await heading("welcome");
     getBoard.mockRejectedValue(new HttpError(404, "gone"));
     await act(() => queryClient.invalidateQueries({ queryKey: BOARD_KEY }));
     await waitFor(() =>
@@ -207,13 +357,14 @@ describe("TourRunner", () => {
     const { env, board } = setup({
       finish: vi.fn().mockRejectedValue(new Error("down")),
     });
-    await heading("board");
-    for (const title of ["demo-tasks", "my-tasks", "move-task"]) {
-      next();
-      await heading(title);
-    }
+    await heading("welcome");
+    await walkTo("nav-board");
+    next();
+    await heading("move-task");
     act(() => board(demoBoard({ apiDone: true })));
     await heading("unblocked");
+    next();
+    await heading("nav-settings");
     next();
     await heading("mcp");
     fireEvent.click(screen.getByRole("button", { name: "finish" }));

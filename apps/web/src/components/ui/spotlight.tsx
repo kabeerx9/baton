@@ -30,24 +30,38 @@ export function maskPath(vw: number, vh: number, hole: Rect | null, r = 12) {
 export function Spotlight({
   viewport,
   hole,
+  light = false,
+  shown = true,
   className,
 }: {
   viewport: { width: number; height: number };
   hole: Rect | null;
+  /** A lighter dim, for centered cards that point at nothing. */
+  light?: boolean;
+  /** Fades the layer out (and stops it blocking clicks) when false. */
+  shown?: boolean;
   className?: string;
 }) {
   return (
     <svg
       aria-hidden="true"
       data-slot="spotlight"
-      className={cn("pointer-events-none fixed inset-0 size-full", className)}
+      className={cn(
+        "pointer-events-none fixed inset-0 size-full transition-opacity duration-200 ease-out motion-reduce:transition-opacity",
+        !shown && "opacity-0",
+        className,
+      )}
       width={viewport.width}
       height={viewport.height}
     >
       <path
         d={maskPath(viewport.width, viewport.height, hole)}
         fillRule="evenodd"
-        className="pointer-events-auto fill-black/55"
+        className={cn(
+          "transition-[fill] duration-300 ease-out",
+          shown && "pointer-events-auto",
+          light ? "fill-black/30" : "fill-black/55",
+        )}
       />
       {hole && (
         <rect

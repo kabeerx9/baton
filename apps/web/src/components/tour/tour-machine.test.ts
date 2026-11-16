@@ -39,15 +39,24 @@ const atStep = (step: (typeof STEP_IDS)[number]): TourState => ({
 describe("tourReducer", () => {
   it("starts at the first step", () => {
     expect(run([{ type: "START" }, { type: "STARTED", session }])).toEqual(
-      atStep("board"),
+      atStep("welcome"),
     );
   });
 
   it("walks the steps with Next, but never past a data step", () => {
-    let state = atStep("board");
-    state = run([{ type: "NEXT" }, { type: "NEXT" }, { type: "NEXT" }], state);
+    let state = atStep("nav-board");
+    state = run([{ type: "NEXT" }], state);
     expect(state).toEqual(atStep("move-task"));
     expect(run([{ type: "NEXT" }], state)).toBe(state);
+  });
+
+  it("goes Back, skipping the interactive step", () => {
+    expect(run([{ type: "BACK" }], atStep("unblocked"))).toEqual(
+      atStep("nav-board"),
+    );
+    expect(run([{ type: "BACK" }], atStep("welcome")).status).toBe("active");
+    const waiting = atStep("move-task");
+    expect(run([{ type: "BACK" }], waiting)).toBe(waiting);
   });
 
   it("advances the interactive step on data only", () => {
@@ -57,12 +66,12 @@ describe("tourReducer", () => {
       atStep("unblocked"),
     );
     // Data for other steps does not move them.
-    const board = atStep("board");
+    const board = atStep("welcome");
     expect(run([ready({ apiEndpointDone: true })], board)).toBe(board);
   });
 
   it("closes quietly when a demo task or the workspace is gone", () => {
-    expect(run([ready({ missing: true })], atStep("my-tasks"))).toEqual({
+    expect(run([ready({ missing: true })], atStep("my-tasks-intro"))).toEqual({
       status: "closed",
       reason: "demo-missing",
     });
@@ -72,9 +81,11 @@ describe("tourReducer", () => {
   });
 
   it("asks before skipping, and Cancel returns to the same step", () => {
-    const state = run([{ type: "SKIP_ASK" }], atStep("my-tasks"));
+    const state = run([{ type: "SKIP_ASK" }], atStep("my-tasks-intro"));
     expect(state.status).toBe("confirming-skip");
-    expect(run([{ type: "SKIP_CANCEL" }], state)).toEqual(atStep("my-tasks"));
+    expect(run([{ type: "SKIP_CANCEL" }], state)).toEqual(
+      atStep("my-tasks-intro"),
+    );
     expect(run([{ type: "SKIP_CONFIRM" }], state)).toMatchObject({
       status: "finishing",
       outcome: "skipped",
@@ -82,7 +93,7 @@ describe("tourReducer", () => {
   });
 
   it("finishes only from the last step, then breaks, then closes", () => {
-    expect(run([{ type: "FINISH" }], atStep("board")).status).toBe("active");
+    expect(run([{ type: "FINISH" }], atStep("welcome")).status).toBe("active");
     const finishing = run([{ type: "FINISH" }], atStep("mcp"));
     expect(finishing).toMatchObject({
       status: "finishing",
@@ -99,7 +110,7 @@ describe("tourReducer", () => {
   it("a skip closes without the animation", () => {
     const state = run(
       [{ type: "SKIP_ASK" }, { type: "SKIP_CONFIRM" }, { type: "FINISH_OK" }],
-      atStep("board"),
+      atStep("welcome"),
     );
     expect(state).toEqual({ status: "closed", reason: "skipped" });
   });

@@ -4,6 +4,7 @@ import {
   FIRST_STEP,
   LAST_STEP,
   nextStep,
+  previousStep,
   STEPS,
   type StepId,
 } from "./tour-steps";
@@ -43,6 +44,7 @@ export type TourEvent =
   | { type: "STARTED"; session: TourSession }
   | { type: "START_FAILED" }
   | { type: "NEXT" }
+  | { type: "BACK" }
   | { type: "DATA"; snapshot: DemoSnapshot }
   | { type: "SKIP_ASK" }
   | { type: "SKIP_CANCEL" }
@@ -100,6 +102,12 @@ export function tourReducer(state: TourState, event: TourEvent): TourState {
       if (state.status !== "active") return state;
       if (STEPS[state.step].waitsForData) return state;
       const step = nextStep(state.step);
+      return step ? { ...state, step } : state;
+    }
+    case "BACK": {
+      if (state.status !== "active") return state;
+      if (STEPS[state.step].waitsForData) return state;
+      const step = previousStep(state.step);
       return step ? { ...state, step } : state;
     }
     case "DATA":

@@ -26,6 +26,8 @@ type NavItem = {
   title: string;
   icon: LucideIcon;
   url: string;
+  /** Stable `data-tour` value for the product tour. */
+  tour?: string;
   count?: number;
   emphasizeCount?: boolean;
 };
@@ -51,6 +53,7 @@ export function NavMain() {
   const navItems: NavItem[] = [
     {
       title: "Board",
+      tour: "nav-board",
       icon: SquareKanban,
       url: `${homeUrl}/board`,
     },
@@ -63,6 +66,7 @@ export function NavMain() {
     },
     {
       title: t("navigation:sidebar.myTasks"),
+      tour: "nav-my-tasks",
       icon: CircleCheck,
       url: `${homeUrl}/my-tasks`,
       count: assignedTasks?.total,
@@ -98,6 +102,7 @@ export function NavMain() {
             <SidebarMenuItem key={item.url}>
               <SidebarMenuButton
                 tooltip={item.title}
+                data-tour={item.tour}
                 isActive={
                   pathname === item.url ||
                   (item.icon === SquareKanban && pathname.startsWith(item.url))

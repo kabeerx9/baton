@@ -22,9 +22,38 @@ function findTask(data: BoardResponse, id: string): BoardItem | undefined {
   return data.tasks.find((task) => task.id === id);
 }
 
+/** Other places the cache learns that the API task is done. */
+export type DoneEvidence = {
+  /** The task detail query, if the page loaded it. */
+  taskStatus?: string;
+  /** A status mutation for the task succeeded. */
+  mutationDone?: boolean;
+};
+
+/**
+ * A successful status write to "done" for `taskId`, from either status
+ * mutation (the board menu sends `{taskId, status}`, the detail bar a task).
+ * A request for approval is not a change yet.
+ */
+export function isDoneMutation(
+  mutation: { variables: unknown; data: unknown },
+  taskId: string,
+): boolean {
+  const vars = mutation.variables as
+    | { taskId?: string; id?: string; status?: string }
+    | undefined;
+  const outcome = (mutation.data as { outcome?: string } | undefined)?.outcome;
+  return (
+    outcome !== "requested" &&
+    (vars?.taskId ?? vars?.id) === taskId &&
+    vars?.status === "done"
+  );
+}
+
 export function deriveDemoSnapshot(
   query: { data: BoardResponse | undefined; error: unknown },
   taskIds: Record<DemoTaskKey, string>,
+  evidence: DoneEvidence = {},
 ): DemoSnapshot {
   if (query.error instanceof HttpError) {
     if (query.error.status === 403 || query.error.status === 404) {
@@ -40,7 +69,10 @@ export function deriveDemoSnapshot(
   return {
     status: "ready",
     missing: tasks.some((task) => task === undefined),
-    apiEndpointDone: apiEndpoint?.column === "done",
+    apiEndpointDone:
+      apiEndpoint?.column === "done" ||
+      evidence.taskStatus === "done" ||
+      evidence.mutationDone === true,
     writeTestsUnblocked:
       writeTests !== undefined && writeTests.waitsOn.length === 0,
   };

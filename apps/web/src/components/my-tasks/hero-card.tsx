@@ -90,6 +90,7 @@ export function HeroCard({
     <motion.section
       animate="shown"
       aria-label={t("workspace:myTasks.hero.label")}
+      data-tour="my-tasks-hero"
       className="relative z-10 rounded-2xl border bg-card p-6 shadow-sm/5 sm:p-7"
       exit="leave"
       initial="enter"
