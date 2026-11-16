@@ -188,7 +188,8 @@ describe("project WebSocket lifecycle", () => {
     const last = TestSocket.instances.at(-1);
     act(() => last?.open());
     client.invalidateQueries.mockClear();
-    act(() => vi.advanceTimersByTime(20_000));
+    // Past any poll deadline, but before the 30 s stable timer.
+    act(() => vi.advanceTimersByTime(29_999));
     expect(client.invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: ["task-relations", "project", "project-a"],
     });

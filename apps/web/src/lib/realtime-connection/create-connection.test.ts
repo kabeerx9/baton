@@ -162,6 +162,26 @@ describe("createConnection", () => {
       expect(TestSocket.instances).toHaveLength(2);
     });
 
+    it("a visible tab hurries a long wait once, within a second", () => {
+      setup();
+      for (let i = 0; i < 2; i++) {
+        last().onclose?.();
+        vi.advanceTimersByTime(30_000);
+      }
+      last().onclose?.(); // failure 3: 2250 ms wait
+      expect(TestSocket.instances).toHaveLength(3);
+      const visibility = vi.spyOn(document, "visibilityState", "get");
+      visibility.mockReturnValue("visible");
+      document.dispatchEvent(new Event("visibilitychange"));
+      vi.advanceTimersByTime(749);
+      expect(TestSocket.instances).toHaveLength(3);
+      document.dispatchEvent(new Event("visibilitychange"));
+      vi.advanceTimersByTime(1);
+      expect(TestSocket.instances).toHaveLength(4);
+      vi.advanceTimersByTime(2000);
+      expect(TestSocket.instances).toHaveLength(4);
+    });
+
     it("opens no second socket while connecting, open or checking", async () => {
       const { connection } = setup({
         checkSession: vi.fn(() => new Promise<SessionResult>(() => {})),
@@ -204,8 +224,12 @@ describe("createConnection", () => {
       vi.advanceTimersByTime(30_000);
       expect(run).toHaveBeenCalledTimes(2);
       last().open();
-      vi.advanceTimersByTime(20_000);
+      // The poll is cleared at open: only the stable timer and ping remain.
+      expect(vi.getTimerCount()).toBe(2);
+      // Past any poll deadline, but before the 30 s stable timer.
+      vi.advanceTimersByTime(29_999);
       expect(run).toHaveBeenCalledTimes(2);
+      expect(connection.state().status).toBe("open");
       // Failures were kept: the poll returns at the next close.
       last().onclose?.();
       vi.advanceTimersByTime(30_000);
