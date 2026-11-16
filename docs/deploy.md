@@ -11,7 +11,6 @@ Supabase Postgres outside the app. The spec is `.do/app.yaml`.
 | Database | Supabase, region `us-east-1` | **session pooler** connection string, TLS required |
 | Migrations | the API, at startup | the container runs them before it serves traffic |
 | Health check | App Platform | `GET /api/health`, first check delayed 180s for those migrations |
-| Backups | GitHub Actions | nightly `pg_dump`, set up separately from this page |
 | TLS for the site | App Platform | certificates for the app domain are automatic |
 
 **Keep app and database in the same region.** `nyc` pairs with Supabase East US (North
@@ -184,9 +183,8 @@ image while it is private.
 Migrations run at startup, before the new container serves traffic, and there is no
 migration undo. App Platform keeps the old container serving until the new one is healthy,
 so for the length of a rollout both versions talk to the same database: migrations should
-stay additive, and a release that renames or drops something needs a dump first (the
-nightly job in `.github/workflows/` can be run on demand) or Supabase's own backup option
-on a paid plan.
+stay additive, and a release that renames or drops something needs a dump first
+(Supabase's own backup option on a paid plan, or a manual `pg_dump`).
 
 ## 9. Rollback
 
@@ -220,8 +218,8 @@ expect at least:
 - **Pausing after a week of inactivity.** A paused project refuses connections, so the
   app fails at boot until you resume the project in the Supabase dashboard. Resume it, then
   redeploy the app (or wait for the next restart).
-- **No point-in-time recovery and no downloadable backups.** That is why the nightly
-  `pg_dump` job exists; make sure it is green before this instance matters.
+- **No point-in-time recovery and no downloadable backups.** Take a manual dump before
+  anything risky.
 - Shared CPU and a limited number of pooler client connections, which is why
   `DATABASE_POOL_MAX` stays at 10.
 
