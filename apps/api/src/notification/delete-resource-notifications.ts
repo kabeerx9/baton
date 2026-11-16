@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { notificationTable, projectTable, taskTable } from "../database/schema";
 import type { DbOrTx } from "../project-access/db-or-tx";
 
@@ -13,7 +13,10 @@ type Scope =
  * Call this in the deleting transaction, before the delete, while the tasks
  * can still be found, and after locking the rows being deleted:
  * lockNotificationResource makes a concurrent insert wait for that lock.
- * Both lookups use notification_resource_idx.
+ * Resource lookups use notification_resource_idx. A workspace scope also
+ * removes notifications with no resource whose event data names the
+ * workspace (the public endpoint accepts that shape); that match is not
+ * indexed, and such inserts take no resource lock.
  */
 export async function deleteResourceNotifications(tx: DbOrTx, scope: Scope) {
   const ids =
@@ -48,6 +51,13 @@ export async function deleteResourceNotifications(tx: DbOrTx, scope: Scope) {
             and(
               eq(notificationTable.resourceType, "workspace"),
               inArray(notificationTable.resourceId, scope.workspaceIds),
+            ),
+            and(
+              isNull(notificationTable.resourceId),
+              inArray(
+                sql`${notificationTable.eventData}->>'workspaceId'`,
+                scope.workspaceIds,
+              ),
             ),
           )
         : byTask,
