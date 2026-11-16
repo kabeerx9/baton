@@ -194,7 +194,12 @@
 		},
 		"signUp": {
 			"pageTitle": "Create Account",
-			"registrationDisabledAlert": "Registration is currently disabled. If you were invited, enter the email address that received the invitation to create your account.",
+			"closed": {
+				"badge": "Opening soon",
+				"title": "Baton isn't open yet",
+				"body": "Kabeer is working on Baton, the team task tracker. Please hang tight — it opens soon.",
+				"animationLabel": "A cat sleeping"
+			},
 			"toggleMessage": "Already have an account?",
 			"toggleLink": "Sign in",
 			"instanceStatusError": "Couldn't reach the server. Please retry in a moment.",
