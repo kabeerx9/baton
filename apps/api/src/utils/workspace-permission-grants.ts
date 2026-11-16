@@ -22,7 +22,7 @@ export async function workspacePermissionGrants(
     workspaceIds?: string[];
   } = {},
 ) {
-  const [users, members] = await Promise.all([
+  const [users, members, kinds] = await Promise.all([
     db
       .select({ role: schema.userTable.role })
       .from(schema.userTable)
@@ -42,8 +42,18 @@ export async function workspacePermissionGrants(
             : undefined,
         ),
       ),
+    workspaceIds?.length
+      ? db
+          .select({
+            id: schema.workspaceTable.id,
+            kind: schema.workspaceTable.kind,
+          })
+          .from(schema.workspaceTable)
+          .where(inArray(schema.workspaceTable.id, workspaceIds))
+      : Promise.resolve([]),
   ]);
   const isInstanceAdmin = hasInstanceAdminRole(users[0]?.role);
+  const kindOf = new Map(kinds.map((row) => [row.id, row.kind]));
   const memberRoles = new Map(
     members.map((member) => [member.workspaceId, splitRoles(member.role)]),
   );
@@ -78,13 +88,23 @@ export async function workspacePermissionGrants(
   return {
     isInstanceAdmin,
     workspaceIds: memberWorkspaceIds,
-    allows(workspaceId: string, permissions: PermissionMap) {
+    /**
+     * `kind` is the workspace's kind when the caller read it; otherwise the
+     * kind loaded for `workspaceIds` is used. An administrator's bypass
+     * covers team workspaces only: a demo is reachable through membership,
+     * and an unknown kind is treated as a demo.
+     */
+    allows(workspaceId: string, permissions: PermissionMap, kind?: string) {
       if (!users.length) return false;
       if (apiKeyPermissions && !satisfies(apiKeyPermissions, permissions)) {
         return false;
       }
+      const adminBypass =
+        isInstanceAdmin &&
+        (memberRoles.has(workspaceId) ||
+          (kind ?? kindOf.get(workspaceId)) === "team");
       return (
-        isInstanceAdmin ||
+        adminBypass ||
         rolesAllow(
           memberRoles.get(workspaceId) ?? [],
           storedByWorkspace.get(workspaceId) ?? [],

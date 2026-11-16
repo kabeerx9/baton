@@ -29,7 +29,7 @@ export async function syncTaskFieldLabels(
     field === "initialization" ? ["priority:", "status:"] : [`${field}:`];
   return withSyncLease(`sync-field-labels:${link.id}`, async () => {
     const remote = await providerIssue(
-      { type: provider, config },
+      { type: provider, config, projectId: context.projectId },
       { ...link, taskId },
     );
     const write = createIssueWrite(

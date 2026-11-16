@@ -8,6 +8,7 @@ import { revokeWorkspaceAudience } from "./revoke-workspace-audience";
 import type { AdminAuditRequest } from "../../admin/audit/admin-audit-request";
 import { recordAdminAction } from "../../admin/audit/record-admin-action";
 import { lockWorkspaceRow } from "./lock-workspace-row";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 /**
  * Deletes a workspace the way the owner's "Delete workspace" does: the same
@@ -17,9 +18,11 @@ import { lockWorkspaceRow } from "./lock-workspace-row";
 export async function deleteWorkspaceData(
   workspaceId: string,
   audit?: AdminAuditRequest,
+  // Only the member's own native delete may remove a demo workspace.
+  { allowDemo = false }: { allowDemo?: boolean } = {},
 ) {
   const { audience, workspace } = await db.transaction(async (tx) => {
-    const workspace = await lockWorkspaceRow(tx, workspaceId);
+    const workspace = await lockWorkspaceRow(tx, workspaceId, { allowDemo });
 
     const audience = await listWorkspaceAudience(workspaceId, tx);
     const objectKeys = await listWorkspaceObjectKeys(workspaceId, tx);
@@ -39,9 +42,8 @@ export async function deleteWorkspaceData(
       .update(schema.sessionTable)
       .set({ activeOrganizationId: null, activeTeamId: null })
       .where(eq(schema.sessionTable.activeOrganizationId, workspaceId));
-    await tx
-      .delete(schema.workspaceTable)
-      .where(eq(schema.workspaceTable.id, workspaceId));
+    // Recorded before the row goes, so the audit sink can still read the
+    // workspace's kind and keep a demo's deletion inside Baton.
     if (audit)
       await recordAdminAction(
         {
@@ -59,6 +61,10 @@ export async function deleteWorkspaceData(
         },
         tx,
       );
+    await deleteResourceNotifications(tx, { workspaceIds: [workspaceId] });
+    await tx
+      .delete(schema.workspaceTable)
+      .where(eq(schema.workspaceTable.id, workspaceId));
     return { audience, workspace };
   });
 

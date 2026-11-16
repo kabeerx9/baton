@@ -22,6 +22,7 @@ import { isGithubSsoConfigured } from "../utils/github-sso-env";
 import { requireUserSession } from "../utils/require-user-session";
 import { requireWorkspacePermission } from "../utils/require-workspace-permission";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { refuseDemoWorkspace } from "../workspace/kind/refuse-demo-workspace";
 import createGithubIntegration from "./controllers/create-github-integration";
 import deleteGithubIntegration from "./controllers/delete-github-integration";
 import getGithubIntegration from "./controllers/get-github-integration";
@@ -50,6 +51,8 @@ const manageAccess = [
   workspaceAccess.fromProject("projectId"),
   requireWorkspacePermission({ workspace: ["manage_settings"] }),
 ];
+// Connecting, configuring and importing reach GitHub: never from a demo.
+const connectAccess = [...manageAccess, refuseDemoWorkspace];
 
 const getAppInfoRoute = createRoute({
   method: "get",
@@ -72,7 +75,7 @@ const listRepositoriesRoute = createRoute({
   summary: "List GitHub repositories",
   description:
     "List the repositories reachable through the installed GitHub App that the caller administers, for picking one to link. Without `search`, each request reads one page of one installation. With `search`, the server filters by name and description before checking access and keeps scanning later pages and installations within a fixed budget. Follow `nextPage` until it is null to see every repository.",
-  middleware: [requireUserSession, ...manageAccess],
+  middleware: [requireUserSession, ...connectAccess],
   request: { params: projectIdParam, query: repositoryPageQuery },
   responses: {
     200: jsonResponse(
@@ -148,7 +151,7 @@ const createIntegrationRoute = createRoute({
   summary: "Create GitHub integration",
   description:
     "Link a project to a GitHub repository. Disconnect first to switch repositories; existing issue and pull request links cannot be reused for another repository.",
-  middleware: [requireUserSession, ...manageAccess],
+  middleware: [requireUserSession, ...connectAccess],
   request: {
     params: projectIdParam,
     body: {
@@ -177,7 +180,7 @@ const updateIntegrationRoute = createRoute({
   summary: "Update GitHub integration",
   description:
     "Update the GitHub integration. Omitted fields keep their current value.",
-  middleware: manageAccess,
+  middleware: connectAccess,
   request: {
     params: projectIdParam,
     body: {
@@ -230,6 +233,7 @@ const importIssuesRoute = createRoute({
   middleware: [
     scopeToProjectFromBody,
     requireWorkspacePermission({ task: ["create", "update"] }),
+    refuseDemoWorkspace,
   ] as const,
   request: {
     body: {

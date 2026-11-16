@@ -24,18 +24,29 @@ function sameEntry(row: LedgerRow, entry: LedgerRow) {
 
 // Only "old-final" may be rewritten. Anything this does not recognize is
 // "unknown", which the caller treats as a refusal.
+//
+// `later` lists the migrations shipped after the baseline. A ledger holding
+// the baseline followed only by those (as recorded once the API applied
+// them) is still "adopted", so running adoption again is a no-op.
 export function classifyLedger(
   rows: readonly LedgerRow[],
   baseline: BaselineEntry,
+  later: readonly BaselineEntry[] = [],
 ): LedgerState {
   if (rows.length === 0) return { kind: "empty" };
 
   if (rows.some((row) => row.hash === baseline.hash)) {
-    return rows.length === 1 && sameEntry(rows[0]!, baseline)
+    const [first, ...rest] = [...rows].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
+    const legitimate =
+      sameEntry(first!, baseline) &&
+      rest.every((row) => later.some((entry) => sameEntry(row, entry)));
+    return legitimate
       ? { kind: "adopted" }
       : {
           kind: "unknown",
-          reason: "the baseline is recorded next to other migrations",
+          reason: "the baseline is recorded next to unknown migrations",
         };
   }
 

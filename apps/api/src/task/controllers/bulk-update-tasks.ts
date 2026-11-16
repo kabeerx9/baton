@@ -45,6 +45,7 @@ import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-ed
 import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
 import { checkStatusChange } from "../../task-change-request/status-change";
 import type { DbOrTx } from "../../project-access/db-or-tx";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 export type BulkItemResult =
   | { taskId: string; outcome: "applied" }
@@ -491,6 +492,7 @@ async function bulkUpdateTasks({
           tx,
           assets.map((asset) => asset.objectKey),
         );
+        await deleteResourceNotifications(tx, { taskIds: deleting });
         return tx.delete(taskTable).where(inArray(taskTable.id, deleting));
       });
 

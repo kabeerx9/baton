@@ -12,6 +12,7 @@ import { publishEvent } from "../../events";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { getProjectSubtaskParentProjects } from "../../task/get-subtask-parent-projects";
 import getProject from "./get-project";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 async function deleteProject(id: string, workspaceId: string) {
   const existingProject = await getProject(id, workspaceId);
@@ -53,6 +54,7 @@ async function deleteProject(id: string, workspaceId: string) {
       "task_deleted",
     ))
       cancelled.push({ ...request, taskId: null, projectId: null });
+    await deleteResourceNotifications(tx, { projectIds: [id] });
     const [deleted] = await tx
       .delete(projectTable)
       .where(

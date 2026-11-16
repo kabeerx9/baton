@@ -28,6 +28,7 @@ import {
   withLockedProjectTask,
 } from "./with-locked-task";
 import getTask from "./get-task";
+import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 type Task = typeof taskTable.$inferSelect;
 
@@ -54,6 +55,7 @@ export async function deleteLockedTask(tx: TaskTransaction, task: Task) {
     tx,
     assets.map((asset) => asset.objectKey),
   );
+  await deleteResourceNotifications(tx, { taskIds: [task.id] });
   const [deleted] = await tx
     .delete(taskTable)
     .where(eq(taskTable.id, task.id))

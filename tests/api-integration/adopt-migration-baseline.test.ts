@@ -136,6 +136,30 @@ it("is a no-op when run again", async () => {
   expect(await readLedger()).toEqual(adopted);
 });
 
+it("stays a no-op after the API applied later migrations", async () => {
+  expect(baseline.later.length).toBeGreaterThan(0);
+  const applied = [baseline, ...baseline.later].map((entry) => ({
+    hash: entry.hash,
+    created_at: entry.createdAt,
+  }));
+  await writeLedger(applied);
+
+  expect(await adopt()).toEqual({ kind: "already-adopted" });
+  expect(await adopt()).toEqual({ kind: "already-adopted" });
+  expect(await readLedger()).toHaveLength(applied.length);
+});
+
+it("refuses the baseline next to a migration this version does not ship", async () => {
+  await writeLedger([
+    { hash: baseline.hash, created_at: baseline.createdAt },
+    { hash: "not-a-shipped-migration", created_at: baseline.createdAt + 1 },
+  ]);
+  const before = await readLedger();
+
+  expect(await adopt()).toMatchObject({ kind: "refused" });
+  expect(await readLedger()).toEqual(before);
+});
+
 it("adopts exactly once when two runs race", async () => {
   await writeLedger(oldChain());
 

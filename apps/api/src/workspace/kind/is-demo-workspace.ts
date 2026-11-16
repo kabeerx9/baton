@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import db from "../../database";
-import { workspaceTable } from "../../database/schema";
+import { projectTable, workspaceTable } from "../../database/schema";
 import { toWorkspaceKind, type WorkspaceKind } from "./workspace-kind";
 
 // A workspace never changes kind and ids are never reused, so a cached
@@ -31,4 +31,14 @@ async function workspaceKind(workspaceId: string): Promise<WorkspaceKind> {
  */
 export async function isDemoWorkspace(workspaceId: string) {
   return (await workspaceKind(workspaceId)) === "demo";
+}
+
+/** The side-effect guard for a project: true when its workspace is a demo. */
+export async function isDemoProject(projectId: string) {
+  const [row] = await db
+    .select({ workspaceId: projectTable.workspaceId })
+    .from(projectTable)
+    .where(eq(projectTable.id, projectId))
+    .limit(1);
+  return row ? isDemoWorkspace(row.workspaceId) : true;
 }
