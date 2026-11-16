@@ -19,8 +19,13 @@ Commands below run from the repository root on the VPS. `$ENV` is
 
 ## 1. Provision the VPS
 
-Ubuntu 24.04 LTS, 2 vCPU, 2 GB RAM, 40 GB disk (1 GB works if you add swap; the image
-build is the memory-hungry step). Note the public IPv4 (and IPv6 if you use it).
+Ubuntu 24.04 LTS, **1 GB RAM, 1 vCPU, 25 GB disk** is the default size and runs the whole
+stack. Note the public IPv4 (and IPv6 if you use it). Add the swap step below (step 5)
+because building the image on the box needs more memory than running it.
+
+The container memory limits in `deploy/compose.prod.yml` are sized for 1 GB: `baton` 512m,
+`postgres` 384m, `backup` 256m, `caddy` 128m. They are caps, so a quiet instance uses a
+fraction of that; raise them (and the VPS size) if you see the kernel killing containers.
 
 ## 2. Point DNS at it
 
@@ -62,7 +67,23 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 sudo systemctl enable --now docker
 ```
 
-## 5. Get the code
+## 5. Add swap
+
+Only the image build needs the extra memory: `pnpm install`, TypeScript and Vite together
+want more than 1 GB, and swap is what keeps that build from being killed. The running
+stack fits in 1 GB without it. If you build the image in CI and pull it on the server
+instead of building here, skip this step and there is no need for swap.
+
+```sh
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h                     # Swap: 2.0Gi listed, Used: 0B at rest
+```
+
+## 6. Get the code
 
 ```sh
 sudo mkdir -p /opt/baton && sudo chown "$USER" /opt/baton
@@ -71,7 +92,7 @@ cd /opt/baton
 git checkout <the-commit-or-tag-you-want-live>
 ```
 
-## 6. Fill in the environment
+## 7. Fill in the environment
 
 ```sh
 cp deploy/.env.production.sample deploy/.env.production
@@ -95,16 +116,18 @@ either signs everyone out, and the latter makes stored webhook secrets unreadabl
 `deploy/.env.production` is gitignored; never copy it into an image or a ticket.
 
 Two backup decisions worth making now: use a separate S3 key from the uploads key, and
-scope it to the backup bucket only. The backup list is at step 9.
+scope it to the backup bucket only. The backup list is at step 10.
 
-## 7. Start it
+## 8. Start it
 
 ```sh
 docker compose -f deploy/compose.prod.yml $ENV up -d --build
 ```
 
 The first build takes several minutes. The containers start in order: Postgres becomes
-healthy, the API runs its migrations on boot, then Caddy gets a certificate.
+healthy, the API runs its migrations on boot, then Caddy gets a certificate. On the 1 GB
+default the build leans on the swap from step 5, so expect it to be slow; `docker stats`
+shows the running stack itself using far less than the box has.
 
 ```sh
 docker compose -f deploy/compose.prod.yml $ENV ps
@@ -112,7 +135,7 @@ curl -fsS https://tracker.example.com/api/health   # {"status":"ok"}
 docker compose -f deploy/compose.prod.yml $ENV logs --tail=50 baton caddy
 ```
 
-## 8. First account, then invite-only
+## 9. First account, then invite-only
 
 1. Open `https://tracker.example.com`. The first account to sign up becomes the instance
    admin; create the workspace straight away.
@@ -129,7 +152,7 @@ docker compose -f deploy/compose.prod.yml $ENV logs --tail=50 baton caddy
    invitations keep working, and admins can still create accounts from the admin area.
    `DISABLE_WORKSPACE_CREATION=true` is the matching lock for new workspaces.
 
-## 9. Check the backups
+## 10. Check the backups
 
 The `backup` container waits for `BACKUP_SCHEDULE_UTC` (default 03:15 UTC) and repeats
 daily. Prove it works now instead of waiting:
@@ -144,7 +167,7 @@ Dumps older than `BACKUP_RETENTION_DAYS` are deleted by the same run. Check the 
 holds the object, and set a lifecycle or versioning policy there if the provider offers
 one.
 
-## 10. Restore drill
+## 11. Restore drill
 
 Do this before you need it, and again after changing anything about backups. It restores
 into a scratch database on the same server, never the live one:
@@ -172,7 +195,7 @@ docker compose -f deploy/compose.prod.yml $ENV exec -T postgres \
 database is the disaster path: stop `baton` first, restore into a fresh database, then
 point `DATABASE_URL` at it.
 
-## 11. Upgrade
+## 12. Upgrade
 
 ```sh
 cd /opt/baton && git fetch --tags && git checkout <new-tag>
@@ -186,7 +209,7 @@ is no migration undo. That is why the backup comes first for any release that to
 the schema. Keep exactly one `baton` container during the switch: an old process does not
 know the new consent and status rules.
 
-## 12. Rollback
+## 13. Rollback
 
 ```sh
 cd /opt/baton && git checkout <previous-tag>
@@ -194,11 +217,11 @@ docker compose -f deploy/compose.prod.yml $ENV up -d --build
 ```
 
 If the old image cannot run against the migrated schema (it will say so loudly in the
-logs), restore the dump taken in step 11 into a fresh database and point `DATABASE_URL`
+logs), restore the dump taken in step 12 into a fresh database and point `DATABASE_URL`
 at it. Certificates, `postgres_data` and the environment file are untouched by both
 directions.
 
-## 13. Move to managed Postgres
+## 14. Move to managed Postgres
 
 Worth doing before taking paying customers: one small VPS runs out of memory before it
 runs out of disk, and managed Postgres gives you point-in-time recovery.
@@ -235,7 +258,7 @@ Provider TLS note, same as `.do/app.yaml`: if the managed server uses a private 
 API fails at boot with a certificate error, add `?sslmode=no-verify` to `DATABASE_URL` or
 supply the provider's CA bundle. Prefer the CA bundle.
 
-## 14. Local smoke test (not production)
+## 15. Local smoke test (not production)
 
 Both deploy files are checked against a throwaway local stack, which is how the composed
 configuration was proven. It publishes 80/443 on your machine, uses Caddy's local CA for
@@ -262,7 +285,7 @@ docker compose -p baton-deploy-smoke \
 
 `curl -k` is expected: nobody trusts Caddy's local CA. Ports 80/443 must be free.
 
-## 15. When something is wrong
+## 16. When something is wrong
 
 - **No certificate.** `docker compose ... logs caddy`. Usually DNS is not resolving yet,
   or port 80/443 is blocked. Only 5 failed validations per domain per hour are allowed;
@@ -271,7 +294,9 @@ docker compose -p baton-deploy-smoke \
   (`docker compose ... logs baton`). Missing `AUTH_SECRET` or `POSTGRES_PASSWORD`, or a
   database that is still starting.
 - **Everything is slow or the kernel kills containers.** Check `free -m` and
-  `docker stats`. Raise the Compose `deploy.resources.limits` or the VPS size, and lower
+  `docker stats`. The memory caps are sized for the 1 GB default (`baton` 512m,
+  `postgres` 384m); raise the `deploy.resources.limits` in
+  `deploy/compose.prod.yml` when you give the box more RAM, and lower
   `DATABASE_POOL_MAX` if the database refuses connections.
 - **Disk filling up.** `docker image prune -f` after upgrades, and check
   `BACKUP_RETENTION_DAYS` is not excessive.

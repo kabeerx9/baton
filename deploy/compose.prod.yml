@@ -45,16 +45,19 @@ services:
       timeout: 5s
       retries: 6
       start_period: 30s
-    shm_size: 256mb
+    shm_size: 128mb
     security_opt:
       - no-new-privileges:true
     stop_grace_period: 1m
     logging: *logging
     deploy:
+      # Sized for the default 1 GB VPS (see docs/deploy.md). Caps, not
+      # reservations: a quiet instance uses a fraction. Raise them if you give
+      # the box more memory or the kernel starts killing containers.
       resources:
         limits:
           cpus: "1.0"
-          memory: 1g
+          memory: 384m
     networks:
       - baton_net
 
@@ -162,10 +165,11 @@ services:
     stop_grace_period: 30s
     logging: *logging
     deploy:
+      # Node API + nginx in one container, sized for a 1 GB VPS.
       resources:
         limits:
           cpus: "1.5"
-          memory: 1g
+          memory: 512m
     networks:
       - baton_net
 
@@ -240,10 +244,12 @@ services:
       - no-new-privileges:true
     logging: *logging
     deploy:
+      # pg_dump of a small database: it streams to a temp file on disk, so
+      # memory stays low.
       resources:
         limits:
           cpus: "0.5"
-          memory: 512m
+          memory: 256m
     networks:
       - baton_net
 
