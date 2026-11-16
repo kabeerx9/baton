@@ -48,11 +48,21 @@ export async function validateWorkspaceAccess(
     .where(eq(schema.userTable.id, userId))
     .limit(1);
 
+  // Instance administrators reach any team workspace. A demo workspace is
+  // its owner's private sandbox: members only, administrators included.
   const [workspace] = hasInstanceAdminRole(user?.role)
     ? await db
         .select({ archivedAt: schema.workspaceTable.archivedAt })
         .from(schema.workspaceTable)
-        .where(eq(schema.workspaceTable.id, workspaceId))
+        .where(
+          and(
+            eq(schema.workspaceTable.id, workspaceId),
+            or(
+              eq(schema.workspaceTable.kind, "team"),
+              eq(schema.workspaceTable.demoOwnerUserId, userId),
+            ),
+          ),
+        )
         .limit(1)
     : await db
         .select({ archivedAt: schema.workspaceTable.archivedAt })

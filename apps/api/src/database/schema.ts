@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   foreignKey,
   index,
@@ -53,6 +54,9 @@ export const userTable = pgTable("user", {
   emailVerificationRequired: boolean("email_verification_required")
     .default(false)
     .notNull(),
+  // When the user finished or skipped the product tour. Null means the web
+  // app shows the tour; every creation path gets null from the column.
+  tourCompletedAt: timestamp("tour_completed_at", { mode: "date" }),
 });
 
 export const sessionTable = pgTable(
@@ -303,23 +307,43 @@ export const verificationTable = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const workspaceTable = pgTable("workspace", {
-  id: text("id")
-    .$defaultFn(() => createId())
-    .primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  logo: text("logo"),
-  metadata: text("metadata"),
-  description: text("description"),
-  createdAt: timestamp("created_at", { mode: "date" }).notNull(),
-  // Set by an instance administrator. Archived workspaces keep their data but
-  // members, API keys and integrations can no longer use them.
-  archivedAt: timestamp("archived_at", { mode: "date" }),
-  archivedBy: text("archived_by").references(() => userTable.id, {
-    onDelete: "set null",
-  }),
-});
+export const workspaceTable = pgTable(
+  "workspace",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    logo: text("logo"),
+    metadata: text("metadata"),
+    description: text("description"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+    // Set by an instance administrator. Archived workspaces keep their data but
+    // members, API keys and integrations can no longer use them.
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+    archivedBy: text("archived_by").references(() => userTable.id, {
+      onDelete: "set null",
+    }),
+    // "team" is a real workspace. "demo" is one user's product-tour sandbox:
+    // hidden from lists, counts and search, and silent to the outside world.
+    kind: text("kind").notNull().default("team"),
+    // The only member of a demo workspace; null for a team workspace.
+    demoOwnerUserId: text("demo_owner_user_id").references(() => userTable.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    check("workspace_kind_check", sql`${table.kind} in ('team', 'demo')`),
+    check(
+      "workspace_demo_owner_check",
+      sql`(${table.kind} = 'demo') = (${table.demoOwnerUserId} is not null)`,
+    ),
+    uniqueIndex("workspace_one_demo_per_user_idx")
+      .on(table.demoOwnerUserId)
+      .where(sql`${table.kind} = 'demo'`),
+  ],
+);
 
 export const workspaceUserTable = pgTable(
   "workspace_member",

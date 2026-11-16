@@ -3,6 +3,7 @@ import {
   type WorkspaceCapability,
 } from "@baton/permissions";
 import { PROJECT_ACCESS_MODES } from "../project-access/project-access-mode";
+import { WORKSPACE_KINDS } from "./kind/workspace-kind";
 import { responseTimestamp, z } from "../openapi";
 
 export const workspaceSchema = z
@@ -13,6 +14,10 @@ export const workspaceSchema = z
     logo: z.string().nullable(),
     description: z.string().nullable(),
     createdAt: responseTimestamp,
+    kind: z.enum(WORKSPACE_KINDS).openapi({
+      description:
+        "team for a real workspace; demo for the caller's product-tour sandbox. Lists never include a demo workspace.",
+    }),
     role: z.string().nullable().openapi({
       description:
         "The caller's workspace role: a built-in role (owner, admin, member, viewer) or the name of a custom role defined in the workspace. Several roles are comma-separated, for example owner,viewer. Null when an instance admin views a workspace they are not a member of.",

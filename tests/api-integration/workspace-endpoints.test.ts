@@ -61,6 +61,7 @@ function expected(workspace: WorkspaceRow, role: string | null) {
     logo: workspace.logo,
     description: workspace.description,
     createdAt: workspace.createdAt.toISOString(),
+    kind: "team",
     role,
   };
 }

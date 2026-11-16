@@ -8,6 +8,13 @@
       "when": 1794827450251,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794848484879,
+      "tag": "0001_demo_workspace_and_tour",
+      "breakpoints": true
     }
   ]
 }

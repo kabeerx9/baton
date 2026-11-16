@@ -22,22 +22,28 @@ async function rows<T>(query: ReturnType<typeof sql>) {
   return (await db.execute(query)).rows as T[];
 }
 
-it("ships exactly one migration, the baseline", () => {
+it("ships the baseline first, then later migrations", () => {
   const journal = JSON.parse(
     readFileSync(resolve(migrationsFolder, "meta/_journal.json"), "utf8"),
   ) as { entries: Array<{ tag: string }> };
-  expect(journal.entries.map((entry) => entry.tag)).toEqual(["0000_baseline"]);
+  expect(journal.entries.map((entry) => entry.tag)).toEqual([
+    "0000_baseline",
+    "0001_demo_workspace_and_tour",
+  ]);
 });
 
-it("records only the baseline in a freshly migrated database", async () => {
-  const [baseline] = readMigrationFiles({ migrationsFolder });
+it("records every migration in a freshly migrated database", async () => {
+  const migrations = readMigrationFiles({ migrationsFolder });
   expect(
     await rows(
-      sql`SELECT hash, created_at::bigint AS created_at FROM drizzle.__drizzle_migrations`,
+      sql`SELECT hash, created_at::bigint AS created_at FROM drizzle.__drizzle_migrations ORDER BY id`,
     ),
-  ).toEqual([
-    { hash: baseline!.hash, created_at: String(baseline!.folderMillis) },
-  ]);
+  ).toEqual(
+    migrations.map((migration) => ({
+      hash: migration.hash,
+      created_at: String(migration.folderMillis),
+    })),
+  );
 });
 
 it("creates every table that schema.ts declares, and no others", async () => {

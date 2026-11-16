@@ -59,7 +59,9 @@ export default async function getOverview() {
             Number,
           ),
       })
-      .from(workspace),
+      .from(workspace)
+      // Product-tour sandboxes are not workspaces anyone runs.
+      .where(eq(workspace.kind, "team")),
     db
       .select({
         id: user.id,

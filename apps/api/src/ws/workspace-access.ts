@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import db from "../database";
 import {
@@ -24,7 +24,14 @@ export async function syncWorkspaceAccess(userId: string, ws: WSContext) {
       ? await db
           .select({ workspaceId: workspaceTable.id })
           .from(workspaceTable)
-          .where(undefined)
+          // A demo workspace is members only; the admin's own demo comes
+          // through the membership below.
+          .where(
+            or(
+              eq(workspaceTable.kind, "team"),
+              eq(workspaceTable.demoOwnerUserId, userId),
+            ),
+          )
       : await db
           .select({ workspaceId: workspaceUserTable.workspaceId })
           .from(workspaceUserTable)
@@ -57,5 +64,13 @@ export async function hasWorkspaceAccess(userId: string, workspaceId: string) {
         ),
       ),
   ]);
-  return !!user && (hasInstanceAdminRole(user.role) || members.length > 0);
+  if (!user) return false;
+  if (members.length > 0) return true;
+  if (!hasInstanceAdminRole(user.role)) return false;
+  // Administrators reach team workspaces only; a demo is members only.
+  const [workspace] = await db
+    .select({ kind: workspaceTable.kind })
+    .from(workspaceTable)
+    .where(eq(workspaceTable.id, workspaceId));
+  return workspace?.kind === "team";
 }

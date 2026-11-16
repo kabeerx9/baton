@@ -25,14 +25,10 @@ function quoteIdentifier(identifier: string) {
 // Hash and timestamp come from the migration file and journal, exactly as
 // drizzle's migrator computes them, so they cannot drift from the baseline.
 export function readBaselineEntry(migrationsFolder: string): BaselineEntry {
-  const migrations = readMigrationFiles({ migrationsFolder });
-  if (migrations.length !== 1) {
-    throw new Error(
-      `Expected exactly one migration (the baseline), found ${migrations.length}`,
-    );
-  }
-  const [baseline] = migrations;
-  return { hash: baseline!.hash, createdAt: baseline!.folderMillis };
+  // The baseline is the first migration; later ones apply after it.
+  const [baseline] = readMigrationFiles({ migrationsFolder });
+  if (!baseline) throw new Error("Expected the baseline migration, found none");
+  return { hash: baseline.hash, createdAt: baseline.folderMillis };
 }
 
 function refusal(state: LedgerState): string {

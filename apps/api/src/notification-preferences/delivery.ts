@@ -18,10 +18,15 @@ import {
 } from "../utils/outbound-request";
 import { getDeliveryContent } from "./delivery-copy";
 import { resolveEmailTask } from "./resolve-email-task";
+import {
+  toWorkspaceKind,
+  type WorkspaceKind,
+} from "../workspace/kind/workspace-kind";
 import { decryptSecret } from "./secrets";
 
 type ResolvedNotificationContext = {
   workspaceId: string;
+  workspaceKind: WorkspaceKind;
   workspaceName: string;
   projectId: string | null;
   projectName: string | null;
@@ -212,6 +217,7 @@ async function resolveNotificationContext(notification: {
         projectName: projectTable.name,
         workspaceId: workspaceTable.id,
         workspaceName: workspaceTable.name,
+        workspaceKind: workspaceTable.kind,
       })
       .from(taskTable)
       .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
@@ -228,6 +234,7 @@ async function resolveNotificationContext(notification: {
 
     return {
       workspaceId: task.workspaceId,
+      workspaceKind: toWorkspaceKind(task.workspaceKind),
       workspaceName: task.workspaceName,
       projectId: task.projectId,
       projectName: task.projectName,
@@ -242,6 +249,7 @@ async function resolveNotificationContext(notification: {
       .select({
         workspaceId: workspaceTable.id,
         workspaceName: workspaceTable.name,
+        workspaceKind: workspaceTable.kind,
       })
       .from(workspaceTable)
       .where(eq(workspaceTable.id, notification.resourceId))
@@ -253,6 +261,7 @@ async function resolveNotificationContext(notification: {
 
     return {
       workspaceId: workspace.workspaceId,
+      workspaceKind: toWorkspaceKind(workspace.workspaceKind),
       workspaceName: workspace.workspaceName,
       projectId: null,
       projectName: null,
@@ -381,6 +390,9 @@ export async function deliverNotification(
     });
     return;
   }
+  // The side-effect guard: a demo workspace's notifications stay in the app.
+  // No email, push or webhook leaves Baton for them.
+  if (context.workspaceKind !== "team") return;
 
   const [user] = await db
     .select({

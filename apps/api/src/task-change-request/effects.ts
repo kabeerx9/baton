@@ -119,6 +119,7 @@ async function notifyPerson(
   await sendDm(
     userId,
     `*${slackEscape(title)}*\n${slackEscape(content)}${link}`,
+    { workspaceId: request.workspaceId },
   );
 }
 

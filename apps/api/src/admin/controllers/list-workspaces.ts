@@ -20,12 +20,17 @@ type ListWorkspacesInput = {
 async function listWorkspaces({ search, page, limit }: ListWorkspacesInput) {
   const term = search?.trim() ?? "";
   const pattern = `%${escapeLikePattern(term)}%`;
-  const where = term
-    ? or(
-        ilike(workspaceTable.name, pattern),
-        ilike(workspaceTable.slug, pattern),
-      )
-    : undefined;
+  // Product-tour sandboxes are private to one user and short-lived; the
+  // admin list and its total show team workspaces only.
+  const where = and(
+    eq(workspaceTable.kind, "team"),
+    term
+      ? or(
+          ilike(workspaceTable.name, pattern),
+          ilike(workspaceTable.slug, pattern),
+        )
+      : undefined,
+  );
 
   const [rows, [totalRow]] = await Promise.all([
     db

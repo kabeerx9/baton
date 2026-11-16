@@ -1,4 +1,5 @@
 import { workspaceTable } from "../database/schema";
+import { toWorkspaceKind } from "./kind/workspace-kind";
 import { resolveWorkspaceDescription } from "./resolve-workspace-description";
 
 export const workspaceColumns = {
@@ -9,6 +10,7 @@ export const workspaceColumns = {
   description: workspaceTable.description,
   metadata: workspaceTable.metadata,
   createdAt: workspaceTable.createdAt,
+  kind: workspaceTable.kind,
 };
 
 export function toWorkspaceResponse(row: {
@@ -19,6 +21,7 @@ export function toWorkspaceResponse(row: {
   description: string | null;
   metadata: string | null;
   createdAt: Date;
+  kind: string;
   role: string | null;
 }) {
   return {
@@ -28,6 +31,7 @@ export function toWorkspaceResponse(row: {
     logo: row.logo,
     description: resolveWorkspaceDescription(row),
     createdAt: row.createdAt,
+    kind: toWorkspaceKind(row.kind),
     role: row.role,
   };
 }
