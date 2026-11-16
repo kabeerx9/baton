@@ -1,5 +1,5 @@
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import type { PoolClient } from "pg";
+import type { ClientBase } from "pg";
 import {
   type BaselineEntry,
   classifyLedger,
@@ -49,7 +49,7 @@ function refusal(state: LedgerState): string {
 // Rewrites the ledger in one transaction, holding an exclusive lock so a
 // concurrent startup migrate cannot read it half-written.
 export async function adoptMigrationBaseline(
-  client: PoolClient,
+  client: ClientBase,
   baseline: BaselineEntry,
   ledger: LedgerLocation = DRIZZLE_LEDGER,
 ): Promise<AdoptResult> {

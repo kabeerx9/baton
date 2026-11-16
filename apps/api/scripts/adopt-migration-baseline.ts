@@ -31,22 +31,21 @@
 //   5. Start the API. Its migrate step is a no-op.
 //
 // It requires DATABASE_URL or POSTGRES_* settings and refuses the API's
-// localhost:5432/baton fallback.
+// localhost:5432/baton fallback, and URLs that lack a host or database or
+// override them with query parameters.
 import { resolve } from "node:path";
 import { config } from "dotenv-mono";
-import { Pool } from "pg";
+import { Client } from "pg";
 import { resolveDatabaseConfig } from "../src/database/resolve-database-url";
 import {
   adoptMigrationBaseline,
   readBaselineEntry,
 } from "./adopt-migration-baseline/adopt-ledger";
+import { refuseAmbiguousTarget } from "./adopt-migration-baseline/check-target-url";
 
 config();
 
 const target = resolveDatabaseConfig();
-console.log(
-  `Target: ${target.host}:${target.port}/${target.database} (from ${target.source})`,
-);
 
 if (target.source === "LOCAL_FALLBACK") {
   console.error(
@@ -55,8 +54,18 @@ if (target.source === "LOCAL_FALLBACK") {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: target.connectionString });
-const client = await pool.connect();
+const ambiguous = refuseAmbiguousTarget(target.connectionString);
+if (ambiguous) {
+  console.error(`Refused: ${ambiguous}.`);
+  process.exit(1);
+}
+
+// Print what pg will actually connect to, not what the resolver parsed.
+const client = new Client({ connectionString: target.connectionString });
+console.log(
+  `Target: ${client.host}:${client.port}/${client.database} (from ${target.source})`,
+);
+await client.connect();
 
 try {
   const baseline = readBaselineEntry(
@@ -75,6 +84,5 @@ try {
     process.exitCode = 1;
   }
 } finally {
-  client.release();
-  await pool.end();
+  await client.end();
 }
