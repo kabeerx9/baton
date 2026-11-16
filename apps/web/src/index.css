@@ -23,6 +23,21 @@ input:-webkit-autofill:active {
   }
 }
 
+@keyframes wire-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* A dash that travels along a dependency wire while work is still owed. */
+@utility motion-wire-flow {
+  animation: wire-flow 900ms linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 @utility delayed-reveal {
   animation: delayed-reveal 200ms var(--ease-out) 250ms both;
 }

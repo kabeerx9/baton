@@ -2725,6 +2725,55 @@
 			"withAgent": "{{name}} (agent)",
 			"requestedTo": "Request sent to {{names}}",
 			"requested": "Request sent. The task's creator, its assignee or a workspace admin can answer."
+		},
+		"hero": {
+			"status": {
+				"label": "Status",
+				"hint": "Pick a step to move the task. If you are not involved, this sends a request. Finishing waits for open blockers.",
+				"locked": "Blocked: finish what this waits on first",
+				"unknown": "This task has a status Baton does not know. Pick a step to set it.",
+				"loading": "Loading statuses…",
+				"unavailable": "Statuses could not be loaded.",
+				"followsTasks": "Follows its tasks",
+				"circleLabel": "Status: {{status}}",
+				"unknownShort": "Unknown",
+				"requested": "Request pending"
+			},
+			"headline": {
+				"unknown": "Status unknown",
+				"done": "Done.",
+				"doneReleased_one": "Done. {{count}} task can continue.",
+				"doneReleased_other": "Done. {{count}} tasks can continue.",
+				"request": "A request is waiting for an answer.",
+				"waiting_one": "Waiting on {{keys}}.",
+				"waiting_other": "Waiting on {{count}} tasks: {{keys}}.",
+				"readyOwned": "{{name}} owns it. Nothing is in the way.",
+				"readyUnowned": "Nobody owns it yet. Nothing is in the way."
+			},
+			"diagram": {
+				"label": "Dependencies",
+				"waitsOn": "Waits on",
+				"thisTask": "This task",
+				"waitingOnThis": "Waiting on this",
+				"emptyLeft": "Nothing in the way",
+				"emptyRight": "Nobody waits on this",
+				"emptyBoth": "Nothing is in the way, and nobody waits on this.",
+				"more": "+{{count}} more",
+				"notDone": "Not done yet",
+				"done": "Done",
+				"waiting": "Waiting",
+				"canContinue": "Can continue",
+				"finished": "Finished",
+				"unassigned": "Unassigned"
+			},
+			"propertiesLabel": "Task details",
+			"owner": {
+				"ownedBy": "Owned by {{name}}",
+				"unowned": "No owner yet"
+			},
+			"signal": {
+				"blocked": "Blocked"
+			}
 		}
 	},
 	"invitations": {

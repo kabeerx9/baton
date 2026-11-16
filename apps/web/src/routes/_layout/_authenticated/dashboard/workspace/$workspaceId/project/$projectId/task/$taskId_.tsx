@@ -1,8 +1,8 @@
+import { TaskDetailPage } from "@/components/task/detail/task-detail-page";
 import { TaskShortcuts } from "@/components/task/task-shortcuts";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { TaskFlowPage } from "@/components/board/task-flow/task-flow-page";
 import TaskLayout from "@/components/common/task-layout";
 import PageTitle from "@/components/page-title";
 import TaskDeleteDialog from "@/components/task/task-delete-dialog";
@@ -144,7 +144,7 @@ function RouteComponent() {
           </Button>
         </div>
       ) : (
-        <TaskFlowPage
+        <TaskDetailPage
           key={taskId}
           taskId={taskId}
           projectId={projectId}

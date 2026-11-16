@@ -19,7 +19,6 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
-import { Route as PrototypesTaskDetailRouteImport } from './routes/prototypes/task-detail'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/dashboard'
 import { Route as LayoutAuthenticatedInvitationsRouteImport } from './routes/_layout/_authenticated/invitations'
 import { Route as LayoutAuthenticatedOnboardingRouteImport } from './routes/_layout/_authenticated/onboarding'
@@ -113,11 +112,6 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
 const McpAuthorizeRoute = McpAuthorizeRouteImport.update({
   id: '/mcp/authorize',
   path: '/mcp/authorize',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrototypesTaskDetailRoute = PrototypesTaskDetailRouteImport.update({
-  id: '/prototypes/task-detail',
-  path: '/prototypes/task-detail',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutAuthenticatedDashboardRoute =
@@ -417,7 +411,6 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/task-detail': typeof PrototypesTaskDetailRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
@@ -474,7 +467,6 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/task-detail': typeof PrototypesTaskDetailRoute
   '/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
@@ -530,7 +522,6 @@ export interface FileRoutesById {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
-  '/prototypes/task-detail': typeof PrototypesTaskDetailRoute
   '/_layout/_authenticated/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/_authenticated/invitations': typeof LayoutAuthenticatedInvitationsRoute
   '/_layout/_authenticated/onboarding': typeof LayoutAuthenticatedOnboardingRoute
@@ -589,7 +580,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/task-detail'
     | '/dashboard'
     | '/invitations'
     | '/onboarding'
@@ -646,7 +636,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/task-detail'
     | '/invitations'
     | '/onboarding'
     | '/profile-setup'
@@ -701,7 +690,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/mcp/authorize'
-    | '/prototypes/task-detail'
     | '/_layout/_authenticated/dashboard'
     | '/_layout/_authenticated/invitations'
     | '/_layout/_authenticated/onboarding'
@@ -755,7 +743,6 @@ export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   McpAuthorizeRoute: typeof McpAuthorizeRoute
-  PrototypesTaskDetailRoute: typeof PrototypesTaskDetailRoute
   InvitationAcceptInviteIdRoute: typeof InvitationAcceptInviteIdRoute
 }
 
@@ -829,13 +816,6 @@ declare module '@tanstack/react-router' {
       path: '/mcp/authorize'
       fullPath: '/mcp/authorize'
       preLoaderRoute: typeof McpAuthorizeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prototypes/task-detail': {
-      id: '/prototypes/task-detail'
-      path: '/prototypes/task-detail'
-      fullPath: '/prototypes/task-detail'
-      preLoaderRoute: typeof PrototypesTaskDetailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_layout/_authenticated/dashboard': {
@@ -1422,7 +1402,6 @@ const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   McpAuthorizeRoute: McpAuthorizeRoute,
-  PrototypesTaskDetailRoute: PrototypesTaskDetailRoute,
   InvitationAcceptInviteIdRoute: InvitationAcceptInviteIdRoute,
 }
 export const routeTree = rootRouteImport
