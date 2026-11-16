@@ -4,7 +4,6 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { Info } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
@@ -14,8 +13,8 @@ import { isPasswordSignUpEnabled } from "@/components/auth/auth-methods";
 import { AuthPage } from "@/components/auth/auth-page";
 import { InvitationNotice } from "@/components/auth/invitation-notice";
 import { PasswordSignUpForm } from "@/components/auth/password-sign-up-form";
+import { RegistrationClosed } from "@/components/auth/registration-closed";
 import PageTitle from "@/components/page-title";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getConfig } from "@/fetchers/config/get-config";
 import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useInstanceStatus from "@/hooks/queries/instance/use-instance-status";
@@ -80,14 +79,16 @@ function SignUp() {
       invitationId={invitationId}
       description={t("auth:signUp.invitation.description")}
     />
-  ) : config?.disableRegistration && !isInstanceAdminSetup ? (
-    <Alert role="note">
-      <Info />
-      <AlertDescription>
-        {t("auth:signUp.registrationDisabledAlert")}
-      </AlertDescription>
-    </Alert>
   ) : null;
+
+  if (config?.disableRegistration && !invitationId && !isInstanceAdminSetup) {
+    return (
+      <>
+        <PageTitle title={t("auth:signUp.pageTitle")} />
+        <RegistrationClosed />
+      </>
+    );
+  }
 
   return (
     <>
