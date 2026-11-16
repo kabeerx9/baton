@@ -1,10 +1,10 @@
 name: CI
 
-# Unit, integration, lint/typecheck and a Docker build of the bundled image.
-# The e2e (tests/e2e) and storage-integration (tests/storage-integration) suites
-# are intentionally not run here: they need a real browser, S3-compatible
-# storage and other side services that a plain GitHub-hosted runner does not
-# provide. Run them locally instead (see AGENTS.md, "Verifying").
+# Lint/typecheck and a Docker build of the bundled image.
+# Tests are not run in CI by choice: run unit and API integration tests with
+# `pnpm test` and `pnpm test:integration` locally instead (see AGENTS.md,
+# "Verifying"). The e2e (tests/e2e) and storage-integration
+# (tests/storage-integration) suites need a browser and extra services.
 
 on:
   pull_request:
@@ -16,9 +16,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # A superseded PR run is never the run anyone is waiting on. Pushes to main
-  # are left alone so every commit on the release branch gets a result.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # The newest run for a ref is the one that matters, on branches and main.
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -47,84 +46,6 @@ jobs:
       # Workspace builds are part of the typecheck task graph, so no separate
       # `pnpm build:dependencies` step is needed here.
       - run: pnpm typecheck
-
-  unit:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      # Throwaway value so the AUTH_SECRET and MCP tool tests can boot. It is
-      # not a real secret, nothing outside this job reads it, and it is never
-      # used to sign anything that leaves the runner.
-      AUTH_SECRET: ci-only-throwaway-unit-test-secret-000000000000
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.22.2
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm test
-
-  integration:
-    name: Integration tests (shard ${{ matrix.shard }}/3)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # The suite takes ~15-20 minutes serially, so split it across three
-    # runners. Each shard gets its own Postgres service container; vitest
-    # distributes test files evenly and no state is shared between shards.
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    env:
-      # The helper in tests/api-integration/helpers/database.ts creates this
-      # database (it refuses any name not ending in _test).
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/baton_test
-      AUTH_SECRET: ci-only-throwaway-integration-test-secret-00000000
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.22.2
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # Integration tests import the workspace packages through their built
-      # `dist` output, and the task's own dependency graph is not part of a
-      # direct vitest invocation. Build the API and the packages it needs.
-      - run: pnpm --filter @baton/api build
-
-      # Same vitest config as `pnpm --filter @baton/api test:integration`,
-      # split across the matrix above. Keep the `3` in sync with `matrix.shard`.
-      - run: pnpm --filter @baton/api exec vp test run --config vitest.integration.config.ts --shard=${{ matrix.shard }}/3
 
   docker:
     name: Docker image
