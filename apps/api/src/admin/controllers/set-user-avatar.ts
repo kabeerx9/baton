@@ -1,40 +1,29 @@
-import { eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { userTable } from "../../database/schema";
-import { decodeAvatarUpload } from "../../user/avatar";
-import saveAvatar from "../../user/controllers/save-avatar";
+import { parseAvatarUpload } from "../../user/avatar-store/parse-avatar-upload";
+import { replaceUserAvatar } from "../../user/avatar-store/replace-user-avatar";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
-import { findAdminTargetUser } from "../users/find-admin-target-user";
 
 /** Upload a new avatar for a user, as they could themselves. */
 async function setUserAvatar(
   input: { userId: string; contentType: string; data: string },
   audit: AdminAuditRequest,
 ) {
-  try {
-    decodeAvatarUpload(input);
-  } catch (error) {
-    throw new HTTPException(400, {
-      message: error instanceof Error ? error.message : "Invalid avatar upload",
-    });
-  }
+  const decoded = parseAvatarUpload(input);
 
   return db.transaction(async (tx) => {
-    const user = await findAdminTargetUser(input.userId, tx);
-    const avatar = await saveAvatar(input, tx);
-    await tx
-      .update(userTable)
-      .set({ image: avatar.url })
-      .where(eq(userTable.id, user.id));
+    const { owner, avatar } = await replaceUserAvatar(
+      tx,
+      input.userId,
+      decoded,
+    );
     await recordAdminAction(
       {
         ...audit,
         action: "user.avatar_changed",
         targetType: "user",
-        targetId: user.id,
-        targetLabel: user.email,
+        targetId: owner.id,
+        targetLabel: owner.email,
       },
       tx,
     );

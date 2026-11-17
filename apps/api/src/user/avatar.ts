@@ -55,10 +55,12 @@ export function stripDataUrlPrefix(value: string) {
   return value.replace(/^data:[^;,]*;base64,/, "");
 }
 
+export type DecodedAvatar = { mimeType: AvatarMimeType; bytes: Buffer };
+
 export function decodeAvatarUpload(input: {
   contentType: string;
   data: string;
-}): { mimeType: AvatarMimeType; bytes: Buffer } {
+}): DecodedAvatar {
   if (input.data.length > MAX_AVATAR_INPUT_CHARS) throw avatarSizeError();
   const mimeType = normalizeAvatarMimeType(input.contentType);
 

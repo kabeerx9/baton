@@ -76,6 +76,7 @@ import { captureAuthAdminAudit } from "./admin/audit/capture-auth-admin-audit";
 import { recordAuthAdminAudit } from "./admin/audit/record-auth-admin-audit";
 import { assertKnownInstanceRoles } from "./admin/roles/assert-known-instance-roles";
 import clearEmailVerificationOnAdminChange from "./user/controllers/clear-email-verification-on-admin-change";
+import { stripAuthImageWrite } from "./user/avatar-store/strip-auth-image-write";
 import deleteAccountData from "./user/controllers/delete-account-data";
 import prepareAdminUserRemoval from "./user/controllers/prepare-admin-user-removal";
 import { resolveAuthSecret } from "./utils/auth-secret";
@@ -544,6 +545,8 @@ export const auth = betterAuth({
           if (user.banned) await revokeUserGrants(user.id);
         },
         before: async (user, ctx) => {
+          // `/update-user` and `/admin/update-user` must never set the picture.
+          stripAuthImageWrite(user);
           if (
             (ctx?.path === "/admin/set-role" ||
               ctx?.path === "/admin/update-user") &&
@@ -566,11 +569,15 @@ export const auth = betterAuth({
               ctx?.query?.invitationId ||
               ctx?.headers?.get("x-invitation-id"),
           });
+          // A new account has no picture until it uploads one; ignore any
+          // `image` sent with sign-up or admin create.
           // A password sign-up gets the default role. better-auth's admin
           // endpoint sets its own role.
-          if (ctx?.path === "/admin/create-user") return;
+          if (ctx?.path === "/admin/create-user")
+            return { data: { image: null } };
           return {
             data: {
+              image: null,
               role: (await readStoredSettings()).defaultRole,
               ...((await signUpNeedsVerification(ctx?.path))
                 ? { emailVerificationRequired: true }

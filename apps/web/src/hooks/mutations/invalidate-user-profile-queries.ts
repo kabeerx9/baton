@@ -7,6 +7,8 @@ const USER_PROFILE_QUERY_KEYS = [
   ["activities"],
   ["tasks"],
   ["task"],
+  // Board members and assignees carry their picture.
+  ["task-board"],
 ] as const;
 
 export async function invalidateUserProfileQueries(queryClient: QueryClient) {
