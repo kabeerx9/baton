@@ -121,6 +121,14 @@ function refused(entry: Entry): Step {
   return entry.kind === "asking" ? { entry: IDLE } : { entry };
 }
 
+/**
+ * Archive and unarchive keep their old, non-optimistic path (R1.1): the
+ * server's rule for them differs from an ordinary column move.
+ */
+function isArchiveMove(server: ServerStatus, target: Target) {
+  return server.status === "archived" || target.status === "archived";
+}
+
 /** What a task read says about its status. `statusGeneration` may be missing on old payloads. */
 export type ServerStatus = {
   status: string;
@@ -138,11 +146,13 @@ export function overlayTarget(
   if (!entry) return null;
   switch (entry.kind) {
     case "sending":
-      return entry.latest;
+      return isArchiveMove(server, entry.latest) ? null : entry.latest;
     case "confirmed": {
       const seen = server.statusGeneration;
       // No generation on the read: the server wins.
-      return typeof seen === "number" && seen < entry.generation
+      return typeof seen === "number" &&
+        seen < entry.generation &&
+        !isArchiveMove(server, entry.target)
         ? entry.target
         : null;
     }

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
+import { BoardDayRollover } from "@/components/board/board-day-rollover";
 import CommandPalette from "@/components/command-palette";
 import SearchCommandMenu from "@/components/search-command-menu";
 import { StatusRequestModal } from "@/components/task/change-request/status-request-modal";
@@ -16,6 +17,7 @@ function RouteComponent() {
       <Outlet />
       <CommandPalette />
       <StatusRequestModal />
+      <BoardDayRollover />
       <SearchCommandMenu open={searchOpen} setOpen={setSearchOpen} />
     </>
   );

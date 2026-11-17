@@ -3040,6 +3040,7 @@
 				"released_other": "{{names}} are no longer waiting on it.",
 				"undo": "Undo",
 				"stillOpen": "{{key}} stays open. It closes when the tasks under it are done.",
+				"notChanged": "{{key}} was not changed. Another update to it is waiting.",
 				"doneError": "Could not mark the task done.",
 				"undoError": "Could not reopen the task.",
 				"moveError": "Could not move the task."

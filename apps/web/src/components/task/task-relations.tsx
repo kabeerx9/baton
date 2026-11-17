@@ -35,6 +35,8 @@ import {
 import useCreateTaskRelation from "@/hooks/mutations/task-relation/use-create-task-relation";
 import useDeleteTaskRelation from "@/hooks/mutations/task-relation/use-delete-task-relation";
 import { statusFactsOf } from "@/components/board/status-overlay";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import { shownStatus } from "@/store/task-status/transition";
 import { useGetBoard } from "@/hooks/queries/board/use-get-board";
 import useGetProject from "@/hooks/queries/project/use-get-project";
 import { useGetTasks } from "@/hooks/queries/task/use-get-tasks";
@@ -100,6 +102,7 @@ export default function TaskRelations({
   const { data: project } = useGetProject({ id: projectId, workspaceId });
   // The relations read says nothing about moving a linked task; the board does.
   const { data: board } = useGetBoard(workspaceId);
+  const entries = useTaskStatusStore((state) => state.entries);
   const { data: workspace } = useActiveWorkspace();
   const { data: workspaceUsers } = useGetActiveWorkspaceUsers(
     workspace?.id ?? "",
@@ -293,7 +296,9 @@ export default function TaskRelations({
           {linkedRelations.map((item) => {
             const assignee = getAssignee(item.task.userId);
             const taskObj = buildTaskObject(item);
-            const isFinal = finalStatusSlugs.has(item.task.status);
+            // A write in flight shows its target here too.
+            const shown = shownStatus(taskObj, entries[taskObj.id]);
+            const isFinal = finalStatusSlugs.has(shown);
 
             return (
               <ContextMenu key={item.id}>
@@ -308,9 +313,9 @@ export default function TaskRelations({
                           aria-label={t("tasks:status.label")}
                         >
                           {getColumnIcon(
-                            item.task.status,
+                            shown,
                             isFinal,
-                            columnIconBySlug.get(item.task.status),
+                            columnIconBySlug.get(shown),
                           )}
                         </ReferenceStatusButton>
                       </SubtaskStatusPopover>

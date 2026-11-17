@@ -64,7 +64,7 @@ export function PropertyChips({
         {!hideStatus && (
           <TaskStatusPopover task={task}>
             <button type="button" data-task-action="status" className={chip}>
-              {getColumnIcon(task.status ?? "", status.isFinal, status.icon)}
+              {getColumnIcon(status.slug, status.isFinal, status.icon)}
               <span className="truncate">{status.label}</span>
             </button>
           </TaskStatusPopover>

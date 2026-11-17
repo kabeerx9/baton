@@ -66,6 +66,13 @@ export function useFinishTasks(
         type: result.outcome === "applied" ? "undone" : "undoFailed",
         id,
       });
+      if (result.outcome === "superseded") {
+        toast.info(
+          t("workspace:myTasks.toast.notChanged", {
+            key: taskKey(entry.task),
+          }),
+        );
+      }
     } catch (error) {
       dispatch({ type: "undoFailed", id });
       toast.error(
@@ -89,6 +96,13 @@ export function useFinishTasks(
         // Nothing changed. "requested": the writer showed the "request sent"
         // toast. "superseded": a later click on this task replaced this one.
         dispatch({ type: "requested", id });
+        if (result.outcome === "superseded") {
+          // A later click, or an unresolved write, holds this task. Say so,
+          // so the row does not just come back.
+          toast.info(
+            t("workspace:myTasks.toast.notChanged", { key: taskKey(task) }),
+          );
+        }
         return;
       }
       dispatch({ type: "applied", id, at: Date.now() });

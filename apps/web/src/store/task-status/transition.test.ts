@@ -11,7 +11,6 @@ import type { Entry, Event, Target } from "./types";
 
 const A: Target = { status: "in-progress", isFinal: false };
 const B: Target = { status: "done", isFinal: true };
-const C: Target = { status: "in-review", isFinal: false };
 
 const confirming: Entry = { kind: "confirming", target: A };
 const asking: Entry = { kind: "asking", target: A };
@@ -38,215 +37,197 @@ const chosen = (target: Target, move: "apply" | "request" | "deny"): Event => ({
   move,
 });
 
-/** [entry, event, next entry, target to send]. Every state x event is a row. */
-const TABLE: [string, string, Event, Entry, Target?][] = [
-  // chosen + apply
-  ["idle", "chosen apply", chosen(A, "apply"), sending, A],
-  ["confirming", "chosen apply", chosen(B, "apply"), confirming],
-  ["asking", "chosen apply", chosen(B, "apply"), asking],
-  [
-    "sending",
-    "chosen apply",
-    chosen(B, "apply"),
-    { kind: "sending", inFlight: A, latest: B },
-  ],
-  [
-    "queued",
-    "chosen apply (latest wins)",
-    chosen(C, "apply"),
-    { kind: "sending", inFlight: A, latest: C },
-  ],
-  [
-    "confirmed",
-    "chosen apply",
-    chosen(B, "apply"),
-    { kind: "sending", inFlight: B, latest: B },
-    B,
-  ],
-  ["uncertain", "chosen apply", chosen(B, "apply"), uncertain],
-  [
-    "unknownKind",
-    "chosen apply",
-    chosen(B, "apply"),
-    { kind: "sending", inFlight: B, latest: B },
-    B,
-  ],
-  // chosen + request
-  ["idle", "chosen request", chosen(A, "request"), confirming],
-  ["confirming", "chosen request", chosen(B, "request"), confirming],
-  ["asking", "chosen request", chosen(B, "request"), asking],
-  ["sending", "chosen request", chosen(B, "request"), sending],
-  [
-    "confirmed",
-    "chosen request",
-    chosen(B, "request"),
-    { kind: "confirming", target: B },
-  ],
-  ["uncertain", "chosen request", chosen(B, "request"), uncertain],
-  [
-    "unknownKind",
-    "chosen request",
-    chosen(B, "request"),
-    { kind: "confirming", target: B },
-  ],
-  // chosen + deny
-  ["idle", "chosen deny", chosen(A, "deny"), IDLE],
-  ["sending", "chosen deny", chosen(B, "deny"), sending],
-  ["confirmed", "chosen deny", chosen(B, "deny"), confirmed],
-  // confirm
-  ["idle", "confirm", { type: "confirm" }, IDLE],
-  ["confirming", "confirm", { type: "confirm" }, asking, A],
-  ["asking", "confirm", { type: "confirm" }, asking],
-  ["sending", "confirm", { type: "confirm" }, sending],
-  ["uncertain", "confirm", { type: "confirm" }, uncertain],
-  // dismiss
-  ["idle", "dismiss", { type: "dismiss" }, IDLE],
-  ["confirming", "dismiss", { type: "dismiss" }, IDLE],
-  ["asking", "dismiss", { type: "dismiss" }, asking],
-  ["sending", "dismiss", { type: "dismiss" }, sending],
-  // applied
-  ["idle", "applied", { type: "applied", generation: 5 }, IDLE],
-  ["confirming", "applied", { type: "applied", generation: 5 }, confirming],
-  [
-    "asking",
-    "applied (server applied a predicted request)",
-    { type: "applied", generation: 5 },
-    { kind: "confirmed", target: A, generation: 5 },
-  ],
-  [
-    "sending",
-    "applied",
-    { type: "applied", generation: 5 },
-    { kind: "confirmed", target: A, generation: 5 },
-  ],
-  [
-    "queued",
-    "applied (sends the queued target)",
-    { type: "applied", generation: 5 },
-    { kind: "sending", inFlight: B, latest: B },
-    B,
-  ],
-  [
-    "sending",
-    "applied without a generation",
-    { type: "applied", generation: undefined },
-    IDLE,
-  ],
-  ["confirmed", "applied", { type: "applied", generation: 9 }, confirmed],
-  ["uncertain", "applied", { type: "applied", generation: 9 }, uncertain],
-  // requested
-  ["idle", "requested", { type: "requested" }, IDLE],
-  ["confirming", "requested", { type: "requested" }, confirming],
-  ["asking", "requested", { type: "requested" }, IDLE],
-  ["sending", "requested (prediction was wrong)", { type: "requested" }, IDLE],
-  [
-    "queued",
-    "requested (queued target is dropped)",
-    { type: "requested" },
-    IDLE,
-  ],
-  ["confirmed", "requested", { type: "requested" }, confirmed],
-  ["uncertain", "requested", { type: "requested" }, uncertain],
-  // refused
-  ["idle", "refused", { type: "refused" }, IDLE],
-  ["asking", "refused", { type: "refused" }, IDLE],
-  ["sending", "refused", { type: "refused" }, IDLE],
-  [
-    "queued",
-    "refused (sends the queued target)",
-    { type: "refused" },
-    { kind: "sending", inFlight: B, latest: B },
-    B,
-  ],
-  ["confirmed", "refused", { type: "refused" }, confirmed],
-  ["uncertain", "refused", { type: "refused" }, uncertain],
-  // unknown outcome: the write may have committed
-  ["idle", "unknown", { type: "unknown", at: 200 }, IDLE],
-  ["confirming", "unknown", { type: "unknown", at: 200 }, confirming],
-  [
-    "asking",
-    "unknown",
-    { type: "unknown", at: 200 },
-    { kind: "uncertain", since: 200 },
-  ],
-  [
-    "sending",
-    "unknown",
-    { type: "unknown", at: 200 },
-    { kind: "uncertain", since: 200 },
-  ],
-  [
-    "queued",
-    "unknown (nothing is resent)",
-    { type: "unknown", at: 200 },
-    { kind: "uncertain", since: 200 },
-  ],
-  ["confirmed", "unknown", { type: "unknown", at: 200 }, confirmed],
-  ["uncertain", "unknown", { type: "unknown", at: 200 }, uncertain],
-  // read
-  ["idle", "read", { type: "read", at: 300 }, IDLE],
-  ["sending", "read", { type: "read", at: 300 }, sending],
-  ["confirmed", "read", { type: "read", at: 300 }, confirmed],
-  ["uncertain", "read after the failure", { type: "read", at: 100 }, IDLE],
-  ["uncertain", "read after the failure", { type: "read", at: 300 }, IDLE],
-  [
-    "uncertain",
-    "read from before the failure",
-    { type: "read", at: 99 },
-    uncertain,
-  ],
-];
+/** Every event the machine knows. Chosen events pick B. */
+const EVENTS = {
+  apply: chosen(B, "apply"),
+  request: chosen(B, "request"),
+  deny: chosen(B, "deny"),
+  confirm: { type: "confirm" },
+  dismiss: { type: "dismiss" },
+  applied: { type: "applied", generation: 5 },
+  appliedNoGeneration: { type: "applied", generation: undefined },
+  requested: { type: "requested" },
+  refused: { type: "refused" },
+  unknown: { type: "unknown", at: 200 },
+  readAfter: { type: "read", at: 300 },
+  readAtFailure: { type: "read", at: 100 },
+  readBefore: { type: "read", at: 99 },
+} satisfies Record<string, Event>;
+
+type EventName = keyof typeof EVENTS;
+
+/** "same": the event does not fit, so the entry is untouched and nothing is sent. */
+const same = "same" as const;
+type Cell = typeof same | { entry: Entry; send?: Target };
+const to = (entry: Entry, send?: Target): Cell => ({ entry, send });
+
+const SENDING_B = { kind: "sending", inFlight: B, latest: B } as const;
+
+/** The whole machine: every entry x every event, with no gaps. */
+const MATRIX: Record<string, Record<EventName, Cell>> = {
+  idle: {
+    apply: to(SENDING_B, B),
+    request: to({ kind: "confirming", target: B }),
+    deny: to(IDLE),
+    confirm: to(IDLE),
+    dismiss: to(IDLE),
+    applied: to(IDLE),
+    appliedNoGeneration: to(IDLE),
+    requested: to(IDLE),
+    refused: to(IDLE),
+    unknown: to(IDLE),
+    readAfter: to(IDLE),
+    readAtFailure: to(IDLE),
+    readBefore: to(IDLE),
+  },
+  confirming: {
+    apply: same,
+    request: same,
+    deny: same,
+    confirm: to(asking, A),
+    dismiss: to(IDLE),
+    applied: same,
+    appliedNoGeneration: same,
+    requested: same,
+    refused: same,
+    unknown: same,
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+  asking: {
+    apply: same,
+    request: same,
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    // The server applied what we predicted would only ask.
+    applied: to({ kind: "confirmed", target: A, generation: 5 }),
+    appliedNoGeneration: to(IDLE),
+    requested: to(IDLE),
+    refused: to(IDLE),
+    unknown: to({ kind: "uncertain", since: 200 }),
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+  sending: {
+    apply: to({ kind: "sending", inFlight: A, latest: B }),
+    request: same,
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    applied: to({ kind: "confirmed", target: A, generation: 5 }),
+    appliedNoGeneration: to(IDLE),
+    // The prediction was wrong: the request ends the chain.
+    requested: to(IDLE),
+    refused: to(IDLE),
+    unknown: to({ kind: "uncertain", since: 200 }),
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+  queued: {
+    apply: to({ kind: "sending", inFlight: A, latest: B }),
+    request: same,
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    applied: to(SENDING_B, B),
+    appliedNoGeneration: to(SENDING_B, B),
+    // A request drops the queued target: it is never sent.
+    requested: to(IDLE),
+    refused: to(SENDING_B, B),
+    // Nothing is resent after an unknown outcome.
+    unknown: to({ kind: "uncertain", since: 200 }),
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+  confirmed: {
+    apply: to(SENDING_B, B),
+    request: to({ kind: "confirming", target: B }),
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    applied: same,
+    appliedNoGeneration: same,
+    requested: same,
+    refused: same,
+    unknown: same,
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+  uncertain: {
+    apply: same,
+    request: same,
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    applied: same,
+    appliedNoGeneration: same,
+    requested: same,
+    refused: same,
+    unknown: same,
+    readAfter: to(IDLE),
+    readAtFailure: to(IDLE),
+    readBefore: same,
+  },
+  // A kind this build does not know acts as idle: the safe state.
+  unknownKind: {
+    apply: to(SENDING_B, B),
+    request: to({ kind: "confirming", target: B }),
+    deny: same,
+    confirm: same,
+    dismiss: same,
+    applied: same,
+    appliedNoGeneration: same,
+    requested: same,
+    refused: same,
+    unknown: same,
+    readAfter: same,
+    readAtFailure: same,
+    readBefore: same,
+  },
+};
+
+const PAIRS = Object.keys(ENTRIES).flatMap((entry) =>
+  (Object.keys(EVENTS) as EventName[]).map((event) => [entry, event] as const),
+);
 
 describe("transition", () => {
-  it.each(TABLE)("%s + %s", (name, _label, event, next, send) => {
-    const step = transition(ENTRIES[name] as Entry, event);
-    expect(step.entry).toEqual(next);
-    expect(step.send).toEqual(send);
-  });
-
-  it("covers every entry kind with every event type", () => {
-    const covered = new Set(
-      TABLE.map(([name, , event]) => `${name}:${event.type}`),
-    );
-    const types = [
-      "chosen",
-      "confirm",
-      "dismiss",
-      "applied",
-      "requested",
-      "refused",
-      "unknown",
-      "read",
-    ];
-    // Entries the table skips are skipped on purpose: an event that does not
-    // fit changes nothing. Check that claim here.
-    for (const [name, entry] of Object.entries(ENTRIES)) {
-      for (const type of types) {
-        if (covered.has(`${name}:${type}`)) continue;
-        const event: Event =
-          type === "chosen"
-            ? chosen(B, "apply")
-            : type === "applied"
-              ? { type: "applied", generation: 1 }
-              : type === "unknown"
-                ? { type: "unknown", at: 1 }
-                : type === "read"
-                  ? { type: "read", at: 1 }
-                  : ({ type } as Event);
-        const step = transition(entry, event);
-        // chosen/applied/unknown may legitimately start or move a chain; the
-        // others must leave an unlisted pair alone.
-        if (["confirm", "dismiss", "requested", "refused"].includes(type)) {
-          expect(step.entry).toBe(entry);
-          expect(step.send).toBeUndefined();
-        }
-      }
+  it("has a row for every entry kind and every event, with no gaps", () => {
+    expect(Object.keys(MATRIX).sort()).toEqual(Object.keys(ENTRIES).sort());
+    for (const [entry, event] of PAIRS) {
+      expect(MATRIX[entry]?.[event], `${entry} + ${event}`).toBeDefined();
+    }
+    for (const row of Object.values(MATRIX)) {
+      expect(Object.keys(row).sort()).toEqual(Object.keys(EVENTS).sort());
     }
   });
 
-  it("never sends from an ignored event", () => {
-    for (const entry of [confirming, asking, uncertain]) {
-      expect(transition(entry, chosen(B, "apply")).send).toBeUndefined();
+  it.each(PAIRS)("%s + %s", (name, event) => {
+    const entry = ENTRIES[name] as Entry;
+    const cell = MATRIX[name]![event];
+    const step = transition(entry, EVENTS[event]);
+    if (cell === same) {
+      expect(step.entry).toBe(entry);
+      expect(step.send).toBeUndefined();
+    } else {
+      expect(step.entry).toEqual(cell.entry);
+      expect(step.send).toEqual(cell.send);
+    }
+  });
+
+  it("sends at most when it starts a chain or moves one on", () => {
+    for (const [name, event] of PAIRS) {
+      const cell = MATRIX[name]![event];
+      if (cell !== same && cell.send) {
+        expect(["chosen", "confirm", "applied", "refused"]).toContain(
+          EVENTS[event].type,
+        );
+      }
     }
   });
 });
@@ -304,6 +285,22 @@ describe("shownStatus", () => {
       expect(shownStatus(server, entry)).toBe("to-do");
     }
     expect(shownStatus(server, undefined)).toBe("to-do");
+  });
+
+  it("never shows an archive or an unarchive ahead of the server (R1.1)", () => {
+    const archive: Entry = {
+      kind: "sending",
+      inFlight: { status: "archived", isFinal: true },
+      latest: { status: "archived", isFinal: true },
+    };
+    expect(shownStatus(server, archive)).toBe("to-do");
+    // Unarchive: the stored status is "archived".
+    expect(
+      shownStatus({ status: "archived", statusGeneration: 3 }, sending),
+    ).toBe("archived");
+    expect(
+      shownStatus({ status: "archived", statusGeneration: 3 }, confirmed),
+    ).toBe("archived");
   });
 
   it("gives the whole target for views that need its final flag", () => {

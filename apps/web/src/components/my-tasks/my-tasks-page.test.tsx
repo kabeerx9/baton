@@ -346,6 +346,9 @@ describe("mark done", () => {
       "to-do",
     ]);
     expect(mocks.toast.success).not.toHaveBeenCalled();
+    expect(mocks.toast.info).toHaveBeenCalledWith(
+      "APP-27 was not changed. Another update to it is waiting.",
+    );
     // Nothing is left to undo, and the task is still on the list.
     await waitFor(async () => expect(await heroTitle()).toBe("Return 409"));
   });
