@@ -391,6 +391,49 @@ describe("the write may have committed", () => {
     }
   });
 
+  it("unlocks when the recovery refetch cancels the read in flight", async () => {
+    const start = Date.now() + 10_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const stop = watchTaskReads(client);
+      vi.setSystemTime(start);
+      const inFlight = client
+        .fetchQuery({
+          queryKey: ["task", "t"],
+          queryFn: () => new Promise(() => {}),
+          staleTime: 0,
+        })
+        .catch(() => undefined);
+      await settled();
+      vi.setSystemTime(start + 1000);
+      put.mockRejectedValueOnce(timeout());
+      await expect(click(DONE)).rejects.toThrow();
+      expect(entryOf("t").kind).toBe("uncertain");
+
+      // The recovery refetch cancels the stale read and issues its own.
+      vi.setSystemTime(start + 2000);
+      await client
+        .getQueryCache()
+        .find({ queryKey: ["task", "t"] })!
+        .fetch(
+          {
+            queryKey: ["task", "t"],
+            queryFn: async () => ({
+              id: "t",
+              status: "done",
+              statusGeneration: 4,
+            }),
+          },
+          { cancelRefetch: true },
+        );
+      await inFlight;
+      expect(entryOf("t").kind).toBe("idle");
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("unlocks on a board read that carries the task", async () => {
     const stop = watchTaskReads(client);
     put.mockRejectedValueOnce(timeout());

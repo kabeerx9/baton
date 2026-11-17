@@ -38,9 +38,9 @@ export function watchTaskReads(queryClient: QueryClient): () => void {
     if (event.type !== "updated") return;
     const { action, query } = event;
     if (action.type === "fetch") {
-      // A joined fetch sends no second "fetch": the first start stays.
-      if (!startedAt.has(query.queryHash))
-        startedAt.set(query.queryHash, Date.now());
+      // A joined fetch sends no second "fetch", so each "fetch" is a new
+      // request. One that cancels a read in flight replaces its start.
+      startedAt.set(query.queryHash, Date.now());
       return;
     }
     if (action.type === "error") startedAt.delete(query.queryHash);
