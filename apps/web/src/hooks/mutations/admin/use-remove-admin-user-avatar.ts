@@ -2,8 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageMinusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { removeAdminUserAvatar } from "@/fetchers/admin/remove-admin-user-avatar";
-import { ADMIN_USERS_QUERY_KEY } from "@/hooks/queries/admin/use-admin-users";
 import { toast } from "@/lib/toast";
+import refreshAfterAdminAvatarChange from "./refresh-after-admin-avatar-change";
 
 function useRemoveAdminUserAvatar() {
   const { t } = useTranslation();
@@ -11,11 +11,11 @@ function useRemoveAdminUserAvatar() {
 
   return useMutation({
     mutationFn: removeAdminUserAvatar,
-    onSuccess: () => {
+    onSuccess: (_result, userId) => {
       toast.success(t("settings:adminUsers.toast.avatarRemoved"), {
         icon: ImageMinusIcon,
       });
-      queryClient.invalidateQueries({ queryKey: ADMIN_USERS_QUERY_KEY });
+      return refreshAfterAdminAvatarChange(queryClient, userId);
     },
     onError: (error) => {
       toast.error(

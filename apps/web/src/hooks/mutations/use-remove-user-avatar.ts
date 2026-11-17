@@ -1,22 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import deleteAvatar from "@/fetchers/user/delete-avatar";
-import { authClient } from "@/lib/auth-client";
 import invalidateUserProfileQueries from "./invalidate-user-profile-queries";
+import refreshSession from "./refresh-session";
 
+/** The server deletes the picture and clears `user.image` in one request. */
 function useRemoveUserAvatar() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      const { error } = await authClient.updateUser({ image: null });
-
-      if (error) {
-        throw new Error(error.message || "Failed to remove profile picture");
-      }
-
-      return deleteAvatar();
-    },
-    onSuccess: () => invalidateUserProfileQueries(queryClient),
+    mutationFn: () => deleteAvatar(),
+    onSuccess: () =>
+      Promise.all([
+        refreshSession(),
+        invalidateUserProfileQueries(queryClient),
+      ]),
   });
 }
 
