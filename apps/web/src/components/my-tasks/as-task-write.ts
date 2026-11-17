@@ -26,9 +26,7 @@ export function asTaskWrite(
     userId: null,
     assigneeId: null,
     assigneeName: null,
-    // My tasks lists the person's own work, so a status move applies. The
-    // list carries no prediction. If the server answers with a request
-    // instead, the writer settles "requested" and the ledger drops the entry.
+    // The list holds only tasks assigned to the person, who is involved (BOARD.md), so the move applies; a role without task:update gets a 403 and the normal revert.
     statusChange: { move: "apply" },
     ...change,
   };

@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { NewTaskDialog } from "@/components/board/new-task-dialog";
 import WorkspaceLayout from "@/components/common/workspace-layout";
 import { ActivityFeed } from "@/components/home/activity-feed";
 import { getDayPart } from "@/components/home/day-part";
@@ -10,7 +11,6 @@ import { UpNext } from "@/components/home/up-next";
 import { WeekStrip } from "@/components/home/week-strip";
 import PageTitle from "@/components/page-title";
 import CreateProjectModal from "@/components/shared/modals/create-project-modal";
-import CreateTaskModal from "@/components/shared/modals/create-task-modal";
 import { Button } from "@/components/ui/button";
 import useGetProjects from "@/hooks/queries/project/use-get-projects";
 import useGetAssignedTasks from "@/hooks/queries/task/use-get-assigned-tasks";
@@ -124,9 +124,11 @@ function RouteComponent() {
         </div>
       </WorkspaceLayout>
 
-      <CreateTaskModal
+      <NewTaskDialog
+        workspaceId={workspaceId}
         open={isCreateTaskOpen}
-        onClose={() => setIsCreateTaskOpen(false)}
+        onOpenChange={setIsCreateTaskOpen}
+        onCreated={() => undefined}
       />
       <CreateProjectModal
         open={isCreateProjectOpen}
