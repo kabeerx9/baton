@@ -22,13 +22,16 @@ import {
 } from "./controllers/plan-task";
 import getTeamHistory from "./controllers/get-team-history";
 import getBoard from "./controllers/get-board";
-import { boardSchema, teamHistorySchema } from "./response";
+import { getBoardItem } from "./controllers/get-board-item";
+import { resolveDoneSince } from "./done-since";
+import { boardItemSchema, boardSchema, teamHistorySchema } from "./response";
 import {
   addSubtaskBody,
   createBoardTaskBody,
   boardTaskIdParam,
   addSubtaskPlansBody,
   boardKeyParam,
+  boardQuery,
   boardWorkspaceParam,
   taskPlanBody,
   updateByKeyBody,
@@ -42,15 +45,36 @@ const getBoardRoute = createRoute({
   tags: ["Board"],
   summary: "Get the workspace board",
   description:
-    "Every task of the workspace, each with its board column, its subtasks from any repo project the caller can see, the blocks links between them, and their pull requests. Also lists the workspace's visible projects with their connected repository.",
+    "Every open task of the workspace and the done ones that finished at or after `doneSince` (default: the last 14 days), each with its board column, its subtasks from any repo project the caller can see, the blocks links between them, and their pull requests. A kept feature keeps all its subtasks. Older done items are counted in `olderDoneCount`. Also lists the workspace's visible projects with their connected repository.",
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
     requireWorkspacePermission({ task: ["read"] }),
   ] as const,
-  request: { params: boardWorkspaceParam },
+  request: { params: boardWorkspaceParam, query: boardQuery },
   responses: {
     200: jsonResponse("The board", boardSchema),
+    400: errorResponse("`doneSince` is not an ISO datetime"),
     403: errorResponse("Not a member, or missing task:read permission"),
+  },
+});
+
+const getBoardItemRoute = createRoute({
+  method: "get",
+  operationId: "getBoardItem",
+  path: "/workspace/{workspaceId}/item/{key}",
+  tags: ["Board"],
+  summary: "Get one board item by key",
+  description:
+    "The top-level board item that is the task, or the feature that holds it, in the board's shape and with no done window: an old done feature comes back with its subtasks. Same visibility as the board. `task` is null for a repo task outside any feature.",
+  middleware: [
+    workspaceAccess.fromParam("workspaceId"),
+    requireWorkspacePermission({ task: ["read"] }),
+  ] as const,
+  request: { params: boardKeyParam },
+  responses: {
+    200: jsonResponse("The item", boardItemSchema),
+    403: errorResponse("Not a member, or missing task:read permission"),
+    404: errorResponse("No task with that key that the caller can see"),
   },
 });
 
@@ -292,7 +316,24 @@ const addSubtaskRoute = createRoute({
 
 const board = apiRouter<BaseVariables & { workspaceId: string }>()
   .openapi(getBoardRoute, async (c) =>
-    c.json(await getBoard(c.get("workspaceId"), c.get("userId")), 200),
+    c.json(
+      await getBoard(
+        c.get("workspaceId"),
+        actorFromContext(c),
+        resolveDoneSince(c.req.valid("query").doneSince),
+      ),
+      200,
+    ),
+  )
+  .openapi(getBoardItemRoute, async (c) =>
+    c.json(
+      await getBoardItem(
+        c.get("workspaceId"),
+        actorFromContext(c),
+        c.req.valid("param").key,
+      ),
+      200,
+    ),
   )
   .openapi(getTeamHistoryRoute, async (c) =>
     c.json(

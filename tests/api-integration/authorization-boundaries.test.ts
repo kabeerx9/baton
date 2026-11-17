@@ -92,6 +92,7 @@ describe("task assignees stay inside the workspace", () => {
     const { user, workspace } = await createWorkspaceMember({ role: "owner" });
     const outsider = await createWorkspaceMember({ role: "owner" });
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: workspace.id,
     });
 

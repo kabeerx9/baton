@@ -136,7 +136,8 @@ treated as final.
 
 | Call | Purpose |
 | --- | --- |
-| `GET /api/board/workspace/{workspaceId}` | The whole board in one response. Each item has `column` (todo, doing, review, done), `dueDate`, `finishedAt`, `waitsOn` and `hiddenBlockers`. |
+| `GET /api/board/workspace/{workspaceId}?doneSince=` | The board in one response: every open item, and done items that finished at or after `doneSince`. Each item has `column` (todo, doing, review, done), `dueDate`, `finishedAt`, `waitsOn`, `hiddenBlockers`, `statusGeneration` and `statusChange`. |
+| `GET /api/board/workspace/{workspaceId}/item/{key}` | One board item by key or id, with no done window: the item that is the task, or the feature that holds it. `task` is null for a repo task outside any feature. |
 | `POST /api/board/workspace/{workspaceId}` | Create a task. |
 | `POST /api/board/{taskId}/subtask` | Create a subtask and link it, in one transaction. |
 | `GET /api/board/workspace/{workspaceId}/history?days=30` | Finished work per person. |
@@ -165,6 +166,51 @@ What a task waits on comes from the server, in one module
 - `finishedAt` is the time the item reached its current final status, the same
   time team history uses (`apps/api/src/task/finished-at.ts`).
 
+### The done window
+
+The board leaves out done work that finished before `doneSince`, so old
+done trees never leave the database. The web app sends its local midnight
+minus 14 days; without the parameter the server uses now minus 14 days. A
+future value is clamped to now; text that is not an ISO datetime is 400.
+
+- The selection runs in SQL over the subtasks the caller can see, by rules 3
+  and the `finishedAt` rule above (`apps/api/src/board/controllers/select-board-window.ts`).
+  A done item with no finish time stays. A kept feature keeps all its subtasks.
+- The response adds `olderDoneCount` (top-level items left out) and
+  `doneSince` (the cutoff used).
+- Selection and payload run in one read-only REPEATABLE READ transaction, so
+  the kept set, the count and the items agree.
+- The one-item read and team history reach older work. The relations read
+  (`GET /api/task-relation/{taskId}`) gives each linked task an `open` flag by
+  rule 5, so a linked task the board leaves out still shows the right state.
+- Each refetch still reads `activity` for the finish time of every done row.
+  A stored finish time is the next scale step.
+
+### Status capability on reads
+
+Board items (tasks and subtasks), `GET /api/task/{id}` and
+`GET /api/task/by-ticket-id/{ticketId}` carry `statusGeneration` and
+`statusChange: { move }`. `move` is what an ordinary column move by the caller
+does now, by the table in "Who can change a task": `apply`, `request` or
+`deny` (no `task:update`, including an API key scope without it). Leaving
+`archived` counts as unarchive. Archive itself is not covered. Clients treat
+any other value as `request`. The board loads the consent facts once per read
+(`apps/api/src/task-change-request/status-capability.ts`). The creator is
+never sent.
+
+`PUT /api/task/status/{id}` returns `task.statusGeneration`. A read whose
+generation is lower than one a write returned is older than that write.
+
+### Where a task is created
+
+A standalone task lives in the board project; a repo task sits under a
+feature. `POST /api/task/{projectId}` with a repo project and no parent
+answers 400, after the permission check and before a task number is used
+(`taskPlacement` in `apps/api/src/task/task-placement.ts`). Create with
+`POST /api/board/workspace/{workspaceId}` or `POST /api/board/{taskId}/subtask`.
+Other writers that can still leave a parentless repo task (import, move, link
+delete, feature delete, duplicate, GitHub) are a follow-up.
+
 Status, assignee, description and comments use the normal task endpoints.
 
 ## MCP tools
@@ -178,8 +224,8 @@ for stdio) lists the full catalog. The core set lives in
 | --- | --- | --- |
 | `list_workspaces` | yes | The workspaces the caller can read. |
 | `list_my_tasks` | yes | The caller's open work, with who waits on each item. |
-| `get_task_by_ticket_id` | yes | One task by key, with its comments, in one call. |
-| `get_board` | yes | Everything in one call: tasks, subtasks, keys, repos, members. |
+| `get_task_by_ticket_id` | yes | One task by key, with its comments, in one call. A feature also gets its visible `subtasks`, even when the board leaves it out. |
+| `get_board` | yes | The board in one call: open work and work finished in the last 14 days, with subtasks, keys, repos and members. `olderDoneCount` counts older done items. |
 | `create_board_task` | yes | One call creates a task with its description, owner, subtasks, their repos and owners, and what waits on what. |
 | `add_subtasks` | yes | Adds subtasks to a task found by its key. |
 | `update_board_item` | yes | Sets the status, owner or waits-on of a task or subtask found by its key. |

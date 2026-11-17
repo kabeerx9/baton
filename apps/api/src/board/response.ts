@@ -1,5 +1,10 @@
 import { nullableResponseTimestamp, responseTimestamp, z } from "../openapi";
-import { hiddenBlockersSchema, waitsOnSchema } from "../task/response";
+import {
+  hiddenBlockersSchema,
+  statusChangeSchema,
+  statusGenerationSchema,
+  waitsOnSchema,
+} from "../task/response";
 import { pendingRequestSchema } from "../task-change-request/response";
 
 const assigneeSchema = z
@@ -23,6 +28,8 @@ const boardTaskBaseSchema = z.object({
   }),
   title: z.string(),
   status: z.string(),
+  statusGeneration: statusGenerationSchema,
+  statusChange: statusChangeSchema,
   isCompleted: z.boolean(),
   priority: z.string().nullable(),
   projectId: z.string(),
@@ -58,7 +65,7 @@ export const boardTaskSchema = boardTaskBaseSchema
     }),
     subtasks: z.array(subtaskSchema),
   })
-  .openapi("BoardTask");
+  .openapi("WorkspaceBoardTask");
 
 export const boardProjectSchema = z
   .object({
@@ -95,8 +102,25 @@ export const boardSchema = z
       description:
         "Every project in the workspace the caller can see, for labelling subtasks and offering repo choices.",
     }),
+    olderDoneCount: z.number().int().nonnegative().openapi({
+      description:
+        "Top-level items whose column is done and that finished before `doneSince`. They are left out of `tasks`; team history and the one-item read reach them.",
+    }),
+    doneSince: responseTimestamp.openapi({
+      description:
+        "The cutoff this response used: the `doneSince` parameter clamped to now, or now minus 14 days without it.",
+    }),
   })
   .openapi("TaskBoard");
+
+export const boardItemSchema = z
+  .object({
+    task: boardTaskSchema.nullable().openapi({
+      description:
+        "The top-level item that is, or holds, the task, with no done window. Null for a repo task outside any feature.",
+    }),
+  })
+  .openapi("BoardItem");
 
 export const teamHistorySchema = z
   .object({

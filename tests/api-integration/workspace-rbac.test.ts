@@ -91,6 +91,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("allows a member to create a task (member role grants task:create)", async () => {
       const member = await createWorkspaceMember({ role: "member" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 
@@ -104,6 +105,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("blocks a viewer from creating a task (viewer role lacks task:create)", async () => {
       const member = await createWorkspaceMember({ role: "viewer" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 
@@ -235,6 +237,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("returns 404 when the user has no row in workspace_member for the workspace", async () => {
       const member = await createWorkspaceMember({ role: "admin" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 
@@ -520,6 +523,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("blocks a custom role that only grants task:read from creating a task", async () => {
       const member = await createWorkspaceMember({ role: "readonly" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "readonly", {
@@ -537,6 +541,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("allows a custom role that grants task:create to create a task", async () => {
       const member = await createWorkspaceMember({ role: "creator" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "creator", {
@@ -556,6 +561,7 @@ describe("API integration: workspace RBAC enforcement", () => {
       // row for "viewer" with task:create should override and grant access.
       const member = await createWorkspaceMember({ role: "viewer" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "viewer", {
@@ -574,6 +580,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("returns 403 when the workspace_role permission JSON is malformed", async () => {
       const member = await createWorkspaceMember({ role: "broken" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       // Malformed permission payload. The middleware should refuse rather than
@@ -590,6 +597,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("drops malformed permission entries instead of throwing", async () => {
       const member = await createWorkspaceMember({ role: "partial" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       // Some entries are valid string arrays, others are objects/strings/etc.
@@ -614,6 +622,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("allows a member with several roles when any role grants the permission", async () => {
       const member = await createWorkspaceMember({ role: "readonly,member" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "readonly", {
@@ -630,6 +639,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("blocks a member with several roles when no role grants the permission", async () => {
       const member = await createWorkspaceMember({ role: "readonly,viewer" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "readonly", {
@@ -651,6 +661,7 @@ describe("API integration: workspace RBAC enforcement", () => {
     it("allows a role when any duplicate workspace_role row grants the permission", async () => {
       const member = await createWorkspaceMember({ role: "creator" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
       await createWorkspaceRoleRow(member.workspace.id, "creator", {
@@ -673,6 +684,7 @@ describe("API integration: workspace RBAC enforcement", () => {
       // No workspace_role row, role is the compiled-in "admin"; should work.
       const member = await createWorkspaceMember({ role: "admin" });
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 
@@ -1170,6 +1182,7 @@ describe("API integration: workspace RBAC enforcement", () => {
         .where(eq(schema.userTable.id, member.user.id));
 
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 
@@ -1195,6 +1208,7 @@ describe("API integration: workspace RBAC enforcement", () => {
         .where(eq(schema.userTable.id, member.user.id));
 
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 

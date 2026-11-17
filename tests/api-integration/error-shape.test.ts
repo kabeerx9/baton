@@ -67,6 +67,7 @@ describe("API integration: error shape", () => {
   it("reports every validation issue under VALIDATION_ERROR", async () => {
     const member = await createWorkspaceMember({ role: "member" });
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
     mockAuthenticatedSession(member.user);
@@ -98,6 +99,7 @@ describe("API integration: error shape", () => {
   it("names the permissions a member lacks", async () => {
     const viewer = await createWorkspaceMember({ role: "viewer" });
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: viewer.workspace.id,
     });
     mockAuthenticatedSession(viewer.user);
@@ -116,6 +118,7 @@ describe("API integration: error shape", () => {
   it("names the permissions an API key's scope lacks", async () => {
     const member = await createWorkspaceMember({ role: "member" });
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
     const key = await seedApiKey(member.user.id, { task: ["read"] });

@@ -21,6 +21,7 @@ import {
   assertAssignableUser,
   getProjectWorkspaceId,
 } from "../../utils/assert-assignable-user";
+import { NEEDS_PARENT_MESSAGE, taskPlacement } from "../task-placement";
 import { assertValidTaskStatus } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { nextTaskPosition } from "./next-task-position";
@@ -51,6 +52,21 @@ async function createTask({
   priority?: string;
   draftAssetIds?: string[];
 }) {
+  // Routes check authentication, workspace access and task:create first, so
+  // only a permitted caller learns a project's kind. Refused before a task
+  // number is claimed.
+  const [project] = await db
+    .select({ kind: projectTable.kind })
+    .from(projectTable)
+    .where(eq(projectTable.id, projectId))
+    .limit(1);
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
+  if (
+    taskPlacement({ projectKind: project.kind, hasParent: !!parentTaskId }) !==
+    "ok"
+  )
+    throw new HTTPException(400, { message: NEEDS_PARENT_MESSAGE });
+
   const resolvedStatus = status || "to-do";
   const resolvedPriority = priority || "no-priority";
 

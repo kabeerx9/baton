@@ -22,6 +22,7 @@ beforeEach(async () => {
 async function setup() {
   const member = await createWorkspaceMember();
   const { project, columns } = await createProjectFixture({
+    kind: "board",
     workspaceId: member.workspace.id,
   });
   mockAuthenticatedSession(member.user);

@@ -77,6 +77,25 @@ export function registerTools(
   const { client } = ctx;
   const workspace = (input: string | undefined) =>
     resolveWorkspaceId(client, input, ctx.defaultWorkspaceId);
+  // A feature's visible tasks, from the same one-item read the task page
+  // uses, so a feature outside the board's done window still lists them.
+  // Only for the item itself: a subtask key does not get its siblings.
+  const featureSubtasks = async (task: {
+    id: string;
+    workspaceId?: string;
+    isSubtask?: boolean;
+  }) => {
+    if (task.isSubtask || !task.workspaceId) return undefined;
+    const item = await client.json<{
+      task: { id: string; subtasks: unknown[] } | null;
+    }>(
+      `/api/board/workspace/${encodeURIComponent(task.workspaceId)}/item/${encodeURIComponent(task.id)}`,
+      { method: "GET" },
+    );
+    return item.task?.id === task.id && item.task.subtasks.length > 0
+      ? item.task.subtasks
+      : undefined;
+  };
   const registerTool = <S extends z.ZodObject>(
     name: string,
     config: { description: string; inputSchema: S },
@@ -278,7 +297,7 @@ export function registerTools(
     "get_task_by_ticket_id",
     {
       description:
-        "Read one task fully by its key (for example T-5 or API-12): the task and its `comments`. Leave out workspaceId to use your default workspace; pass a workspace name or id when the key could be in another one.",
+        "Read one task fully by its key (for example T-5 or API-12): the task and its `comments`. For a feature it also has `subtasks`: the tasks under it that you can see, in the get_board shape, even when the feature finished long ago and get_board leaves it out. Leave out workspaceId to use your default workspace; pass a workspace name or id when the key could be in another one.",
       inputSchema: z.object({
         ticketId: nonEmptyString,
         workspaceId: workspaceRef,
@@ -295,7 +314,11 @@ export function registerTools(
         if (resolved) query.set("workspaceId", resolved);
         if (projectId) query.set("projectId", projectId);
         const suffix = query.toString();
-        const task = await client.json<{ id: string }>(
+        const task = await client.json<{
+          id: string;
+          workspaceId?: string;
+          isSubtask?: boolean;
+        }>(
           `/api/task/by-ticket-id/${encodeURIComponent(ticketId)}${suffix ? `?${suffix}` : ""}`,
           { method: "GET" },
         );
@@ -303,48 +326,11 @@ export function registerTools(
           `/api/comment/${encodeURIComponent(task.id)}`,
           { method: "GET" },
         );
-        return { ...task, comments };
+        const subtasks = await featureSubtasks(task);
+        return subtasks
+          ? { ...task, comments, subtasks }
+          : { ...task, comments };
       }),
-  );
-
-  registerTool(
-    "create_task",
-    {
-      description: "Create a task in a project.",
-      inputSchema: z.object({
-        projectId: nonEmptyString,
-        title: nonEmptyString,
-        description: z.string(),
-        priority: prioritySchema,
-        status: nonEmptyString,
-        startDate: optionalIsoDateTimeSchema,
-        dueDate: optionalIsoDateTimeSchema,
-        userId: optionalNonEmptyString,
-      }),
-    },
-    async (args) => {
-      const body: Record<string, string | undefined> = {
-        title: args.title,
-        description: args.description,
-        priority: args.priority,
-        status: args.status,
-      };
-      if (args.startDate !== undefined) {
-        body.startDate = args.startDate;
-      }
-      if (args.dueDate !== undefined) {
-        body.dueDate = args.dueDate;
-      }
-      if (args.userId !== undefined) {
-        body.userId = args.userId;
-      }
-      return run(() =>
-        client.json(`/api/task/${encodeURIComponent(args.projectId)}`, {
-          method: "POST",
-          body: JSON.stringify(body),
-        }),
-      );
-    },
   );
 
   registerTool(
@@ -714,7 +700,7 @@ export function registerTools(
     "get_board",
     {
       description:
-        "Get the workspace board. Words the team uses: a TASK is one job with one owner. A FEATURE is a job that has tasks under it; each of those tasks has its own owner and lives in a repo (App, API, Engine...) or in no repo (QA, design). In this response every top-level entry of `tasks` is a task or a feature, and its `subtasks` array holds the tasks under a feature (empty for a single task). Each has a `key` such as T-5 or API-3, a status, `dueDate`, `finishedAt` (when it reached done; null while open) and pull requests. `waitsOn` lists the open tasks that block an item, in any repo or feature; `hiddenBlockers` counts open blockers in repos you cannot see. An item is blocked when either is non-empty: it can start but cannot be set to done. `blockedBy` on a subtask is map edges only, not a blocked signal. `column` is where the entry sits on the board (todo, doing, review, done); for a feature it follows its tasks: done when all are done, review when every unfinished one is in review, doing once any has started. A blocked item stays in its column. `projects` lists where a task under a feature can live: kind `repo` for repos, kind `board` for no repo. `members` lists everyone with the user id that assignment tools accept. `pendingRequest` is a status or delete change request waiting for an answer, or null. get_task_by_ticket_id finds one item by key.",
+        "Get the workspace board. Words the team uses: a TASK is one job with one owner. A FEATURE is a job that has tasks under it; each of those tasks has its own owner and lives in a repo (App, API, Engine...) or in no repo (QA, design). In this response every top-level entry of `tasks` is a task or a feature, and its `subtasks` array holds the tasks under a feature (empty for a single task). Each has a `key` such as T-5 or API-3, a status, `dueDate`, `finishedAt` (when it reached done; null while open) and pull requests. `waitsOn` lists the open tasks that block an item, in any repo or feature; `hiddenBlockers` counts open blockers in repos you cannot see. An item is blocked when either is non-empty: it can start but cannot be set to done. `blockedBy` on a subtask is map edges only, not a blocked signal. `column` is where the entry sits on the board (todo, doing, review, done); for a feature it follows its tasks: done when all are done, review when every unfinished one is in review, doing once any has started. A blocked item stays in its column. `projects` lists where a task under a feature can live: kind `repo` for repos, kind `board` for no repo. `members` lists everyone with the user id that assignment tools accept. `pendingRequest` is a status or delete change request waiting for an answer, or null. `statusChange.move` says what a status change by you does: `apply`, `request` (a change request) or `deny`. Done work that finished more than 14 days ago is left out; `olderDoneCount` counts those items. get_team_history lists finished work, and get_task_by_ticket_id reads any item by key, with a feature's tasks.",
       inputSchema: z.object({ workspaceId: workspaceRef }),
     },
     async (args) =>
@@ -965,7 +951,7 @@ export function registerTools(
     "list_project_columns",
     {
       description:
-        "List a project's columns. Their slugs are the values update_task_status and create_task accept as a status.",
+        "List a project's columns. Their slugs are the values update_task_status accepts as a status.",
       inputSchema: z.object({ projectId: nonEmptyString }),
     },
     async (args) =>

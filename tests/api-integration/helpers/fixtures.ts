@@ -52,11 +52,14 @@ export async function createProjectFixture({
   name = "Integration Project",
   icon = "Folder",
   slug = `project-${randomUUID()}`,
+  kind = "repo",
 }: {
   workspaceId: string;
   name?: string;
   icon?: string;
   slug?: string;
+  /** `board` for the workspace's one board project, where standalone tasks go. */
+  kind?: "repo" | "board";
 }) {
   const [project] = await db
     .insert(schema.projectTable)
@@ -65,6 +68,7 @@ export async function createProjectFixture({
       name,
       icon,
       slug,
+      kind,
     })
     .returning();
 

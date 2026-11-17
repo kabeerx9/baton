@@ -11,6 +11,10 @@ const relatedTaskSchema = z
     isCompleted: z.boolean().openapi({
       description: "Whether the task is in a final column of its own project.",
     }),
+    open: z.boolean().openapi({
+      description:
+        "Whether the task still holds up work that waits on it, by the board's rule: a feature is open while one of its tasks is open; an archived task, or one in an archived repo, is never open. Use this, not `status`, for a linked task the board does not list.",
+    }),
     priority: z.string().nullable(),
     number: z.number().nullable(),
     projectId: z.string(),

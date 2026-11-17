@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import db from "../database";
+import type { DbOrTx } from "../project-access/db-or-tx";
 import {
   projectTable,
   taskRelationTable,
@@ -14,15 +15,17 @@ import { type BlockLink, summarizeBlockers } from "./summarize-blockers";
  * Every `blocks` link into the given tasks, in one query, whatever the
  * blocker's status or repo. Each row says whether the blocker is open and
  * whether the caller may see it. The board also derives its map edges from
- * these rows, so it reads the links once.
+ * these rows, so it reads the links once. Pass `database` to read inside a
+ * transaction's snapshot.
  */
 export async function loadBlockLinks(
   targetIds: string[],
   userId: string,
   workspaceId: string,
+  database: DbOrTx = db,
 ): Promise<BlockLink[]> {
   if (targetIds.length === 0) return [];
-  return db
+  return database
     .select({
       blockedId: taskRelationTable.targetTaskId,
       blockerId: taskRelationTable.sourceTaskId,
@@ -54,7 +57,13 @@ export async function getOpenBlockers(
   openTaskIds: string[],
   userId: string,
   workspaceId: string,
+  database: DbOrTx = db,
 ) {
-  const links = await loadBlockLinks(openTaskIds, userId, workspaceId);
+  const links = await loadBlockLinks(
+    openTaskIds,
+    userId,
+    workspaceId,
+    database,
+  );
   return summarizeBlockers(links, new Set(openTaskIds));
 }
