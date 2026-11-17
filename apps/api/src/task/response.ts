@@ -33,7 +33,7 @@ export const statusChangeSchema = z
   .object({
     move: z.enum(["apply", "request", "deny"]).openapi({
       description:
-        'What an ordinary column move by the caller does now: "apply" changes the status, "request" opens a change request, "deny" is refused (no task:update, including an API key scope without it). Archive and unarchive are not covered. Treat any other value as "request".',
+        'The consent rule for an ordinary column move by the caller, not the outcome: "apply" means no change request is needed, "request" means the move opens a change request, "deny" means it is refused for permission (no task:update, including an API key scope without it). A move the rule would apply can still be refused: 409 into a final column while the task is blocked, 400 for a status slug the project does not have. Archive and unarchive are not covered. Treat any other value as "request".',
     }),
   })
   .openapi("StatusChange");

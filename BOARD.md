@@ -190,9 +190,12 @@ future value is clamped to now; text that is not an ISO datetime is 400.
 
 Board items (tasks and subtasks), `GET /api/task/{id}` and
 `GET /api/task/by-ticket-id/{ticketId}` carry `statusGeneration` and
-`statusChange: { move }`. `move` is what an ordinary column move by the caller
-does now, by the table in "Who can change a task": `apply`, `request` or
-`deny` (no `task:update`, including an API key scope without it). Leaving
+`statusChange: { move }`. `move` is the consent rule for an ordinary column
+move by the caller, by the table in "Who can change a task": `apply` (no
+request needed), `request` or `deny` (no `task:update`, including an API key
+scope without it). It predicts consent, not the outcome: an `apply` move can
+still be refused with 409 (a final column while blocked, rule 5) or 400 (a
+status the repo does not have). Leaving
 `archived` counts as unarchive. Archive itself is not covered. Clients treat
 any other value as `request`. The board loads the consent facts once per read
 (`apps/api/src/task-change-request/status-capability.ts`). The creator is

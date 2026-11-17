@@ -10,7 +10,7 @@ import type { DbOrTx } from "../../project-access/db-or-tx";
 import { projectAccessCondition } from "../../project-access/project-access-condition";
 import { pendingRequestsForTasks } from "../../task-change-request/pending-summaries";
 import { isSubtask } from "../../task/is-subtask";
-import { isKey } from "../resolve-names";
+import { isKey, keyNumber } from "../resolve-names";
 import { boardSnapshot } from "./board-snapshot";
 import { ensureBoardProject } from "./ensure-board-project";
 import { getVisibleProjects } from "./get-visible-projects";
@@ -30,7 +30,11 @@ async function findVisibleTask(
 ) {
   const key = ref.trim();
   const byKey = isKey(key);
-  const [slug, number] = byKey ? key.split("-") : [];
+  const [slug, digits] = byKey ? key.split("-") : [];
+  const number = byKey ? keyNumber(digits) : null;
+  // A number no task can have (too many digits) is a missing task, not a 500.
+  if (byKey && number === null)
+    throw new HTTPException(404, { message: `There is no task ${key}.` });
   const [task] = await database
     .select({ id: taskTable.id, projectId: taskTable.projectId })
     .from(taskTable)
@@ -41,7 +45,7 @@ async function findVisibleTask(
         byKey
           ? and(
               sql`lower(${projectTable.slug}) = ${(slug ?? "").toLowerCase()}`,
-              eq(taskTable.number, Number(number)),
+              eq(taskTable.number, number ?? 0),
             )
           : eq(taskTable.id, key),
         or(

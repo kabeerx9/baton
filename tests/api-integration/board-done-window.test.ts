@@ -392,6 +392,20 @@ describe("API integration: one board item", () => {
     expect(byId.task.id).toBe(f.t.allDoneOld.id);
   });
 
+  it("answers a key whose number no task can have with 404, on read and update", async () => {
+    const f = await seed();
+    const send = as(f.owner);
+    for (const key of ["T-99999999999", "T-2147483648"]) {
+      const read = await item(send, f.workspace.id, key);
+      expect(read.status, `GET ${key}`).toBe(404);
+      const update = await send(
+        `/api/board/workspace/${f.workspace.id}/item/${key}`,
+        { method: "PATCH", body: JSON.stringify({ status: "done" }) },
+      );
+      expect(update.status, `PATCH ${key}`).toBe(404);
+    }
+  });
+
   it("returns null for a repo task outside any feature", async () => {
     const f = await seed();
     const response = await item(

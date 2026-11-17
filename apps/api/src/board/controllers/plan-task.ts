@@ -19,6 +19,7 @@ import { taskTable as tasks } from "../../database/schema";
 import createTaskRelation from "../../task-relation/controllers/create-task-relation";
 import {
   isKey,
+  keyNumber,
   type Member,
   matchMember,
   matchRepo,
@@ -94,7 +95,11 @@ type Directory = { members: Member[]; repos: Repo[] };
 export async function findTaskByKey(workspaceId: string, ref: string) {
   const key = ref.trim();
   const byKey = isKey(key);
-  const [slug, number] = byKey ? key.split("-") : [];
+  const [slug, digits] = byKey ? key.split("-") : [];
+  const number = byKey ? keyNumber(digits) : null;
+  // A number no task can have (too many digits) is a missing task, not a 500.
+  if (byKey && number === null)
+    throw new HTTPException(404, { message: `There is no task ${key}.` });
   const [task] = await db
     .select({
       id: taskTable.id,
@@ -112,7 +117,7 @@ export async function findTaskByKey(workspaceId: string, ref: string) {
         byKey
           ? and(
               sql`lower(${projectTable.slug}) = ${(slug ?? "").toLowerCase()}`,
-              eq(taskTable.number, Number(number)),
+              eq(taskTable.number, number ?? 0),
             )
           : eq(taskTable.id, key),
       ),

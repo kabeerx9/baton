@@ -96,6 +96,17 @@ export function statusSlug(word: string) {
 }
 
 /** True for a ticket key such as API-3 or T-12. */
+/**
+ * The task number in a key, or null when it cannot be a stored number
+ * (`task.number` is int4). A caller answers null as "no such task".
+ */
+export function keyNumber(value: string | undefined) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 1 && number <= 2_147_483_647
+    ? number
+    : null;
+}
+
 export function isKey(ref: string) {
   return /^[A-Za-z][A-Za-z0-9]*-\d+$/.test(ref.trim());
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isKey, matchMember, matchRepo, statusSlug } from "./resolve-names";
+import {
+  isKey,
+  keyNumber,
+  matchMember,
+  matchRepo,
+  statusSlug,
+} from "./resolve-names";
 
 const members = [
   { id: "u1", name: "Kabeer Joshi", email: "kabeer@x.com" },
@@ -87,5 +93,14 @@ describe("statusSlug and isKey", () => {
     expect(isKey("t-12")).toBe(true);
     expect(isKey("Fix the login crash")).toBe(false);
     expect(isKey("3")).toBe(false);
+  });
+});
+
+describe("keyNumber", () => {
+  it("accepts a stored task number and refuses one no task can have", () => {
+    expect(keyNumber("3")).toBe(3);
+    expect(keyNumber("2147483647")).toBe(2_147_483_647);
+    for (const digits of ["0", "2147483648", "99999999999999999999", undefined])
+      expect(keyNumber(digits)).toBeNull();
   });
 });

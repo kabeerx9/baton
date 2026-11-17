@@ -69,9 +69,15 @@ async function seed() {
     createdBy: creator.id,
     userId: outsider.id,
   });
+  // A task under a feature with no repo lives in the board project.
+  const noRepoChild = await insert(board.id, 5, {
+    createdBy: creator.id,
+    userId: assignee.id,
+  });
   for (const [parent, child] of [
     [hiddenFeature, secretChild],
     [visibleFeature, apiChild],
+    [visibleFeature, noRepoChild],
   ] as const)
     await db.insert(schema.taskRelationTable).values({
       sourceTaskId: parent.id,
@@ -90,6 +96,7 @@ async function seed() {
     visibleFeature,
     archived,
     apiChild,
+    noRepoChild,
   };
 }
 
@@ -151,6 +158,28 @@ describe("API integration: statusChange and statusGeneration on reads", () => {
       (await board(as(f.assignee), f.workspace.id)).get(f.apiChild.id)
         ?.statusChange,
     ).toEqual({ move: "request" });
+  });
+
+  it("judges a no-repo subtask by its own involvement, not as a feature", async () => {
+    const f = await seed();
+    for (const [user, move] of [
+      [f.creator, "apply"],
+      [f.assignee, "apply"],
+      [f.admin, "apply"],
+      [f.outsider, "request"],
+    ] as const) {
+      const items = await board(as(user), f.workspace.id);
+      expect(items.get(f.noRepoChild.id)?.statusChange).toEqual({ move });
+    }
+  });
+
+  it("refuses the item read to an API key without task:read", async () => {
+    const f = await seed();
+    const key = await createKey(f.creator.id, { task: ["update"] });
+    const response = await withKey(key.key)(
+      `/api/board/workspace/${f.workspace.id}/item/T-1`,
+    );
+    expect(response.status).toBe(403);
   });
 
   it("treats leaving archived as archive, so an outsider must ask", async () => {
