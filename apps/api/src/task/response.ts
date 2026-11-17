@@ -24,6 +24,20 @@ export const hiddenBlockersSchema = z.number().int().nonnegative().openapi({
     "Open tasks that block this one in repos the caller cannot see. Only the count is given. The task is blocked when `waitsOn` is not empty or this is above 0.",
 });
 
+export const statusGenerationSchema = z.number().int().nonnegative().openapi({
+  description:
+    "Goes up by one on every status change. A read with a lower value is older than a write that returned a higher one.",
+});
+
+export const statusChangeSchema = z
+  .object({
+    move: z.enum(["apply", "request", "deny"]).openapi({
+      description:
+        'The consent rule for an ordinary column move by the caller, not the outcome: "apply" means no change request is needed, "request" means the move opens a change request, "deny" means it is refused for permission (no task:update, including an API key scope without it). A move the rule would apply can still be refused: 409 into a final column while the task is blocked, 400 for a status slug the project does not have. Archive and unarchive are not covered. Treat any other value as "request".',
+    }),
+  })
+  .openapi("StatusChange");
+
 export const taskSchema = z
   .object({
     id: z.string(),
@@ -80,6 +94,8 @@ export const taskWithAssigneeSchema = taskSchema
     assigneeName: z.string().nullable(),
     assigneeId: z.string().nullable(),
     pendingRequest: pendingRequestSchema.optional(),
+    statusGeneration: statusGenerationSchema,
+    statusChange: statusChangeSchema,
   })
   .openapi("TaskWithAssignee");
 

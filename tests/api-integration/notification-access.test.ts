@@ -29,6 +29,7 @@ const { deliverNotification } = await vi.importActual<
 import { checkDueDateReminders } from "../../apps/api/src/scheduler/due-date-reminders";
 import { DUE_DATE_DURATION_MS } from "../../apps/api/src/scheduler/reminder-timing";
 import bulkUpdateTasks from "../../apps/api/src/task/controllers/bulk-update-tasks";
+import { ensureBoardProject } from "../../apps/api/src/board/controllers/ensure-board-project";
 import createTask from "../../apps/api/src/task/controllers/create-task";
 import importTasks from "../../apps/api/src/task/controllers/import-tasks";
 import updateAssignee from "../../apps/api/src/task/controllers/update-task-assignee";
@@ -392,9 +393,11 @@ describe("notification recipient boundaries", () => {
         currentUserId: actor.user.id,
       }),
     ).rejects.toMatchObject({ status: 403 });
+    // A standalone task lives in the board project; a repo create needs a parent.
+    const board = await ensureBoardProject(actor.workspace.id);
     await expect(
       createTask({
-        projectId: project.id,
+        projectId: board.id,
         title: "Invalid",
         status: "to-do",
         userId: outsider.user.id,

@@ -23,8 +23,10 @@ import {
   matchMember,
   matchRepo,
   type Named,
+  parseTaskRef,
   type Repo,
   statusSlug,
+  taskNotFound,
 } from "../resolve-names";
 import addSubtask from "./add-subtask";
 import createBoardTask from "./create-board-task";
@@ -92,9 +94,7 @@ type Directory = { members: Member[]; repos: Repo[] };
 
 /** A task in this workspace by its key (API-3) or by its id. */
 export async function findTaskByKey(workspaceId: string, ref: string) {
-  const key = ref.trim();
-  const byKey = isKey(key);
-  const [slug, number] = byKey ? key.split("-") : [];
+  const parsed = parseTaskRef(ref);
   const [task] = await db
     .select({
       id: taskTable.id,
@@ -109,18 +109,16 @@ export async function findTaskByKey(workspaceId: string, ref: string) {
     .where(
       and(
         eq(projectTable.workspaceId, workspaceId),
-        byKey
-          ? and(
-              sql`lower(${projectTable.slug}) = ${(slug ?? "").toLowerCase()}`,
-              eq(taskTable.number, Number(number)),
-            )
-          : eq(taskTable.id, key),
+        "id" in parsed
+          ? eq(taskTable.id, parsed.id)
+          : and(
+              sql`lower(${projectTable.slug}) = ${parsed.slug.toLowerCase()}`,
+              eq(taskTable.number, parsed.number),
+            ),
       ),
     )
     .limit(1);
-  if (!task) {
-    throw new HTTPException(404, { message: `There is no task ${key}.` });
-  }
+  if (!task) throw taskNotFound(parsed.key);
   return task;
 }
 

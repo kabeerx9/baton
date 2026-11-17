@@ -85,7 +85,9 @@ import {
   taskImportResultSchema,
   taskSchema,
   taskWithAssigneeSchema,
+  statusGenerationSchema,
 } from "./response";
+import { readStatusChange } from "./read-status-change";
 import {
   assignedTasksQuery,
   bulkUpdateBody,
@@ -114,7 +116,12 @@ import {
   updateTitleBody,
 } from "./schema";
 
-const statusResult = mutationResultSchema(taskSchema, "TaskStatusChange");
+// The status result declares the generation it wrote; other mutation
+// results keep the plain task shape.
+const statusResult = mutationResultSchema(
+  taskSchema.extend({ statusGeneration: statusGenerationSchema }),
+  "TaskStatusChange",
+);
 const updateResult = mutationResultSchema(taskSchema, "TaskUpdate");
 const deleteResult = mutationResultSchema(taskSchema, "TaskDelete");
 
@@ -299,7 +306,7 @@ const createTaskRoute = createRoute({
   tags: ["Tasks"],
   summary: "Create task",
   description:
-    "Add a task to a project. It is placed in the column named by `status`.",
+    "Add a standalone task to the workspace's board project, placed in the column named by `status`. A task in a repo sits under a feature: a repo project id answers 400; add it with POST /api/board/{taskId}/subtask, or create a standalone task with POST /api/board/workspace/{workspaceId}.",
   middleware: [
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
@@ -313,7 +320,9 @@ const createTaskRoute = createRoute({
   },
   responses: {
     200: jsonResponse("The created task", taskSchema),
-    400: errorResponse("Invalid body, or a repeating task in a final column"),
+    400: errorResponse(
+      "Invalid body, or a repo project: a repo task sits under a feature",
+    ),
     403: errorResponse(
       "No access to the project, or missing task:create permission",
     ),
@@ -970,13 +979,17 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
   })
   .openapi(getTaskByTicketIdRoute, async (c) => {
     const { ticketId } = c.req.valid("param");
+    const task = await getTaskByTicketId(
+      ticketId,
+      c.get("userId"),
+      c.req.valid("query"),
+      c.get("apiKey")?.permissions,
+    );
     return c.json(
-      await getTaskByTicketId(
-        ticketId,
-        c.get("userId"),
-        c.req.valid("query"),
-        c.get("apiKey")?.permissions,
-      ),
+      {
+        ...task,
+        statusChange: await readStatusChange(task.id, actorFromContext(c)),
+      },
       200,
     );
   })
@@ -991,7 +1004,11 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     const pending = await pendingRequestsForTasks([task.id]);
 
     return c.json(
-      { ...task, pendingRequest: pending.get(task.id) ?? null },
+      {
+        ...task,
+        pendingRequest: pending.get(task.id) ?? null,
+        statusChange: await readStatusChange(task.id, actorFromContext(c)),
+      },
       200,
     );
   })

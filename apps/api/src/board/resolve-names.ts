@@ -4,6 +4,8 @@
  * the valid choices.
  */
 
+import { HTTPException } from "hono/http-exception";
+
 export type Named<T> = { ok: true; value: T } | { ok: false; message: string };
 
 export type Member = { id: string; name: string; email: string };
@@ -93,6 +95,39 @@ const STATUS_WORDS: Record<string, string> = {
 /** "in progress" or "done" to the column slug. Anything else passes through. */
 export function statusSlug(word: string) {
   return STATUS_WORDS[norm(word)] ?? word.trim();
+}
+
+/**
+ * The task number in a key, or null when it cannot be a stored number
+ * (`task.number` is int4). A caller answers null as "no such task".
+ */
+export function keyNumber(value: string | undefined) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 1 && number <= 2_147_483_647
+    ? number
+    : null;
+}
+
+/** The one 404 for a task key or id that matches nothing. */
+export function taskNotFound(key: string) {
+  return new HTTPException(404, { message: `There is no task ${key}.` });
+}
+
+export type TaskRef =
+  | { key: string; slug: string; number: number }
+  | { key: string; id: string };
+
+/**
+ * A ticket key (API-3) or a task id. A key whose number no task can have
+ * (too many digits) is a missing task, never a database error.
+ */
+export function parseTaskRef(ref: string): TaskRef {
+  const key = ref.trim();
+  if (!isKey(key)) return { key, id: key };
+  const [slug = "", digits] = key.split("-");
+  const number = keyNumber(digits);
+  if (number === null) throw taskNotFound(key);
+  return { key, slug, number };
 }
 
 /** True for a ticket key such as API-3 or T-12. */

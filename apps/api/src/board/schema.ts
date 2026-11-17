@@ -2,6 +2,13 @@ import { z } from "../openapi";
 
 export const boardWorkspaceParam = z.object({ workspaceId: z.string() });
 
+export const boardQuery = z.object({
+  doneSince: z.iso.datetime({ offset: true }).optional().openapi({
+    description:
+      "Done items that finished before this ISO datetime are left out and counted in `olderDoneCount`. The web app sends its local midnight minus 14 days. Defaults to now minus 14 days; a future value is clamped to now; an old value returns more history.",
+  }),
+});
+
 export const teamHistoryQuery = z.object({
   days: z.coerce.number().int().min(1).max(365).optional().openapi({
     description: "How many days back to count finished work. Defaults to 30.",

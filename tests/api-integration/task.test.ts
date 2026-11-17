@@ -19,6 +19,7 @@ describe("API integration: task creation", () => {
   it("rejects unauthenticated task creation requests", async () => {
     const member = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
 
@@ -48,6 +49,7 @@ describe("API integration: task creation", () => {
   it("creates a task with the matching column, assignee, and next number", async () => {
     const member = await createWorkspaceMember();
     const { project, columns } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
       name: "Delivery",
       slug: "delivery",
@@ -133,6 +135,7 @@ describe("API integration: task creation", () => {
     const member = await createWorkspaceMember();
     const outsiderId = `user-${randomUUID()}`;
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
 
@@ -181,6 +184,7 @@ describe("API integration: task creation", () => {
   it("creates an unassigned task with parsed dates when optional fields are provided", async () => {
     const member = await createWorkspaceMember();
     const { project, columns } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
 
@@ -241,6 +245,7 @@ describe("API integration: task creation", () => {
   it("creates tasks without a column when the status has no matching project column", async () => {
     const member = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
 
@@ -289,6 +294,7 @@ describe("API integration: task creation", () => {
   it("rejects task creation for an assignee that cannot be assigned, without revealing whether the user exists", async () => {
     const member = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
     const missingAssigneeId = `user-${randomUUID()}`;
@@ -330,6 +336,7 @@ describe("API integration: task creation", () => {
   it("creates a task when the assignee userId is surrounded by whitespace", async () => {
     const member = await createWorkspaceMember();
     const { project, columns } = await createProjectFixture({
+      kind: "board",
       workspaceId: member.workspace.id,
     });
     const paddedAssigneeId = `  ${member.user.id}  `;
@@ -382,6 +389,7 @@ describe("API integration: task creation", () => {
     async (label, userId) => {
       const member = await createWorkspaceMember();
       const { project } = await createProjectFixture({
+        kind: "board",
         workspaceId: member.workspace.id,
       });
 

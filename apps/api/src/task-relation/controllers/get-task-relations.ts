@@ -6,6 +6,7 @@ import {
   taskTable,
   userTable,
 } from "../../database/schema";
+import { taskIsOpen } from "../../board/open-board-task";
 import { projectAccessCondition } from "../../project-access/project-access-condition";
 import { taskIsCompleted } from "../../task/task-is-completed";
 
@@ -43,6 +44,7 @@ async function getTaskRelations(
       title: string;
       status: string;
       isCompleted: boolean;
+      open: boolean;
       priority: string | null;
       number: number | null;
       projectId: string;
@@ -58,6 +60,7 @@ async function getTaskRelations(
         title: taskTable.title,
         status: taskTable.status,
         isCompleted: taskIsCompleted,
+        open: taskIsOpen,
         priority: taskTable.priority,
         number: taskTable.number,
         projectId: taskTable.projectId,

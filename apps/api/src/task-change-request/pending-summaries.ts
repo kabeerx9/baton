@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import db from "../database";
+import type { DbOrTx } from "../project-access/db-or-tx";
 import { taskChangeRequestTable } from "../database/schema";
 import type { PendingRequestSummary } from "./response";
 
@@ -26,9 +27,12 @@ function toMap(
  * Open requests for a whole workspace in one query, keyed by task. Callers
  * look up only tasks they already show, so nothing hidden leaks.
  */
-export async function pendingRequestsInWorkspace(workspaceId: string) {
+export async function pendingRequestsInWorkspace(
+  workspaceId: string,
+  database: DbOrTx = db,
+) {
   return toMap(
-    await db
+    await database
       .select(columns)
       .from(taskChangeRequestTable)
       .where(
@@ -40,10 +44,13 @@ export async function pendingRequestsInWorkspace(workspaceId: string) {
   );
 }
 
-export async function pendingRequestsForTasks(taskIds: string[]) {
+export async function pendingRequestsForTasks(
+  taskIds: string[],
+  database: DbOrTx = db,
+) {
   if (taskIds.length === 0) return toMap([]);
   return toMap(
-    await db
+    await database
       .select(columns)
       .from(taskChangeRequestTable)
       .where(

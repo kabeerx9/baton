@@ -168,6 +168,55 @@ describe("Baton API OpenAPI spec", () => {
     );
   });
 
+  it("describes the board's done window, the one-item read and status capability", () => {
+    const getBoard = spec.paths["/board/workspace/{workspaceId}"]?.get as
+      | (Operation & { parameters?: Array<{ name: string; in: string }> })
+      | undefined;
+    expect(getBoard?.parameters?.find((p) => p.name === "doneSince")?.in).toBe(
+      "query",
+    );
+    expect(getBoard?.responses["400"]).toBeTruthy();
+    const board = JSON.stringify(spec.components.schemas.TaskBoard);
+    expect(board).toContain("olderDoneCount");
+    expect(board).toContain("doneSince");
+
+    const item = spec.paths["/board/workspace/{workspaceId}/item/{key}"]?.get;
+    expect(item?.operationId).toBe("getBoardItem");
+    expect(JSON.stringify(item?.responses["200"])).toContain("BoardItem");
+    expect(item?.responses["404"]).toBeTruthy();
+
+    expect(JSON.stringify(spec.components.schemas.StatusChange)).toContain(
+      "deny",
+    );
+    for (const name of [
+      "WorkspaceBoardTask",
+      "BoardSubtask",
+      "TaskWithAssignee",
+    ]) {
+      const schema = JSON.stringify(spec.components.schemas[name]);
+      expect(schema, name).toContain("statusGeneration");
+      expect(schema, name).toContain("StatusChange");
+    }
+    expect(JSON.stringify(spec.components.schemas.TaskByTicketId)).toContain(
+      "#/components/schemas/TaskWithAssignee",
+    );
+    // The workspace board item has its own component, not the legacy
+    // project board's `BoardTask`.
+    expect(board).toContain("#/components/schemas/WorkspaceBoardTask");
+    expect(JSON.stringify(spec.components.schemas.BoardItem)).toContain(
+      "WorkspaceBoardTask",
+    );
+    expect(
+      JSON.stringify(spec.components.schemas.TaskStatusChangeApplied),
+    ).toContain("statusGeneration");
+    expect(
+      JSON.stringify(spec.components.schemas.TaskUpdateApplied),
+    ).not.toContain("statusGeneration");
+    expect(JSON.stringify(spec.components.schemas.RelatedTask)).toContain(
+      '"open"',
+    );
+  });
+
   it("names its entity schemas as reusable components", () => {
     expect(Object.keys(spec.components.schemas)).toEqual(
       expect.arrayContaining([

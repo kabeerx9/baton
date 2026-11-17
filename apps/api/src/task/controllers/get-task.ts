@@ -27,6 +27,7 @@ async function getTask(taskId: string, board = false, userId?: string) {
           }
         : {}),
       status: taskTable.status,
+      statusGeneration: taskTable.statusGeneration,
       columnId: taskTable.columnId,
       priority: taskTable.priority,
       startDate: taskTable.startDate,

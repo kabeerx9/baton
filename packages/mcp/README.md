@@ -84,7 +84,7 @@ The full catalog adds:
 - Session: `whoami`, `list_notifications`
 - Search: `search`
 - Projects: `list_projects`, `get_project`, `create_project`, `update_project`, `list_project_columns`
-- Tasks: `list_tasks`, `get_task`, `create_task`, `update_task`, `delete_task`, `move_task`, `update_task_status`, `update_task_assignee`, `update_task_due_date`, `list_task_activity`
+- Tasks: `list_tasks`, `get_task`, `update_task`, `delete_task`, `move_task`, `update_task_status`, `update_task_assignee`, `update_task_due_date`, `list_task_activity`
 - Comments: `list_task_comments`, `update_task_comment`, `delete_task_comment`
 - Labels: `list_workspace_labels`, `create_label`, `attach_label_to_task`, `detach_label_from_task`, `delete_label`
 - Task relations: `create_task_relation`, `get_task_relations`, `delete_task_relation`
@@ -96,7 +96,9 @@ result has `outcome: "requested"` and the change request; someone involved
 accepts or rejects it. Read `outcome` before you report the change as done.
 
 Call `list_project_columns` before setting a status: the column slugs it
-returns are the values `create_task` and `update_task_status` accept.
+returns are the values `update_task_status` accepts. Create work with
+`create_board_task` (a standalone task or a feature) or `add_subtasks` (tasks
+under a feature, in a repo).
 Call `get_task_by_ticket_id` with a key such as `KAN-12` to retrieve one task
 without listing a project. If the same key identifies multiple accessible tasks,
 pass `workspaceId` or `projectId` to select one.

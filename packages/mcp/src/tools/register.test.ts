@@ -223,8 +223,91 @@ describe("registerTools", () => {
       client: { json: vi.fn() } as never,
       catalog: "all",
     });
-    // The full catalog: 44 tools.
-    expect(all.tools.size).toBe(44);
+    // The full catalog: 43 tools.
+    expect(all.tools.size).toBe(43);
+  });
+
+  it("does not list create_task, which made repo tasks no screen shows", () => {
+    for (const catalog of ["core", "all"] as const) {
+      const { server, tools } = createServerMock();
+      registerTools(server as never, {
+        client: { json: vi.fn() } as never,
+        catalog,
+      });
+      expect(tools.has("create_task")).toBe(false);
+      expect(tools.has("create_board_task")).toBe(true);
+      expect(tools.has("add_subtasks")).toBe(true);
+    }
+  });
+
+  it("describes the board's done window on get_board", () => {
+    const { server } = createServerMock();
+    registerTools(server as never, { client: { json: vi.fn() } as never });
+    const [, config] =
+      server.registerTool.mock.calls.find(([name]) => name === "get_board") ??
+      [];
+    const description = (config as { description: string }).description;
+    expect(description).toContain("14 days");
+    expect(description).toContain("olderDoneCount");
+    expect(description).toContain("get_team_history");
+    expect(description).toContain("get_task_by_ticket_id");
+    expect(description).toContain("statusChange");
+  });
+
+  it("adds a feature's visible tasks from the one-item read", async () => {
+    const { server, tools } = createServerMock();
+    const subtasks = [{ id: "s1", key: "API-3" }];
+    const tasks: Record<string, object> = {
+      "T-1": { id: "f1", workspaceId: "w1", isSubtask: false },
+      "API-3": { id: "s1", workspaceId: "w1", isSubtask: true },
+      "T-2": { id: "p1", workspaceId: "w1", isSubtask: false },
+    };
+    const client = {
+      json: vi.fn(async (path: string) => {
+        if (path.startsWith("/api/comment/")) return [];
+        if (path === "/api/board/workspace/w1/item/f1")
+          return { task: { id: "f1", subtasks } };
+        if (path === "/api/board/workspace/w1/item/p1")
+          return { task: { id: "p1", subtasks: [] } };
+        const key = decodeURIComponent(path.split("/").pop() ?? "");
+        return tasks[key];
+      }),
+    };
+    registerTools(server as never, { client: client as never });
+    const read = async (ticketId: string) =>
+      JSON.parse(
+        (await tools.get("get_task_by_ticket_id")?.handler({ ticketId }))
+          ?.content[0]?.text ?? "",
+      );
+
+    expect((await read("T-1")).subtasks).toEqual(subtasks);
+    // A subtask key never reads its parent, so it gets no siblings.
+    expect(await read("API-3")).not.toHaveProperty("subtasks");
+    expect(await read("T-2")).not.toHaveProperty("subtasks");
+    const paths = client.json.mock.calls.map(([path]) => path);
+    expect(paths).not.toContain("/api/board/workspace/w1/item/s1");
+  });
+
+  it("still returns the task when the one-item read is refused", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn(async (path: string) => {
+        if (path.startsWith("/api/comment/")) return [];
+        if (path.startsWith("/api/board/")) throw new Error("Forbidden");
+        return { id: "f1", workspaceId: "w9", isSubtask: false };
+      }),
+    };
+    registerTools(server as never, { client: client as never });
+    const result = await tools
+      .get("get_task_by_ticket_id")
+      ?.handler({ ticketId: "T-1" });
+    expect(result?.isError).toBe(false);
+    expect(JSON.parse(result?.content[0]?.text ?? "")).toEqual({
+      id: "f1",
+      workspaceId: "w9",
+      isSubtask: false,
+      comments: [],
+    });
   });
 
   it("uses the default workspace for board tools and lists names when none fits", async () => {

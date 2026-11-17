@@ -40,6 +40,7 @@ describe("staged task attachments", () => {
   it("creates no task or integration event until explicit submission", async () => {
     const { user, workspace } = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: workspace.id,
     });
     const input = { filename: "image.png", contentType: "image/png", size: 12 };
@@ -79,6 +80,7 @@ describe("staged task attachments", () => {
   it("cannot claim an upload belonging to another creator or project", async () => {
     const { user, workspace } = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: workspace.id,
     });
     const outsider = await createWorkspaceMember();
@@ -111,6 +113,7 @@ describe("staged task attachments", () => {
   it("cannot submit an upload before finalization", async () => {
     const { user, workspace } = await createWorkspaceMember();
     const { project } = await createProjectFixture({
+      kind: "board",
       workspaceId: workspace.id,
     });
     await stageTaskAssetUpload(project.id, user.id, {
@@ -137,7 +140,10 @@ it("expires abandoned pending and finalized uploads without deleting published a
   const { cleanupDraftUploads } =
     await import("../../apps/api/src/scheduler/draft-upload-cleanup");
   const { workspace, user } = await createWorkspaceMember({ role: "owner" });
-  const { project } = await createProjectFixture({ workspaceId: workspace.id });
+  const { project } = await createProjectFixture({
+    kind: "board",
+    workspaceId: workspace.id,
+  });
   await db.insert(schema.assetTable).values(
     ["draft", "draft-pending", "description"].map((surface) => ({
       workspaceId: workspace.id,
@@ -164,7 +170,10 @@ it("expires abandoned pending and finalized uploads without deleting published a
 
 it("leaves removed draft attachments private and eligible for expiry", async () => {
   const { user, workspace } = await createWorkspaceMember();
-  const { project } = await createProjectFixture({ workspaceId: workspace.id });
+  const { project } = await createProjectFixture({
+    kind: "board",
+    workspaceId: workspace.id,
+  });
   const upload = await stageTaskAssetUpload(project.id, user.id, {
     filename: "removed.png",
     contentType: "image/png",
@@ -192,7 +201,10 @@ it("leaves removed draft attachments private and eligible for expiry", async () 
 });
 it("finalizes the issued object after its project moves to another workspace", async () => {
   const { user, workspace } = await createWorkspaceMember();
-  const { project } = await createProjectFixture({ workspaceId: workspace.id });
+  const { project } = await createProjectFixture({
+    kind: "board",
+    workspaceId: workspace.id,
+  });
   const destination = await createWorkspaceMember();
   const input = { filename: "moved.png", contentType: "image/png", size: 12 };
   const upload = await stageTaskAssetUpload(project.id, user.id, input);
@@ -223,6 +235,7 @@ it("records and claims assets in the current workspace after a move during presi
   const source = await createWorkspaceMember();
   const destination = await createWorkspaceMember();
   const { project } = await createProjectFixture({
+    kind: "board",
     workspaceId: source.workspace.id,
   });
   vi.mocked(createTaskImageUploadUrl).mockImplementationOnce(async () => {
@@ -267,7 +280,10 @@ it("drains an expired backlog across multiple bounded transactions", async () =>
   const { cleanupDraftUploads } =
     await import("../../apps/api/src/scheduler/draft-upload-cleanup");
   const { user, workspace } = await createWorkspaceMember();
-  const { project } = await createProjectFixture({ workspaceId: workspace.id });
+  const { project } = await createProjectFixture({
+    kind: "board",
+    workspaceId: workspace.id,
+  });
   await db.insert(schema.assetTable).values(
     Array.from({ length: 1001 }, (_, i) => ({
       workspaceId: workspace.id,
