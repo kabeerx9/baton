@@ -44,7 +44,7 @@ export function isDoneMutation(
     | undefined;
   const outcome = (mutation.data as { outcome?: string } | undefined)?.outcome;
   return (
-    outcome !== "requested" &&
+    outcome === "applied" &&
     (vars?.taskId ?? vars?.id) === taskId &&
     vars?.status === "done"
   );

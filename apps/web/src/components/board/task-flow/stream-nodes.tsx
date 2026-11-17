@@ -39,7 +39,13 @@ export function TaskPill({ data }: NodeProps<TaskNode>) {
           background: `color-mix(in oklab, ${color} 16%, transparent)`,
         }}
       >
-        <StatusMenu taskId={task.id} status={task.status} blocked={blocked} />
+        <StatusMenu
+          taskId={task.id}
+          status={task.status}
+          move={task.move}
+          title={task.title}
+          blocked={blocked}
+        />
       </span>
       <div className="min-w-0 flex-1">
         <p

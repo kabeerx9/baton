@@ -40,6 +40,7 @@ const renderBoard = () =>
       boardTasks={[task("todo"), task("doing"), task("review"), task("done")]}
       lanes={[]}
       workspaceId="w"
+      olderDoneCount={0}
     />,
   );
 

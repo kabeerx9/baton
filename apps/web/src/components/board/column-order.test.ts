@@ -7,7 +7,7 @@ const day = 86_400_000;
 
 describe("columnOrder", () => {
   it("returns every column in board order, empty ones included", () => {
-    const result = columnOrder([], today);
+    const result = columnOrder([], today, 0);
     expect(result.map((c) => c.status)).toEqual(COLUMNS);
     expect(
       result.every((c) => c.items.length === 0 && c.olderCount === 0),
@@ -21,6 +21,7 @@ describe("columnOrder", () => {
         boardTaskFixture("b", { column: "todo" }),
       ],
       today,
+      0,
     );
     expect(result.map((c) => c.items.map((t) => t.id))).toEqual([
       ["b"],
@@ -41,31 +42,29 @@ describe("columnOrder", () => {
         }),
       ],
       today,
+      0,
     );
     expect(result[0].items.map((t) => t.id)).toEqual(["t-1", "t-2", "t-3"]);
   });
 
-  it("hides done work older than 14 days and counts it", () => {
+  it("shows every card the server sent and the server's count of older ones", () => {
     const result = columnOrder(
       [
         boardTaskFixture("new", {
           column: "done",
           finishedAt: new Date(today - day).toISOString(),
         }),
-        boardTaskFixture("old", {
-          column: "done",
-          finishedAt: new Date(today - 20 * day).toISOString(),
-        }),
         boardTaskFixture("undated", { column: "done", finishedAt: null }),
       ],
       today,
+      7,
     );
     const done = result[3];
     expect(done.items.map((t) => t.id).sort()).toEqual(["new", "undated"]);
-    expect(done.olderCount).toBe(1);
+    expect(done.olderCount).toBe(7);
   });
 
-  it("does not window the other columns", () => {
+  it("keeps the older count out of the other columns", () => {
     const result = columnOrder(
       [
         boardTaskFixture("a", {
@@ -74,6 +73,7 @@ describe("columnOrder", () => {
         }),
       ],
       today,
+      7,
     );
     expect(result[2].items).toHaveLength(1);
     expect(result[2].olderCount).toBe(0);

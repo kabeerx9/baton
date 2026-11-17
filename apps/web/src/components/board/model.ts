@@ -1,5 +1,7 @@
 import type { PendingRequest } from "@/components/task/change-request/describe-pending";
 import type { BoardResponse } from "@/fetchers/board/get-board";
+import { moveOf } from "@/store/task-status/transition";
+import type { Move } from "@/store/task-status/types";
 
 export type Status = "todo" | "doing" | "review" | "done";
 
@@ -38,8 +40,12 @@ export type Blockable = {
 /** The open change request on a task or subtask, as the board read carries it. */
 export type Pending = { pendingRequest: PendingRequest | null };
 
+/** What a column move does for this person, from the board read (`statusChange.move`). */
+export type Movable = { move: Move };
+
 export type Subtask = Blockable &
-  Pending & {
+  Pending &
+  Movable & {
     id: string;
     key: string;
     title: string;
@@ -60,7 +66,8 @@ export type Subtask = Blockable &
   };
 
 export type BoardTask = Blockable &
-  Pending & {
+  Pending &
+  Movable & {
     id: string;
     key: string;
     title: string;
@@ -198,6 +205,7 @@ export function buildBoard(data: BoardResponse) {
         hiddenBlockers: s.hiddenBlockers,
         blockedBy: s.blockedBy,
         pendingRequest: s.pendingRequest,
+        move: moveOf(s.statusChange),
       };
     });
     return {
@@ -215,6 +223,7 @@ export function buildBoard(data: BoardResponse) {
       waitsOn: f.waitsOn,
       hiddenBlockers: f.hiddenBlockers,
       pendingRequest: f.pendingRequest,
+      move: moveOf(f.statusChange),
       subtasks,
     };
   });

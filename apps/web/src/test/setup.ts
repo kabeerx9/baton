@@ -1,11 +1,18 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vite-plus/test";
+import { resetTaskStatusStore } from "@/store/task-status/store";
+import { waiters } from "@/store/task-status/waiters";
 
 // Vitest runs without globals, so Testing Library cannot register its own
 // cleanup. Unmounted trees matter more with UI SDK: popups live in the top layer
 // and keep focus and state across tests.
 afterEach(cleanup);
+// The status writer keeps its chains in module state: one test must not see another's.
+afterEach(() => {
+  waiters.clear();
+  resetTaskStatusStore();
+});
 
 // Node can expose an incomplete global localStorage when it is launched with
 // --localstorage-file but no usable path. Because that property takes

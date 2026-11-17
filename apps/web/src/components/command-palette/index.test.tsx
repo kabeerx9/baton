@@ -58,8 +58,8 @@ vi.mock("@/lib/auth-client", () => ({
   authClient: { useSession: () => ({ data: null }) },
 }));
 vi.mock("@/components/search-command-menu", () => ({ default: () => null }));
-vi.mock("@/components/shared/modals/create-task-modal", () => ({
-  default: () => null,
+vi.mock("@/components/board/new-task-dialog", () => ({
+  NewTaskDialog: () => null,
 }));
 vi.mock("@/components/shared/modals/create-workspace-modal", () => ({
   default: () => null,

@@ -10,7 +10,14 @@ import { useUpdateTaskStatus } from "@/hooks/mutations/task/use-update-task-stat
 import { useGetColumns } from "@/hooks/queries/column/use-get-columns";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { toast } from "@/lib/toast";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import {
+  isStatusLocked,
+  moveOf,
+  shownStatus,
+} from "@/store/task-status/transition";
 import type Task from "@/types/task";
+import { disabledTrigger } from "./disabled-trigger";
 import { statusMenuOptions } from "./menus/status-menu-options";
 
 type TaskStatusPopoverProps = {
@@ -31,13 +38,21 @@ export default function TaskStatusPopover({
   } = useGetColumns(task.projectId);
   const { mutateAsync: updateTaskStatus } = useUpdateTaskStatus();
   const { canUpdateTasks } = useWorkspacePermission();
+  const entry = useTaskStatusStore((s) => s.entries[task.id]);
 
   if (!canUpdateTasks()) return <>{children}</>;
+  // "deny", or a write that holds the task: the control shows, and stays shut.
+  if (moveOf(task.statusChange) === "deny" || isStatusLocked(entry))
+    return <>{disabledTrigger(children)}</>;
 
   const changeStatus = async (status: string) => {
     setOpen(false);
     try {
-      await updateTaskStatus({ ...task, status });
+      await updateTaskStatus({
+        ...task,
+        status,
+        isFinal: columns.find((column) => column.slug === status)?.isFinal,
+      });
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -54,7 +69,7 @@ export default function TaskStatusPopover({
         <OptionMenu
           label={t("tasks:status.label")}
           placeholder={t("tasks:bulk.statusPlaceholder")}
-          options={statusMenuOptions(columns, task.status)}
+          options={statusMenuOptions(columns, shownStatus(task, entry))}
           onSelect={changeStatus}
           status={
             isLoading ? (

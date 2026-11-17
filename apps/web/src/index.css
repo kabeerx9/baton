@@ -931,11 +931,6 @@ input:-webkit-autofill:active {
     overflow: hidden;
   }
 
-  .baton-create-task-modal .baton-comment-editor-prose img.baton-editor-image {
-    max-height: min(50vh, 28rem);
-    width: 100%;
-  }
-
   .baton-resizable-image {
     position: relative;
     display: inline-block;

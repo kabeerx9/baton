@@ -1,5 +1,10 @@
-import { expect, it } from "vite-plus/test";
-import { otherEnds, type RelatedTask, type Relation } from "./linked";
+import { describe, expect, it } from "vite-plus/test";
+import {
+  linkedStatus,
+  otherEnds,
+  type RelatedTask,
+  type Relation,
+} from "./linked";
 
 const task = (id: string): RelatedTask => ({
   id,
@@ -52,4 +57,30 @@ it("ignores other relation types and tasks the caller cannot see", () => {
   expect(
     otherEnds([hidden, rel("related", "x", "me")], "me", "blocks", "target"),
   ).toEqual([]);
+});
+
+describe("linkedStatus", () => {
+  const related = (over: Partial<RelatedTask>): RelatedTask => ({
+    ...task("x"),
+    ...over,
+  });
+
+  it("calls an old done feature done, whatever status is stored on it", () => {
+    expect(linkedStatus(related({ status: "to-do", open: false }))).toBe(
+      "done",
+    );
+  });
+
+  it("never shows an open task as done", () => {
+    expect(
+      linkedStatus(related({ status: "done", isCompleted: true, open: true })),
+    ).toBe("doing");
+    expect(linkedStatus(related({ status: "in-review", open: true }))).toBe(
+      "review",
+    );
+  });
+
+  it("falls back to the stored status for an older answer with no open flag", () => {
+    expect(linkedStatus(related({ status: "in-progress" }))).toBe("doing");
+  });
 });

@@ -47,6 +47,8 @@ export function CardTree({
             <StatusMenu
               taskId={task.id}
               status={task.status}
+              move={task.move}
+              title={task.title}
               blocked={blocked}
               size={13}
               tabIndex={tabIndex}

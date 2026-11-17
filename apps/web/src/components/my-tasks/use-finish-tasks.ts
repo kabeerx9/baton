@@ -61,11 +61,18 @@ export function useFinishTasks(
       const result = await writeStatus(
         asTaskWrite(entry.task, { status: entry.from }),
       );
-      // A request means the task did not reopen. The mutation has said so.
+      // Only "applied" reopened it. A request or a replaced click did not.
       dispatch({
-        type: result.outcome === "requested" ? "undoFailed" : "undone",
+        type: result.outcome === "applied" ? "undone" : "undoFailed",
         id,
       });
+      if (result.outcome === "superseded") {
+        toast.info(
+          t("workspace:myTasks.toast.notChanged", {
+            key: taskKey(entry.task),
+          }),
+        );
+      }
     } catch (error) {
       dispatch({ type: "undoFailed", id });
       toast.error(
@@ -85,9 +92,17 @@ export function useFinishTasks(
       const result = await writeStatus(
         asTaskWrite(task, { status: DONE_STATUS }),
       );
-      if (result.outcome === "requested") {
-        // Nothing changed: the mutation showed the "request sent" toast.
+      if (result.outcome !== "applied") {
+        // Nothing changed. "requested": the writer showed the "request sent"
+        // toast. "superseded": a later click on this task replaced this one.
         dispatch({ type: "requested", id });
+        if (result.outcome === "superseded") {
+          // A later click, or an unresolved write, holds this task. Say so,
+          // so the row does not just come back.
+          toast.info(
+            t("workspace:myTasks.toast.notChanged", { key: taskKey(task) }),
+          );
+        }
         return;
       }
       dispatch({ type: "applied", id, at: Date.now() });

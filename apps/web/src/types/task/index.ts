@@ -22,6 +22,10 @@ type Task = {
   description: string | null;
   descriptionDeferred?: boolean;
   status: string;
+  /** Goes up on every status change. Reads carry it; a view compares it with a write's. */
+  statusGeneration?: number;
+  /** What a column move does for this person: "apply", "request" or "deny". Missing means "request". */
+  statusChange?: { move: string };
   priority: string | null;
   startDate: string | null;
   dueDate: string | null;

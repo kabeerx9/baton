@@ -1,5 +1,8 @@
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { useSetStatus } from "@/hooks/mutations/board/use-set-status";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import { isStatusLocked } from "@/store/task-status/transition";
+import type { Move } from "@/store/task-status/types";
 import { STATUS_LABEL, type Status } from "./model";
 import { StatusIcon } from "./status-icon";
 
@@ -17,13 +20,20 @@ const ORDER: Status[] = ["todo", "doing", "review", "done"];
 export function StatusMenu({
   taskId,
   status,
+  move,
+  title,
   blocked,
   size = 14,
   label,
   tabIndex,
 }: {
   taskId: string;
+  /** The status to show: the board read with writes in flight laid over it. */
   status: Status;
+  /** What a column move does for this person (`statusChange.move`). */
+  move: Move;
+  /** Names the task in the change-request modal. */
+  title?: string;
   blocked?: boolean;
   size?: number;
   /** Shown next to the icon when given. */
@@ -32,6 +42,10 @@ export function StatusMenu({
   tabIndex?: number;
 }) {
   const setStatus = useSetStatus();
+  // The task's one lifecycle, shared with every other control of it.
+  const locked = useTaskStatusStore((state) =>
+    isStatusLocked(state.entries[taskId]),
+  );
   return (
     <Menu>
       <MenuTrigger
@@ -40,7 +54,7 @@ export function StatusMenu({
             type="button"
             data-tour="status-menu"
             aria-label={`Status: ${STATUS_LABEL[status]}. Change status`}
-            disabled={setStatus.isPending}
+            disabled={locked || move === "deny"}
             tabIndex={tabIndex}
             className="relative inline-flex shrink-0 items-center gap-1.5 rounded-md p-0.5 outline-none transition-colors duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 touch-hitbox"
           />
@@ -56,7 +70,15 @@ export function StatusMenu({
             data-tour={s === "done" ? "status-done" : undefined}
             // The API refuses to finish a blocked task; say so here first.
             disabled={s === status || (blocked && s === "done")}
-            onClick={() => setStatus.mutate({ taskId, status: SLUG[s] })}
+            onClick={() =>
+              setStatus.mutate({
+                taskId,
+                status: SLUG[s],
+                isFinal: s === "done",
+                move,
+                title,
+              })
+            }
           >
             <StatusIcon status={s} size={13} />
             {STATUS_LABEL[s]}

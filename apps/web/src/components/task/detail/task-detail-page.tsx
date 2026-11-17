@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExternalLinksAccordion } from "@/components/external-links/external-links-accordion";
 import { AddSubtaskDialog } from "@/components/board/add-subtask-dialog";
@@ -11,8 +11,10 @@ import {
   toPerson,
   toStatus,
 } from "@/components/board/model";
+import { withItem } from "@/components/board/merge-item";
 import {
   type LinkedTask,
+  linkedStatus,
   otherEnds,
   type RelatedTask,
 } from "@/components/board/task-flow/linked";
@@ -32,6 +34,8 @@ import TaskRelations from "@/components/task/task-relations";
 import TaskTitle from "@/components/task/task-title";
 import useGetActivitiesByTaskId from "@/hooks/queries/activity/use-get-activities-by-task-id";
 import { useGetBoard } from "@/hooks/queries/board/use-get-board";
+import { useGetBoardItem } from "@/hooks/queries/board/use-get-board-item";
+import { useOverlaidBoard } from "@/hooks/queries/board/use-overlaid-board";
 import { useGetColumns } from "@/hooks/queries/column/use-get-columns";
 import useExternalLinks from "@/hooks/queries/external-link/use-external-links";
 import useGetTask from "@/hooks/queries/task/use-get-task";
@@ -46,6 +50,8 @@ import { deriveStatusBar } from "./status-bar/status-bar-model";
 import { TaskStatusBar } from "./status-bar/task-status-bar";
 import { TaskHero } from "./task-hero";
 import { getStatusDisplayLabel } from "@/lib/i18n/domain";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import { shownStatus } from "@/store/task-status/transition";
 
 /**
  * The page for one task or feature. The hero answers "what state is this in,
@@ -71,6 +77,27 @@ export function TaskDetailPage({
   const { data: task } = useGetTask(taskId);
   const { data: relations = [] } = useGetTaskRelations(taskId);
   const { data: board } = useGetBoard(workspaceId);
+  // The board leaves out old done work. This read has the feature that holds
+  // this task whatever its age, so an old done feature still shows its tasks.
+  // Only a task in a feature can be missing from the board, so a task the board
+  // lists, or one with no subtask relation, needs no extra round trip.
+  const inFeature = relations.some((r) => r.relationType === "subtask");
+  const boardLists =
+    !!board &&
+    board.tasks.some(
+      (b) => b.id === taskId || b.subtasks.some((s) => s.id === taskId),
+    );
+  const { data: item } = useGetBoardItem(
+    workspaceId,
+    taskId,
+    !!board && inFeature && !boardLists,
+  );
+  const withThisItem = useMemo(
+    () => (board ? withItem(board, item?.task) : undefined),
+    [board, item],
+  );
+  const pageBoard = useOverlaidBoard(withThisItem);
+  const entry = useTaskStatusStore((s) => s.entries[taskId]);
   const columns = useGetColumns(projectId);
   const { isLoading: activitiesLoading } = useGetActivitiesByTaskId(taskId);
   const { data: externalLinks = [], isLoading: linksLoading } =
@@ -102,7 +129,7 @@ export function TaskDetailPage({
     projectId: r.projectId,
     key: `${slugOf(r.projectId)}-${r.number ?? "?"}`,
     title: r.title,
-    status: toStatus(r),
+    status: linkedStatus(r),
     owner: memberOf(r.userId, r.assigneeName),
   });
   const pick = (type: "blocks" | "subtask", side: "source" | "target") =>
@@ -114,7 +141,7 @@ export function TaskDetailPage({
 
   // The board already knows this task's siblings.
   const boardParent = parent
-    ? board?.tasks.find((p) => p.id === parent.id)
+    ? pageBoard?.tasks.find((p) => p.id === parent.id)
     : undefined;
   const self = boardParent?.subtasks.find((s) => s.id === taskId);
   const siblings: LinkedTask[] = (boardParent?.subtasks ?? []).map((s) => ({
@@ -128,12 +155,14 @@ export function TaskDetailPage({
   }));
 
   const repo = board?.projects.find((p) => p.id === projectId);
+  // The status shown: the server value, or the target of a write in flight.
+  const shown = shownStatus(task, entry);
   const status = toStatus({
-    status: task.status,
-    isCompleted: self?.isCompleted ?? task.status === "done",
+    status: shown,
+    isCompleted: self?.isCompleted ?? shown === "done",
   });
   // A feature follows its tasks: its own status is ignored (BOARD.md rule 3).
-  const built = board ? buildBoard(board) : null;
+  const built = pageBoard ? buildBoard(pageBoard) : null;
   const boardTask = built?.boardTasks.find((x) => x.id === taskId);
   const itemOf = (id: string) =>
     built ? findBoardItem(built.boardTasks, id) : undefined;
@@ -141,8 +170,10 @@ export function TaskDetailPage({
   const isDone = pageDone({ status, boardItem });
   const blocked = pageBlocked({ status, boardItem, waitsOn });
   const effective = (x: LinkedTask): LinkedTask => {
-    const item = itemOf(x.id);
-    return item ? { ...x, status: effectiveStatus(item) } : x;
+    // A board item says its column. A linked task the board does not list
+    // already carries the API's open flag (see `linkedStatus`).
+    const linkedItem = itemOf(x.id);
+    return linkedItem ? { ...x, status: effectiveStatus(linkedItem) } : x;
   };
   const waitsOnView = waitsOn.map(effective);
   const blocksView = blocks.map((raw) => {
@@ -161,7 +192,7 @@ export function TaskDetailPage({
 
   const bar = deriveStatusBar({
     columns: columns.data,
-    status: task.status,
+    status: shown,
     blocked,
     loading: columns.isLoading,
     failed: columns.isError,
@@ -184,14 +215,12 @@ export function TaskDetailPage({
     bar.kind === "ready" && bar.steps.length > 1
       ? bar.index / (bar.steps.length - 1)
       : 0;
-  const column = columns.data?.find(
-    (c) => c.slug === task.status || c.id === task.status,
-  );
+  const column = columns.data?.find((c) => c.slug === shown || c.id === shown);
   const label = followsSubtasks
     ? t("tasks:hero.status.followsTasks")
     : bar.kind === "unknown"
       ? t("tasks:hero.status.unknownShort")
-      : getStatusDisplayLabel(task.status, column?.name);
+      : getStatusDisplayLabel(shown, column?.name);
   const tone = heroTone({
     unknown: bar.kind === "unknown" && !followsSubtasks,
     done: isDone,

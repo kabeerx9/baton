@@ -70,7 +70,12 @@ function board(tasks: BoardTask[]) {
   return (
     <ShortcutTestWrapper>
       <button type="button">outside</button>
-      <TaskBoard boardTasks={tasks} lanes={[]} workspaceId="w1" />
+      <TaskBoard
+        boardTasks={tasks}
+        lanes={[]}
+        workspaceId="w1"
+        olderDoneCount={0}
+      />
     </ShortcutTestWrapper>
   );
 }

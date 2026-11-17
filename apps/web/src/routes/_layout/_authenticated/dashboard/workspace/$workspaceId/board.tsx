@@ -6,6 +6,7 @@ import WorkspaceLayout from "@/components/common/workspace-layout";
 import PageTitle from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { useGetBoard } from "@/hooks/queries/board/use-get-board";
+import { useOverlaidBoard } from "@/hooks/queries/board/use-overlaid-board";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/workspace/$workspaceId/board",
@@ -15,7 +16,9 @@ export const Route = createFileRoute(
 
 function RouteComponent() {
   const { workspaceId } = Route.useParams();
-  const { data, isError, refetch, isFetching } = useGetBoard(workspaceId);
+  const { data: read, isError, refetch, isFetching } = useGetBoard(workspaceId);
+  // Status writes in flight show at once; the refetch settles the rest.
+  const data = useOverlaidBoard(read);
   const board = data ? buildBoard(data) : null;
 
   return (
@@ -45,6 +48,7 @@ function RouteComponent() {
               boardTasks={board.boardTasks}
               lanes={board.lanes}
               workspaceId={workspaceId}
+              olderDoneCount={data.olderDoneCount}
             />
           </div>
         )}

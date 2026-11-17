@@ -1,42 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
-import { splitDone } from "./done-window";
+import { DONE_WINDOW_DAYS, doneSince } from "./done-window";
 
-const NOW = new Date("2026-11-14T12:00:00Z");
-const at = (finishedAt: string | null) => ({ finishedAt });
-
-describe("splitDone", () => {
-  it("keeps items finished in the last 14 days and counts the rest", () => {
-    const { recent, olderCount } = splitDone(
-      [
-        at("2026-11-14T08:00:00Z"),
-        at("2026-10-31T13:00:00Z"),
-        at("2026-10-30T11:00:00Z"),
-        at("2026-09-01T00:00:00Z"),
-      ],
-      NOW,
-    );
-    expect(recent).toHaveLength(2);
-    expect(olderCount).toBe(2);
+describe("doneSince", () => {
+  it("is local midnight minus the window, whatever the time of day", () => {
+    const morning = new Date(2026, 10, 17, 0, 5);
+    const night = new Date(2026, 10, 17, 23, 55);
+    const expected = new Date(2026, 10, 17 - DONE_WINDOW_DAYS).toISOString();
+    expect(doneSince(morning)).toBe(expected);
+    expect(doneSince(night)).toBe(expected);
   });
 
-  it("keeps an item with no finish time", () => {
-    expect(splitDone([at(null)], NOW)).toEqual({
-      recent: [at(null)],
-      olderCount: 0,
-    });
-  });
-
-  it("reports zero older when nothing is old", () => {
-    expect(splitDone([], NOW)).toEqual({ recent: [], olderCount: 0 });
-  });
-});
-
-describe("splitDone across midnight", () => {
-  it("moves an item to older when the day advances", () => {
-    const items = [at("2026-10-31T13:00:00Z")];
-    expect(splitDone(items, NOW).olderCount).toBe(0);
-    expect(splitDone(items, new Date("2026-11-15T12:00:00Z")).olderCount).toBe(
-      1,
+  it("moves when the local day changes", () => {
+    expect(doneSince(new Date(2026, 10, 18, 0, 1))).not.toBe(
+      doneSince(new Date(2026, 10, 17, 23, 59)),
     );
   });
 });

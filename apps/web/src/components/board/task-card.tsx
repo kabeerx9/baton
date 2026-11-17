@@ -166,6 +166,8 @@ export function TaskCard({
                 <StatusMenu
                   taskId={boardTask.id}
                   status={boardTask.status}
+                  move={boardTask.move}
+                  title={boardTask.title}
                   blocked={isBlocked(boardTask)}
                   size={13}
                   label={STATUS_LABEL[boardTask.status]}

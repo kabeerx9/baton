@@ -48,6 +48,7 @@ const task: Subtask = {
   pr: null,
   blockedBy: [],
   pendingRequest: null,
+  move: "apply",
   waitsOn: [],
   hiddenBlockers: 0,
 };

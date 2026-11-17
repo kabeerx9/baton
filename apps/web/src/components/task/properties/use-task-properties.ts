@@ -6,6 +6,8 @@ import useGetTask from "@/hooks/queries/task/use-get-task";
 import { useGetActiveWorkspaceUsers } from "@/hooks/queries/workspace-users/use-get-active-workspace-users";
 import { getDueDateStatus, isTaskCompleted } from "@/lib/due-date-status";
 import { getStatusDisplayLabel } from "@/lib/i18n/domain";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import { shownStatus } from "@/store/task-status/transition";
 
 export function useTaskProperties(
   taskId: string,
@@ -19,8 +21,11 @@ export function useTaskProperties(
   const { data: labels = [] } = useGetLabelsByTask(taskId);
   const { data: workspaceProjects = [] } = useGetProjects({ workspaceId });
 
+  const entry = useTaskStatusStore((state) => state.entries[taskId]);
+  // The status to show: the server value, or the target of a write in flight.
+  const shown = task ? shownStatus(task, entry) : "";
   const statusColumn = columns.find(
-    (column) => column.slug === task?.status || column.id === task?.status,
+    (column) => column.slug === shown || column.id === shown,
   );
 
   return {
@@ -28,7 +33,8 @@ export function useTaskProperties(
     project,
     labels,
     status: {
-      label: getStatusDisplayLabel(task?.status ?? "", statusColumn?.name),
+      slug: shown,
+      label: getStatusDisplayLabel(shown, statusColumn?.name),
       isFinal: statusColumn?.isFinal ?? false,
       icon: statusColumn?.icon,
     },
@@ -37,7 +43,7 @@ export function useTaskProperties(
     ),
     dueStatus: getDueDateStatus(
       task?.dueDate ?? null,
-      isTaskCompleted(task?.status ?? "", columns),
+      isTaskCompleted(shown, columns),
     ),
     canMoveTask:
       Boolean(task) &&
