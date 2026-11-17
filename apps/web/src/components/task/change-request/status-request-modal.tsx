@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/settings/confirm-dialog";
 import { useTaskStatusStore } from "@/store/task-status/store";
@@ -13,7 +14,12 @@ import {
  * and send one request, and a bulk move lists all its request tasks here.
  * Mounted once, by the app layout.
  */
-export function StatusRequestModal() {
+export function StatusRequestModal({
+  workspaceId,
+}: {
+  /** The workspace on screen. A request waiting for a click belongs to the one it was made in. */
+  workspaceId?: string;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const entries = useTaskStatusStore((state) => state.entries);
@@ -25,6 +31,15 @@ export function StatusRequestModal() {
   );
   const sending = waiting.some((id) => entries[id]?.kind === "asking");
   const many = waiting.length > 1;
+
+  // Leaving the workspace cancels a request nobody has confirmed: "Send
+  // request" would otherwise post to a task of the workspace left behind.
+  const seen = useRef(workspaceId);
+  useEffect(() => {
+    if (seen.current === workspaceId) return;
+    seen.current = workspaceId;
+    dismissRequests();
+  }, [workspaceId]);
 
   return (
     <ConfirmDialog
@@ -38,7 +53,11 @@ export function StatusRequestModal() {
           ? t("tasks:changeRequest.confirmTitleMany")
           : t("tasks:changeRequest.confirmTitle")
       }
-      description={t("tasks:changeRequest.confirmDescription")}
+      description={
+        many
+          ? t("tasks:changeRequest.confirmDescriptionMany")
+          : t("tasks:changeRequest.confirmDescription")
+      }
       confirmLabel={t("tasks:changeRequest.confirmSend")}
       pendingLabel={t("tasks:changeRequest.confirmSending")}
       pending={sending}

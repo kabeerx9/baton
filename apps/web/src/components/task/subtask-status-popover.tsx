@@ -17,6 +17,7 @@ import {
   shownStatus,
 } from "@/store/task-status/transition";
 import type Task from "@/types/task";
+import { disabledTrigger } from "./disabled-trigger";
 import { statusMenuOptions } from "./menus/status-menu-options";
 
 type SubtaskStatusPopoverProps = {
@@ -40,12 +41,12 @@ export default function SubtaskStatusPopover({
   const shown = tasks.map((task) => shownStatus(task, entries[task.id]));
   // Every task keeps its own entry. "Apply" tasks move at once, each in its
   // own chain; "request" tasks wait together in the one request modal.
+  if (!canUpdateTasks()) return <>{children}</>;
   if (
-    !canUpdateTasks() ||
     tasks.every((task) => moveOf(task.statusChange) === "deny") ||
     tasks.some((task) => isStatusLocked(entries[task.id]))
   )
-    return <>{children}</>;
+    return <>{disabledTrigger(children)}</>;
 
   const current = shown.every((status) => status === shown[0])
     ? shown[0]

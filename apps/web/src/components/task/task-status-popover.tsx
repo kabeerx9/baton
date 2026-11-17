@@ -17,6 +17,7 @@ import {
   shownStatus,
 } from "@/store/task-status/transition";
 import type Task from "@/types/task";
+import { disabledTrigger } from "./disabled-trigger";
 import { statusMenuOptions } from "./menus/status-menu-options";
 
 type TaskStatusPopoverProps = {
@@ -39,13 +40,10 @@ export default function TaskStatusPopover({
   const { canUpdateTasks } = useWorkspacePermission();
   const entry = useTaskStatusStore((s) => s.entries[task.id]);
 
-  // No permission, "deny", or a write that holds the task: the control stays shut.
-  if (
-    !canUpdateTasks() ||
-    moveOf(task.statusChange) === "deny" ||
-    isStatusLocked(entry)
-  )
-    return <>{children}</>;
+  if (!canUpdateTasks()) return <>{children}</>;
+  // "deny", or a write that holds the task: the control shows, and stays shut.
+  if (moveOf(task.statusChange) === "deny" || isStatusLocked(entry))
+    return <>{disabledTrigger(children)}</>;
 
   const changeStatus = async (status: string) => {
     setOpen(false);

@@ -34,8 +34,12 @@ export type Event =
   | { type: "refused" }
   /** Network error, timeout or 5xx: the write may have committed. */
   | { type: "unknown"; at: number }
-  /** A read of this task succeeded at time `at`. */
-  | { type: "read"; at: number };
+  /**
+   * A read of this task succeeded. `at` is when the read was issued, not when
+   * it ended: only a read issued after a failure says what the server holds
+   * now. `generation` is the task's statusGeneration in that read, if it has one.
+   */
+  | { type: "read"; at: number; generation?: number };
 
 export type Step = {
   entry: Entry;

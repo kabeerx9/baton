@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { BoardDayRollover } from "@/components/board/board-day-rollover";
 import CommandPalette from "@/components/command-palette";
@@ -12,11 +12,12 @@ export const Route = createFileRoute("/_layout")({
 
 function RouteComponent() {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { workspaceId } = useParams({ strict: false });
   return (
     <>
       <Outlet />
       <CommandPalette />
-      <StatusRequestModal />
+      <StatusRequestModal workspaceId={workspaceId} />
       <BoardDayRollover />
       <SearchCommandMenu open={searchOpen} setOpen={setSearchOpen} />
     </>

@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   relations: [] as unknown[],
   board: undefined as unknown,
   item: undefined as unknown,
+  itemEnabled: undefined as boolean | undefined,
   nothing: () => null,
 }));
 
@@ -26,7 +27,10 @@ vi.mock("@/hooks/queries/board/use-get-board", () => ({
   useGetBoard: () => ({ data: m.board }),
 }));
 vi.mock("@/hooks/queries/board/use-get-board-item", () => ({
-  useGetBoardItem: () => ({ data: m.item }),
+  useGetBoardItem: (_w: string, _t: string, enabled?: boolean) => {
+    m.itemEnabled = enabled;
+    return { data: m.item };
+  },
 }));
 vi.mock("@/hooks/queries/column/use-get-columns", () => ({
   useGetColumns: () => ({ data: [], isLoading: false, isError: false }),
@@ -184,7 +188,43 @@ const page = (taskId: string, projectId = "board") =>
 beforeEach(() => {
   m.board = emptyBoard;
   m.item = undefined;
+  m.itemEnabled = undefined;
   m.relations = [];
+});
+
+describe("when the page reads the board item", () => {
+  const subtaskOf = (parent: string, child: string) => ({
+    relationType: "subtask",
+    sourceTaskId: parent,
+    targetTaskId: child,
+    sourceTask: related(parent),
+    targetTask: related(child),
+  });
+  const listed = {
+    ...emptyBoard,
+    tasks: [{ ...oldFeature, subtasks: [sub("s1", "Build the API")] }],
+  } as never as BoardResponse;
+
+  it("skips it when the board lists the task's feature", () => {
+    m.board = listed;
+    m.task = task("s1", { projectId: "api" });
+    m.relations = [subtaskOf("f", "s1")];
+    page("s1", "api");
+    expect(m.itemEnabled).toBe(false);
+  });
+
+  it("skips it for a task with no feature", () => {
+    m.task = task("plain", { projectId: "api" });
+    page("plain", "api");
+    expect(m.itemEnabled).toBe(false);
+  });
+
+  it("reads it when the feature is missing from the board", () => {
+    m.task = task("s1", { projectId: "api" });
+    m.relations = [subtaskOf("f", "s1")];
+    page("s1", "api");
+    expect(m.itemEnabled).toBe(true);
+  });
 });
 
 describe("task page for work outside the Done window", () => {

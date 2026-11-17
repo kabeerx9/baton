@@ -79,7 +79,19 @@ export function TaskDetailPage({
   const { data: board } = useGetBoard(workspaceId);
   // The board leaves out old done work. This read has the feature that holds
   // this task whatever its age, so an old done feature still shows its tasks.
-  const { data: item } = useGetBoardItem(workspaceId, taskId);
+  // Only a task in a feature can be missing from the board, so a task the board
+  // lists, or one with no subtask relation, needs no extra round trip.
+  const inFeature = relations.some((r) => r.relationType === "subtask");
+  const boardLists =
+    !!board &&
+    board.tasks.some(
+      (b) => b.id === taskId || b.subtasks.some((s) => s.id === taskId),
+    );
+  const { data: item } = useGetBoardItem(
+    workspaceId,
+    taskId,
+    !!board && inFeature && !boardLists,
+  );
   const withThisItem = useMemo(
     () => (board ? withItem(board, item?.task) : undefined),
     [board, item],

@@ -43,18 +43,36 @@ export function transition(entry: Entry, event: Event): Step {
         ? { entry: { kind: "uncertain", since: event.at } }
         : { entry };
     case "read":
-      return entry.kind === "uncertain" && event.at >= entry.since
-        ? { entry: IDLE }
-        : { entry };
+      return read(entry, event.at, event.generation);
     default:
       return { entry };
   }
+}
+
+function read(entry: Entry, at: number, generation: number | undefined): Step {
+  if (entry.kind === "uncertain") {
+    return at >= entry.since ? { entry: IDLE } : { entry };
+  }
+  // Housekeeping only: once a read has caught up, the entry has nothing left
+  // to show. `overlayTarget` already lets the server win at this point.
+  if (
+    entry.kind === "confirmed" &&
+    typeof generation === "number" &&
+    generation >= entry.generation
+  ) {
+    return { entry: IDLE };
+  }
+  return { entry };
 }
 
 function chosen(entry: Entry, target: Target, move: Move): Step {
   switch (entry.kind) {
     case "sending":
       // Latest wins. Nothing is sent: the in-flight PUT sends it when it ends.
+      // Only an "apply" click joins the queue. A "request" or "deny" click
+      // here means the item's facts changed since the first click; one PUT is
+      // already out, and a request is never queued behind it, so the click is
+      // dropped and its caller settles "superseded".
       return move === "apply"
         ? { entry: { ...entry, latest: target } }
         : { entry };

@@ -226,6 +226,101 @@ describe("the request modal", () => {
   });
 });
 
+describe("the request modal and the workspace", () => {
+  const inWorkspace = (id: string, ui: ReactNode) => (
+    <QueryClientProvider client={client}>
+      {ui}
+      <StatusRequestModal workspaceId={id} />
+    </QueryClientProvider>
+  );
+  const client = new QueryClient();
+
+  it("closes and sends nothing when the workspace changes", async () => {
+    const bar = <TaskStatusBar task={task("a", "request")} blocked={false} />;
+    const { rerender } = render(inWorkspace("w1", bar));
+    fireEvent.click(screen.getByRole("radio", { name: /In progress/ }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+
+    rerender(inWorkspace("w2", bar));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(put).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(useTaskStatusStore.getState().entries).toEqual({});
+  });
+
+  it("keeps the modal open when the workspace does not change", async () => {
+    const bar = <TaskStatusBar task={task("a", "request")} blocked={false} />;
+    const { rerender } = render(inWorkspace("w1", bar));
+    fireEvent.click(screen.getByRole("radio", { name: /In progress/ }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    rerender(inWorkspace("w1", bar));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+  });
+
+  it("describes several statuses in the plural", async () => {
+    wrap(
+      <SubtaskStatusPopover
+        tasks={[task("b", "request"), task("d", "request")]}
+        projectId="p"
+      >
+        <Button>Status</Button>
+      </SubtaskStatusPopover>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Shipped/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText("tasks:changeRequest.confirmDescriptionMany"),
+    ).toBeVisible();
+  });
+});
+
+describe("popover triggers that cannot open", () => {
+  it("shows a denied task's trigger disabled and opens nothing", () => {
+    wrap(
+      <TaskStatusPopover task={task("a", "deny")}>
+        <Button>Status</Button>
+      </TaskStatusPopover>,
+    );
+    const trigger = screen.getByRole("button", { name: "Status" });
+    expect(trigger).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("option")).toBeNull();
+  });
+
+  it("shows the bulk trigger disabled when every task is denied", () => {
+    wrap(
+      <SubtaskStatusPopover tasks={[task("a", "deny")]} projectId="p">
+        <Button>Status</Button>
+      </SubtaskStatusPopover>,
+    );
+    expect(screen.getByRole("button", { name: "Status" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("shows the trigger disabled while a write holds the task", async () => {
+    put.mockRejectedValueOnce(
+      new DOMException("signal timed out", "TimeoutError"),
+    );
+    wrap(
+      <>
+        <TaskStatusBar task={task("a", "apply")} blocked={false} />
+        <TaskStatusPopover task={task("a", "apply")}>
+          <Button>Status</Button>
+        </TaskStatusPopover>
+      </>,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /In progress/ }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Status" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+});
+
 describe("bulk status popover", () => {
   const tasks = [task("a", "apply"), task("b", "request"), task("c", "apply")];
 

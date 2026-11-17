@@ -52,6 +52,9 @@ const EVENTS = {
   readAfter: { type: "read", at: 300 },
   readAtFailure: { type: "read", at: 100 },
   readBefore: { type: "read", at: 99 },
+  // Issued before the failure, so an `uncertain` entry stays put.
+  readReaches: { type: "read", at: 50, generation: 4 },
+  readBehind: { type: "read", at: 50, generation: 3 },
 } satisfies Record<string, Event>;
 
 type EventName = keyof typeof EVENTS;
@@ -79,6 +82,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: to(IDLE),
     readAtFailure: to(IDLE),
     readBefore: to(IDLE),
+    readReaches: to(IDLE),
+    readBehind: to(IDLE),
   },
   confirming: {
     apply: same,
@@ -94,6 +99,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
   asking: {
     apply: same,
@@ -110,6 +117,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
   sending: {
     apply: to({ kind: "sending", inFlight: A, latest: B }),
@@ -126,6 +135,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
   queued: {
     apply: to({ kind: "sending", inFlight: A, latest: B }),
@@ -143,6 +154,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
   confirmed: {
     apply: to(SENDING_B, B),
@@ -158,6 +171,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: to(IDLE),
+    readBehind: same,
   },
   uncertain: {
     apply: same,
@@ -173,6 +188,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: to(IDLE),
     readAtFailure: to(IDLE),
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
   // A kind this build does not know acts as idle: the safe state.
   unknownKind: {
@@ -189,6 +206,8 @@ const MATRIX: Record<string, Record<EventName, Cell>> = {
     readAfter: same,
     readAtFailure: same,
     readBefore: same,
+    readReaches: same,
+    readBehind: same,
   },
 };
 

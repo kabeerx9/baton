@@ -5,7 +5,7 @@ import { HttpError } from "@/lib/http-error";
 import { invalidateMyWork } from "@/lib/invalidate-my-work";
 import { notifyChangeRequested } from "@/lib/notify-change-requested";
 import { isPerTaskRelationQuery } from "@/lib/relation-query-keys";
-import { dispatchStatus, useTaskStatusStore } from "./store";
+import { dispatchStatus, entryOf, useTaskStatusStore } from "./store";
 import type { Move, StatusOutcome, Step, Target } from "./types";
 import { type Waiter, type Waiters, waiters } from "./waiters";
 
@@ -91,10 +91,25 @@ function choose(args: ChooseArgs): Promise<StatusOutcome> {
 
 /** The modal's confirm: every waiting request goes out, one PUT per task. */
 export function confirmRequests(queryClient: QueryClient) {
+  // One toast for the whole batch, not one per task.
+  const requested: { userId?: string | null }[] = [];
+  const runs: Promise<void>[] = [];
   for (const taskId of confirmingIds()) {
     const { step } = dispatchStatus(taskId, { type: "confirm" });
-    if (step.send) void run(queryClient, taskId, step);
+    if (step.send) {
+      runs.push(
+        run(queryClient, taskId, step, (task) => requested.push(task ?? {})),
+      );
+    }
   }
+  void Promise.all(runs).then(() => {
+    if (requested.length > 0) {
+      notifyChangeRequested(
+        queryClient,
+        requested.length === 1 ? requested[0] : undefined,
+      );
+    }
+  });
 }
 
 /** The modal's cancel: nothing is sent, and every waiting caller settles. */
@@ -115,12 +130,19 @@ function confirmingIds() {
 }
 
 /** One chain: PUT, then report the answer to the entry, until nothing is left to send. */
-async function run(queryClient: QueryClient, taskId: string, first: Step) {
+async function run(
+  queryClient: QueryClient,
+  taskId: string,
+  first: Step,
+  onRequested: (task: { userId?: string | null } | undefined) => void = (
+    task,
+  ) => notifyChangeRequested(queryClient, task),
+) {
   let step: Step | undefined = first;
   while (step?.send) {
     const chain = waiters.get(taskId);
     if (!chain) return;
-    step = await sendOnce(queryClient, taskId, step.send, chain);
+    step = await sendOnce(queryClient, taskId, step.send, chain, onRequested);
   }
   waiters.delete(taskId);
   invalidateAfterChain(queryClient, taskId);
@@ -131,6 +153,7 @@ async function sendOnce(
   taskId: string,
   target: Target,
   chain: Waiters,
+  onRequested: (task: { userId?: string | null } | undefined) => void,
 ): Promise<Step | undefined> {
   let result: Awaited<ReturnType<typeof updateTaskStatus>>;
   try {
@@ -147,7 +170,7 @@ async function sendOnce(
     const { step } = dispatchStatus(taskId, { type: "requested" });
     settle(chain.current, "requested");
     settle(chain.queued, "superseded");
-    notifyChangeRequested(queryClient, result.task);
+    onRequested(result.task);
     return step;
   }
 
@@ -202,8 +225,10 @@ function fail(
 /** After a chain settles: every view that shows this status refetches, once. */
 function invalidateAfterChain(queryClient: QueryClient, taskId: string) {
   invalidateMyWork(queryClient);
+  // After an unknown outcome the task is already being read (see `fail`).
+  const reading = entryOf(taskId).kind === "uncertain";
   for (const queryKey of [
-    ["task", taskId],
+    ...(reading ? [] : [["task", taskId]]),
     ["tasks"],
     ["task-board"],
     ["notifications"],

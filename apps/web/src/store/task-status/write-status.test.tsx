@@ -175,6 +175,39 @@ describe("a request is not an optimistic move", () => {
     expect(put).toHaveBeenCalledTimes(1);
   });
 
+  it("drops a request click while a send is in flight", async () => {
+    // Only an "apply" click joins the queue. A request needs its own
+    // confirmation, so it is not queued behind the PUT and not sent.
+    const calls = controlPuts();
+    const first = click(DOING);
+    const request = click(DONE, "request");
+    await expect(request).resolves.toEqual({ outcome: "superseded" });
+    expect(calls).toHaveLength(1);
+    expect(entryOf("t").kind).toBe("sending");
+    calls[0]!.applied(4);
+    await expect(first).resolves.toEqual({ outcome: "applied" });
+    expect(put).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows one toast for a bulk request", async () => {
+    const calls = controlPuts();
+    const bulk = (taskId: string) =>
+      chooseStatus({
+        queryClient: client,
+        taskId,
+        target: DONE,
+        move: "request",
+        title: taskId,
+      });
+    const results = [bulk("a"), bulk("b")];
+    confirmRequests(client);
+    expect(calls).toHaveLength(2);
+    calls.forEach((call) => call.requested());
+    await Promise.all(results);
+    await settled();
+    expect(notifyChangeRequested).toHaveBeenCalledTimes(1);
+  });
+
   it("sends nothing on cancel and settles every caller", async () => {
     controlPuts();
     const first = click(DONE, "request");
@@ -267,6 +300,21 @@ describe("the write may have committed", () => {
         ([filter]) => JSON.stringify(filter?.queryKey) === '["task-board"]',
       );
     expect(boardInvalidations).toHaveLength(1);
+    // The task is fetched once: the chain settle does not invalidate it again.
+    expect(
+      vi
+        .mocked(client.refetchQueries)
+        .mock.calls.filter(
+          ([filter]) => JSON.stringify(filter?.queryKey) === '["task","t"]',
+        ),
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(client.invalidateQueries)
+        .mock.calls.filter(
+          ([filter]) => JSON.stringify(filter?.queryKey) === '["task","t"]',
+        ),
+    ).toHaveLength(0);
     // A click on a locked task is ignored.
     await expect(click(REVIEW)).resolves.toEqual({ outcome: "superseded" });
     expect(put).toHaveBeenCalledTimes(1);
@@ -303,6 +351,44 @@ describe("the write may have committed", () => {
     });
     expect(entryOf("t").kind).toBe("idle");
     stop();
+  });
+
+  it("stays locked when a read that started before the failure resolves after it", async () => {
+    // Seeded data is stamped with the real clock, so the fake one starts later.
+    const start = Date.now() + 10_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const stop = watchTaskReads(client);
+      vi.setSystemTime(start);
+      let finish!: (value: unknown) => void;
+      const inFlight = client.fetchQuery({
+        queryKey: ["task", "t"],
+        queryFn: () => new Promise((resolve) => (finish = resolve)),
+        staleTime: 0,
+      });
+      await settled();
+      vi.setSystemTime(start + 1000);
+      put.mockRejectedValueOnce(timeout());
+      await expect(click(DONE)).rejects.toThrow();
+      expect(entryOf("t").kind).toBe("uncertain");
+
+      // The server answered this read before the write was sent.
+      finish({ id: "t", status: "to-do", statusGeneration: 3 });
+      await inFlight;
+      expect(entryOf("t").kind).toBe("uncertain");
+
+      // A read issued after the failure lifts the lock.
+      vi.setSystemTime(start + 2000);
+      await client.fetchQuery({
+        queryKey: ["task", "t"],
+        queryFn: async () => ({ id: "t", status: "done", statusGeneration: 4 }),
+        staleTime: 0,
+      });
+      expect(entryOf("t").kind).toBe("idle");
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("unlocks on a board read that carries the task", async () => {
@@ -373,5 +459,24 @@ describe("confirmed", () => {
     // A read at the write's generation or later: the server wins, even over us.
     expect(shown("done", 4)).toBe("done");
     expect(shown("in-review", 6)).toBe("in-review");
+  });
+
+  it("drops the entry once a read reaches the generation", async () => {
+    const stop = watchTaskReads(client);
+    const calls = controlPuts();
+    const first = click(DONE);
+    calls[0]!.applied(4);
+    await first;
+    const read = (statusGeneration: number) =>
+      client.fetchQuery({
+        queryKey: ["task", "t"],
+        queryFn: async () => ({ id: "t", status: "to-do", statusGeneration }),
+        staleTime: 0,
+      });
+    await read(3);
+    expect(entryOf("t").kind).toBe("confirmed");
+    await read(4);
+    expect(entryOf("t").kind).toBe("idle");
+    stop();
   });
 });
