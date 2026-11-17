@@ -14,15 +14,18 @@ export function TaskBoard({
   boardTasks,
   lanes,
   workspaceId,
+  olderDoneCount,
 }: {
   boardTasks: BoardTask[];
   lanes: Lane[];
   workspaceId: string;
+  /** Done cards the server left out of the window. */
+  olderDoneCount: number;
 }) {
   // One clock for the whole board: ticks at local midnight and on focus.
   const today = useLocalDay();
   const { t } = useTranslation();
-  const columns = columnOrder(boardTasks, today);
+  const columns = columnOrder(boardTasks, today, olderDoneCount);
   const nav = useBoardNav({
     columns: COLUMNS,
     order: columns

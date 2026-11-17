@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import queryClient from "@/query-client";
+import { watchTaskReads } from "@/store/task-status/watch-reads";
 import "@/index.css";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
 import { SequenceHint } from "./components/shortcuts/sequence-hint";
@@ -39,6 +40,9 @@ console.log(`
   
   Project management that doesn't become the project.
 `);
+
+// One listener for the app: a read of a task ends its "uncertain" status write.
+watchTaskReads(queryClient);
 
 const router = createRouter({
   routeTree,

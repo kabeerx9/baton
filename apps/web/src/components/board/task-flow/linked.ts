@@ -1,4 +1,4 @@
-import type { Person, Status } from "../model";
+import { type Person, type Status, toStatus } from "../model";
 
 /** A task as the chain and the side list show it. */
 export type LinkedTask = {
@@ -22,7 +22,21 @@ export type RelatedTask = {
   projectId: string;
   userId: string | null;
   assigneeName: string | null;
+  /** From the API: the task still holds up work that waits on it (BOARD.md rule 5). */
+  open?: boolean;
 };
+
+/**
+ * The status of a linked task the board may not list. `open` is the API's
+ * answer, so an old done feature is done whatever status is stored on it,
+ * and an open one is never shown as done.
+ */
+export function linkedStatus(related: RelatedTask): Status {
+  const stored = toStatus(related);
+  if (related.open === undefined) return stored;
+  if (!related.open) return "done";
+  return stored === "done" ? "doing" : stored;
+}
 
 export type Relation = {
   relationType: string;

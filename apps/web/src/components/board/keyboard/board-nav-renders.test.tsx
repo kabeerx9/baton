@@ -80,13 +80,27 @@ afterEach(cleanup);
 
 describe("render cost of a focus move", () => {
   it("renders every card once at the start", () => {
-    render(<TaskBoard boardTasks={TASKS} lanes={[]} workspaceId="w" />);
+    render(
+      <TaskBoard
+        boardTasks={TASKS}
+        lanes={[]}
+        workspaceId="w"
+        olderDoneCount={0}
+      />,
+    );
     expect(renders.cards.size).toBe(40);
     expect(total()).toBe(40);
   });
 
   it("re-renders at most the two cards involved, and no column", () => {
-    render(<TaskBoard boardTasks={TASKS} lanes={[]} workspaceId="w" />);
+    render(
+      <TaskBoard
+        boardTasks={TASKS}
+        lanes={[]}
+        workspaceId="w"
+        olderDoneCount={0}
+      />,
+    );
     const stubRects = () =>
       document
         .querySelectorAll<HTMLElement>("section")

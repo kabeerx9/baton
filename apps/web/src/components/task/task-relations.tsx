@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/context-menu";
 import useCreateTaskRelation from "@/hooks/mutations/task-relation/use-create-task-relation";
 import useDeleteTaskRelation from "@/hooks/mutations/task-relation/use-delete-task-relation";
+import { statusFactsOf } from "@/components/board/status-overlay";
+import { useGetBoard } from "@/hooks/queries/board/use-get-board";
 import useGetProject from "@/hooks/queries/project/use-get-project";
 import { useGetTasks } from "@/hooks/queries/task/use-get-tasks";
 import useGetTaskRelations from "@/hooks/queries/task-relation/use-get-task-relations";
@@ -96,6 +98,8 @@ export default function TaskRelations({
     refetchOnMount: false,
   });
   const { data: project } = useGetProject({ id: projectId, workspaceId });
+  // The relations read says nothing about moving a linked task; the board does.
+  const { data: board } = useGetBoard(workspaceId);
   const { data: workspace } = useActiveWorkspace();
   const { data: workspaceUsers } = useGetActiveWorkspaceUsers(
     workspace?.id ?? "",
@@ -258,6 +262,7 @@ export default function TaskRelations({
     assigneeName: item.task.assigneeName,
     assigneeImage: "",
     projectId: item.task.projectId,
+    ...statusFactsOf(board, item.task.id),
   });
 
   const totalCount = nonSubtaskRelations.length;

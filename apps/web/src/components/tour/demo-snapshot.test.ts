@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { HttpError } from "@/lib/http-error";
-import { deriveDemoSnapshot } from "./demo-snapshot";
+import { deriveDemoSnapshot, isDoneMutation } from "./demo-snapshot";
 import { demoBoard, TASK_IDS } from "./test-fixtures";
 
 describe("deriveDemoSnapshot", () => {
@@ -55,5 +55,41 @@ describe("deriveDemoSnapshot", () => {
         TASK_IDS,
       ),
     ).toEqual({ status: "pending" });
+  });
+});
+
+describe("isDoneMutation", () => {
+  const write = (outcome: string | undefined, status = "done") => ({
+    variables: { taskId: "api", status },
+    data: outcome ? { outcome } : undefined,
+  });
+
+  it("counts a write that was applied", () => {
+    expect(isDoneMutation(write("applied"), "api")).toBe(true);
+    expect(
+      isDoneMutation(
+        {
+          variables: { id: "api", status: "done" },
+          data: { outcome: "applied" },
+        },
+        "api",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not count a request, a click that was replaced, or an unknown answer", () => {
+    for (const outcome of [
+      "requested",
+      "superseded",
+      "from-the-future",
+      undefined,
+    ]) {
+      expect(isDoneMutation(write(outcome), "api")).toBe(false);
+    }
+  });
+
+  it("does not count another task or another status", () => {
+    expect(isDoneMutation(write("applied"), "other")).toBe(false);
+    expect(isDoneMutation(write("applied", "in-progress"), "api")).toBe(false);
   });
 });

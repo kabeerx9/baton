@@ -1,5 +1,4 @@
 import { orderCards } from "./card-order";
-import { splitDone } from "./done-window";
 import type { BoardTask, Status } from "./model";
 
 /** Board columns, left to right. */
@@ -9,27 +8,24 @@ export type ColumnItems = {
   status: Status;
   /** The cards the column shows, in display order. */
   items: BoardTask[];
-  /** Done only: finished work older than the Done window. */
+  /** Done only: the server's count of finished cards left out of the window. */
   olderCount: number;
 };
 
 /**
- * What each column shows and in which order. Done keeps 14 calendar days
- * counted from local midnight (accepted policy). One derivation for the whole
- * board, so keyboard navigation and rendering agree on card positions.
+ * What each column shows and in which order. The server has already left out
+ * done work older than the window and counted it (`olderDoneCount`). One
+ * derivation for the whole board, so keyboard navigation and rendering agree
+ * on card positions.
  */
 export function columnOrder(
   boardTasks: BoardTask[],
   today: number,
+  olderDoneCount: number,
 ): ColumnItems[] {
   return COLUMNS.map((status) => {
-    const all = boardTasks.filter((task) => task.column === status);
-    const { recent, olderCount } =
-      status === "done"
-        ? splitDone(all, new Date(today))
-        : { recent: all, olderCount: 0 };
     const items = orderCards(
-      recent,
+      boardTasks.filter((task) => task.column === status),
       (task) => ({
         key: task.key,
         priority: task.priority,
@@ -38,6 +34,10 @@ export function columnOrder(
       }),
       today,
     );
-    return { status, items, olderCount };
+    return {
+      status,
+      items,
+      olderCount: status === "done" ? olderDoneCount : 0,
+    };
   });
 }

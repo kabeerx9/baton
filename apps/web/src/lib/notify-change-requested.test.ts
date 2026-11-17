@@ -37,4 +37,13 @@ describe("notifyChangeRequested", () => {
     for (const call of vi.mocked(toast.info).mock.calls)
       expect(call[0]).toBe("tasks:changeRequest.requested");
   });
+
+  it("reads past an item read, which has no member list", () => {
+    const client = clientWithBoard();
+    client.setQueryData(["task-board", "w", "item", "t1"], { task: null });
+    notifyChangeRequested(client, { userId: "neha" });
+    expect(toast.info).toHaveBeenCalledWith(
+      'tasks:changeRequest.requestedTo:{"names":"Neha"}',
+    );
+  });
 });

@@ -1,40 +1,35 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { invalidateMyWork } from "@/lib/invalidate-my-work";
-import updateTaskStatus from "@/fetchers/task/update-task-status";
-import { notifyChangeRequested } from "@/lib/notify-change-requested";
-import { isPerTaskRelationQuery } from "@/lib/relation-query-keys";
+import { chooseStatus } from "@/store/task-status/write-status";
+import { moveOf } from "@/store/task-status/transition";
 import type Task from "@/types/task";
 
+/** A task and the status to write. `isFinal` is the target column's flag; without it only "done" is final. */
+export type TaskStatusWrite = Task & { isFinal?: boolean };
+
+/**
+ * Writes a task's status through the one per-task writer (store/task-status).
+ * It resolves with how this click ended: "applied", "requested" or
+ * "superseded". Test `=== "applied"`; any other value means not applied.
+ * Every control of a task shares one lifecycle, so `isPending` here says
+ * nothing about the task: read the store entry.
+ */
 export function useUpdateTaskStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (task: Task) => updateTaskStatus(task.id, task),
-    onSuccess: (result, variables) => {
-      if (result.outcome === "requested")
-        notifyChangeRequested(queryClient, result.task);
-      invalidateMyWork(queryClient);
-      queryClient.invalidateQueries({
-        queryKey: ["task", variables.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["tasks", variables.projectId],
-      });
-      // The board shows this status too; the detail page does not refetch it.
-      queryClient.invalidateQueries({ queryKey: ["task-board"] });
-      queryClient.invalidateQueries({
-        queryKey: ["notifications"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["projects"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["activities", variables.id],
-      });
-      // Per-task relation responses embed the linked tasks' status and
-      // assignee, so they stale here; the project-scoped query returns edges
-      // alone and does not.
-      queryClient.invalidateQueries({ predicate: isPerTaskRelationQuery });
-    },
+    // The default pauses an offline mutation before it runs, so the click
+    // would apply later, unseen. The writer shows and fails it at once.
+    networkMode: "always",
+    mutationFn: (task: TaskStatusWrite) =>
+      chooseStatus({
+        queryClient,
+        taskId: task.id,
+        target: {
+          status: task.status,
+          isFinal: task.isFinal ?? task.status === "done",
+        },
+        move: moveOf(task.statusChange),
+        title: task.title,
+      }),
   });
 }

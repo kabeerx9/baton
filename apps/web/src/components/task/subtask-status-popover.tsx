@@ -10,6 +10,12 @@ import { useUpdateTaskStatus } from "@/hooks/mutations/task/use-update-task-stat
 import { useGetColumns } from "@/hooks/queries/column/use-get-columns";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { toast } from "@/lib/toast";
+import { useTaskStatusStore } from "@/store/task-status/store";
+import {
+  isStatusLocked,
+  moveOf,
+  shownStatus,
+} from "@/store/task-status/transition";
 import type Task from "@/types/task";
 import { statusMenuOptions } from "./menus/status-menu-options";
 
@@ -29,18 +35,33 @@ export default function SubtaskStatusPopover({
   const { data: columns = [] } = useGetColumns(projectId);
   const { mutateAsync: updateTaskStatus } = useUpdateTaskStatus();
   const { canUpdateTasks } = useWorkspacePermission();
+  const entries = useTaskStatusStore((s) => s.entries);
 
-  if (!canUpdateTasks()) return <>{children}</>;
+  const shown = tasks.map((task) => shownStatus(task, entries[task.id]));
+  // Every task keeps its own entry. "Apply" tasks move at once, each in its
+  // own chain; "request" tasks wait together in the one request modal.
+  if (
+    !canUpdateTasks() ||
+    tasks.every((task) => moveOf(task.statusChange) === "deny") ||
+    tasks.some((task) => isStatusLocked(entries[task.id]))
+  )
+    return <>{children}</>;
 
-  const current = tasks.every((task) => task.status === tasks[0]?.status)
-    ? tasks[0]?.status
+  const current = shown.every((status) => status === shown[0])
+    ? shown[0]
     : undefined;
 
   const changeStatus = async (status: string) => {
     setOpen(false);
     try {
       await Promise.all(
-        tasks.map((task) => updateTaskStatus({ ...task, status })),
+        tasks.map((task) =>
+          updateTaskStatus({
+            ...task,
+            status,
+            isFinal: columns.find((column) => column.slug === status)?.isFinal,
+          }),
+        ),
       );
     } catch (error) {
       toast.error(

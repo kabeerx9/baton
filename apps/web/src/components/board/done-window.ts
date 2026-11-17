@@ -1,20 +1,12 @@
-import { subDays } from "date-fns";
+import { startOfDay, subDays } from "date-fns";
 
-/** The Done column shows work finished in this many days. */
+/** The Done column shows work finished in this many days. The server keeps its own copy. */
 export const DONE_WINDOW_DAYS = 14;
 
 /**
- * Splits finished items into those shown on the board and a count of older
- * ones that live on the History page. A done item always has a finish time in
- * practice; one without it stays on the board, so nothing vanishes unseen.
+ * The oldest finish time the board asks for: local midnight, so the window
+ * counts calendar days, minus the window. The server has no time zone.
  */
-export function splitDone<T extends { finishedAt: string | null }>(
-  items: T[],
-  now: Date = new Date(),
-): { recent: T[]; olderCount: number } {
-  const cutoff = subDays(now, DONE_WINDOW_DAYS).getTime();
-  const recent = items.filter(
-    (item) => !item.finishedAt || new Date(item.finishedAt).getTime() >= cutoff,
-  );
-  return { recent, olderCount: items.length - recent.length };
+export function doneSince(now: Date = new Date()): string {
+  return subDays(startOfDay(now), DONE_WINDOW_DAYS).toISOString();
 }

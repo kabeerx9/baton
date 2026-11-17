@@ -24,6 +24,7 @@ export const subtaskFixture = (
   hiddenBlockers: 0,
   blockedBy: [],
   pendingRequest: null,
+  move: "apply",
   ...over,
 });
 
@@ -45,6 +46,7 @@ export const boardTaskFixture = (
   waitsOn: [],
   hiddenBlockers: 0,
   pendingRequest: null,
+  move: "apply",
   subtasks: [],
   ...over,
 });

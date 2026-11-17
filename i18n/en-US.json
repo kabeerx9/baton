@@ -2690,6 +2690,11 @@
 			"afterDue": "{{date}} is after the due date"
 		},
 		"changeRequest": {
+			"confirmTitle": "You're not on this task. Send a change request?",
+			"confirmTitleMany": "You're not on these tasks. Send change requests?",
+			"confirmDescription": "The status does not change until someone on the task accepts.",
+			"confirmSend": "Send request",
+			"confirmSending": "Sending…",
 			"bannerLabel": "Change request",
 			"askStatusFrom": "{{name}} asks to move this task from {{from}} to {{to}}",
 			"askStatus": "{{name}} asks to move this task to {{to}}",

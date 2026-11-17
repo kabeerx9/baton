@@ -18,6 +18,7 @@ import {
 } from "vite-plus/test";
 import type { AssignedTask } from "@/fetchers/task/get-assigned-tasks";
 import { ShortcutTestWrapper } from "@/lib/shortcuts/shortcut-test-wrapper";
+import { chooseStatus } from "@/store/task-status/write-status";
 import { MyTasksPage } from "./my-tasks-page";
 import { assigned, dueIn, link } from "./test-task";
 
@@ -255,7 +256,8 @@ describe("mark done", () => {
     );
     expect(mocks.updateStatus).toHaveBeenCalledWith(
       "blocker",
-      expect.objectContaining({ id: "blocker", status: "done" }),
+      { status: "done" },
+      expect.any(AbortSignal),
     );
   });
 
@@ -272,7 +274,8 @@ describe("mark done", () => {
 
     expect(mocks.updateStatus).toHaveBeenLastCalledWith(
       "late",
-      expect.objectContaining({ status: "in-progress" }),
+      { status: "in-progress" },
+      expect.any(AbortSignal),
     );
     expect(
       await screen.findByRole("button", {
@@ -293,9 +296,57 @@ describe("mark done", () => {
     await waitFor(() =>
       expect(mocks.updateStatus).toHaveBeenLastCalledWith(
         "blocker",
-        expect.objectContaining({ status: "to-do" }),
+        { status: "to-do" },
+        expect.any(AbortSignal),
       ),
     );
+    await waitFor(async () => expect(await heroTitle()).toBe("Return 409"));
+  });
+
+  it("shows the task again, with no done toast, when a later click replaced the write", async () => {
+    // Another control of the same task is already writing: one PUT at a time.
+    let release: () => void = () => undefined;
+    mocks.updateStatus.mockReset();
+    mocks.updateStatus.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              outcome: "applied",
+              task: { id: "blocker", statusGeneration: 4 },
+            });
+        }),
+    );
+    mocks.updateStatus.mockResolvedValue({
+      outcome: "applied",
+      task: { id: "blocker", statusGeneration: 5 },
+    });
+    mount();
+    await hero();
+    const write = (status: string) =>
+      chooseStatus({
+        queryClient: client,
+        taskId: "blocker",
+        target: { status, isFinal: status === "done" },
+        move: "apply",
+      });
+    void write("in-progress");
+
+    fireEvent.click(
+      within(await hero()).getByRole("button", { name: /Mark done/ }),
+    );
+    await act(async () => undefined);
+    // A later click on the same task takes the place of "done".
+    void write("to-do");
+    await act(async () => release());
+
+    await waitFor(() => expect(mocks.updateStatus).toHaveBeenCalledTimes(2));
+    expect(mocks.updateStatus.mock.calls.map((c) => c[1].status)).toEqual([
+      "in-progress",
+      "to-do",
+    ]);
+    expect(mocks.toast.success).not.toHaveBeenCalled();
+    // Nothing is left to undo, and the task is still on the list.
     await waitFor(async () => expect(await heroTitle()).toBe("Return 409"));
   });
 

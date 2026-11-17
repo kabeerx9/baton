@@ -1,11 +1,11 @@
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
 import { useShortcutsPanelStore } from "@/components/shortcuts/shortcuts-panel-store";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { ArrowDownIcon, ArrowUpIcon, CornerDownLeftIcon } from "lucide-react";
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { NewTaskDialog } from "@/components/board/new-task-dialog";
 import SearchCommandMenu from "@/components/search-command-menu";
-import CreateTaskModal from "@/components/shared/modals/create-task-modal";
 import CreateWorkspaceModal from "@/components/shared/modals/create-workspace-modal";
 import {
   Command,
@@ -49,7 +49,6 @@ function CommandPalette() {
   const { t } = useTranslation();
   const { setTheme } = useUserPreferencesStore();
   const navigate = useNavigate();
-  const location = useLocation();
   const { data: workspace } = useActiveWorkspace();
   const { data: session } = authClient.useSession();
   const { data: config } = useGetConfig();
@@ -61,8 +60,6 @@ function CommandPalette() {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
-  const projectIdFromRoute =
-    location.pathname.match(/\/project\/([^/]+)/)?.[1] ?? undefined;
 
   const openShortcutsPanel = useShortcutsPanelStore((state) => state.setOpen);
 
@@ -249,12 +246,14 @@ function CommandPalette() {
       </CommandDialog>
 
       <SearchCommandMenu open={isSearchOpen} setOpen={setIsSearchOpen} />
-      <CreateTaskModal
-        open={isCreateTaskOpen}
-        projectId={projectIdFromRoute}
-        onClose={() => setIsCreateTaskOpen(false)}
-        instant
-      />
+      {workspace?.id ? (
+        <NewTaskDialog
+          workspaceId={workspace.id}
+          open={isCreateTaskOpen}
+          onOpenChange={setIsCreateTaskOpen}
+          onCreated={() => undefined}
+        />
+      ) : null}
       <CreateWorkspaceModal
         open={isCreateWorkspaceOpen}
         onClose={() => setIsCreateWorkspaceOpen(false)}

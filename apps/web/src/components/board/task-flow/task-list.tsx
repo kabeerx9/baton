@@ -54,6 +54,8 @@ export function TaskList({
             <StatusMenu
               taskId={task.id}
               status={task.status}
+              move={task.move}
+              title={task.title}
               blocked={blocked}
             />
             <Link
