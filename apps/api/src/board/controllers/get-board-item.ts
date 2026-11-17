@@ -1,6 +1,5 @@
 import { and, eq, not, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { HTTPException } from "hono/http-exception";
 import {
   projectTable,
   taskRelationTable,
@@ -10,7 +9,7 @@ import type { DbOrTx } from "../../project-access/db-or-tx";
 import { projectAccessCondition } from "../../project-access/project-access-condition";
 import { pendingRequestsForTasks } from "../../task-change-request/pending-summaries";
 import { isSubtask } from "../../task/is-subtask";
-import { isKey, keyNumber } from "../resolve-names";
+import { parseTaskRef, taskNotFound } from "../resolve-names";
 import { boardSnapshot } from "./board-snapshot";
 import { ensureBoardProject } from "./ensure-board-project";
 import { getVisibleProjects } from "./get-visible-projects";
@@ -28,13 +27,7 @@ async function findVisibleTask(
   userId: string,
   ref: string,
 ) {
-  const key = ref.trim();
-  const byKey = isKey(key);
-  const [slug, digits] = byKey ? key.split("-") : [];
-  const number = byKey ? keyNumber(digits) : null;
-  // A number no task can have (too many digits) is a missing task, not a 500.
-  if (byKey && number === null)
-    throw new HTTPException(404, { message: `There is no task ${key}.` });
+  const parsed = parseTaskRef(ref);
   const [task] = await database
     .select({ id: taskTable.id, projectId: taskTable.projectId })
     .from(taskTable)
@@ -42,12 +35,12 @@ async function findVisibleTask(
     .where(
       and(
         eq(projectTable.workspaceId, workspaceId),
-        byKey
-          ? and(
-              sql`lower(${projectTable.slug}) = ${(slug ?? "").toLowerCase()}`,
-              eq(taskTable.number, number ?? 0),
-            )
-          : eq(taskTable.id, key),
+        "id" in parsed
+          ? eq(taskTable.id, parsed.id)
+          : and(
+              sql`lower(${projectTable.slug}) = ${parsed.slug.toLowerCase()}`,
+              eq(taskTable.number, parsed.number),
+            ),
         or(
           and(eq(projectTable.kind, "board"), not(isSubtask)),
           projectAccessCondition(userId, projectTable.id),
@@ -55,8 +48,7 @@ async function findVisibleTask(
       ),
     )
     .limit(1);
-  if (!task)
-    throw new HTTPException(404, { message: `There is no task ${key}.` });
+  if (!task) throw taskNotFound(parsed.key);
   return task;
 }
 

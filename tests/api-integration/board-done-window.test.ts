@@ -403,6 +403,24 @@ describe("API integration: one board item", () => {
         { method: "PATCH", body: JSON.stringify({ status: "done" }) },
       );
       expect(update.status, `PATCH ${key}`).toBe(404);
+      const subtasks = await send(
+        `/api/board/workspace/${f.workspace.id}/item/${key}/subtasks`,
+        {
+          method: "POST",
+          body: JSON.stringify({ subtasks: [{ title: "x" }] }),
+        },
+      );
+      expect(subtasks.status, `POST ${key}/subtasks`).toBe(404);
+      // The same key as a waits-on entry of a real feature.
+      const waitsOn = await send(
+        `/api/board/workspace/${f.workspace.id}/item/T-${f.t.oneOpen.number}/subtasks`,
+        {
+          method: "POST",
+          body: JSON.stringify({ subtasks: [{ title: "y", waitsOn: [key] }] }),
+        },
+      );
+      expect(waitsOn.status, `waitsOn ${key}`).toBe(404);
+      expect(await waitsOn.text()).toContain(`There is no task ${key}.`);
     }
   });
 

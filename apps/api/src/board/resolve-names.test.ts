@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   isKey,
   keyNumber,
+  parseTaskRef,
+  taskNotFound,
   matchMember,
   matchRepo,
   statusSlug,
@@ -102,5 +104,24 @@ describe("keyNumber", () => {
     expect(keyNumber("2147483647")).toBe(2_147_483_647);
     for (const digits of ["0", "2147483648", "99999999999999999999", undefined])
       expect(keyNumber(digits)).toBeNull();
+  });
+});
+
+describe("parseTaskRef", () => {
+  it("splits a key, passes an id through and refuses an impossible number", () => {
+    expect(parseTaskRef(" API-3 ")).toEqual({
+      key: "API-3",
+      slug: "API",
+      number: 3,
+    });
+    expect(parseTaskRef("task-id")).toEqual({ key: "task-id", id: "task-id" });
+    let thrown: unknown;
+    try {
+      parseTaskRef("T-99999999999");
+    } catch (error) {
+      thrown = error;
+    }
+    const expected = taskNotFound("T-99999999999");
+    expect(thrown).toMatchObject({ status: 404, message: expected.message });
   });
 });
