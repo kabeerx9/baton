@@ -86,12 +86,17 @@ export function registerTools(
     isSubtask?: boolean;
   }) => {
     if (task.isSubtask || !task.workspaceId) return undefined;
-    const item = await client.json<{
-      task: { id: string; subtasks: unknown[] } | null;
-    }>(
-      `/api/board/workspace/${encodeURIComponent(task.workspaceId)}/item/${encodeURIComponent(task.id)}`,
-      { method: "GET" },
-    );
+    // The board read can refuse a caller the key lookup allows (an instance
+    // admin outside the workspace); the task itself is still the answer.
+    const item = await client
+      .json<{
+        task: { id: string; subtasks: unknown[] } | null;
+      }>(
+        `/api/board/workspace/${encodeURIComponent(task.workspaceId)}/item/${encodeURIComponent(task.id)}`,
+        { method: "GET" },
+      )
+      .catch(() => null);
+    if (!item) return undefined;
     return item.task?.id === task.id && item.task.subtasks.length > 0
       ? item.task.subtasks
       : undefined;

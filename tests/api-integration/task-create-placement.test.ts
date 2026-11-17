@@ -12,6 +12,7 @@ import db, { schema } from "../../apps/api/src/database";
 import { ensureBoardProject } from "../../apps/api/src/board/controllers/ensure-board-project";
 import * as events from "../../apps/api/src/events";
 import { createApp } from "../../apps/api/src/index";
+import createTask from "../../apps/api/src/task/controllers/create-task";
 import { NEEDS_PARENT_MESSAGE } from "../../apps/api/src/task/task-placement";
 import { as, createKey, withKey } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
@@ -108,6 +109,7 @@ describe("API integration: a repo task sits under a feature", () => {
 
   it("still creates a standalone task in the board project by id", async () => {
     const { user, board } = await seed();
+    const publish = vi.spyOn(events, "publishEvent");
     const response = await as(user)(`/api/task/${board.id}`, {
       method: "POST",
       body,
@@ -120,6 +122,8 @@ describe("API integration: a repo task sits under a feature", () => {
     expect(task.projectId).toBe(board.id);
     expect(board.slug).toBe("T");
     expect(task.number).toBe(1);
+    // Positive control for the spy the refusal test relies on.
+    expect(publish).toHaveBeenCalledWith("task.created", expect.anything());
   });
 
   it("creates a repo task under a feature, task and link together", async () => {
@@ -151,15 +155,23 @@ describe("API integration: a repo task sits under a feature", () => {
     expect(link?.relationType).toBe("subtask");
   });
 
-  it("leaves no task when the subtask link fails", async () => {
+  it("leaves no task and no used number when the subtask link fails", async () => {
     const { user, repo } = await seed();
     const before = await counts(repo.id);
-    const response = await as(user)(`/api/board/missing-feature/subtask`, {
-      method: "POST",
-      body: JSON.stringify({ projectId: repo.id, title: "Repo work" }),
-    });
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect((await counts(repo.id)).tasks).toBe(before.tasks);
+    // The placement rule passes (a parent is named); the link insert then
+    // fails its foreign key and rolls the task back.
+    await expect(
+      createTask({
+        projectId: repo.id,
+        currentUserId: user.id,
+        title: "Repo work",
+        status: "to-do",
+        parentTaskId: "missing-feature",
+      }),
+    ).rejects.toThrow();
+    const after = await counts(repo.id);
+    expect(after.tasks).toBe(before.tasks);
+    expect(after.project).toEqual(before.project);
   });
 
   it("gives the same 400 to a session, an API key and an MCP token", async () => {

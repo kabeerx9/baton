@@ -288,6 +288,28 @@ describe("registerTools", () => {
     expect(paths).not.toContain("/api/board/workspace/w1/item/s1");
   });
 
+  it("still returns the task when the one-item read is refused", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn(async (path: string) => {
+        if (path.startsWith("/api/comment/")) return [];
+        if (path.startsWith("/api/board/")) throw new Error("Forbidden");
+        return { id: "f1", workspaceId: "w9", isSubtask: false };
+      }),
+    };
+    registerTools(server as never, { client: client as never });
+    const result = await tools
+      .get("get_task_by_ticket_id")
+      ?.handler({ ticketId: "T-1" });
+    expect(result?.isError).toBe(false);
+    expect(JSON.parse(result?.content[0]?.text ?? "")).toEqual({
+      id: "f1",
+      workspaceId: "w9",
+      isSubtask: false,
+      comments: [],
+    });
+  });
+
   it("uses the default workspace for board tools and lists names when none fits", async () => {
     const { server, tools } = createServerMock();
     const workspaces = [

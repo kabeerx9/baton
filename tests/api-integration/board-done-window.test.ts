@@ -26,23 +26,27 @@ import { restrictToProjects } from "./helpers/project-access/restrict-to-project
 const hooks = vi.hoisted(() => ({
   beforePayload: null as null | (() => Promise<void>),
 }));
-vi.mock("../../apps/api/src/task/get-open-blockers", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("../../apps/api/src/task/get-open-blockers")
-    >();
-  return {
-    ...actual,
-    loadBlockLinks: async (
-      ...args: Parameters<typeof actual.loadBlockLinks>
-    ) => {
-      const hook = hooks.beforePayload;
-      hooks.beforePayload = null;
-      if (hook) await hook();
-      return actual.loadBlockLinks(...args);
-    },
-  };
-});
+vi.mock(
+  "../../apps/api/src/board/controllers/get-visible-projects",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../../apps/api/src/board/controllers/get-visible-projects")
+      >();
+    return {
+      ...actual,
+      // Runs after the window selection and before any payload read.
+      getVisibleProjects: async (
+        ...args: Parameters<typeof actual.getVisibleProjects>
+      ) => {
+        const hook = hooks.beforePayload;
+        hooks.beforePayload = null;
+        if (hook) await hook();
+        return actual.getVisibleProjects(...args);
+      },
+    };
+  },
+);
 
 type Item = {
   id: string;
