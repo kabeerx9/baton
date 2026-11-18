@@ -1,6 +1,10 @@
-// TODO(after backend merge): call `client["join-link"]` through @baton/libs,
-// map `!response.ok` with `HttpError.fromResponse`, and drop the cast. The
-// typed client has no join-link routes until the API merges.
-export async function revokeJoinLink(_workspaceId: string): Promise<null> {
-  throw new Error("revokeJoinLink is not wired to the API yet");
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
+
+export async function revokeJoinLink(workspaceId: string): Promise<null> {
+  const response = await client["join-link"].workspace[":workspaceId"].$delete({
+    param: { workspaceId },
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return null;
 }

@@ -1,11 +1,16 @@
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 import type { CreateJoinLinkInput, JoinLink } from "./types";
 
-// TODO(after backend merge): call `client["join-link"]` through @baton/libs,
-// map `!response.ok` with `HttpError.fromResponse`, and drop the cast. The
-// typed client has no join-link routes until the API merges.
+/** Replaces the current link. The response always carries the URL. */
 export async function createJoinLink(
-  _workspaceId: string,
-  _input: CreateJoinLinkInput,
+  workspaceId: string,
+  input: CreateJoinLinkInput,
 ): Promise<JoinLink> {
-  throw new Error("createJoinLink is not wired to the API yet");
+  const response = await client["join-link"].workspace[":workspaceId"].$post({
+    param: { workspaceId },
+    json: input,
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return (await response.json()).link;
 }

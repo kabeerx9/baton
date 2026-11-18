@@ -1,10 +1,10 @@
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 import type { JoinLinkPreview } from "./types";
 
-// TODO(after backend merge): call `client["join-link"]` through @baton/libs,
-// map `!response.ok` with `HttpError.fromResponse`, and drop the cast. The
-// typed client has no join-link routes until the API merges.
-export async function previewJoinLink(
-  _token: string,
-): Promise<JoinLinkPreview> {
-  throw new Error("previewJoinLink is not wired to the API yet");
+/** Public. Always 200 for a well-formed call; the body says if the link works. */
+export async function previewJoinLink(token: string): Promise<JoinLinkPreview> {
+  const response = await client["join-link"].preview.$post({ json: { token } });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
