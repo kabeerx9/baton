@@ -60,6 +60,7 @@ The first account completes instance setup. Keep this local instance private unt
 - **Uploads:** configure S3-compatible storage. Any S3-compatible store works, for example MinIO. The API and browser must both reach its endpoint.
 - **Email:** configure SMTP (`SMTP_HOST` and related settings). It sends invitations, email verification and password resets. Email and password is the only way to sign in; there is no email code or magic-link sign-in.
 - **GitHub:** set `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` and register the local callback URL with the GitHub OAuth App. A signed-in user can then link their GitHub account for repository connections. GitHub never signs anyone in or creates an account. The GitHub App (`GITHUB_APP_*`) powers issue and pull request sync.
+- **API port:** the API listens on `BATON_API_PORT`, default `1337`. If you change it, change `BATON_API_URL`, `BATON_INTERNAL_API_URL` and `VITE_API_URL` to match. Leave it unset in the bundled image: its nginx and entrypoint expect 1337.
 - **MCP:** the built-in endpoint uses `BATON_INTERNAL_API_URL`, defaulting to `http://127.0.0.1:1337`, for internal tool requests. The stdio `baton-mcp` package signs in with an API key (`BATON_API_KEY`).
 - **Private-network connections:** `BATON_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS=true` permits internal ntfy, Gotify and webhook notification destinations. Only enable it on a trusted deployment.
 - **Redis:** only needed to relay live updates between multiple API instances. Leave it unset for one local API process.

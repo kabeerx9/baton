@@ -87,6 +87,7 @@ import {
   handleWebSocketMessage,
   MAX_WEBSOCKET_MESSAGE_BYTES,
 } from "./ws/security";
+import { resolveApiPort } from "./utils/api-port";
 
 type ApiKey = {
   id: string;
@@ -781,7 +782,7 @@ export async function runStartupTasks() {
 
 export async function startServer(
   injectWebSocket: ReturnType<typeof createNodeWebSocket>["injectWebSocket"],
-  port = 1337,
+  port = resolveApiPort(process.env.BATON_API_PORT),
 ) {
   try {
     await runStartupTasks();

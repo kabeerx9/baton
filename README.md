@@ -71,7 +71,7 @@ How sign-in works:
 - `URL` lists a core set of 12 tools. Add `?tools=all` to the URL for the full catalog.
 - Browser session tokens do not work on `/api/mcp`. If an agent connected before grants existed, it signs in again once.
 - `GET /api/mcp/grants` lists your connected agents, newest first, in pages. Follow `nextCursor` until it is null.
-- Tools call the REST API from inside the API process at `BATON_INTERNAL_API_URL` (default `http://127.0.0.1:1337`). If the API listens on another port, set it, or every tool call fails with `Unauthorized`.
+- Tools call the REST API from inside the API process at `BATON_INTERNAL_API_URL` (default `http://127.0.0.1:1337`). If the API listens on another port (`BATON_API_PORT`), set it, or every tool call fails with `Unauthorized`.
 - With an API key, each REST call a tool makes counts against the key's quota. A board tool can make two (one to find the workspace), so give headless agents room. The MCP request itself does not count.
 
 ## License
