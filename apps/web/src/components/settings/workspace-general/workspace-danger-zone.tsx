@@ -9,6 +9,7 @@ import { SettingsRow } from "@/components/settings/settings-row";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { Button } from "@/components/ui/button";
 import useDeleteWorkspace from "@/hooks/mutations/workspace/use-delete-workspace";
+import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { toast } from "@/lib/toast";
 
 type WorkspaceDangerZoneProps = {
@@ -36,12 +37,10 @@ export function WorkspaceDangerZone({
       });
       setOpen(false);
 
-      await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["active-organization"],
+      await leaveGoneWorkspace(workspaceId, {
+        queryClient,
+        navigate: (destination) => navigate(destination),
       });
-
-      navigate({ to: "/dashboard" });
     } catch (error) {
       toast.error(
         error instanceof Error
