@@ -1,4 +1,4 @@
-import { eq, isNull, and } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import {
   afterEach,
@@ -23,7 +23,10 @@ import {
   shutdownWebSocketAdapter,
 } from "../../apps/api/src/ws";
 import { resetTestDatabase } from "./helpers/database";
-import { createProjectFixture } from "./helpers/fixtures";
+import {
+  createProjectFixture,
+  createWorkspaceMember,
+} from "./helpers/fixtures";
 import {
   type JoinLinkBody,
   joinLinkFixture,
@@ -109,6 +112,13 @@ describe("join link state", () => {
       ctx.owner.userId,
       ownerSocket as unknown as WSContext,
     );
+    // A member of an unrelated workspace must hear nothing.
+    const { user: stranger } = await createWorkspaceMember();
+    const strangerSocket = { send: vi.fn(), close: vi.fn() };
+    const strangerConnection = addUserConnection(
+      stranger.id,
+      strangerSocket as unknown as WSContext,
+    );
     const boardConnection = addConnection(
       project.id,
       boardSocket as unknown as WSContext,
@@ -142,7 +152,9 @@ describe("join link state", () => {
           }),
         );
       });
+      expect(sent(strangerSocket)).toEqual([]);
     } finally {
+      removeUserConnection(stranger.id, strangerConnection);
       removeUserConnection(ctx.owner.userId, userConnection);
       removeConnection(project.id, boardConnection);
       await shutdownWebSocketAdapter();
@@ -251,6 +263,43 @@ describe("removed members (4)", () => {
     const refused = await ctx.join(joiner, token);
     expect(refused.status).toBe(403);
     expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+
+  it("fails both removals when the removal cannot be recorded", async () => {
+    const ctx = await joinLinkFixture();
+    const { token } = await ctx.createLink();
+    const joiner = await ctx.person("Kept Person");
+    expect((await ctx.join(joiner, token)).status).toBe(200);
+    const instanceAdmin = await ctx.person("Instance Admin", "admin");
+
+    await db.execute(sql`
+      CREATE FUNCTION refuse_removal() RETURNS trigger LANGUAGE plpgsql AS
+        $$ BEGIN RAISE EXCEPTION 'removal record refused'; END $$;
+      CREATE TRIGGER refuse_removal BEFORE INSERT OR UPDATE
+        ON workspace_member_removal FOR EACH ROW EXECUTE FUNCTION refuse_removal();
+    `);
+    try {
+      const native = await ctx.call("/auth/organization/remove-member", {
+        method: "POST",
+        body: {
+          organizationId: ctx.workspace.id,
+          memberIdOrEmail: "kept-person@example.com",
+        },
+        headers: { cookie: ctx.owner.cookies },
+      });
+      expect(native.status).toBeGreaterThanOrEqual(400);
+      const admin = await ctx.call(
+        `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
+        { method: "DELETE", headers: { cookie: instanceAdmin.cookies } },
+      );
+      expect(admin.status).toBeGreaterThanOrEqual(400);
+    } finally {
+      await db.execute(sql`
+        DROP TRIGGER refuse_removal ON workspace_member_removal;
+        DROP FUNCTION refuse_removal();
+      `);
+    }
+    expect(await memberRows(ctx.workspace.id, joiner.userId)).toHaveLength(1);
   });
 
   it("lets a person who left by themselves rejoin with the same link", async () => {

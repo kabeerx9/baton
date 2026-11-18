@@ -52,6 +52,7 @@ import { clearMemberProjectAccess } from "./project-access/clear-member-project-
 import { isOwnerRole } from "./project-access/is-owner-role";
 import { publishMemberProjects } from "./project-access/publish-member-projects";
 import { handleMemberAdded } from "./workspace-members/handle-member-added";
+import { recordMemberRemoval } from "./join-link/record-member-removal";
 import { handleMemberRemoved } from "./workspace-members/handle-member-removed";
 import { handleOwnerPromoted } from "./workspace-members/handle-owner-promoted";
 import { assertInvitationOwnerAllowed } from "./workspace-members/assert-invitation-owner-allowed";
@@ -452,6 +453,11 @@ export const auth = betterAuth({
             await handleMemberAdded(member.organizationId, member.userId);
           }
         },
+        beforeRemoveMember: async ({ member }) => {
+          // Before the delete: an old join link never readmits the person.
+          // A failure throws, so Better Auth does not remove the member.
+          await recordMemberRemoval(db, member.organizationId, member.userId);
+        },
         afterRemoveMember: async ({ member, user }) => {
           if (member?.organizationId) {
             await handleMemberRemoved({
@@ -523,13 +529,12 @@ export const auth = betterAuth({
   rateLimit: {
     // On when BATON_CLOUD=true (production); off for local dev and tests.
     // Default better-auth rate-limit only kicks in for production; we keep the
-    // global limits conservative and tighten signup/invite via customRules.
+    // global limits conservative and tighten signup via customRules.
     enabled: isCloud(),
     window: 10,
     max: 100,
     customRules: {
       "/sign-up/email": { window: 60, max: 10 },
-      "/organization/invite-member": { window: 60, max: 5 },
     },
   },
   databaseHooks: {

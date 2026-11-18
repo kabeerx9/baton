@@ -62,17 +62,6 @@ export async function invitationSecurityFixture(actorRole = "recruiter") {
     .returning();
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
 
-  const invite = (
-    cookies: string,
-    role: unknown,
-    extra: Record<string, unknown> = {},
-  ) =>
-    organizationRequest(app, { cookie: cookies }, "invite-member", {
-      organizationId: workspace.id,
-      email: "invitee@example.com",
-      role,
-      ...extra,
-    });
   const pending = async (role: string) => {
     const [invitation] = await db
       .insert(schema.invitationTable)
@@ -89,20 +78,6 @@ export async function invitationSecurityFixture(actorRole = "recruiter") {
       .returning();
     return invitation;
   };
-  const accept = async (invitationId: string) => {
-    const invitee = await signUpWithSession(app, {
-      email: "invitee@example.com",
-      name: "Invitee",
-      role: "user",
-    });
-    const response = await organizationRequest(
-      app,
-      { cookie: invitee.cookies },
-      "accept-invitation",
-      { invitationId },
-    );
-    return { response, invitee };
-  };
   const bearer = async () => {
     const session = await db.query.sessionTable.findFirst({
       where: eq(schema.sessionTable.userId, actor.userId),
@@ -116,9 +91,7 @@ export async function invitationSecurityFixture(actorRole = "recruiter") {
     workspace,
     membership,
     project,
-    invite,
     pending,
-    accept,
     bearer,
   };
 }

@@ -5,6 +5,7 @@ import { userTable, workspaceUserTable } from "../../database/schema";
 import { isOwnerRole } from "../../project-access/is-owner-role";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordWorkspaceMemberAction } from "../audit/record-workspace-member-action";
+import { recordMemberRemoval } from "../../join-link/record-member-removal";
 import { handleMemberRemoved } from "../../workspace-members/handle-member-removed";
 import { lockWorkspace } from "../lock-workspace";
 import listWorkspaceMembers from "./list-workspace-members";
@@ -32,6 +33,9 @@ async function removeWorkspaceMember(
       });
     }
 
+    // Before the delete, in its transaction: an old join link never
+    // readmits the person, and a failed record rolls the removal back.
+    await recordMemberRemoval(tx, workspaceId, userId);
     await tx
       .delete(workspaceUserTable)
       .where(

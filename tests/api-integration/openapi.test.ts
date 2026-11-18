@@ -126,6 +126,17 @@ describe("Baton API OpenAPI spec", () => {
       expect(byKey.has(op), `missing operation ${op}`).toBe(true);
     expect(byKey.get("POST /join-link/preview")?.security).toEqual([]);
     expect(byKey.get("POST /join-link/join")?.security).toBeUndefined();
+    for (const op of [
+      "POST /auth/organization/invite-member",
+      "POST /auth/organization/accept-invitation",
+    ]) {
+      const operation = byKey.get(op) as
+        | (Operation & { deprecated?: boolean })
+        | undefined;
+      expect(operation?.deprecated, op).toBe(true);
+      expect(Object.keys(operation?.responses ?? {}), op).toContain("410");
+      expect(operation?.responses["200"], op).toBeUndefined();
+    }
   });
 
   it("documents change requests and the applied or requested outcome", () => {

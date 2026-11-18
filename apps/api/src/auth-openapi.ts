@@ -1,4 +1,5 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
+import { apiErrorSchema } from "./errors/api-error-schema";
 import { z } from "./openapi";
 
 // Better Auth serves /api/auth/* from its own handler, so these operations have
@@ -27,33 +28,14 @@ export function organizationRoutes(registry: OpenAPIHono["openAPIRegistry"]) {
     path: "/auth/organization/accept-invitation",
     tags: ["Organization Management"],
     operationId: "acceptOrganizationInvitation",
-    summary: "Accept Organization Invitation",
-    description: "Accept an invitation to an organization",
-    request: {
-      body: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: z.object({
-              invitationId: z
-                .string()
-                .openapi({ description: "The ID of the invitation to accept" }),
-            }),
-          },
-        },
-      },
-    },
+    summary: "Accept Organization Invitation (removed)",
+    description:
+      "Removed: join links replaced email invitations. Always answers 410 INVITATIONS_REMOVED. Use the Join links routes.",
+    deprecated: true,
     responses: {
-      200: {
-        description: "Success",
-        content: {
-          "application/json": {
-            schema: z.object({
-              invitation: z.record(z.string(), z.unknown()).optional(),
-              member: z.record(z.string(), z.unknown()).optional(),
-            }),
-          },
-        },
+      410: {
+        description: "Email invitations were removed (INVITATIONS_REMOVED)",
+        content: { "application/json": { schema: apiErrorSchema } },
       },
     },
   });
@@ -507,72 +489,14 @@ export function organizationRoutes(registry: OpenAPIHono["openAPIRegistry"]) {
     path: "/auth/organization/invite-member",
     tags: ["Organization Management"],
     operationId: "inviteOrganizationMember",
-    summary: "Invite Organization Member",
+    summary: "Invite Organization Member (removed)",
     description:
-      "Create or resend an invitation. Email delivery failures return 502; the invitation remains pending and can be resent after correcting SMTP settings.",
-    request: {
-      body: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: z.object({
-              email: z.string().openapi({
-                description: "The email address of the user to invite",
-              }),
-              role: z.union([z.string(), z.array(z.string())]).openapi({
-                description:
-                  'The role(s) to assign to the user. It can be `admin`, `member`, owner. Eg: "member"',
-              }),
-              organizationId: z.string().optional().openapi({
-                description: "The organization ID to invite the user to",
-              }),
-              resend: z.boolean().optional().openapi({
-                description:
-                  "Resend the invitation email, if the user is already invited. Eg: true",
-              }),
-              teamId: z.union([z.string(), z.array(z.string())]).optional(),
-              projectAccess: z.enum(["all", "selected"]).optional().openapi({
-                description:
-                  '"all" (the default) gives access to every project. "selected" limits the new member to projectIds once they accept.',
-              }),
-              projectIds: z.array(z.string()).optional().openapi({
-                description:
-                  'Projects the new member can access when projectAccess is "selected". They must belong to the workspace, and an inviter whose own access is limited can only choose projects they can access.',
-              }),
-            }),
-          },
-        },
-      },
-    },
+      "Removed: join links replaced email invitations. Always answers 410 INVITATIONS_REMOVED. Use the Join links routes.",
+    deprecated: true,
     responses: {
-      502: {
-        description: "Invitation saved, but email delivery failed",
-        content: {
-          "application/json": {
-            schema: z.object({
-              code: z.literal("INVITATION_EMAIL_FAILED"),
-              message: z.string(),
-            }),
-          },
-        },
-      },
-      200: {
-        description: "Success",
-        content: {
-          "application/json": {
-            schema: z.object({
-              id: z.string(),
-              email: z.string(),
-              role: z.string(),
-              organizationId: z.string(),
-              inviterId: z.string(),
-              status: z.string(),
-              expiresAt: z.string(),
-              createdAt: z.string(),
-              ...invitationProjectAccess,
-            }),
-          },
-        },
+      410: {
+        description: "Email invitations were removed (INVITATIONS_REMOVED)",
+        content: { "application/json": { schema: apiErrorSchema } },
       },
     },
   });

@@ -294,11 +294,14 @@ People join a workspace with a link, not an email invite. Code:
 - Join locks the workspace row, then the link row: the repo lock order. A
   person who is already a member uses nothing.
 - A link made before a person's removal refuses that person (403
-  `REMOVED_FROM_WORKSPACE`); a newer link admits them. Removal is recorded in
-  `workspace_member_removal` by `handleMemberRemoved`. Leaving is not a
-  removal.
+  `REMOVED_FROM_WORKSPACE`); a newer link admits them. Both removal paths
+  write `workspace_member_removal` before the member row goes (Better Auth's
+  `beforeRemoveMember`, and the admin route inside its transaction), so an
+  old link never readmits them. If that write fails, the removal fails.
+  Leaving is not a removal.
 - A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
-- `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`.
+- `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`;
+  the OpenAPI spec marks both deprecated.
 
 | Call | Purpose |
 | --- | --- |
