@@ -82,7 +82,7 @@ const replayTourRoute = createRoute({
   tags: ["Tour"],
   summary: "Replay the tour",
   description:
-    "Clears the caller's completion and deletes any leftover demo workspace, so the next start seeds a fresh tour. Call start next.",
+    "Clears the caller's completion so the tour can start again. Call start next.",
   // A reset deletes data: only the person, never an API key or agent.
   middleware: [requireUserSession] as const,
   responses: {

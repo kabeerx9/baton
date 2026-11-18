@@ -26,7 +26,10 @@ export type TourAction =
   | { kind: "complete" }
   /** Already completed: keep the time, delete any demo workspace left over. */
   | { kind: "clean_up" }
-  /** Clear completion and delete any leftover demo: a replay starts fresh. */
+  /**
+   * Clear completion only. A running demo stays: replay can fire mid-tour,
+   * and start then resumes it. After a finish no demo is left.
+   */
   | { kind: "reopen" };
 
 export function toTourState(completedAt: Date | null): TourState {
@@ -37,7 +40,8 @@ export function toTourState(completedAt: Date | null): TourState {
 
 /**
  * The one transition rule for every tour route. Start is idempotent while
- * the tour runs; only finish, replay and the cleanup job delete a demo.
+ * the tour runs; only finish and the cleanup job delete a demo, and start
+ * replaces a demo that lost a tour task.
  */
 export function decideTour(
   state: TourState,

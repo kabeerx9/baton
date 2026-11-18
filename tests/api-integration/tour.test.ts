@@ -326,14 +326,15 @@ describe("tour routes", () => {
     expect(await demoWorkspacesOf(user.id)).toHaveLength(1);
   });
 
-  it("replay deletes a running demo, so the next start is a fresh tour", async () => {
+  it("replay mid-tour keeps the running demo, and start resumes it", async () => {
     const { user } = await createWorkspaceMember();
     mockAuthenticatedSession(user);
     const first = await start();
     expect((await post("/tour/replay")).status).toBe(200);
-    expect(await demoWorkspacesOf(user.id)).toEqual([]);
-    const second = await start();
-    expect(second.demoWorkspace.id).not.toBe(first.demoWorkspace.id);
+    expect(await demoWorkspacesOf(user.id)).toEqual([
+      { id: first.demoWorkspace.id },
+    ]);
+    expect((await start()).demoWorkspace.id).toBe(first.demoWorkspace.id);
   });
 });
 
