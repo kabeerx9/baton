@@ -1,7 +1,7 @@
 import { useLocation } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useReducer } from "react";
 import { useTourStatus } from "@/hooks/queries/tour/use-tour-status";
-import { authClient } from "@/lib/auth-client";
+import useGetWorkspaces from "@/hooks/queries/workspace/use-get-workspaces";
 import { gateReducer, shouldHostTour } from "./tour-gate-state";
 
 // The tour (overlay, steps, finish animation) loads only for users who owe it.
@@ -10,7 +10,7 @@ const TourHost = lazy(() => import("./tour-host"));
 /** Mounted once in the authenticated layout. Cheap when the tour is done. */
 export function TourGate() {
   const { data: status, dataUpdatedAt } = useTourStatus();
-  const { data: workspaces } = authClient.useListOrganizations();
+  const { data: workspaces } = useGetWorkspaces();
   const pathname = useLocation({ select: (location) => location.pathname });
   const [gate, dispatch] = useReducer(gateReducer, { status: "idle" });
 

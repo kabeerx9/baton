@@ -10,6 +10,7 @@ import {
   evictWorkspaceCache,
 } from "@/lib/evict-workspace-cache";
 import { authClient } from "@/lib/auth-client";
+import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { reconcileProjectAccess } from "@/lib/reconcile-project-access";
 import {
   classifyUserClose,
@@ -101,7 +102,10 @@ export function useUserWebSocket() {
               ? activeWorkspaceRef.current
               : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
           if (current && !message.workspaceIds.includes(current))
-            void navigate({ to: "/dashboard" });
+            void leaveGoneWorkspace(current, {
+              queryClient,
+              navigate: (destination) => navigate(destination),
+            });
         }
         if (
           message.type === "WORKSPACE_ACCESS_REVOKED" &&
@@ -122,7 +126,10 @@ export function useUserWebSocket() {
             (message.reason !== "archived" ||
               !path.startsWith("/dashboard/workspace/"))
           )
-            void navigate({ to: "/dashboard" });
+            void leaveGoneWorkspace(message.workspaceId, {
+              queryClient,
+              navigate: (destination) => navigate(destination),
+            });
         }
         if (message.type === "WORKSPACE_RESTORED" && message.workspaceId) {
           void queryClient.invalidateQueries({

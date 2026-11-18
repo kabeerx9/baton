@@ -1,11 +1,11 @@
 import { useParams } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth-client";
+import useActiveOrganization from "./use-active-organization";
+import { deriveActiveWorkspace } from "./derive-active-workspace";
+import useGetWorkspaces from "./use-get-workspaces";
 
 function useActiveWorkspace() {
-  const { data: activeOrganization, error } =
-    authClient.useActiveOrganization();
-  const { data: organizations, isPending: isOrganizationsPending } =
-    authClient.useListOrganizations();
+  const { data: activeOrganization, ...active } = useActiveOrganization();
+  const { data: organizations, isLoading: isListPending } = useGetWorkspaces();
   const { workspaceId } = useParams({
     strict: false,
     select: (params) => ({
@@ -16,19 +16,22 @@ function useActiveWorkspace() {
     }),
   });
 
-  const workspaceFromRoute = workspaceId
-    ? organizations?.find((organization) => organization.id === workspaceId)
-    : undefined;
-  const workspace = workspaceFromRoute ?? activeOrganization;
-  const isLoading =
-    (!!workspaceId && isOrganizationsPending && !workspaceFromRoute) ||
-    (!workspace && !error);
+  const state = deriveActiveWorkspace({
+    routeWorkspaceId: workspaceId,
+    list: { data: organizations, isPending: isListPending, error: null },
+    active: {
+      data: activeOrganization,
+      isPending: active.isPending,
+      error: active.error,
+    },
+  });
 
   return {
-    data: workspace,
-    error,
-    isLoading,
-    isError: !!error,
+    state,
+    data: state.status === "ready" ? state.workspace : undefined,
+    error: state.status === "error" ? (state.error as Error) : null,
+    isLoading: state.status === "loading",
+    isError: state.status === "error",
   };
 }
 

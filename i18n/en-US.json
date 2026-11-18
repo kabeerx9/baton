@@ -1106,6 +1106,7 @@
 			"deleteModalTitle": "Delete workspace?",
 			"deleteModalDescription": "This permanently deletes {{name}} and all of its projects and tasks. You can't undo this.",
 			"deleteModalConfirm": "Delete workspace",
+			"deleteTypeToConfirm": "Type {{name}} to confirm.",
 			"toastUpdateError": "Failed to update workspace",
 			"toastDeleted": "Workspace deleted successfully",
 			"toastDeleteError": "Failed to delete workspace",
