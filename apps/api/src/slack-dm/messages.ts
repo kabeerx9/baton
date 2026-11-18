@@ -54,7 +54,10 @@ export function digestMessage(
   return `*Waiting on you: ${blockers} ${blockers === 1 ? "task" : "tasks"}*\n${lines.join("\n")}\n<${myTasksUrl}|Open My tasks>`;
 }
 
-/** Someone joined a workspace through a join link. */
+/**
+ * Someone joined a workspace through a join link. Built from sentences so a
+ * note from the sharer can be added later as one more part.
+ */
 export function welcomeMessage({
   workspaceName,
   sharerName,
@@ -64,10 +67,14 @@ export function welcomeMessage({
   sharerName: string | null;
   boardUrl: string;
 }) {
-  const sharer = sharerName
-    ? ` ${escape(sharerName)} added you through a join link.`
-    : "";
-  return `*Welcome to ${escape(workspaceName)} on Baton!*${sharer}\n<${boardUrl}|Open the board>`;
+  const sentences = [`Welcome to *${escape(workspaceName)}* on Baton!`];
+  if (sharerName?.trim()) {
+    sentences.push(
+      `${escape(sharerName.trim())} shared this workspace with you.`,
+    );
+  }
+  sentences.push(`Open your board: <${boardUrl}>`);
+  return sentences.join(" ");
 }
 
 export function testMessage() {

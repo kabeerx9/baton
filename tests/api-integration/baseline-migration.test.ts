@@ -31,6 +31,7 @@ it("ships the baseline first, then later migrations", () => {
     "0001_demo_workspace_and_tour",
     "0002_notification_resource_index",
     "0003_join_links",
+    "0004_user_time_zone",
   ]);
 });
 

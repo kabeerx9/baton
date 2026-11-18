@@ -74,17 +74,30 @@ describe("slack messages", () => {
         boardUrl: "https://t/dashboard/workspace/ws-1/board",
       }),
     ).toBe(
-      "*Welcome to R&amp;D &lt;Team&gt; on Baton!* Kabeer added you through a join link.\n<https://t/dashboard/workspace/ws-1/board|Open the board>",
+      "Welcome to *R&amp;D &lt;Team&gt;* on Baton! Kabeer shared this workspace with you. Open your board: <https://t/dashboard/workspace/ws-1/board>",
     );
   });
 
-  it("leaves out the sharer when that account is gone", () => {
+  it("escapes the sharer's name", () => {
     expect(
       welcomeMessage({
         workspaceName: "Team",
-        sharerName: null,
+        sharerName: "<!channel> & co",
         boardUrl: "https://t/b",
       }),
-    ).toBe("*Welcome to Team on Baton!*\n<https://t/b|Open the board>");
+    ).toContain("&lt;!channel&gt; &amp; co shared this workspace with you.");
   });
+
+  it.each([null, "  "])(
+    "leaves out the sharer sentence for %j",
+    (sharerName) => {
+      expect(
+        welcomeMessage({
+          workspaceName: "Team",
+          sharerName,
+          boardUrl: "https://t/b",
+        }),
+      ).toBe("Welcome to *Team* on Baton! Open your board: <https://t/b>");
+    },
+  );
 });

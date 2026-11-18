@@ -3212,5 +3212,47 @@
 				"invalid": "Enter a whole number from 1 to 10,000, or leave it empty."
 			}
 		}
+	},
+	"timeZone": {
+		"prompt": {
+			"unset": {
+				"title": "Confirm your time zone",
+				"body": "Reminders and due dates follow it.",
+				"detected": "{{zone}} — {{time}} now",
+				"confirm": "Confirm"
+			},
+			"mismatch": {
+				"title": "Your device is on {{zone}}. Use it for reminders?",
+				"body": "Saved: {{stored}}, {{storedTime}}. Device: {{deviceTime}}.",
+				"confirm": "Use {{zone}}",
+				"keep": "Keep {{zone}}"
+			},
+			"change": "Change",
+			"back": "Back",
+			"dismiss": "Close",
+			"saved": "Time zone saved",
+			"saveFailed": "Couldn't save your time zone. Try again."
+		},
+		"picker": {
+			"label": "Time zone",
+			"placeholder": "Select a time zone",
+			"searchPlaceholder": "Search city, region or GMT offset",
+			"empty": "No time zone matches that search."
+		},
+		"settings": {
+			"title": "Time zone",
+			"description": "Reminders and due dates follow this zone.",
+			"notSet": "Not set",
+			"notSetHint": "We'll suggest {{zone}}.",
+			"deviceHint": "Your device is on {{zone}}.",
+			"useDevice": "Use device time zone",
+			"change": "Change",
+			"set": "Set",
+			"cancel": "Cancel",
+			"saving": "Saving…",
+			"saved": "Saved",
+			"retry": "Retry",
+			"saveFailedFor": "Couldn't save {{zone}}."
+		}
 	}
 }
