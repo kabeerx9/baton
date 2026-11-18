@@ -39,25 +39,45 @@ vi.mock("@/lib/toast", () => ({
   toast: { success: vi.fn(), error: mocks.toastError },
 }));
 
-function renderZone() {
-  return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <WorkspaceDangerZone workspaceId="w1" workspaceName="Beta" />
-    </QueryClientProvider>,
+function zone(id: string, name: string) {
+  return (
+    <QueryClientProvider client={client}>
+      <WorkspaceDangerZone workspaceId={id} workspaceName={name} />
+    </QueryClientProvider>
   );
 }
+const client = new QueryClient();
 
-async function confirmDelete() {
+function renderZone() {
+  return render(zone("w1", "Beta"));
+}
+
+const confirmButton = () =>
+  screen.findByRole("button", {
+    name: "settings:workspaceGeneral.deleteModalConfirm",
+  });
+
+function openDialog() {
   fireEvent.click(
     screen.getByRole("button", {
       name: "settings:workspaceGeneral.deleteWorkspace",
     }),
   );
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "settings:workspaceGeneral.deleteModalConfirm",
-    }),
+}
+
+async function typeName(name: string) {
+  fireEvent.change(
+    await screen.findByLabelText(
+      "settings:workspaceGeneral.deleteTypeToConfirm",
+    ),
+    { target: { value: name } },
   );
+}
+
+async function confirmDelete() {
+  openDialog();
+  await typeName("Beta");
+  fireEvent.click(await confirmButton());
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -72,6 +92,33 @@ describe("WorkspaceDangerZone", () => {
     await waitFor(() =>
       expect(mocks.leave).toHaveBeenCalledWith("w1", expect.anything()),
     );
+    expect(mocks.deleteWorkspace).toHaveBeenCalledWith({ workspaceId: "w1" });
+  });
+
+  it("keeps delete disabled until the workspace name is typed", async () => {
+    renderZone();
+    openDialog();
+    expect(await confirmButton()).toBeDisabled();
+    await typeName("Alpha");
+    expect(await confirmButton()).toBeDisabled();
+    await typeName("Beta");
+    expect(await confirmButton()).toBeEnabled();
+  });
+
+  it("deletes the workspace the dialog named, even if the active one changes", async () => {
+    mocks.deleteWorkspace.mockResolvedValue({});
+    mocks.leave.mockResolvedValue(undefined);
+    const view = renderZone();
+    openDialog();
+    await typeName("Beta");
+    view.rerender(zone("other", "Other"));
+    fireEvent.click(await confirmButton());
+    await waitFor(() =>
+      expect(mocks.deleteWorkspace).toHaveBeenCalledWith({ workspaceId: "w1" }),
+    );
+    expect(mocks.deleteWorkspace).not.toHaveBeenCalledWith({
+      workspaceId: "other",
+    });
   });
 
   it("stays on the page with an error when the delete fails", async () => {

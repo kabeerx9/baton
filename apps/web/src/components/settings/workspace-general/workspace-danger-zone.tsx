@@ -8,6 +8,7 @@ import { SettingsCard } from "@/components/settings/settings-card";
 import { SettingsRow } from "@/components/settings/settings-row";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import useDeleteWorkspace from "@/hooks/mutations/workspace/use-delete-workspace";
 import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { toast } from "@/lib/toast";
@@ -24,20 +25,27 @@ export function WorkspaceDangerZone({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  // The dialog names this workspace; the delete uses this id, never whatever
+  // is active when the user confirms.
+  const [target, setTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [typedName, setTypedName] = useState("");
+  const open = target !== null;
   const { mutateAsync: deleteWorkspace, isPending } = useDeleteWorkspace();
 
   const handleDelete = async () => {
-    if (!workspaceId) return;
+    if (!target) return;
+    const { id } = target;
 
     try {
-      await deleteWorkspace({ workspaceId });
+      await deleteWorkspace({ workspaceId: id });
       toast.success(t("settings:workspaceGeneral.toastDeleted"), {
         icon: Trash2Icon,
       });
-      setOpen(false);
+      setTarget(null);
 
-      await leaveGoneWorkspace(workspaceId, {
+      await leaveGoneWorkspace(id, {
         queryClient,
         navigate: (destination) => navigate(destination),
       });
@@ -68,7 +76,11 @@ export function WorkspaceDangerZone({
             variant="destructive-outline"
             size="sm"
             disabled={!workspaceId}
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              if (!workspaceId) return;
+              setTypedName("");
+              setTarget({ id: workspaceId, name: workspaceName });
+            }}
           >
             {t("settings:workspaceGeneral.deleteWorkspace")}
           </Button>
@@ -76,16 +88,30 @@ export function WorkspaceDangerZone({
       </SettingsCard>
       <ConfirmDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          if (!next) setTarget(null);
+        }}
         title={t("settings:workspaceGeneral.deleteModalTitle")}
         description={t("settings:workspaceGeneral.deleteModalDescription", {
-          name: workspaceName,
+          name: target?.name ?? "",
         })}
+        confirmDisabled={typedName.trim() !== target?.name}
         confirmLabel={t("settings:workspaceGeneral.deleteModalConfirm")}
         pendingLabel={t("common:actions.deleting")}
         pending={isPending}
         onConfirm={handleDelete}
-      />
+      >
+        <label className="flex flex-col gap-2 text-sm">
+          {t("settings:workspaceGeneral.deleteTypeToConfirm", {
+            name: target?.name ?? "",
+          })}
+          <Input
+            value={typedName}
+            onChange={(event) => setTypedName(event.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      </ConfirmDialog>
     </SettingsSection>
   );
 }
