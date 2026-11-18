@@ -28,8 +28,26 @@ vi.mock("../../apps/api/src/slack-dm/slack-api", () => ({
   postSlackDm: slack.post,
 }));
 
+// Runs just before each claim, to change state between selection and claim.
+const claimHook = vi.hoisted(() => ({
+  before: null as null | (() => Promise<void>),
+}));
+vi.mock("../../apps/api/src/slack-dm/claim-digest", async (importOriginal) => {
+  const real =
+    await importOriginal<
+      typeof import("../../apps/api/src/slack-dm/claim-digest")
+    >();
+  return {
+    claimDigest: async (...args: Parameters<typeof real.claimDigest>) => {
+      await claimHook.before?.();
+      return real.claimDigest(...args);
+    },
+  };
+});
+
 beforeEach(async () => {
   await resetTestDatabase();
+  claimHook.before = null;
   slack.post.mockClear();
   vi.stubEnv("SLACK_BOT_TOKEN", "xoxb-test");
   vi.stubEnv("BATON_CLIENT_URL", "https://baton.test");
@@ -203,20 +221,59 @@ describe("the per-user Slack digest", () => {
     expect(query).toHaveBeenCalled();
   });
 
+  it("skips a claim when the zone changed after the tick read it (date-line race)", async () => {
+    const owner = await blocker("Pacific/Honolulu");
+    // 20:00Z is 10:00 Wednesday 2026-11-18 in Honolulu (-10) and
+    // 10:00 Thursday 2026-11-19 in Kiritimati (+14).
+    claimHook.before = async () => {
+      claimHook.before = null;
+      await db
+        .update(schema.userTable)
+        .set({ timeZone: "Pacific/Kiritimati" })
+        .where(eq(schema.userTable.id, owner));
+    };
+    await sendDueDigests(at("2026-11-18T20:00:00Z"));
+    expect(digestsTo(owner)).toHaveLength(0);
+
+    await sendDueDigests(at("2026-11-18T20:15:00Z"));
+    expect(digestsTo(owner)).toHaveLength(1);
+    expect((await linkRow(owner))?.lastDigestDay).toBe("2026-11-19");
+  });
+
   // The selection already skips claimed owners; the claim is what stops two
   // servers that select the same owner in one tick.
   it("claims a day only when it is later than the last one claimed", async () => {
     const owner = await user("Asia/Kolkata");
-    expect(await claimDigest(owner, "2026-11-18")).toBe(true);
-    expect(await claimDigest(owner, "2026-11-18")).toBe(false);
-    expect(await claimDigest(owner, "2026-11-17")).toBe(false);
+    const zone = "Asia/Kolkata";
+    expect(await claimDigest(owner, "2026-11-18", zone)).toBe(true);
+    expect(await claimDigest(owner, "2026-11-18", zone)).toBe(false);
+    expect(await claimDigest(owner, "2026-11-17", zone)).toBe(false);
     expect((await linkRow(owner))?.lastDigestDay).toBe("2026-11-18");
-    expect(await claimDigest(owner, "2026-11-19")).toBe(true);
+    expect(await claimDigest(owner, "2026-11-19", zone)).toBe(true);
+  });
+
+  it("lets exactly one of two concurrent claims win", async () => {
+    const owner = await user(null);
+    const results = await Promise.all([
+      claimDigest(owner, "2026-11-18", null),
+      claimDigest(owner, "2026-11-18", null),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("refuses a claim computed with a zone the user no longer has", async () => {
+    const owner = await user("Asia/Kolkata");
+    expect(await claimDigest(owner, "2026-11-18", null)).toBe(false);
+    expect(await claimDigest(owner, "2026-11-18", "Asia/Kathmandu")).toBe(
+      false,
+    );
+    expect(await linkRow(owner)).toBeUndefined();
+    expect(await claimDigest(owner, "2026-11-18", "Asia/Kolkata")).toBe(true);
   });
 
   it("claims a day for a person whose Slack link has no digest yet", async () => {
     const owner = await user(null);
     await db.insert(slackUserLinkTable).values({ userId: owner });
-    expect(await claimDigest(owner, "2026-11-18")).toBe(true);
+    expect(await claimDigest(owner, "2026-11-18", null)).toBe(true);
   });
 });
