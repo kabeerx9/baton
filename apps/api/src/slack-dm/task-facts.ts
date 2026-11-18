@@ -1,7 +1,8 @@
-import { and, eq, inArray, not } from "drizzle-orm";
+import { and, eq, inArray, not, sql } from "drizzle-orm";
 import db from "../database";
 import {
   projectTable,
+  slackUserLinkTable,
   taskRelationTable,
   taskTable,
   userTable,
@@ -102,31 +103,50 @@ export async function openBlockersOf(taskId: string, clientUrl: string) {
   return rows.map((row) => toFacts(row, clientUrl));
 }
 
-/** Every "blocks" link where both the blocker and the blocked task are open. */
-export async function openBlockingLinks(clientUrl: string) {
-  const links = await db
-    .select({
-      blockerId: taskRelationTable.sourceTaskId,
-      blockedId: taskRelationTable.targetTaskId,
-    })
-    .from(taskRelationTable)
-    .where(
-      and(
-        eq(taskRelationTable.relationType, "blocks"),
-        // Demo workspaces are private sandboxes; the digest never lists them.
-        taskInTeamWorkspace(taskRelationTable.sourceTaskId),
-      ),
-    );
+/** A stored zone value (null when unset) and the local day due in it. */
+export type DueZone = { stored: string | null; day: string };
+
+/**
+ * Every "blocks" link where both tasks are open and the blocker's owner is
+ * due a digest: their stored zone is one of `due`, and their last digest day
+ * is earlier than that zone's day. SQL only compares the stored strings, so a
+ * zone name Postgres does not know cannot fail the statement.
+ */
+export async function dueBlockingLinks(clientUrl: string, due: DueZone[]) {
+  if (due.length === 0) return [];
+  const result = await db.execute<{
+    blocker_id: string;
+    blocked_id: string;
+    day: string;
+  }>(sql`
+    select ${taskRelationTable.sourceTaskId} as blocker_id,
+      ${taskRelationTable.targetTaskId} as blocked_id,
+      due.day as day
+    from ${taskRelationTable}
+    inner join ${taskTable} on ${taskTable.id} = ${taskRelationTable.sourceTaskId}
+    inner join ${userTable} on ${userTable.id} = ${taskTable.userId}
+    inner join unnest(
+      ${sql.param(due.map((zone) => zone.stored))}::text[],
+      ${sql.param(due.map((zone) => zone.day))}::text[]
+    ) as due(zone, day) on due.zone is not distinct from ${userTable.timeZone}
+    left join ${slackUserLinkTable} on ${slackUserLinkTable.userId} = ${userTable.id}
+    where ${taskRelationTable.relationType} = 'blocks'
+      and (${slackUserLinkTable.lastDigestDay} is null
+        or ${slackUserLinkTable.lastDigestDay} < due.day)
+      -- Demo workspaces are private sandboxes; the digest never lists them.
+      and ${taskInTeamWorkspace(taskRelationTable.sourceTaskId)}
+  `);
+  const links = result.rows;
   const facts = await loadTasks(
-    [...new Set(links.flatMap((l) => [l.blockerId, l.blockedId]))],
+    [...new Set(links.flatMap((l) => [l.blocker_id, l.blocked_id]))],
     clientUrl,
   );
   return links.flatMap((link) => {
-    const blocker = facts.get(link.blockerId);
-    const blocked = facts.get(link.blockedId);
+    const blocker = facts.get(link.blocker_id);
+    const blocked = facts.get(link.blocked_id);
     if (!blocker || !blocked || blocker.completed || blocked.completed) {
       return [];
     }
-    return [{ blocker, blocked }];
+    return [{ blocker, blocked, day: link.day }];
   });
 }

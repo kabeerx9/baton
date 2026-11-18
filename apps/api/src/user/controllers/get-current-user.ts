@@ -11,6 +11,7 @@ export async function getCurrentUser(userId: string) {
       email: userTable.email,
       image: userTable.image,
       role: userTable.role,
+      timeZone: userTable.timeZone,
     })
     .from(userTable)
     .where(eq(userTable.id, userId))
