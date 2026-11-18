@@ -30,6 +30,20 @@ describe("deriveZonePrompt", () => {
     expect(derive({ pathname: "/onboarding" })).toEqual({ kind: "hidden" });
   });
 
+  it("is hidden on the Profile page, which has its own row", () => {
+    const pathname = "/dashboard/settings/account/information";
+    expect(derive({ pathname })).toEqual({ kind: "hidden" });
+    expect(derive({ pathname, stored: "Europe/London" })).toEqual({
+      kind: "hidden",
+    });
+    expect(
+      derive({ pathname: "/dashboard/settings/account/security" }),
+    ).toEqual({
+      kind: "unset",
+      detected: "Asia/Kolkata",
+    });
+  });
+
   it("is hidden once dismissed for this device zone", () => {
     expect(derive({ dismissedFor: "Asia/Kolkata" })).toEqual({
       kind: "hidden",

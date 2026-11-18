@@ -1,5 +1,8 @@
 import { sameZone } from "@/lib/time-zone/same-zone";
 
+// The Profile page has its own time zone row, with the device hint.
+const PROFILE_PATH = "/dashboard/settings/account/information";
+
 /** What the time-zone prompt shows. One union, one pure derive. */
 export type ZonePrompt =
   | { kind: "hidden" }
@@ -21,6 +24,9 @@ export function deriveZonePrompt(input: {
   if (stored === undefined || detected === null) return { kind: "hidden" };
   if (tourCompleted !== true) return { kind: "hidden" };
   if (!pathname.startsWith("/dashboard/")) return { kind: "hidden" };
+  if (pathname === PROFILE_PATH || pathname.startsWith(`${PROFILE_PATH}/`)) {
+    return { kind: "hidden" };
+  }
   if (dismissedFor === detected) return { kind: "hidden" };
   if (stored === null) return { kind: "unset", detected };
   if (!sameZone(stored, detected, now)) {
