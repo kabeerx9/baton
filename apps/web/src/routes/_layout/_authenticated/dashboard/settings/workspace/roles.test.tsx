@@ -75,6 +75,7 @@ describe("workspace role permission editing", () => {
           role: "admin",
           permission: defaultRolePayloads.admin,
           createdAt: "2026-11-18T00:00:00.000Z",
+          updatedAt: "2026-11-18T00:00:00.000Z",
         }}
         isDefault
         onDelete={() => {}}

@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type CreateWorkspaceModalProps = {
   open: boolean;
@@ -70,9 +71,10 @@ function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceModalProps) {
       handleClose();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("common:modals.createWorkspace.errorToast"),
+        workspaceWriteErrorMessage(
+          error,
+          t("common:modals.createWorkspace.errorToast"),
+        ),
       );
     } finally {
       setIsSubmitting(false);

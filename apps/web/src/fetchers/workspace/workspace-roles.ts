@@ -1,44 +1,47 @@
-import { contractRequest } from "./contract-request";
-import type { WorkspaceRole } from "./types";
+import { client } from "@baton/libs";
+import type { InferRequestType } from "hono/client";
+import { HttpError } from "@/lib/http-error";
 
-const rolesPath = (workspaceId: string) =>
-  `/workspace/${encodeURIComponent(workspaceId)}/roles`;
+const roles = client.workspace[":workspaceId"].roles;
 
-export type WorkspaceRoleBody = {
-  role: string;
-  permission: Record<string, string[]>;
-};
+export type WorkspaceRoleBody = InferRequestType<typeof roles.$post>["json"];
+export type UpdateWorkspaceRoleBody = InferRequestType<
+  (typeof roles)[":roleId"]["$patch"]
+>["json"];
 
-// TODO(p3-api): switch to client type (`GET /api/workspace/{id}/roles`).
-export function getWorkspaceRoles(workspaceId: string) {
-  return contractRequest<WorkspaceRole[]>("GET", rolesPath(workspaceId));
+export async function getWorkspaceRoles(workspaceId: string) {
+  const response = await roles.$get({ param: { workspaceId } });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
 
-// TODO(p3-api): switch to client type (`POST /api/workspace/{id}/roles`).
-export function createWorkspaceRole(
+export async function createWorkspaceRole(
   workspaceId: string,
-  body: WorkspaceRoleBody,
+  json: WorkspaceRoleBody,
 ) {
-  return contractRequest<WorkspaceRole>("POST", rolesPath(workspaceId), body);
+  const response = await roles.$post({ param: { workspaceId }, json });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
 
-// TODO(p3-api): switch to client type (`PATCH /api/workspace/{id}/roles/{roleId}`).
-export function updateWorkspaceRole(
+export async function updateWorkspaceRole(
   workspaceId: string,
   roleId: string,
-  body: Partial<WorkspaceRoleBody>,
+  json: UpdateWorkspaceRoleBody,
 ) {
-  return contractRequest<WorkspaceRole>(
-    "PATCH",
-    `${rolesPath(workspaceId)}/${encodeURIComponent(roleId)}`,
-    body,
-  );
+  const response = await roles[":roleId"].$patch({
+    param: { workspaceId, roleId },
+    json,
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
 
-// TODO(p3-api): switch to client type (`DELETE /api/workspace/{id}/roles/{roleId}`).
-export function deleteWorkspaceRole(workspaceId: string, roleId: string) {
-  return contractRequest<unknown>(
-    "DELETE",
-    `${rolesPath(workspaceId)}/${encodeURIComponent(roleId)}`,
-  );
+/** Answers the deleted role's `{ id }`. */
+export async function deleteWorkspaceRole(workspaceId: string, roleId: string) {
+  const response = await roles[":roleId"].$delete({
+    param: { workspaceId, roleId },
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

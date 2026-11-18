@@ -1,14 +1,15 @@
-import { contractRequest } from "./contract-request";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-/** One atomic call: the new owner is promoted and the caller becomes admin. */
-// TODO(p3-api): switch to client type (`PUT /api/workspace/{id}/owner`).
-export function transferWorkspaceOwnership(
+/** One atomic call; answers the updated member list. */
+export async function transferWorkspaceOwnership(
   workspaceId: string,
   userId: string,
 ) {
-  return contractRequest<unknown>(
-    "PUT",
-    `/workspace/${encodeURIComponent(workspaceId)}/owner`,
-    { userId },
-  );
+  const response = await client.workspace[":workspaceId"].owner.$put({
+    param: { workspaceId },
+    json: { userId },
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

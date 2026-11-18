@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import useTransferWorkspaceOwnership from "@/hooks/mutations/workspace/use-transfer-workspace-ownership";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type OwnershipCandidate = { id: string; name: string; email: string };
 
@@ -52,9 +53,10 @@ export function TransferOwnershipRow({
       setSelectedId("");
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("settings:workspaceGeneral.transferOwnership.toastError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("settings:workspaceGeneral.transferOwnership.toastError"),
+        ),
       );
     }
   };

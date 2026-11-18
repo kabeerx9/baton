@@ -2979,6 +2979,20 @@
 			"description": "Contact an administrator to restore access.",
 			"otherWorkspaces": "Go to workspaces",
 			"manage": "Manage workspaces"
+		},
+		"errors": {
+			"ONLY_OWNER": "This member is the workspace's only owner. Transfer ownership first.",
+			"OWNER_REQUIRED": "Only an owner can do this.",
+			"MEMBERSHIP_REQUIRED": "You are not a member of this workspace.",
+			"DEMO_WORKSPACE": "The tour's demo workspace cannot change its members or roles.",
+			"ROLE_NAME_RESERVED": "That name is reserved for a built-in role.",
+			"ROLE_NAME_TAKEN": "A role with that name already exists.",
+			"DEFAULT_ROLE": "Built-in roles cannot be deleted or renamed.",
+			"ROLE_IN_USE": "Members still hold this role. Give them another role first.",
+			"TOO_MANY_ROLES": "This workspace has the most roles it can have.",
+			"ALREADY_OWNER": "This member is already an owner.",
+			"MEMBER_NOT_FOUND": "This person is no longer a member.",
+			"WORKSPACE_CREATION_RESTRICTED": "Only an instance administrator can create workspaces."
 		}
 	},
 	"team": {

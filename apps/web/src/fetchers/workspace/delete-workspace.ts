@@ -1,9 +1,11 @@
-import { contractRequest } from "./contract-request";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-// TODO(p3-api): switch to client type (`DELETE /api/workspace/{id}`).
-export function deleteWorkspace(workspaceId: string) {
-  return contractRequest<unknown>(
-    "DELETE",
-    `/workspace/${encodeURIComponent(workspaceId)}`,
-  );
+/** Answers the deleted workspace's `{ id }`. */
+export async function deleteWorkspace(workspaceId: string) {
+  const response = await client.workspace[":workspaceId"].$delete({
+    param: { workspaceId },
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

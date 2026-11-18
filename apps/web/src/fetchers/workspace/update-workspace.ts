@@ -1,20 +1,19 @@
-import { contractRequest } from "./contract-request";
-import type { Workspace } from "./types";
+import { client } from "@baton/libs";
+import type { InferRequestType } from "hono/client";
+import { HttpError } from "@/lib/http-error";
 
-export type UpdateWorkspaceBody = {
-  name?: string;
-  description?: string;
-  logo?: string;
-};
+export type UpdateWorkspaceBody = InferRequestType<
+  (typeof client.workspace)[":workspaceId"]["$patch"]
+>["json"];
 
-// TODO(p3-api): switch to client type (`PATCH /api/workspace/{id}`).
-export function updateWorkspace(
+export async function updateWorkspace(
   workspaceId: string,
-  body: UpdateWorkspaceBody,
+  json: UpdateWorkspaceBody,
 ) {
-  return contractRequest<Workspace>(
-    "PATCH",
-    `/workspace/${encodeURIComponent(workspaceId)}`,
-    body,
-  );
+  const response = await client.workspace[":workspaceId"].$patch({
+    param: { workspaceId },
+    json,
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

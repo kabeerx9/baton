@@ -1,23 +1,28 @@
-import { contractRequest } from "@/fetchers/workspace/contract-request";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-const memberPath = (workspaceId: string, userId: string) =>
-  `/workspace/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`;
+const member = client.workspace[":workspaceId"].members[":userId"];
 
-// TODO(p3-api): switch to client type (`DELETE /api/workspace/{id}/members/{userId}`).
-export function removeWorkspaceMember(workspaceId: string, userId: string) {
-  return contractRequest<unknown>("DELETE", memberPath(workspaceId, userId));
+/** Answers the updated member list. */
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+) {
+  const response = await member.$delete({ param: { workspaceId, userId } });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
 
 /** `owner` is refused here; ownership moves only by transfer. */
-// TODO(p3-api): switch to client type (`PUT /api/workspace/{id}/members/{userId}/role`).
-export function updateWorkspaceMemberRole(
+export async function updateWorkspaceMemberRole(
   workspaceId: string,
   userId: string,
   role: string,
 ) {
-  return contractRequest<unknown>(
-    "PUT",
-    `${memberPath(workspaceId, userId)}/role`,
-    { role },
-  );
+  const response = await member.role.$put({
+    param: { workspaceId, userId },
+    json: { role },
+  });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

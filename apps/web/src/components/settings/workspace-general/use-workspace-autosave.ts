@@ -10,6 +10,7 @@ import {
 } from "@/components/settings/workspace-general/workspace-form-values";
 import useUpdateWorkspace from "@/hooks/mutations/workspace/use-update-workspace";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type UseWorkspaceAutosaveOptions = {
   workspaceId: string | undefined;
@@ -81,9 +82,10 @@ export function useWorkspaceAutosave({
         queuedSaveRef.current = null;
       } catch (error) {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : t("settings:workspaceGeneral.toastUpdateError"),
+          workspaceWriteErrorMessage(
+            error,
+            t("settings:workspaceGeneral.toastUpdateError"),
+          ),
         );
       } finally {
         isSavingRef.current = false;

@@ -7,20 +7,13 @@ export type Workspace = InferResponseType<
   200
 >;
 
-// TODO(p3-api): switch to client type. P3 adds `joinedAt` to
-// `GET /api/workspace/{id}/members`; until then it may be missing.
 /** One member, flat: `id` is the user's id, not a member row id. */
 export type WorkspaceMember = InferResponseType<
   (typeof client.workspace)[":workspaceId"]["members"]["$get"],
   200
->[number] & { joinedAt?: string };
+>[number];
 
-// TODO(p3-api): switch to client type (`GET /api/workspace/{id}/roles`).
-export type WorkspaceRole = {
-  id: string;
-  workspaceId: string;
-  role: string;
-  permission: Record<string, string[]>;
-  createdAt: string;
-  updatedAt?: string | null;
-};
+export type WorkspaceRole = InferResponseType<
+  (typeof client.workspace)[":workspaceId"]["roles"]["$get"],
+  200
+>[number];

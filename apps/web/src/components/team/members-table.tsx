@@ -55,6 +55,7 @@ import {
   type ProjectAccessValue,
 } from "./project-access/project-access-value";
 import { findMemberProjectAccess } from "./project-access/find-member-project-access";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type Props = {
   workspaceId: string;
@@ -159,9 +160,10 @@ function MembersTable({ workspaceId, users }: Props) {
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("team:membersTable.roleUpdateError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("team:membersTable.roleUpdateError"),
+        ),
       );
     }
   };
@@ -178,9 +180,7 @@ function MembersTable({ workspaceId, users }: Props) {
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("team:membersTable.removeError"),
+        workspaceWriteErrorMessage(error, t("team:membersTable.removeError")),
       );
     } finally {
       setMemberToDelete(null);

@@ -13,6 +13,7 @@ import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
 import useDeleteWorkspace from "@/hooks/mutations/workspace/use-delete-workspace";
 import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type WorkspaceDangerZoneProps = {
   workspaceId: string | undefined;
@@ -54,9 +55,10 @@ export function WorkspaceDangerZone({
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("settings:workspaceGeneral.toastDeleteError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("settings:workspaceGeneral.toastDeleteError"),
+        ),
       );
     }
   };

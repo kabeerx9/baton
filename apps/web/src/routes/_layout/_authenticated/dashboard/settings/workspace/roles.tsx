@@ -51,6 +51,7 @@ import { SettingsCard } from "@/components/settings/settings-card";
 import { SettingsIconTile } from "@/components/settings/settings-icon-tile";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/settings/workspace/roles",
@@ -663,9 +664,10 @@ function DraftEditor({
       onCreated(trimmed);
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("settings:workspaceRoles.toast.createError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("settings:workspaceRoles.toast.createError"),
+        ),
       );
     }
   };
@@ -775,9 +777,10 @@ export function CustomRoleEditor({
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("settings:workspaceRoles.toast.updateError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("settings:workspaceRoles.toast.updateError"),
+        ),
       );
     }
   };
@@ -887,9 +890,10 @@ function DeleteRoleConfirm({
               onDeleted();
             } catch (error) {
               toast.error(
-                error instanceof Error
-                  ? error.message
-                  : t("settings:workspaceRoles.toast.deleteError"),
+                workspaceWriteErrorMessage(
+                  error,
+                  t("settings:workspaceRoles.toast.deleteError"),
+                ),
               );
             }
           }}
