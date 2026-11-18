@@ -39,6 +39,7 @@ import githubIntegration, {
 import getInstanceStatus from "./instance/controllers/get-instance-status";
 import joinLink from "./join-link";
 import joinLinkPublic from "./join-link/public";
+import apiKey from "./api-key";
 import { ApiError } from "./errors/api-error";
 import label from "./label";
 import mcpRoutes, { mcpWellKnownRoutes } from "./mcp";
@@ -60,7 +61,6 @@ import slackDm from "./slack-dm";
 import tour from "./tour";
 import user from "./user";
 import getAvatar from "./user/controllers/get-avatar";
-import { apiKeyRejection } from "./utils/api-key-rejection";
 import { applyApiKeyHeaders } from "./utils/apply-api-key-headers";
 import { authenticateApiRequest } from "./utils/authenticate-api-request";
 import { type AuthMethod, channelFor } from "./utils/request-channel";
@@ -72,8 +72,6 @@ import { seedDefaultWorkspaceRoles } from "./utils/seed-default-workspace-roles"
 import { validateWorkspaceAccess } from "./utils/validate-workspace-access";
 import { requireWorkspacePermission } from "./utils/require-workspace-permission";
 import { PROJECT_READ_PERMISSIONS } from "./ws/project-read-permissions";
-import { apiKeyResponseHeaders } from "./utils/rate-limit-headers";
-import { readApiKeyCheck, verifyApiKey } from "./utils/verify-api-key";
 import workflowRule from "./workflow-rule";
 import workspace from "./workspace";
 import {
@@ -304,22 +302,6 @@ export function createApp() {
   // Public: anyone holding a link may preview it, before signing in.
   const joinLinkPublicApi = api.route("/join-link", joinLinkPublic);
 
-  api.use("/auth/*", async (c, next) => {
-    const apiKeyHeader = c.req.header("x-api-key")?.trim();
-    if (!apiKeyHeader) return next();
-    const apiKeyResult = await verifyApiKey(apiKeyHeader, { consume: false });
-    if (apiKeyResult?.status !== "valid") throw apiKeyRejection(apiKeyResult);
-    await next();
-    c.set(
-      "apiKeyHeaders",
-      await apiKeyResponseHeaders(
-        await readApiKeyCheck(apiKeyHeader),
-        c.res,
-        new Date(),
-      ),
-    );
-  });
-
   api.openapi(
     createRoute({
       method: "get",
@@ -328,13 +310,13 @@ export function createApp() {
       tags: ["Authentication"],
       summary: "Get session",
       description:
-        "Get the current authenticated session, or null when the caller is not signed in. Served by Better Auth.",
+        "Get the current authenticated session, or null when the caller is not signed in. Served by Better Auth. An API key is refused here, as on every /api/auth path; use GET /api/user/me.",
       security: [],
       responses: {
         200: {
           description: "Current session details, or null when unauthenticated",
         },
-        429: apiKeyRateLimited.ref,
+        403: errorResponse("Sent with an API key (SESSION_REQUIRED)"),
       },
     }),
     forwardAuthRequest,
@@ -630,6 +612,7 @@ export function createApp() {
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
   const joinLinkApi = api.route("/join-link", joinLink);
+  const apiKeyApi = api.route("/api-key", apiKey);
   const workspaceApi = api.route("/workspace", workspace);
   const userApi = api.route("/user", user);
   const adminApi = api.route("/admin", admin);
@@ -748,6 +731,7 @@ export function createApp() {
     integrationSyncApi,
     githubIntegrationApi,
     joinLinkApi,
+    apiKeyApi,
     joinLinkPublicApi,
     labelApi,
     notificationApi,
@@ -860,6 +844,7 @@ const {
   integrationSyncApi,
   githubIntegrationApi,
   joinLinkApi,
+  apiKeyApi,
   joinLinkPublicApi,
   labelApi,
   notificationApi,
@@ -909,6 +894,7 @@ export type AppType =
   | typeof externalLinkApi
   | typeof workflowRuleApi
   | typeof joinLinkApi
+  | typeof apiKeyApi
   | typeof joinLinkPublicApi
   | typeof workspaceApi
   | typeof userApi

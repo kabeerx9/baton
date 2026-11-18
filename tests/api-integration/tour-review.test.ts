@@ -1,6 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { providerIssue } from "../../apps/api/src/plugins/sync/provider-issue";
@@ -21,6 +20,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 const github = vi.hoisted(() => ({ octokit: vi.fn(), app: vi.fn() }));
 vi.mock(
@@ -498,9 +498,7 @@ describe("notifications follow the resource they point at", () => {
 describe("tour mutations need a browser session", () => {
   it("refuses an API key on start, finish and replay", async () => {
     const { user } = await createWorkspaceMember();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: user.id, name: "Tour" },
-    });
+    const { key } = await createTestApiKey({ userId: user.id, name: "Tour" });
     for (const [path, body] of [
       ["/tour/start", undefined],
       ["/tour/finish", { outcome: "skipped" }],

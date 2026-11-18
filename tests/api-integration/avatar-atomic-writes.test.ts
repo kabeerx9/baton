@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { decodeAvatarUpload } from "../../apps/api/src/user/avatar";
@@ -16,6 +15,7 @@ import {
 } from "./helpers/avatar/avatar-state";
 import { resetTestDatabase } from "./helpers/database";
 import { connectMcpAgent } from "./helpers/mcp-oauth";
+import { createTestApiKey } from "./helpers/api-key";
 
 type App = ReturnType<typeof createApp>["app"];
 type Avatar = { id: string; url: string; size: number };
@@ -145,8 +145,9 @@ describe("own avatar authorization", () => {
 
   it("rejects API keys and agent tokens and changes nothing", async () => {
     const before = await uploadOk();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: me.userId, name: "Avatar test" },
+    const { key } = await createTestApiKey({
+      userId: me.userId,
+      name: "Avatar test",
     });
     const agent = await connectMcpAgent(app, { cookie: me.cookies });
 

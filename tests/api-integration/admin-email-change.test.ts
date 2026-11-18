@@ -14,10 +14,10 @@ async function updateUser(
   userId: string,
   data: Record<string, unknown>,
 ) {
-  return app.request("/api/auth/admin/update-user", {
-    method: "POST",
+  return app.request(`/api/admin/users/${userId}`, {
+    method: "PATCH",
     headers: { "content-type": "application/json", cookie: cookies },
-    body: JSON.stringify({ userId, data }),
+    body: JSON.stringify(data),
   });
 }
 

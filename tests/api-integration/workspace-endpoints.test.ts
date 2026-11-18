@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { createInstanceAdmin } from "./helpers/admin/create-instance-admin";
@@ -9,6 +8,7 @@ import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
 import { readErrorBody } from "./helpers/error-body";
 import { createWorkspaceMember } from "./helpers/fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 type WorkspaceRow = typeof schema.workspaceTable.$inferSelect;
 
@@ -446,8 +446,9 @@ describe("workspace endpoints with bearer credentials", () => {
       const { user, workspace } = await createWorkspaceMember({
         role: "owner",
       });
-      const { key } = await auth.api.createApiKey({
-        body: { userId: user.id, name: "Workspace endpoints test" },
+      const { key } = await createTestApiKey({
+        userId: user.id,
+        name: "Workspace endpoints test",
       });
       const headers = {
         [header]: header === "Authorization" ? `Bearer ${key}` : key,
@@ -466,12 +467,10 @@ describe("workspace endpoints with bearer credentials", () => {
 
   it("rejects an API key without workspace:read on both routes", async () => {
     const { user, workspace } = await createWorkspaceMember({ role: "owner" });
-    const { key } = await auth.api.createApiKey({
-      body: {
-        userId: user.id,
-        name: "Task reader",
-        permissions: { task: ["read"], project: ["read"] },
-      },
+    const { key } = await createTestApiKey({
+      userId: user.id,
+      name: "Task reader",
+      permissions: { task: ["read"], project: ["read"] },
     });
     const headers = { Authorization: `Bearer ${key}` };
     const { app } = createApp();
@@ -494,12 +493,10 @@ describe("workspace endpoints with bearer credentials", () => {
 
   it("accepts an API key scoped to workspace:read", async () => {
     const { user, workspace } = await createWorkspaceMember({ role: "owner" });
-    const { key } = await auth.api.createApiKey({
-      body: {
-        userId: user.id,
-        name: "Workspace reader",
-        permissions: { workspace: ["read"] },
-      },
+    const { key } = await createTestApiKey({
+      userId: user.id,
+      name: "Workspace reader",
+      permissions: { workspace: ["read"] },
     });
     const headers = { "x-api-key": key };
     const { app } = createApp();
@@ -516,8 +513,9 @@ describe("workspace endpoints with bearer credentials", () => {
   it("reads the instance admin role from the database for API keys", async () => {
     const { workspace } = await createWorkspaceMember({ role: "owner" });
     const admin = await createInstanceAdmin();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.id, name: "Admin key" },
+    const { key } = await createTestApiKey({
+      userId: admin.id,
+      name: "Admin key",
     });
     const { app } = createApp();
 

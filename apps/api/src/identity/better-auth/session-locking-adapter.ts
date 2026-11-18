@@ -5,10 +5,7 @@ import {
   type DrizzleAdapterConfig,
   drizzleAdapter,
 } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
 import { asc, eq, inArray } from "drizzle-orm";
-import { hasOtherInstanceAdmin } from "../../utils/has-other-instance-admin";
-import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
 import db, { schema } from "../../database";
 
 type OtherSessionRevocationAdapter = DBAdapter & {
@@ -138,35 +135,6 @@ export function authDatabaseAdapter(config: DrizzleAdapterConfig) {
         return deleteSessions(data, (transactionAdapter) =>
           transactionAdapter.deleteMany(data),
         );
-      },
-      async update<T>(data: Parameters<DBAdapter["update"]>[0]) {
-        if (
-          data.model !== "user" ||
-          !Object.hasOwn(data.update, "role") ||
-          hasInstanceAdminRole(data.update.role)
-        ) {
-          return adapter.update<T>(data);
-        }
-
-        return db.transaction(async (tx) => {
-          const transactionAdapter = drizzleAdapter(tx, config)(options);
-          const user = await transactionAdapter.findOne<{ role?: string }>({
-            model: data.model,
-            where: data.where,
-          });
-
-          if (
-            hasInstanceAdminRole(user?.role) &&
-            !(await hasOtherInstanceAdmin(tx))
-          ) {
-            throw new APIError("BAD_REQUEST", {
-              code: "CANNOT_REMOVE_LAST_ADMIN",
-              message: "The instance must have at least one administrator.",
-            });
-          }
-
-          return transactionAdapter.update<T>(data);
-        });
       },
     };
   };

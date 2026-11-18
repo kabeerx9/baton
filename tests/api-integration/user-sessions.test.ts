@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { createApp } from "../../apps/api/src/index";
 import { SESSION_ENDED_CLOSE_CODE } from "../../apps/api/src/ws";
 import { signIn, signUpWithSession } from "./helpers/auth-session";
@@ -13,6 +12,7 @@ import {
   sessionIdsOf,
   sessionTokens,
 } from "./helpers/sessions/session-fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 type App = ReturnType<typeof createApp>["app"];
 type SessionList = {
@@ -132,8 +132,9 @@ describe("API integration: own sessions", () => {
   });
 
   it("rejects API keys and anonymous callers", async () => {
-    const { key } = await auth.api.createApiKey({
-      body: { userId: me.userId, name: "Sessions test" },
+    const { key } = await createTestApiKey({
+      userId: me.userId,
+      name: "Sessions test",
     });
     const laptopId = await sessionIdOf(laptop);
 

@@ -7,7 +7,6 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import {
@@ -24,6 +23,7 @@ import { drainOutbox } from "./helpers/outbox";
 import { createProjectFixture } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
 import { restrictToProjects } from "./helpers/project-access/restrict-to-projects";
+import { createTestApiKey } from "./helpers/api-key";
 
 vi.mock("../../apps/api/src/events", async (original) => {
   const events = await original<typeof import("../../apps/api/src/events")>();
@@ -68,8 +68,10 @@ async function createKey(
   userId: string,
   permissions?: Record<string, string[]>,
 ) {
-  const { key } = await auth.api.createApiKey({
-    body: { userId, name: "Change request test", permissions },
+  const { key } = await createTestApiKey({
+    userId,
+    name: "Change request test",
+    permissions,
   });
   return key;
 }

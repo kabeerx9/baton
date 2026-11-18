@@ -1,17 +1,8 @@
-import { createHash } from "node:crypto";
 import { and, eq, exists, gt, isNull, or, sql } from "drizzle-orm";
+import { hashApiKey } from "../api-key/hash-api-key";
 import db, { schema } from "../database";
 import { evaluateApiKeyUsage } from "./api-key-usage";
 import { notBannedCondition } from "./user-ban";
-
-async function hashApiKey(key: string): Promise<string> {
-  const hash = createHash("sha256").update(key).digest();
-  return hash
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
 
 export function parsePermissions(
   raw: string | null,
@@ -93,7 +84,7 @@ export async function verifyApiKey(
   key: string,
   options: { consume?: boolean } = {},
 ) {
-  const hashedKey = await hashApiKey(key);
+  const hashedKey = hashApiKey(key);
   if (options.consume === false) return checkApiKey(hashedKey);
 
   return db.transaction(async (tx) => {

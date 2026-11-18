@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import {
@@ -22,6 +21,7 @@ import {
   createWorkspaceMember,
 } from "./helpers/fixtures";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
+import { createTestApiKey } from "./helpers/api-key";
 
 beforeEach(resetTestDatabase);
 
@@ -81,8 +81,9 @@ describe("admin workspace lifecycle authorization", () => {
   it("rejects an administrator's API key", async () => {
     const { workspace } = await workspaceFixture();
     const admin = await createInstanceAdmin();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.id, name: "Lifecycle test" },
+    const { key } = await createTestApiKey({
+      userId: admin.id,
+      name: "Lifecycle test",
     });
     const { app } = createApp();
 
@@ -447,8 +448,9 @@ describe("deleting a workspace", () => {
 
   it("lets the owner's API key delete and consumes its request quota", async () => {
     const { owner, workspace } = await workspaceFixture();
-    const { key, id } = await auth.api.createApiKey({
-      body: { userId: owner.id, name: "Owner deletion" },
+    const { key, id } = await createTestApiKey({
+      userId: owner.id,
+      name: "Owner deletion",
     });
     const { app } = createApp();
     const response = await app.request(`/api/workspace/${workspace.id}`, {
@@ -473,12 +475,10 @@ describe("deleting a workspace", () => {
         method: "DELETE",
         headers: { "x-api-key": key },
       });
-    const denied = await auth.api.createApiKey({
-      body: { userId: outsider.user.id },
-    });
+    const denied = await createTestApiKey({ userId: outsider.user.id });
     expect((await call(denied.key)).status).toBe(404);
     expect(await readWorkspace(workspace.id)).toBeDefined();
-    const allowed = await auth.api.createApiKey({ body: { userId: owner.id } });
+    const allowed = await createTestApiKey({ userId: owner.id });
     expect((await call(allowed.key)).status).toBe(200);
     expect(await readWorkspace(workspace.id)).toBeUndefined();
   });

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { recordAdminAction } from "../../apps/api/src/admin/audit/record-admin-action";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { mockAnonymousSession, mockAuthenticatedSession } from "./helpers/auth";
@@ -8,6 +7,7 @@ import { createInstanceAdmin } from "./helpers/admin/create-instance-admin";
 import { resetTestDatabase } from "./helpers/database";
 import { createWorkspaceMember } from "./helpers/fixtures";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
+import { createTestApiKey } from "./helpers/api-key";
 
 type AuditLogPage = {
   total: number;
@@ -69,8 +69,9 @@ describe("GET /api/admin/audit-log", () => {
 
   it("rejects an administrator's API key", async () => {
     const admin = await createInstanceAdmin();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.id, name: "Audit log test" },
+    const { key } = await createTestApiKey({
+      userId: admin.id,
+      name: "Audit log test",
     });
     const { app } = createApp();
 

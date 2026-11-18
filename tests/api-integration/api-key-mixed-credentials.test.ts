@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import {
@@ -14,6 +13,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 vi.mock("../../apps/api/src/storage/s3", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -30,8 +30,10 @@ async function createKey(
   userId: string,
   permissions?: Record<string, string[]>,
 ) {
-  const { key } = await auth.api.createApiKey({
-    body: { userId, name: "Mixed credentials test", permissions },
+  const { key } = await createTestApiKey({
+    userId,
+    name: "Mixed credentials test",
+    permissions,
   });
   return key;
 }

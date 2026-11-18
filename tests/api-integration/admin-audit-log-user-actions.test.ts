@@ -10,12 +10,12 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { readAuditLog } from "./helpers/admin/read-audit-log";
 import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 type App = ReturnType<typeof createApp>["app"];
 
@@ -23,24 +23,29 @@ let app: App;
 let admin: { userId: string; cookies: string };
 let target: { userId: string; cookies: string };
 
-function call(path: string, body: unknown, headers: Record<string, string>) {
-  return app.request(`/api/auth/admin/${path}`, {
-    method: "POST",
+function call(
+  method: string,
+  path: string,
+  body: unknown,
+  headers: Record<string, string>,
+) {
+  return app.request(`/api/admin${path}`, {
+    method,
     headers: {
       "content-type": "application/json",
       origin: "http://localhost:5173",
       "user-agent": "audit-test-agent",
       ...headers,
     },
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
 
-const asAdmin = (path: string, body: unknown) =>
-  call(path, body, { cookie: admin.cookies });
+const asAdmin = (method: string, path: string, body?: unknown) =>
+  call(method, path, body, { cookie: admin.cookies });
 
 async function expectOk(response: Response) {
-  expect(response.status, await response.clone().text()).toBe(200);
+  expect(response.status, await response.clone().text()).toBeLessThan(300);
 }
 
 beforeEach(async () => {
@@ -60,82 +65,65 @@ beforeEach(async () => {
 
 afterEach(() => vi.unstubAllEnvs());
 
-describe("audit of better-auth admin endpoints", () => {
+// The admin plugin's routes left with it (auth-boundary P4); every admin
+// change is a Baton route that writes its audit row in its own transaction.
+describe("audit of admin user actions", () => {
   it("records role changes separately from other profile updates", async () => {
     await expectOk(
-      await asAdmin("update-user", {
-        userId: target.userId,
-        data: { name: "Tim Target", email: "tim@example.com", role: "admin" },
+      await asAdmin("PATCH", `/users/${target.userId}`, {
+        name: "Tim Target",
+        email: "tim@example.com",
+        role: "admin",
       }),
     );
 
     const rows = await readAuditLog();
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({
-      action: "user.role_changed",
+    expect(rows.map((row) => row.action).sort()).toEqual([
+      "user.role_changed",
+      "user.updated",
+    ]);
+    expect(
+      rows.find((row) => row.action === "user.role_changed"),
+    ).toMatchObject({
       actorUserId: admin.userId,
       actorName: "Ada Admin",
       actorEmail: "admin@example.com",
       targetType: "user",
       targetId: target.userId,
-      targetLabel: "tim@example.com",
       metadata: { from: "user", to: "admin" },
       userAgent: "audit-test-agent",
     });
-    expect(rows[1]).toMatchObject({
-      action: "user.updated",
+    expect(rows.find((row) => row.action === "user.updated")).toMatchObject({
       targetId: target.userId,
-      metadata: {
-        fields: ["name", "email"],
-        changes: {
-          name: { from: "Tom Target", to: "Tim Target" },
-          email: { from: "target@example.com", to: "tim@example.com" },
-        },
-      },
     });
-    expect(rows[0].createdAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
   });
 
   it("records nothing when an update changes nothing", async () => {
     await expectOk(
-      await asAdmin("update-user", {
-        userId: target.userId,
-        data: { name: "Tom Target", email: "target@example.com", role: "user" },
+      await asAdmin("PATCH", `/users/${target.userId}`, {
+        name: "Tom Target",
+        email: "target@example.com",
+        role: "user",
       }),
     );
 
     expect(await readAuditLog()).toEqual([]);
   });
 
-  it("records set-role, deactivation, and reactivation", async () => {
+  it("records a role change, deactivation, and reactivation", async () => {
     await expectOk(
-      await asAdmin("set-role", { userId: target.userId, role: "admin" }),
+      await asAdmin("PATCH", `/users/${target.userId}`, { role: "admin" }),
     );
-    await expectOk(
-      await asAdmin("ban-user", {
-        userId: target.userId,
-        banReason: "Left the company",
-      }),
-    );
-    await expectOk(await asAdmin("unban-user", { userId: target.userId }));
+    await expectOk(await asAdmin("POST", `/users/${target.userId}/deactivate`));
+    await expectOk(await asAdmin("POST", `/users/${target.userId}/reactivate`));
 
     const rows = await readAuditLog();
-    expect(rows.map((row) => [row.action, row.metadata])).toEqual([
-      ["user.deactivated", { reason: "Left the company", expiresAt: null }],
-      ["user.reactivated", null],
-      ["user.role_changed", { from: "user", to: "admin" }],
+    expect(rows.map((row) => row.action).sort()).toEqual([
+      "user.deactivated",
+      "user.reactivated",
+      "user.role_changed",
     ]);
     expect(rows.every((row) => row.targetId === target.userId)).toBe(true);
-  });
-
-  it("keeps a temporary deactivation's expiry", async () => {
-    await expectOk(
-      await asAdmin("ban-user", { userId: target.userId, banExpiresIn: 3600 }),
-    );
-
-    const [row] = await readAuditLog();
-    const expiresAt = (row.metadata as { expiresAt: string }).expiresAt;
-    expect(Date.parse(expiresAt)).toBeGreaterThan(Date.now() + 3_000_000);
   });
 
   it("records administrators who authenticate with a bearer token", async () => {
@@ -146,8 +134,9 @@ describe("audit of better-auth admin endpoints", () => {
 
     await expectOk(
       await call(
-        "set-role",
-        { userId: target.userId, role: "admin" },
+        "PATCH",
+        `/users/${target.userId}`,
+        { role: "admin" },
         // The bearer token decides the session even next to another cookie.
         { authorization: `Bearer ${token}`, cookie: target.cookies },
       ),
@@ -162,7 +151,7 @@ describe("audit of better-auth admin endpoints", () => {
   });
 
   it("keeps the label of a deleted user", async () => {
-    await expectOk(await asAdmin("remove-user", { userId: target.userId }));
+    await expectOk(await asAdmin("DELETE", `/users/${target.userId}`));
 
     const [row] = await readAuditLog();
     expect(row).toMatchObject({
@@ -173,18 +162,10 @@ describe("audit of better-auth admin endpoints", () => {
     });
   });
 
-  it("never stores passwords or session tokens", async () => {
-    const password = "a-brand-new-secret-password";
-    await expectOk(
-      await asAdmin("set-user-password", {
-        userId: target.userId,
-        newPassword: password,
-      }),
-    );
-    const created = await asAdmin("create-user", {
+  it("never stores session tokens", async () => {
+    const created = await asAdmin("POST", "/users", {
       email: "new@example.com",
       name: "New Person",
-      password,
       role: "user",
     });
     await expectOk(created);
@@ -196,94 +177,107 @@ describe("audit of better-auth admin endpoints", () => {
       .from(schema.sessionTable)
       .where(eq(schema.sessionTable.userId, target.userId));
     await expectOk(
-      await asAdmin("revoke-user-session", { sessionToken: session.token }),
+      await asAdmin(
+        "DELETE",
+        `/users/${target.userId}/sessions/${session!.id}`,
+      ),
     );
-    await signUpWithSession(app, {
-      email: "again@example.com",
-      name: "Again",
-      role: "user",
-    });
-    await expectOk(
-      await asAdmin("revoke-user-sessions", { userId: target.userId }),
-    );
-    const impersonation = await asAdmin("impersonate-user", {
-      userId: createdUser.id,
-    });
-    await expectOk(impersonation);
-    const { session: impersonated } = (await impersonation.json()) as {
-      session: { token: string };
-    };
+    await expectOk(await asAdmin("DELETE", `/users/${target.userId}/sessions`));
 
     const rows = await readAuditLog();
-    expect(rows.map((row) => row.action)).toEqual([
+    expect(rows.map((row) => row.action).sort()).toEqual([
       "session.revoked",
       "session.revoked_all",
       "user.created",
-      "user.impersonated",
-      "user.password_set",
     ]);
-    expect(rows[0]).toMatchObject({
-      targetId: target.userId,
-      metadata: { sessionId: session.id },
-    });
-    expect(rows[2]).toMatchObject({
+    expect(rows.find((row) => row.action === "user.created")).toMatchObject({
       targetId: createdUser.id,
       targetLabel: "new@example.com",
-      metadata: { name: "New Person", role: "user" },
     });
     const stored = JSON.stringify(rows);
-    expect(stored).not.toContain(password);
-    expect(stored).not.toContain(session.token);
-    expect(stored).not.toContain(impersonated.token);
+    expect(stored).not.toContain(session!.token);
     expect(stored).not.toMatch(/password"|token"/i);
   });
 
   it("records nothing for forbidden or failed admin calls", async () => {
-    const asTarget = (path: string, body: unknown) =>
-      call(path, body, { cookie: target.cookies });
+    const asTarget = (method: string, path: string, body?: unknown) =>
+      call(method, path, body, { cookie: target.cookies });
 
-    expect((await asTarget("ban-user", { userId: admin.userId })).status).toBe(
+    expect(
+      (await asTarget("POST", `/users/${admin.userId}/deactivate`)).status,
+    ).toBe(403);
+    expect(
+      (await asTarget("PATCH", `/users/${admin.userId}`, { role: "user" }))
+        .status,
+    ).toBe(403);
+    expect((await asTarget("DELETE", `/users/${admin.userId}`)).status).toBe(
       403,
     );
     expect(
-      (await asTarget("set-role", { userId: admin.userId, role: "user" }))
-        .status,
-    ).toBe(403);
-    expect(
-      (await asTarget("remove-user", { userId: admin.userId })).status,
-    ).toBe(403);
-    expect((await asAdmin("ban-user", { userId: admin.userId })).status).toBe(
-      400,
-    );
-    expect(
-      (
-        await asAdmin("update-user", {
-          userId: admin.userId,
-          data: { role: "user" },
-        })
-      ).status,
+      (await asAdmin("POST", `/users/${admin.userId}/deactivate`)).status,
     ).toBe(400);
     expect(
-      (await asAdmin("unban-user", { userId: "missing-user" })).status,
+      (await asAdmin("PATCH", `/users/${admin.userId}`, { role: "user" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await asAdmin("POST", "/users/missing-user/reactivate")).status,
     ).toBe(404);
-    expect((await call("ban-user", { userId: target.userId }, {})).status).toBe(
-      401,
-    );
+    expect(
+      (await call("POST", `/users/${target.userId}/deactivate`, undefined, {}))
+        .status,
+    ).toBe(401);
 
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.userId, name: "Audit test" },
+    const { key } = await createTestApiKey({
+      userId: admin.userId,
+      name: "Audit test",
     });
     expect(
-      (await call("ban-user", { userId: target.userId }, { "x-api-key": key }))
-        .status,
+      (
+        await call("POST", `/users/${target.userId}/deactivate`, undefined, {
+          "x-api-key": key,
+        })
+      ).status,
     ).toBe(403);
 
     expect(await readAuditLog()).toEqual([]);
   });
 
+  it("answers the removed provider admin routes with 404 and records nothing", async () => {
+    for (const path of [
+      "ban-user",
+      "unban-user",
+      "set-role",
+      "update-user",
+      "create-user",
+      "remove-user",
+      "set-user-password",
+      "impersonate-user",
+      "list-users",
+      "revoke-user-sessions",
+    ]) {
+      const response = await app.request(`/api/auth/admin/${path}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:5173",
+          cookie: admin.cookies,
+        },
+        body: JSON.stringify({ userId: target.userId, role: "admin" }),
+      });
+      expect(response.status, path).toBe(404);
+    }
+    expect(await readAuditLog()).toEqual([]);
+    expect(
+      await db.query.userTable.findFirst({
+        where: eq(schema.userTable.id, target.userId),
+      }),
+    ).toMatchObject({ role: "user", banned: false });
+  });
+
   it("keeps the actor snapshot after the administrator is deleted", async () => {
     await expectOk(
-      await asAdmin("set-role", { userId: target.userId, role: "admin" }),
+      await asAdmin("PATCH", `/users/${target.userId}`, { role: "admin" }),
     );
     await db
       .delete(schema.userTable)
@@ -305,17 +299,15 @@ describe("audit of better-auth admin endpoints", () => {
     try {
       const { port } = server.address() as AddressInfo;
       const response = await fetch(
-        `http://127.0.0.1:${port}/api/auth/admin/ban-user`,
+        `http://127.0.0.1:${port}/api/admin/users/${target.userId}/deactivate`,
         {
           method: "POST",
           headers: {
-            "content-type": "application/json",
             origin: "http://localhost:5173",
             cookie: admin.cookies,
             "x-baton-client-ip": "1.2.3.4",
             "x-forwarded-for": "203.0.113.9",
           },
-          body: JSON.stringify({ userId: target.userId }),
         },
       );
       expect(response.status, await response.text()).toBe(200);

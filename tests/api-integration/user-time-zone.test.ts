@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 type App = ReturnType<typeof createApp>["app"];
 
@@ -80,8 +80,9 @@ describe("PUT /api/user/time-zone", () => {
   it("rejects an API key with 403", async () => {
     const { app } = createApp();
     const me = await person(app, "Key Owner");
-    const { key } = await auth.api.createApiKey({
-      body: { userId: me.userId, name: "Time zone test" },
+    const { key } = await createTestApiKey({
+      userId: me.userId,
+      name: "Time zone test",
     });
 
     const response = await putZone(app, "Asia/Kolkata", {

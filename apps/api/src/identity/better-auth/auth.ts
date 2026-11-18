@@ -1,7 +1,5 @@
-import { revokeApiKeyConnections } from "../../ws";
 import { batonIdentityHooks as hooks } from "../baton-hooks";
 import { toProviderError } from "./to-provider-error";
-import { apiKey } from "@better-auth/api-key";
 import {
   isSmtpConfigured,
   setBrandNameResolver,
@@ -9,13 +7,8 @@ import {
 } from "@baton/email";
 import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
-import {
-  APIError,
-  createAuthMiddleware,
-  getSessionFromCtx,
-  isAPIError,
-} from "better-auth/api";
-import { admin as adminPlugin, bearer, openAPI } from "better-auth/plugins";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { bearer, openAPI } from "better-auth/plugins";
 import { config } from "dotenv-mono";
 import { schema } from "../../database";
 import { authDatabaseAdapter } from "./session-locking-adapter";
@@ -25,14 +18,8 @@ import {
 } from "../../instance-settings/email-verification-gate";
 import { getInstanceSettings } from "../../instance-settings/get-instance-settings";
 import { lockedSessionRevocation } from "./locked-session-revocation";
-import { assertNativeAuthApiKeyAllowed } from "../../utils/native-auth-api-key";
-import { captureAuthAdminAudit } from "../../admin/audit/capture-auth-admin-audit";
-import { recordAuthAdminAudit } from "../../admin/audit/record-auth-admin-audit";
-import { assertKnownInstanceRoles } from "../../admin/roles/assert-known-instance-roles";
-import clearEmailVerificationOnAdminChange from "../../user/controllers/clear-email-verification-on-admin-change";
 import { stripAuthImageWrite } from "../../user/avatar-store/strip-auth-image-write";
 import deleteAccountData from "../../user/controllers/delete-account-data";
-import prepareAdminUserRemoval from "../../user/controllers/prepare-admin-user-removal";
 import { resolveAuthSecret } from "../../utils/auth-secret";
 import { checkRegistrationAllowed } from "../../utils/check-registration-allowed";
 import { getEmailRequestContext } from "../../utils/email-request-context";
@@ -44,7 +31,6 @@ import {
   oauthSignInRefused,
 } from "./oauth-sign-in-guard";
 import { hasRegisteredUsers } from "../../utils/instance-bootstrap";
-import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
 import { isCloud } from "../../utils/is-cloud";
 import { trackPasswordResetDelivery } from "../../utils/password-reset-delivery";
 
@@ -97,7 +83,6 @@ export const auth = betterAuth({
       account: schema.accountTable,
       session: schema.sessionTable,
       verification: schema.verificationTable,
-      apikey: schema.apikeyTable,
     },
   }),
   user: {
@@ -180,24 +165,7 @@ export const auth = betterAuth({
           },
         }
       : {},
-  plugins: [
-    lockedSessionRevocation,
-    bearer(),
-    apiKey({
-      enableSessionForAPIKeys: true,
-      apiKeyHeaders: "x-api-key",
-      rateLimit: {
-        enabled: true,
-        maxRequests: 100,
-        timeWindow: 60 * 1000,
-      },
-    }),
-    adminPlugin({
-      defaultRole: "user",
-      adminRoles: ["admin"],
-    }),
-    openAPI(),
-  ],
+  plugins: [lockedSessionRevocation, bearer(), openAPI()],
   session: {
     cookieCache: {
       // Consult the session store on every request so password recovery
@@ -224,25 +192,9 @@ export const auth = betterAuth({
         },
       },
       update: {
-        after: async (user) => {
-          // Covers /admin/ban-user. Each MCP call also re-checks the ban.
-          if (user.banned) await revokeUserGrants(user.id);
-        },
-        before: async (user, ctx) => {
-          // `/update-user` and `/admin/update-user` must never set the picture.
+        before: async (user) => {
+          // `/update-user` must never set the picture.
           stripAuthImageWrite(user);
-          if (
-            (ctx?.path === "/admin/set-role" ||
-              ctx?.path === "/admin/update-user") &&
-            Object.hasOwn(user, "role") &&
-            ctx.body?.userId === ctx.context.session?.user.id
-          ) {
-            throw new APIError("BAD_REQUEST", {
-              code: "YOU_CANNOT_CHANGE_YOUR_OWN_ROLE",
-              message: "You cannot change your own role.",
-            });
-          }
-          return clearEmailVerificationOnAdminChange(user, ctx);
         },
       },
       create: {
@@ -257,9 +209,7 @@ export const auth = betterAuth({
             );
           }
           // A new account has no picture until it uploads one; ignore any
-          // `image` sent with sign-up or admin create.
-          if (ctx?.path === "/admin/create-user")
-            return { data: { image: null } };
+          // `image` sent with sign-up.
           return {
             data: {
               image: null,
@@ -269,9 +219,8 @@ export const auth = betterAuth({
             },
           };
         },
-        after: async (user, ctx) => {
-          // better-auth's admin endpoint sets its own role.
-          if (ctx?.path === "/admin/create-user") return;
+        after: async (user) => {
+          // Baton writes the instance role; the provider does not know it.
           await hooks.userCreated({
             userId: user.id,
             subject: user.id,
@@ -285,9 +234,16 @@ export const auth = betterAuth({
     session: {
       create: {
         // An OAuth callback only links an account to a signed-in user; it
-        // never starts a session (`assertNoOAuthSignIn`).
-        before: async (_session, ctx) => {
+        // never starts a session (`assertNoOAuthSignIn`). A deactivated
+        // user cannot sign in.
+        before: async (session, ctx) => {
           assertNoOAuthSignIn(ctx?.path);
+          if (!(await hooks.canSignIn({ userId: session.userId })).allowed) {
+            throw new APIError("FORBIDDEN", {
+              code: "BANNED_USER",
+              message: "This account has been deactivated.",
+            });
+          }
         },
       },
       delete: {
@@ -306,19 +262,6 @@ export const auth = betterAuth({
       ): Promise<void | Awaited<
         ReturnType<typeof emailVerificationContext>
       >> => {
-        // Runs before provider hooks can turn a key into its owner's session.
-        await assertNativeAuthApiKeyAllowed(ctx);
-        await assertKnownInstanceRoles(ctx);
-        // Before removal prep deletes account data the entry needs to name.
-        await captureAuthAdminAudit(ctx, (headers) =>
-          auth.api.getSession({ headers, query: { disableRefresh: true } }),
-        );
-        if (ctx.path === "/admin/remove-user") {
-          await prepareAdminUserRemoval(ctx).catch((error) => {
-            throw toProviderError(error);
-          });
-        }
-
         if (ctx.path === "/sign-in/social") {
           throw oauthSignInRefused();
         }
@@ -361,25 +304,6 @@ export const auth = betterAuth({
         return verification;
       },
     ),
-    after: createAuthMiddleware(async (ctx) => {
-      await recordAuthAdminAudit(ctx);
-      if (
-        ctx.path === "/admin/set-user-password" &&
-        !isAPIError(ctx.context.returned)
-      ) {
-        // An admin reset keeps sessions but must still disconnect agents.
-        // Codes approved before it fail in exchangeCode.
-        const userId = (ctx.body as { userId?: unknown } | undefined)?.userId;
-        if (typeof userId === "string") await revokeUserGrants(userId);
-      }
-      if (ctx.path === "/api-key/delete" && !isAPIError(ctx.context.returned)) {
-        const keyId = (ctx.body as { keyId?: unknown } | undefined)?.keyId;
-        // better-auth only deletes the caller's own keys.
-        const viewer = await getSessionFromCtx(ctx);
-        if (viewer && typeof keyId === "string")
-          await revokeApiKeyConnections(viewer.user.id, [keyId]);
-      }
-    }),
   },
   advanced: {
     ipAddress: {

@@ -38,33 +38,26 @@ function offenders(
 const inIdentity = (path: string) => path.startsWith("identity/");
 const inDatabase = (path: string) => path.startsWith("database/");
 
-/**
- * Files outside the boundary that still reach the provider, each removed or
- * cleaned by the named phase of `records/auth-boundary.md`. The test asserts
- * the list exactly, so an entry that no longer offends must be deleted here.
- */
-const API_PROVIDER_IMPORTS_UNTIL: Record<string, "P3" | "P4"> = {
-  "admin/audit/capture-auth-admin-audit.ts": "P4",
-  "admin/audit/record-auth-admin-audit.ts": "P4",
-  "admin/roles/assert-known-instance-roles.ts": "P4",
-  "user/controllers/prepare-admin-user-removal.ts": "P4",
-  // Shrunk to the get-session rule in P3; deleted with the key plugin.
-  "utils/native-auth-api-key.ts": "P4",
-};
-
-const API_PROVIDER_TABLES_UNTIL: Record<string, "P3" | "P4"> = {
-  "admin/audit/capture-auth-admin-audit.ts": "P4",
-};
-
-const WEB_PROVIDER_IMPORTS_UNTIL: Record<string, "P3" | "P4"> = {
-  "types/user.ts": "P3",
-};
+/** What the web may ask the provider for (auth-boundary P4 A7). */
+const WEB_AUTH_CLIENT_CALLS = [
+  "changePassword",
+  "deleteUser",
+  "getSession",
+  "linkSocial",
+  "listAccounts",
+  "requestPasswordReset",
+  "resetPassword",
+  "revokeOtherSessions",
+  "signIn.email",
+  "signOut",
+  "signUp.email",
+  "updateUser",
+  "useSession",
+];
 
 describe("identity boundary (records/auth-boundary.md §1)", () => {
   it("lets only apps/api/src/identity import the provider", () => {
-    expect(offenders(apiSrc, PROVIDER_IMPORT, inIdentity)).toEqual(
-      Object.keys(API_PROVIDER_IMPORTS_UNTIL).sort(),
-    );
+    expect(offenders(apiSrc, PROVIDER_IMPORT, inIdentity)).toEqual([]);
   });
 
   it("names the provider's tables only in identity and database", () => {
@@ -74,7 +67,7 @@ describe("identity boundary (records/auth-boundary.md §1)", () => {
         PROVIDER_TABLE,
         (path) => inIdentity(path) || inDatabase(path),
       ),
-    ).toEqual(Object.keys(API_PROVIDER_TABLES_UNTIL).sort());
+    ).toEqual([]);
   });
 
   it("lets only lib/auth-client.ts import the provider in the web", () => {
@@ -84,7 +77,31 @@ describe("identity boundary (records/auth-boundary.md §1)", () => {
         PROVIDER_IMPORT,
         (path) => path === "lib/auth-client.ts",
       ),
-    ).toEqual(Object.keys(WEB_PROVIDER_IMPORTS_UNTIL).sort());
+    ).toEqual([]);
+  });
+
+  it("leaves no admin or API-key surface in the provider config (P4 A7)", () => {
+    const config = readFileSync(
+      join(apiSrc, "identity/better-auth/auth.ts"),
+      "utf8",
+    );
+    expect(config).not.toMatch(/\/admin|\/api-key/);
+  });
+
+  it("calls the provider from the web only for identity (P4 A7)", () => {
+    const calls = new Set(
+      sources(webSrc).flatMap((path) =>
+        [
+          ...readFileSync(path, "utf8").matchAll(
+            /\bauthClient\.((?:[a-zA-Z]+)(?:\.[a-zA-Z]+)?)/g,
+          ),
+        ].map((match) => match[1]!),
+      ),
+    );
+    // `$store` is the client's own session cache, not a provider call.
+    expect([...calls].sort()).toEqual(
+      [...WEB_AUTH_CLIENT_CALLS].sort().filter((call) => calls.has(call)),
+    );
   });
 
   it("keeps the provider's user and session out of the request context (P2 A8)", () => {

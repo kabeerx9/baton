@@ -6,6 +6,7 @@ import { createApp } from "../../../apps/api/src/index";
 import { mockAuthenticatedSession } from "./auth";
 import { createProjectFixture, createWorkspaceMember } from "./fixtures";
 import { addWorkspaceMember } from "./project-access/add-workspace-member";
+import { createTestApiKey } from "./api-key";
 
 /**
  * A workspace with one task created by `creator` and assigned to `assignee`.
@@ -117,10 +118,10 @@ export async function createKey(
   userId: string,
   permissions?: Record<string, string[]>,
 ) {
-  const { auth } =
-    await import("../../../apps/api/src/identity/better-auth/auth");
-  const created = await auth.api.createApiKey({
-    body: { userId, name: "Change request test", permissions },
+  const created = await createTestApiKey({
+    userId,
+    name: "Change request test",
+    permissions,
   });
   return { id: created.id, key: created.key };
 }

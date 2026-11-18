@@ -257,7 +257,6 @@ describe("P2 A2: MCP code redemption races, order fixed by the user row lock", (
 
   it.each([
     ["password reset", true],
-    ["ban", true],
     ["deactivation", true],
     ["plain password change", false],
   ] as const)(
@@ -267,14 +266,6 @@ describe("P2 A2: MCP code redemption races, order fixed by the user row lock", (
       const accessToken = await redeemed(world);
       if (change === "password reset") {
         await resetPassword(world.app, world.target.userId);
-      } else if (change === "ban") {
-        const banned = await post(
-          world.app,
-          "/api/auth/admin/ban-user",
-          world.admin.cookies,
-          { userId: world.target.userId },
-        );
-        expect(banned.status).toBe(200);
       } else if (change === "deactivation") {
         const deactivated = await world.asAdmin(
           `/${world.target.userId}/deactivate`,

@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { SESSION_ENDED_CLOSE_CODE } from "../../apps/api/src/ws";
@@ -16,6 +15,7 @@ import {
   sessionIdsOf,
   sessionTokens,
 } from "./helpers/sessions/session-fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 type App = ReturnType<typeof createApp>["app"];
 type Account = { userId: string; cookies: string };
@@ -44,7 +44,7 @@ const asAdmin = (method: "GET" | "DELETE", path: string) =>
   call(method, path, { cookie: admin.cookies });
 
 async function createKey(userId: string, name: string) {
-  return auth.api.createApiKey({ body: { userId, name } });
+  return createTestApiKey({ userId, name });
 }
 
 const keyStatus = (key: string) =>

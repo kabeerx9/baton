@@ -12,6 +12,7 @@ import {
   signInWithRole,
 } from "./helpers/admin/instance-roles";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 beforeEach(resetTestDatabase);
 
@@ -211,8 +212,9 @@ describe("custom instance roles", () => {
     const { app } = createApp();
     const admin = await signInWithRole(app, "admin");
     const target = await insertUser();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.userId, name: "Roles test" },
+    const { key } = await createTestApiKey({
+      userId: admin.userId,
+      name: "Roles test",
     });
     const role = await insertInstanceRole("support", []);
     const requests = [

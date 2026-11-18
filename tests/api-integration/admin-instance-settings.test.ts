@@ -8,7 +8,6 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { invalidateInstanceSettings } from "../../apps/api/src/instance-settings/get-instance-settings";
@@ -21,6 +20,7 @@ import {
 import { resetTestDatabase } from "./helpers/database";
 import { readErrorBody } from "./helpers/error-body";
 import { createProjectFixture } from "./helpers/fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 const PASSWORD = "correct horse battery staple";
 const json = {
@@ -103,8 +103,9 @@ describe("instance settings API", () => {
       ).status,
     ).toBe(403);
 
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.userId, name: "Settings test" },
+    const { key } = await createTestApiKey({
+      userId: admin.userId,
+      name: "Settings test",
     });
     for (const headers of [
       { "x-api-key": key },

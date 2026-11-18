@@ -157,15 +157,19 @@ async function expectWorkspaceRefused(
   expect(retried.status, await retried.clone().text()).toBe(200);
 }
 
-function adminSetPassword(app: App, cookies: string, userId: string) {
-  return app.request("/api/auth/admin/set-user-password", {
+/** The owner changes their own password; outstanding codes become void. */
+function changePassword(app: App, token: string) {
+  return app.request("/api/auth/change-password", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      cookie: cookies,
+      authorization: `Bearer ${token}`,
       origin: "http://localhost:5173",
     },
-    body: JSON.stringify({ userId, newPassword: `reset-${randomUUID()}` }),
+    body: JSON.stringify({
+      currentPassword: "mcp-grants-password",
+      newPassword: `changed-${randomUUID()}`,
+    }),
   });
 }
 
@@ -401,11 +405,7 @@ describe("MCP access tokens", () => {
     const { app } = createApp();
     const owner = await signUp(app);
     const agent = await connectMcpAgent(app, { bearer: owner.token });
-    for (const path of [
-      "/api/auth/api-key/list",
-      "/api/auth/get-session",
-      "/api/auth/list-sessions",
-    ]) {
+    for (const path of ["/api/auth/get-session", "/api/auth/list-sessions"]) {
       const response = await app.request(path, {
         headers: { authorization: `Bearer ${agent.accessToken}` },
       });
@@ -476,7 +476,7 @@ describe("MCP access tokens", () => {
     expect((await refresh(app, agent)).status).toBe(400);
   });
 
-  it("revokes grants and voids pending codes when an admin sets the password", async () => {
+  it("has no admin set-password route (auth-boundary §9.4)", async () => {
     const { app } = createApp();
     const admin = await signUpWithSession(app, {
       email: `${randomUUID()}@example.com`,
@@ -485,7 +485,6 @@ describe("MCP access tokens", () => {
     });
     const owner = await signUp(app);
     const agent = await connectMcpAgent(app, { bearer: owner.token });
-    const pending = await approveMcpAgent(app, { bearer: owner.token });
 
     const reset = await app.request("/api/auth/admin/set-user-password", {
       method: "POST",
@@ -499,35 +498,12 @@ describe("MCP access tokens", () => {
         newPassword: "an-admin-chosen-password",
       }),
     });
-    expect(reset.status, await reset.clone().text()).toBe(200);
-
-    expect((await grantOf(agent)).revokedAt).not.toBeNull();
-    expect((await authorized(app, agent.accessToken)).status).toBe(401);
-    expect((await mcpPost(app, agent.accessToken, "tools/list")).status).toBe(
-      401,
-    );
-    expect((await refresh(app, agent)).status).toBe(400);
-    // The session survives an admin reset, but the code it approved does not.
-    const exchanged = await exchangeMcpCode(app, pending);
-    expect(exchanged.status).toBe(400);
-    expect(await exchanged.json()).toEqual({ error: "invalid_grant" });
-    expect(
-      await db
-        .select()
-        .from(schema.mcpGrantTable)
-        .where(eq(schema.mcpGrantTable.clientId, pending.clientId)),
-    ).toHaveLength(0);
-    // A new approval after the reset works.
-    await connectMcpAgent(app, { bearer: owner.token });
+    expect(reset.status).toBe(404);
+    expect((await grantOf(agent)).revokedAt).toBeNull();
   });
 
   it("voids a code approved while a password UPDATE waits on the account row", async () => {
     const { app } = createApp();
-    const admin = await signUpWithSession(app, {
-      email: `${randomUUID()}@example.com`,
-      name: "Instance Admin",
-      role: "admin",
-    });
     const owner = await signUp(app);
 
     // A concurrent account write holds the credential row.
@@ -550,11 +526,11 @@ describe("MCP access tokens", () => {
     });
     await isLocked;
 
-    // The admin reset starts and blocks on its password UPDATE.
-    const reset = adminSetPassword(app, admin.cookies, owner.userId);
+    // The password change starts and blocks on its UPDATE.
+    const reset = changePassword(app, owner.token);
     await waitForBlockedAccountUpdate();
 
-    // Consent completes while the reset waits, so it sees the old password.
+    // Consent completes while the change waits, so it sees the old password.
     const pending = await approveMcpAgent(app, { bearer: owner.token });
     release();
     await holder;
@@ -566,23 +542,16 @@ describe("MCP access tokens", () => {
     expect(await db.select().from(schema.mcpGrantTable)).toHaveLength(0);
   });
 
-  it("voids a pre-reset code even when the approving replica's clock runs ahead", async () => {
+  it("voids a code approved before a password change even when the approving replica's clock runs ahead", async () => {
     const { app } = createApp();
-    const admin = await signUpWithSession(app, {
-      email: `${randomUUID()}@example.com`,
-      name: "Instance Admin",
-      role: "admin",
-    });
     const owner = await signUp(app);
 
     // Consent on a replica ten seconds ahead.
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 10_000 });
     const pending = await approveMcpAgent(app, { bearer: owner.token });
     vi.useRealTimers();
-    // The reset completes on a replica with the true time, before that clock.
-    expect(
-      (await adminSetPassword(app, admin.cookies, owner.userId)).status,
-    ).toBe(200);
+    // The change completes on a replica with the true time, before that clock.
+    expect((await changePassword(app, owner.token)).status).toBe(200);
     // Redemption on a replica ten seconds behind.
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() - 10_000 });
     const exchanged = await exchangeMcpCode(app, pending);
@@ -594,7 +563,7 @@ describe("MCP access tokens", () => {
   it("accepts an API key on /api/mcp", async () => {
     const { app } = createApp();
     const owner = await signUp(app);
-    const created = await app.request("/api/auth/api-key/create", {
+    const created = await app.request("/api/api-key", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -603,7 +572,7 @@ describe("MCP access tokens", () => {
       },
       body: JSON.stringify({ name: "headless agent" }),
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
     const { key } = (await created.json()) as { key: string };
     expect((await mcpPost(app, key, "tools/list")).status).toBe(200);
     expect((await mcpPost(app, "not-a-key", "tools/list")).status).toBe(401);
@@ -614,7 +583,7 @@ describe("MCP access tokens", () => {
     routeToolCallsInto(app);
     const owner = await signUp(app);
     await addWorkspace(owner.userId, "Acme");
-    const created = await app.request("/api/auth/api-key/create", {
+    const created = await app.request("/api/api-key", {
       method: "POST",
       headers: {
         "content-type": "application/json",

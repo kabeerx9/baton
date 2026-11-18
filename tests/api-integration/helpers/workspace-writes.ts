@@ -297,7 +297,7 @@ export async function writesFixture() {
     person: Person,
     permissions: Record<string, string[]> | null,
   ) {
-    const response = await app.request("/api/auth/api-key/create", {
+    const response = await app.request("/api/api-key", {
       method: "POST",
       headers: {
         cookie: people[person].cookies,
@@ -305,7 +305,7 @@ export async function writesFixture() {
       },
       body: JSON.stringify({ name: "writes" }),
     });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     const key = (await response.json()) as { id: string; key: string };
     await db
       .update(schema.apikeyTable)

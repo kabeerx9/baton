@@ -3,11 +3,11 @@ import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { serve } from "../../apps/api/node_modules/@hono/node-server";
 import type { NodeWebSocket } from "../../apps/api/node_modules/@hono/node-ws";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { createApp } from "../../apps/api/src/index";
 import { shutdownWebSocketAdapter } from "../../apps/api/src/ws";
 import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 type Socket = NodeWebSocket["wss"]["clients"] extends Set<infer S> ? S : never;
 const apiRequire = createRequire(
@@ -85,11 +85,13 @@ afterEach(async () => {
 
 describe("API integration: user sockets of revoked API keys", () => {
   async function connectTargetSockets() {
-    const revoked = await auth.api.createApiKey({
-      body: { userId: target.userId, name: "CI deploys" },
+    const revoked = await createTestApiKey({
+      userId: target.userId,
+      name: "CI deploys",
     });
-    const kept = await auth.api.createApiKey({
-      body: { userId: target.userId, name: "Laptop" },
+    const kept = await createTestApiKey({
+      userId: target.userId,
+      name: "Laptop",
     });
     return {
       revoked,
@@ -123,14 +125,9 @@ describe("API integration: user sockets of revoked API keys", () => {
       await connectTargetSockets();
     const closed = closeOf(revokedSocket);
 
-    const response = await app.request("/api/auth/api-key/delete", {
-      method: "POST",
-      headers: {
-        cookie: target.cookies,
-        origin: ORIGIN,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ keyId: revoked.id }),
+    const response = await app.request(`/api/api-key/${revoked.id}`, {
+      method: "DELETE",
+      headers: { cookie: target.cookies, origin: ORIGIN },
     });
 
     expect(response.status).toBe(200);

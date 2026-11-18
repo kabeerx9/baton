@@ -73,14 +73,14 @@ async function keyFor(
   cookies: string,
   permissions: Permissions | null,
 ) {
-  const response = await app.request("/api/auth/api-key/create", {
+  const response = await app.request("/api/api-key", {
     method: "POST",
     headers: { cookie: cookies, "content-type": "application/json" },
     body: JSON.stringify({ name: "Boundary regression" }),
   });
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(201);
   const key = (await response.json()) as { id: string; key: string };
-  // Permissions are a server-only provider property. Narrow the actual key
+  // Permissions are server-only: no client sets them. Narrow the actual key
   // after normal credential creation rather than mocking provider validation.
   await db
     .update(schema.apikeyTable)
@@ -124,6 +124,7 @@ describe("native auth credential boundary", () => {
         { path: `/api-key/get?id=${key.id}`, method: "GET" },
         { path: "/api-key/update", body: { keyId: key.id, name: "Changed" } },
         { path: "/api-key/delete", body: { keyId: key.id } },
+        { path: "/get-session", method: "GET" },
         { path: "/list-sessions", method: "GET" },
         { path: "/revoke-session", body: { token: ownerToken } },
         { path: "/revoke-sessions", body: {} },
@@ -193,24 +194,34 @@ describe("native auth credential boundary", () => {
   );
 
   it.each([null, { label: ["read"] }] as (Permissions | null)[])(
-    "returns only the virtual key session with a valid cookie (%j)",
+    "refuses a key on get-session even beside a valid cookie, spending no quota (%j)",
     async (permissions) => {
-      const { app, owner, viewer, ownerToken, viewerToken } = await fixture();
+      const { app, owner, viewer } = await fixture();
       const key = await keyFor(app, owner.cookies, permissions);
+      await db
+        .update(schema.apikeyTable)
+        .set({ rateLimitEnabled: true, rateLimitMax: 1 })
+        .where(eq(schema.apikeyTable.id, key.id));
       for (const bearer of [false, true]) {
         const response = await app.request("/api/auth/get-session", {
           headers: keyHeaders(key.key, bearer, viewer.cookies),
         });
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(403);
         expect(response.headers.get("cache-control")).toBe("no-store");
-        const body = await response.json();
-        expect(body).toMatchObject({
-          user: { id: owner.userId },
-          session: { id: key.id, token: key.key },
+        expect(await response.json()).toMatchObject({
+          code: "SESSION_REQUIRED",
         });
-        expect(JSON.stringify(body)).not.toContain(ownerToken);
-        expect(JSON.stringify(body)).not.toContain(viewerToken);
       }
+      const [row] = await db
+        .select({ requestCount: schema.apikeyTable.requestCount })
+        .from(schema.apikeyTable)
+        .where(eq(schema.apikeyTable.id, key.id));
+      expect(row?.requestCount).toBe(0);
+      // The key's one request is still there for REST.
+      const me = await app.request("/api/user/me", {
+        headers: { "x-api-key": key.key },
+      });
+      expect(me.status).toBe(200);
     },
   );
 
@@ -301,7 +312,7 @@ describe("native auth credential boundary", () => {
     expect(await db.select().from(schema.workspaceTable)).toHaveLength(1);
   });
 
-  it("preserves real bearer and cookie credential management and native admin session issuance", async () => {
+  it("keeps real bearer and cookie credential management; impersonation is gone", async () => {
     const { app, owner, viewer, ownerToken } = await fixture();
     await db
       .update(schema.userTable)
@@ -311,12 +322,12 @@ describe("native auth credential boundary", () => {
       { cookie: owner.cookies },
       { authorization: `bEaReR ${ownerToken}` },
     ]) {
-      const created = await app.request("/api/auth/api-key/create", {
+      const created = await app.request("/api/api-key", {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify({ name: "Real session" }),
       });
-      expect(created.status).toBe(200);
+      expect(created.status).toBe(201);
       const sessions = await app.request("/api/auth/list-sessions", {
         headers,
       });
@@ -329,10 +340,7 @@ describe("native auth credential boundary", () => {
           body: JSON.stringify({ userId: viewer.userId }),
         },
       );
-      expect(impersonation.status).toBe(200);
-      expect(await impersonation.json()).toMatchObject({
-        user: { id: viewer.userId },
-      });
+      expect(impersonation.status).toBe(404);
     }
   });
 });

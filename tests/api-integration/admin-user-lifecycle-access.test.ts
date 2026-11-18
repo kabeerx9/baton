@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { readAuditLog } from "./helpers/admin/read-audit-log";
 import {
   adminUsersApi,
   adminWithTarget,
 } from "./helpers/admin/admin-users-api";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 const PNG = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
@@ -33,8 +33,9 @@ beforeEach(resetTestDatabase);
 describe("admin user lifecycle endpoints", () => {
   it("reject anonymous callers, regular users, and administrator API keys", async () => {
     const { app, admin, target } = await adminWithTarget();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.userId, name: "Lifecycle test" },
+    const { key } = await createTestApiKey({
+      userId: admin.userId,
+      name: "Lifecycle test",
     });
     const callers = [
       { headers: {}, status: 401 },

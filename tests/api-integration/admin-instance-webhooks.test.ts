@@ -13,7 +13,6 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { recordAdminAction } from "../../apps/api/src/admin/audit/record-admin-action";
@@ -27,6 +26,7 @@ import {
 } from "./helpers/admin/instance-roles";
 import { readAuditLog } from "./helpers/admin/read-audit-log";
 import { resetTestDatabase } from "./helpers/database";
+import { createTestApiKey } from "./helpers/api-key";
 
 vi.mock("node:dns/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:dns/promises")>();
@@ -129,9 +129,7 @@ describe("instance webhook administration", () => {
   it("gates every endpoint by session and instance:settings, rejecting API keys", async () => {
     const { webhook } = await create();
     const plain = await signInWithRole(app, "user");
-    const { key } = await auth.api.createApiKey({
-      body: { userId: admin.userId },
-    });
+    const { key } = await createTestApiKey({ userId: admin.userId });
     const routes = [
       ["GET", "/webhooks"],
       ["POST", "/webhooks"],
@@ -451,38 +449,17 @@ describe("instance webhook delivery", () => {
     expect(requests).toHaveLength(0);
   });
 
-  it("preserves a committed auth change and its audit row when enqueue fails, but rolls back transactional actions", async () => {
+  it("rolls back an admin change and its audit row when enqueue fails", async () => {
     await create();
     const target = await signInWithRole(app, "user");
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const before = await db.query.userTable.findFirst({
+      where: eq(schema.userTable.id, target.userId),
+    });
+    const audit = await readAuditLog();
+    vi.spyOn(console, "error").mockImplementation(() => {});
     await db.execute(sql`ALTER TABLE instance_webhook_delivery
       ADD CONSTRAINT test_reject_queue CHECK (false) NOT VALID`);
     try {
-      const response = await app.request("/api/auth/admin/update-user", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: "http://localhost:5173",
-          cookie: admin.cookies,
-        },
-        body: JSON.stringify({
-          userId: target.userId,
-          data: { name: "Committed" },
-        }),
-      });
-      expect(response.status).toBe(200);
-      expect(
-        await db.query.userTable.findFirst({
-          where: eq(schema.userTable.id, target.userId),
-        }),
-      ).toMatchObject({ name: "Committed" });
-      const audit = await readAuditLog();
-      expect(audit.filter((row) => row.action === "user.updated")).toEqual([
-        expect.objectContaining({ targetId: target.userId }),
-      ]);
-      expect(log).toHaveBeenCalledWith(
-        "Admin audit webhook delivery could not be queued",
-      );
       const failed = await admin.api(`/users/${target.userId}`, {
         method: "PATCH",
         body: { name: "Rolled back" },
@@ -492,7 +469,7 @@ describe("instance webhook delivery", () => {
         await db.query.userTable.findFirst({
           where: eq(schema.userTable.id, target.userId),
         }),
-      ).toMatchObject({ name: "Committed" });
+      ).toMatchObject({ name: before!.name });
       expect(await readAuditLog()).toEqual(audit);
       expect(await db.select().from(table)).toEqual([]);
     } finally {
@@ -646,20 +623,12 @@ describe("instance webhook delivery", () => {
     expect(requests).toHaveLength(1);
   });
 
-  it("delivers better-auth audit hooks and test events even when the category is unselected", async () => {
+  it("delivers admin user changes and test events even when the category is unselected", async () => {
     const { webhook } = await create();
     const target = await signInWithRole(app, "user");
-    const response = await app.request("/api/auth/admin/update-user", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: "http://localhost:5173",
-        cookie: admin.cookies,
-      },
-      body: JSON.stringify({
-        userId: target.userId,
-        data: { name: "Renamed" },
-      }),
+    const response = await admin.api(`/users/${target.userId}`, {
+      method: "PATCH",
+      body: { name: "Renamed" },
     });
     expect(response.status).toBe(200);
     expect(await sendWebhookDelivery()).toBe(true);

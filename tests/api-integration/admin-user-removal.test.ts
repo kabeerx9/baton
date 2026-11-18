@@ -48,10 +48,9 @@ async function seedCredentials(userId: string) {
 }
 
 async function removeUser(app: App, cookies: string, userId: string) {
-  return app.request("/api/auth/admin/remove-user", {
-    method: "POST",
-    headers: { "content-type": "application/json", cookie: cookies },
-    body: JSON.stringify({ userId }),
+  return app.request(`/api/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: { cookie: cookies },
   });
 }
 
@@ -97,7 +96,6 @@ describe("API integration: admin user removal", () => {
     const response = await removeUser(app, admin.cookies, target.user.id);
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ success: true });
     expect(await countRows(target.user.id, target.workspace.id)).toEqual({
       users: 0,
       sessions: 0,
@@ -165,7 +163,7 @@ describe("API integration: admin user removal", () => {
 
     const response = await removeUser(app, "", target.user.id);
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
     expect(await countRows(target.user.id, target.workspace.id)).toMatchObject({
       users: 1,
       workspaces: 1,

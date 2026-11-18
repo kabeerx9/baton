@@ -80,7 +80,7 @@ it("an API key request reads the instance role once", async () => {
     role: "owner",
     joinedAt: new Date(),
   });
-  const created = await app.request("/api/auth/api-key/create", {
+  const created = await app.request("/api/api-key", {
     method: "POST",
     headers: { cookie: owner.cookies, "content-type": "application/json" },
     body: JSON.stringify({ name: "budget" }),

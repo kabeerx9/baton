@@ -3,7 +3,6 @@ import { replayDeferredLabelFields } from "../../apps/api/src/plugins/sync/repla
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { getSyncIntegrations } from "../../apps/api/src/plugins/sync/integrations";
@@ -16,6 +15,7 @@ import {
   createWorkspaceMember,
 } from "./helpers/fixtures";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
+import { createTestApiKey } from "./helpers/api-key";
 
 vi.mock("../../apps/api/src/storage/s3", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -110,8 +110,9 @@ describe("an archived workspace over HTTP", () => {
 
   it("rejects the member's API keys, which MCP clients use", async () => {
     const { member, workspace, task } = await seed();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: member.id, name: "Archive test" },
+    const { key } = await createTestApiKey({
+      userId: member.id,
+      name: "Archive test",
     });
     const { app } = createApp();
     const request = (headers: Record<string, string>) =>
@@ -152,9 +153,7 @@ describe("an archived workspace over HTTP", () => {
 
   it("hides ticket-ID lookups from members and API keys until restore", async () => {
     const { member, workspace, project, task } = await seed();
-    const { key } = await auth.api.createApiKey({
-      body: { userId: member.id },
-    });
+    const { key } = await createTestApiKey({ userId: member.id });
     mockAuthenticatedSession(member);
     const { app } = createApp();
     const path = `/api/task/by-ticket-id/${project.slug}-1`;

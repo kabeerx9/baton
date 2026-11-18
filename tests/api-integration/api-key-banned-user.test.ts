@@ -102,19 +102,19 @@ describe("API integration: API keys of banned users", () => {
     expect(result?.key.userId).toBe(userId);
   });
 
-  describe("through Better Auth routes", () => {
+  describe("through the key routes", () => {
     async function mintKey() {
       const { app } = createApp();
       const owner = await signUpWithSession(app, {
         email: `${randomUUID()}@example.com`,
         name: "Key Owner",
       });
-      const created = await app.request("/api/auth/api-key/create", {
+      const created = await app.request("/api/api-key", {
         method: "POST",
         headers: { "content-type": "application/json", cookie: owner.cookies },
         body: JSON.stringify({ name: "test" }),
       });
-      expect(created.status).toBe(200);
+      expect(created.status).toBe(201);
       const { key } = (await created.json()) as { key: string };
       return { app, userId: owner.userId, key };
     }
@@ -126,20 +126,25 @@ describe("API integration: API keys of banned users", () => {
         .where(eq(schema.userTable.id, userId));
     }
 
-    it("resolves a session for an active key and refuses it once banned", async () => {
-      const { app, userId, key } = await mintKey();
-      const headers = { "x-api-key": key };
+    it.each([
+      ["x-api-key", (key: string) => ({ "x-api-key": key })],
+      ["bearer", (key: string) => ({ authorization: `Bearer ${key}` })],
+    ] as const)(
+      "authenticates an active %s key and refuses it once banned",
+      async (_, headersFor) => {
+        const { app, userId, key } = await mintKey();
+        const headers = headersFor(key);
 
-      const active = await app.request("/api/auth/get-session", { headers });
-      expect(active.status).toBe(200);
-      const body = (await active.json()) as { user?: { id: string } };
-      expect(body.user?.id).toBe(userId);
+        const active = await app.request("/api/user/me", { headers });
+        expect(active.status).toBe(200);
+        expect(((await active.json()) as { id: string }).id).toBe(userId);
 
-      await ban(userId);
+        await ban(userId);
 
-      const banned = await app.request("/api/auth/get-session", { headers });
-      expect(banned.status).toBe(401);
-    });
+        const banned = await app.request("/api/user/me", { headers });
+        expect(banned.status).toBe(401);
+      },
+    );
 
     it("does not let a browser cookie rescue a banned bearer key", async () => {
       const { app } = createApp();
@@ -150,28 +155,30 @@ describe("API integration: API keys of banned users", () => {
       const { userId, key } = await mintKey();
       await ban(userId);
 
-      const response = await app.request("/api/auth/api-key/list", {
+      const response = await app.request("/api/user/me", {
         headers: { authorization: `Bearer ${key}`, cookie: viewer.cookies },
       });
 
       expect(response.status).toBe(401);
     });
 
-    it("applies the same rule to a bearer key on the native auth API", async () => {
+    it("refuses a key, banned or not, on the provider's routes", async () => {
       const { app, userId, key } = await mintKey();
-      const headers = { authorization: `Bearer ${key}` };
-
-      const active = await app.request("/api/auth/get-session", {
-        headers,
-      });
-      expect(active.status).toBe(200);
-
-      await ban(userId);
-
-      const banned = await app.request("/api/auth/get-session", {
-        headers,
-      });
-      expect(banned.status).toBe(401);
+      for (const banned of [false, true]) {
+        if (banned) await ban(userId);
+        for (const headers of [
+          { "x-api-key": key },
+          { authorization: `Bearer ${key}` },
+        ]) {
+          const response = await app.request("/api/auth/get-session", {
+            headers,
+          });
+          expect(response.status).toBe(403);
+          expect(await response.json()).toMatchObject({
+            code: "SESSION_REQUIRED",
+          });
+        }
+      }
     });
   });
 });

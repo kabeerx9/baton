@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { verifyApiKey } from "../../apps/api/src/utils/verify-api-key";
 import { resetTestDatabase } from "./helpers/database";
 import { createWorkspaceMember } from "./helpers/fixtures";
+import { createTestApiKey } from "./helpers/api-key";
 
 beforeEach(resetTestDatabase);
 async function seedKey(
@@ -76,28 +76,26 @@ describe("API key accounting", () => {
   });
 });
 
-it("charges an auth request once when the identity guard precedes Better Auth", async () => {
+it("charges nothing for a key refused on an auth route", async () => {
   const { key, row } = await seedKey({ remaining: 1, rateLimitEnabled: false });
   const { createApp } = await import("../../apps/api/src/index");
   const { app } = createApp();
   const response = await app.request("/api/auth/get-session", {
     headers: { "x-api-key": key },
   });
-  expect(response.status, await response.clone().text()).toBe(200);
-  expect(await response.json()).toMatchObject({
-    user: { id: row.referenceId },
-  });
+  expect(response.status, await response.clone().text()).toBe(403);
   const [saved] = await db
     .select()
     .from(schema.apikeyTable)
     .where(eq(schema.apikeyTable.id, row.id));
-  expect(saved.remaining).toBe(0);
+  expect(saved.remaining).toBe(1);
 });
 
 it("creates normal API keys with the configured 100-per-minute limit", async () => {
   const { user } = await createWorkspaceMember();
-  const created = await auth.api.createApiKey({
-    body: { userId: user.id, name: "default limits" },
+  const created = await createTestApiKey({
+    userId: user.id,
+    name: "default limits",
   });
   const [saved] = await db
     .select()

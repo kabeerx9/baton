@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { mockAuthenticatedSession } from "./helpers/auth";
 import { resetTestDatabase } from "./helpers/database";
 import { createWorkspaceMember } from "./helpers/fixtures";
 import { readErrorBody } from "./helpers/error-body";
+import { createTestApiKey } from "./helpers/api-key";
 
 describe("GET /api/user/me", () => {
   beforeEach(async () => {
@@ -18,8 +18,9 @@ describe("GET /api/user/me", () => {
     async (header) => {
       await createWorkspaceMember({ userName: "Other user" });
       const { user } = await createWorkspaceMember({ userName: "Key owner" });
-      const { key } = await auth.api.createApiKey({
-        body: { userId: user.id, name: "Current user test" },
+      const { key } = await createTestApiKey({
+        userId: user.id,
+        name: "Current user test",
       });
       const { app } = createApp();
 
@@ -73,8 +74,9 @@ describe("GET /api/user/me", () => {
 
   it.each(["disabled", "expired"])("rejects a %s API key", async (state) => {
     const { user } = await createWorkspaceMember();
-    const { id, key } = await auth.api.createApiKey({
-      body: { userId: user.id, name: "Current user test" },
+    const { id, key } = await createTestApiKey({
+      userId: user.id,
+      name: "Current user test",
     });
     await db
       .update(schema.apikeyTable)
