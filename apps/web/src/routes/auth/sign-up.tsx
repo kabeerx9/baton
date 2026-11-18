@@ -9,9 +9,11 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
 import { AuthFormSkeleton } from "@/components/auth/auth-form-skeleton";
 import { authLinkClassName } from "@/components/auth/auth-link-class";
-import { isPasswordSignUpEnabled } from "@/components/auth/auth-methods";
+import {
+  getSafeRedirectPath,
+  isPasswordSignUpEnabled,
+} from "@/components/auth/auth-methods";
 import { AuthPage } from "@/components/auth/auth-page";
-import { InvitationNotice } from "@/components/auth/invitation-notice";
 import { PasswordSignUpForm } from "@/components/auth/password-sign-up-form";
 import { RegistrationClosed } from "@/components/auth/registration-closed";
 import PageTitle from "@/components/page-title";
@@ -21,8 +23,8 @@ import useInstanceStatus from "@/hooks/queries/instance/use-instance-status";
 import { toast } from "@/lib/toast";
 
 const signUpSearchSchema = z.object({
-  invitationId: z.string().optional(),
   email: z.string().optional(),
+  redirect: z.string().optional(),
 });
 
 export const Route = createFileRoute("/auth/sign-up")({
@@ -56,15 +58,12 @@ function SignUp() {
     }
   }, [isInstanceStatusError, instanceStatusError, t]);
 
-  const invitationId = search.invitationId;
+  const redirectPath = getSafeRedirectPath(search.redirect);
   const isInstanceAdminSetup = instanceStatus?.hasUsers === false;
-  const destination = invitationId
-    ? `/invitation/accept/${invitationId}`
-    : "/dashboard";
+  const destination = redirectPath ?? "/dashboard";
+  // A join link does not open a closed instance.
   const selfServiceAllowed =
-    !config?.disableRegistration ||
-    Boolean(invitationId) ||
-    isInstanceAdminSetup;
+    !config?.disableRegistration || isInstanceAdminSetup;
   const passwordEnabled =
     selfServiceAllowed && isPasswordSignUpEnabled(config, isInstanceAdminSetup);
 
@@ -74,14 +73,7 @@ function SignUp() {
       ? t("auth:signUp.subtitle.password")
       : undefined;
 
-  const notice = invitationId ? (
-    <InvitationNotice
-      invitationId={invitationId}
-      description={t("auth:signUp.invitation.description")}
-    />
-  ) : null;
-
-  if (config?.disableRegistration && !invitationId && !isInstanceAdminSetup) {
+  if (config?.disableRegistration && !isInstanceAdminSetup) {
     return (
       <>
         <PageTitle title={t("auth:signUp.pageTitle")} />
@@ -100,13 +92,12 @@ function SignUp() {
             : t("auth:signUp.heading")
         }
         description={isConfigLoading ? undefined : description}
-        notice={notice}
       >
         {isConfigLoading ? <AuthFormSkeleton /> : null}
         {passwordEnabled ? (
           <PasswordSignUpForm
             defaultEmail={search.email}
-            invitationId={invitationId}
+            redirect={redirectPath}
             onSuccess={() => navigate({ to: destination })}
           />
         ) : null}
@@ -121,7 +112,7 @@ function SignUp() {
               {t("auth:signUp.toggleMessage")}{" "}
               <Link
                 to="/auth/sign-in"
-                search={{ invitationId, email: search.email }}
+                search={{ redirect: redirectPath, email: search.email }}
                 className={authLinkClassName}
               >
                 {t("auth:signUp.toggleLink")}

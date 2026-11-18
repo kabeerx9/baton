@@ -1,43 +1,26 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   getNextStep,
-  getOnboardingSteps,
   getStepProgress,
+  ONBOARDING_STEPS,
 } from "./onboarding-steps";
 
 describe("onboarding steps", () => {
-  it.each([
-    [
-      { usage: "team", canInvite: true },
-      ["workspace", "usage", "project", "invite", "ready"],
-    ],
-    [
-      { usage: "team", canInvite: false },
-      ["workspace", "usage", "project", "ready"],
-    ],
-    [
-      { usage: "solo", canInvite: true },
-      ["workspace", "usage", "project", "ready"],
-    ],
-  ] as const)("orders the steps for %j", (options, steps) => {
-    expect(getOnboardingSteps(options)).toEqual(steps);
+  it("starts at the fork and ends on ready", () => {
+    expect(ONBOARDING_STEPS[0]).toBe("start");
+    expect(ONBOARDING_STEPS.at(-1)).toBe("ready");
   });
 
-  it("counts every step except the ready screen", () => {
-    const steps = getOnboardingSteps({
-      usage: "team",
-      canInvite: true,
-    });
-    expect(getStepProgress(steps, "project")).toEqual({ current: 3, total: 4 });
-    expect(getStepProgress(steps, "invite")).toEqual({ current: 4, total: 4 });
+  it("counts only the three setup steps", () => {
+    expect(getStepProgress("start")).toBeNull();
+    expect(getStepProgress("ready")).toBeNull();
+    expect(getStepProgress("workspace")).toEqual({ current: 1, total: 3 });
+    expect(getStepProgress("project")).toEqual({ current: 3, total: 3 });
   });
 
-  it("moves to the next step and ends on ready", () => {
-    const steps = getOnboardingSteps({
-      usage: "solo",
-      canInvite: true,
-    });
-    expect(getNextStep(steps, "project")).toBe("ready");
-    expect(getNextStep(steps, "ready")).toBe("ready");
+  it("moves to the next step and stays on ready", () => {
+    expect(getNextStep("start")).toBe("workspace");
+    expect(getNextStep("project")).toBe("ready");
+    expect(getNextStep("ready")).toBe("ready");
   });
 });

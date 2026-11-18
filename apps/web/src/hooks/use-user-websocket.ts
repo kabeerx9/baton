@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { getApiUrl } from "@/fetchers/get-api-url";
+import { membersUpdatedKeys } from "@/hooks/queries/join-link/keys";
 import {
   evictInaccessibleWorkspaceCache,
   evictWorkspaceCache,
@@ -146,6 +147,13 @@ export function useUserWebSocket() {
           ])
             void queryClient.invalidateQueries({ queryKey });
           reconcileProjectAccess(queryClient, workspaceId, () => !isEnded());
+        }
+        if (
+          message.type === "WORKSPACE_MEMBERS_UPDATED" &&
+          message.workspaceId
+        ) {
+          for (const queryKey of membersUpdatedKeys(message.workspaceId))
+            void queryClient.invalidateQueries({ queryKey });
         }
         if (message.type === "NOTIFICATION_CREATED") {
           queryClient.invalidateQueries({ queryKey: ["notifications"] });

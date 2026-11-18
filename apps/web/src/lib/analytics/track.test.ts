@@ -29,6 +29,6 @@ describe("track", () => {
       throw new Error("blocked");
     };
 
-    expect(() => track("Invite Sent")).not.toThrow();
+    expect(() => track("Join Link Created")).not.toThrow();
   });
 });

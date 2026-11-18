@@ -121,7 +121,7 @@ function evictPrivateQueries(
       "active-workspace-users",
       "workspace-roles",
       "workspace-capabilities",
-      "workspace-invites",
+      "join-link",
       "task",
       "tasks",
       "task-relations",

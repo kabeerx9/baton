@@ -109,11 +109,6 @@
 			"instanceStatusError": "Couldn't reach the server. Please retry in a moment.",
 			"heading": "Sign in to Baton",
 			"submitPassword": "Sign in",
-			"invitation": {
-				"title": "{{inviterName}} invited you to {{workspaceName}}",
-				"fallbackTitle": "You've been invited",
-				"description": "Sign in with the email that received the invitation. You'll join the workspace right after."
-			},
 			"footer": {
 				"newHere": "New to Baton?",
 				"createAccount": "Create an account",
@@ -164,59 +159,18 @@
 			"subtitle": {
 				"password": "Add your name, email, and a password to get started."
 			},
-			"invitation": {
-				"description": "Use the email that received the invitation. You'll join the workspace right after."
-			},
 			"verifyEmail": "Check your email to confirm your address, then sign in."
 		},
 		"signInForm": {
 			"failedSignIn": "Failed to sign in",
 			"emailNotVerified": "Confirm your email address first. We sent you a new link."
 		},
-		"invitation": {
-			"pageTitleAccept": "Accept Invitation",
-			"pageTitleError": "Invitation Error",
-			"pageTitleInvalid": "Invalid Invitation",
-			"joinWorkspace": "Join {{workspaceName}}",
-			"createAccount": "Create account",
-			"signIn": "Sign in",
-			"toast": {
-				"acceptFailed": "Failed to accept invitation",
-				"acceptSuccess": "Invitation accepted! Welcome to the team."
-			},
-			"description": "{{inviterName}} invited you to this workspace on Baton.",
-			"invitedBy": "Invited by",
-			"sentTo": "Sent to",
-			"signedInAs": "Signed in as",
-			"expires": "Expires",
-			"notNow": "Not now",
-			"join": "Join workspace",
-			"switchAccount": "Switch account",
-			"goToBaton": "Go to Baton",
-			"mismatch": {
-				"title": "Signed in with a different email",
-				"description": "This invitation was sent to {{invitedEmail}}. You're signed in as {{email}}."
-			},
-			"expired": {
-				"title": "This invitation has expired",
-				"description": "Ask {{inviterName}} to send you a new one for {{workspaceName}}."
-			},
-			"invalid": {
-				"title": "This invitation is no longer valid",
-				"description": "It may have been accepted or canceled. Ask a workspace admin for a new one."
-			},
-			"loadFailed": {
-				"title": "Couldn't load this invitation",
-				"description": "Check your connection and reload the page."
-			}
-		},
 		"onboarding": {
 			"pageTitle": "Welcome to Baton",
 			"workspaceName": "Workspace name",
 			"workspaceNamePlaceholder": "e.g. Acme Inc, My Team",
-			"restrictedTitle": "You need an invitation",
-			"restrictedSubtitle": "Only an instance administrator can create workspaces here. Ask one to invite you, then reload this page.",
-			"restrictedCheckInvitations": "Check invitations",
+			"restrictedTitle": "You need a join link",
+			"restrictedSubtitle": "Only an instance administrator can create workspaces here. Paste a join link from a teammate to join one.",
 			"toast": {
 				"createFailed": "Failed to create workspace"
 			},
@@ -229,18 +183,7 @@
 				"usageSolo": "Just me",
 				"usageSoloDescription": "Keep track of your own work",
 				"usageTeam": "My team",
-				"usageTeamDescription": "Plan and ship work together",
-				"invite": {
-					"emailLabel": "Teammate email {{index}}",
-					"emailPlaceholder": "teammate@company.com",
-					"addAnother": "Add another",
-					"remove": "Remove email {{index}}",
-					"skip": "Skip for now",
-					"invalidEmail": "Enter a valid email address",
-					"sent_one": "Invitation sent",
-					"sent_other": "{{count}} invitations sent",
-					"failed": "Couldn't invite {{email}}: {{message}}"
-				}
+				"usageTeamDescription": "Plan and ship work together"
 			},
 			"projectNameDefault": "My first project",
 			"starterTasks": {
@@ -253,8 +196,8 @@
 					"description": "A task can hold a description, subtasks, labels, an assignee and a due date. Add a subtask to this one to try it."
 				},
 				"invite": {
-					"title": "Invite your team",
-					"description": "Baton works best with everyone in it. Open **Members** in the sidebar to invite people by email."
+					"title": "Share your join link",
+					"description": "Baton works best with everyone in it. Open **Members** in the sidebar and share the join link."
 				},
 				"integrations": {
 					"title": "Connect GitHub, GitLab or Gitea",
@@ -283,14 +226,6 @@
 				"label": "Project name",
 				"ticketStart": "Task IDs will start at {{ticket}}."
 			},
-			"invite": {
-				"title": "Bring your team",
-				"description": "They'll get an email to join {{name}}. Skip this if you'd rather look around first.",
-				"label": "Teammate emails",
-				"send_one": "Send {{count}} invite",
-				"send_other": "Send {{count}} invites",
-				"sendNone": "Send invites"
-			},
 			"ready": {
 				"title": "{{name}} is ready",
 				"description": "Here's what we set up. You can change any of it later.",
@@ -298,9 +233,6 @@
 				"project": "First project",
 				"projectValue_one": "{{name}}, with {{count}} starter task",
 				"projectValue_other": "{{name}}, with {{count}} starter tasks",
-				"invitations": "Invitations",
-				"invitationsValue_one": "Sent to {{count}} person",
-				"invitationsValue_other": "Sent to {{count}} people",
 				"open": "Open {{name}}"
 			},
 			"preview": {
@@ -1017,28 +949,36 @@
 			},
 			"setup": {
 				"claude-code": {
-					"add": { "title": "Add Baton" },
+					"add": {
+						"title": "Add Baton"
+					},
 					"signIn": {
 						"title": "Sign in once",
 						"body": "In Claude Code, run /mcp, choose baton, then Authenticate. Your browser opens."
 					}
 				},
 				"codex": {
-					"add": { "title": "Add Baton" },
+					"add": {
+						"title": "Add Baton"
+					},
 					"signIn": {
 						"title": "Sign in once",
 						"body": "Your browser opens. Approve access."
 					}
 				},
 				"opencode": {
-					"add": { "title": "Add Baton to your config" },
+					"add": {
+						"title": "Add Baton to your config"
+					},
 					"signIn": {
 						"title": "Sign in once",
 						"body": "Your browser opens. Approve access."
 					}
 				},
 				"cursor": {
-					"add": { "title": "Add Baton to your config" },
+					"add": {
+						"title": "Add Baton to your config"
+					},
 					"signIn": {
 						"title": "Sign in once",
 						"body": "Open Settings, then MCP, then choose Login next to baton."
@@ -1690,7 +1630,6 @@
 				"toastRevokedOthers": "Other sessions signed out."
 			}
 		},
-		"invitationEmailFailed": "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
 		"chatIntegrations": {
 			"disconnect": "Disconnect",
 			"disconnecting": "Disconnecting…",
@@ -1996,11 +1935,10 @@
 		"sidebar": {
 			"projects": "Repos",
 			"members": "Members",
-			"invitations": "Invitations",
 			"backToBoard": "Back to board",
 			"inbox": "Inbox",
 			"myTasks": "My tasks",
-			"invitePeople": "Invite people"
+			"invitePeople": "Share join link"
 		},
 		"projectList": {
 			"addProject": "Add project",
@@ -2757,24 +2695,6 @@
 				"role": "Role",
 				"expires": "Expires"
 			}
-		},
-		"pageTitle": "Invitations",
-		"pendingInvitations": "Pending Invitations",
-		"acceptSubtitle": "Accept invitations to join workspaces",
-		"noPendingTitle": "No pending invitations",
-		"noPendingDescription": "You don't have any pending workspace invitations at the moment.",
-		"continueToSetup": "Continue to Setup",
-		"skipForNow": "Skip for now",
-		"table": {
-			"workspace": "Workspace",
-			"invitedBy": "Invited By",
-			"expires": "Expires"
-		},
-		"toast": {
-			"acceptError": "Failed to accept invitation",
-			"acceptSuccess": "Invitation accepted! Welcome to the team.",
-			"rejectError": "Failed to reject invitation",
-			"rejectSuccess": "Invitation rejected"
 		}
 	},
 	"workspace": {
@@ -3063,27 +2983,7 @@
 		},
 		"members": {
 			"pageTitle": "Members",
-			"inviteMember": "Invite member",
 			"you": "You"
-		},
-		"invitations": {
-			"pendingBadge": "pending",
-			"expires": "Expires {{date}}",
-			"linkLabel": "Invitation link",
-			"copyLink": "Copy link",
-			"linkCopied": "Invitation link copied",
-			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
-		},
-		"inviteModal": {
-			"title": "Invite Team Member",
-			"emailLabel": "Email",
-			"emailPlaceholder": "colleague@company.com",
-			"sendInvitation": "Send Invitation",
-			"success": "Invitation sent successfully",
-			"error": "Failed to invite team member",
-			"createdTitle": "Invitation created",
-			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
-			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "No team members yet",
@@ -3094,18 +2994,12 @@
 				"joined": "Joined",
 				"projects": "Projects"
 			},
-			"ariaInvitationActions": "Invitation actions",
 			"ariaRemoveMember": "Remove member",
 			"removeDialogTitle": "Remove Team Member?",
 			"removeDialogDescription": "Are you sure you want to remove {{name}} from the workspace? This action cannot be undone.",
-			"cancelDialogTitle": "Cancel Invitation?",
-			"cancelDialogDescription": "Are you sure you want to cancel the invitation for {{email}}? This action cannot be undone.",
 			"removeMember": "Remove Member",
-			"cancelInvitation": "Cancel Invitation",
 			"removeSuccess": "Team member removed successfully",
 			"removeError": "Failed to remove team member",
-			"cancelInviteSuccess": "Invitation cancelled successfully",
-			"cancelInviteError": "Failed to cancel invitation",
 			"roleUpdateSuccess": "Role updated",
 			"roleUpdateError": "Failed to update role"
 		},
@@ -3202,6 +3096,112 @@
 			"mcp": {
 				"title": "Let your agents join in",
 				"body": "Baton has an MCP server, so agents can read and move tasks like a teammate. Create an API key on this page, then add it to your agent."
+			}
+		}
+	},
+	"joinLink": {
+		"legacyInvite": {
+			"description": "Email invitations were replaced by join links. Ask a workspace admin for a link.",
+			"title": "Email invitations have ended"
+		},
+		"onboarding": {
+			"title": "Got a join link?",
+			"description": "Paste it to join your team. No link yet? You can start a workspace of your own.",
+			"join": {
+				"label": "Join link",
+				"placeholder": "https://…/join/…",
+				"invalid": "That does not look like a join link. Paste the whole link, or just its code.",
+				"continue": "Join workspace"
+			},
+			"create": {
+				"prompt": "Starting something new?",
+				"title": "Create a workspace"
+			}
+		},
+		"page": {
+			"errors": {
+				"generic": "We could not load this link. Check your connection and try again.",
+				"memberLimit": "This workspace has no room for more members. Ask an admin.",
+				"rateLimited": "Too many tries. Wait a minute, then try again.",
+				"removed": "You were removed from this workspace. Ask an admin for a new link."
+			},
+			"goToBaton": "Go to Baton",
+			"haveAccount": "I already have an account",
+			"join": "Join {{workspaceName}}",
+			"pageTitle": "Join workspace",
+			"signUp": "Sign up to join",
+			"switchAccount": "Switch account",
+			"invitedBy": "{{name}} invited you to",
+			"invitedAnon": "You are invited to",
+			"expiresAt": "Link expires {{when}}",
+			"joiningAs": "Joining as {{email}}",
+			"unavailable": {
+				"expired": {
+					"title": "This link has expired",
+					"description": "Ask the person who shared it for a new link."
+				},
+				"revoked": {
+					"title": "This link was turned off",
+					"description": "An admin replaced or revoked it. Ask for a new link."
+				},
+				"used_up": {
+					"title": "This link has no uses left",
+					"description": "Everyone it was meant for has joined. Ask for a new link."
+				},
+				"not_found": {
+					"title": "We can't find this link",
+					"description": "Check that you copied the whole link, or ask for a new one."
+				}
+			}
+		},
+		"card": {
+			"title": "Share link",
+			"description": "Anyone with this link can join as a member. Replace it at any time to turn the old one off.",
+			"empty": "No link yet. Create one to bring people into this workspace.",
+			"create": "Create link",
+			"createNew": "New link",
+			"created": "Link created.",
+			"replaceConfirm": {
+				"title": "Replace the current link?",
+				"body": "The current link stops working right away. Share the new link instead.",
+				"confirm": "Replace link"
+			},
+			"copy": "Copy",
+			"copied": "Copied",
+			"copyFailed": "Could not copy the link.",
+			"copyUnavailable": "Create a new link to copy it.",
+			"expiresLabel": "Expires",
+			"expiredLabel": "Expired",
+			"expired": "Expired",
+			"usedUp": "Used up",
+			"usesLabel": "Uses",
+			"uses_one": "{{count}} person joined",
+			"uses_other": "{{count}} people joined",
+			"usesOfMax": "{{count}} of {{max}} used",
+			"revoke": "Revoke",
+			"revokeConfirm": {
+				"title": "Revoke this link?",
+				"body": "Nobody can join with it after this. People already in the workspace stay.",
+				"confirm": "Revoke link"
+			},
+			"revoked": "Link revoked.",
+			"errors": {
+				"load": "Could not load the join link.",
+				"create": "Could not create the link.",
+				"revoke": "Could not revoke the link."
+			}
+		},
+		"form": {
+			"expiry": {
+				"label": "Link expires after",
+				"30m": "30 minutes",
+				"24h": "24 hours",
+				"7d": "7 days"
+			},
+			"maxUses": {
+				"label": "Maximum uses",
+				"placeholder": "No limit",
+				"invalid": "Enter a whole number from 1 to 10,000, or leave it empty."
 			}
 		}
 	}

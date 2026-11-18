@@ -1,33 +1,25 @@
 import { DEFAULT_ROLE_NAMES } from "@baton/permissions";
 import {
-  CopyIcon,
   EllipsisIcon,
-  MailIcon,
   PencilIcon,
   ShieldIcon,
   TrashIcon,
-  MailXIcon,
   UserMinusIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import useCancelInvitation from "@/hooks/mutations/workspace-user/use-cancel-invitation";
 import useDeleteWorkspaceUser from "@/hooks/mutations/workspace-user/use-delete-workspace-user";
 import useUpdateWorkspaceUserRole from "@/hooks/mutations/workspace-user/use-update-workspace-user-role";
 import useWorkspaceRoles from "@/hooks/queries/workspace/use-workspace-roles";
 import useGetMyProjectAccess from "@/hooks/queries/workspace-users/use-get-my-project-access";
 import useGetWorkspaceProjectAccess from "@/hooks/queries/workspace-users/use-get-workspace-project-access";
-import { useCopyInvitationLink } from "@/hooks/use-copy-invitation-link";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { formatDateMedium } from "@/lib/format";
 import { getInitials } from "@/lib/get-initials";
 import { toast } from "@/lib/toast";
-import type {
-  WorkspaceUser,
-  WorkspaceUserInvitation,
-} from "@/types/workspace-user";
+import type { WorkspaceUser } from "@/types/workspace-user";
 import { useAuth } from "../providers/auth-provider/hooks/use-auth";
 import {
   AlertDialog,
@@ -63,11 +55,9 @@ import {
   type ProjectAccessValue,
 } from "./project-access/project-access-value";
 import { findMemberProjectAccess } from "./project-access/find-member-project-access";
-import { getInvitationProjectAccess } from "./project-access/get-invitation-project-access";
 
 type Props = {
   workspaceId: string;
-  invitations: WorkspaceUserInvitation[];
   users: WorkspaceUser[];
 };
 
@@ -103,13 +93,11 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function MembersTable({ workspaceId, invitations, users }: Props) {
+function MembersTable({ workspaceId, users }: Props) {
   const { t } = useTranslation();
   const [memberToDelete, setMemberToDelete] = useState<WorkspaceUser | null>(
     null,
   );
-  const [invitationToCancel, setInvitationToCancel] =
-    useState<WorkspaceUserInvitation | null>(null);
   const [accessTarget, setAccessTarget] = useState<{
     userId: string;
     name: string;
@@ -120,17 +108,13 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
   const { user: currentUser } = useAuth();
   const { mutateAsync: deleteWorkspaceUser, isPending: isDeleting } =
     useDeleteWorkspaceUser();
-  const { mutateAsync: cancelInvitation, isPending: isCancelling } =
-    useCancelInvitation();
   const { mutateAsync: updateMemberRole } = useUpdateWorkspaceUserRole();
-  const { copy: copyInvitationLink } = useCopyInvitationLink();
   const { data: allWorkspaceRoles = [] } = useWorkspaceRoles(workspaceId);
-  const { canManageTeam, canUpdateMembers, canRemoveMembers, canInviteUsers } =
+  const { canManageTeam, canUpdateMembers, canRemoveMembers } =
     useWorkspacePermission();
   const canChangeRoles = Boolean(canManageTeam());
   const canManageProjectAccess = Boolean(canUpdateMembers());
   const canRemove = Boolean(canRemoveMembers());
-  const canInvite = Boolean(canInviteUsers());
   const { data: projectAccessEntries } = useGetWorkspaceProjectAccess(
     workspaceId,
     canManageProjectAccess,
@@ -161,10 +145,6 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
     if (b.role === "owner") return 1;
     return 0;
   });
-
-  const pendingInvitations = invitations.filter(
-    (inv) => inv.status !== "accepted" && inv.status !== "canceled",
-  );
 
   const handleChangeRole = async (member: WorkspaceUser, role: string) => {
     if (role === member.role) return;
@@ -200,27 +180,6 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
       );
     } finally {
       setMemberToDelete(null);
-    }
-  };
-
-  const handleCancelInvitation = async () => {
-    if (!invitationToCancel) return;
-    try {
-      await cancelInvitation({
-        invitationId: invitationToCancel.id,
-        workspaceId,
-      });
-      toast.success(t("team:membersTable.cancelInviteSuccess"), {
-        icon: MailXIcon,
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("team:membersTable.cancelInviteError"),
-      );
-    } finally {
-      setInvitationToCancel(null);
     }
   };
 
@@ -411,92 +370,7 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
             );
           })}
 
-          {pendingInvitations.map((invitation) => (
-            <TableRow key={`invite-${invitation.id}`}>
-              <TableCell className="ps-6 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                    <MailIcon className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {invitation.email}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        size="sm"
-                        className="font-mono text-[9px] uppercase tracking-wider"
-                      >
-                        {t("team:invitations.pendingBadge", {
-                          defaultValue: "pending",
-                        })}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {invitation.expiresAt
-                        ? t("team:invitations.expires", {
-                            defaultValue: "Expires {{date}}",
-                            date: formatDateMedium(invitation.expiresAt),
-                          })
-                        : "–"}
-                    </div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="py-3">
-                <Badge variant="outline" className="capitalize">
-                  {t(`team:roles.${invitation.role}`, {
-                    defaultValue: capitalize(invitation.role),
-                  })}
-                </Badge>
-              </TableCell>
-              {canManageProjectAccess ? (
-                <TableCell className="py-3 text-sm text-muted-foreground">
-                  {describeAccess(getInvitationProjectAccess(invitation))}
-                </TableCell>
-              ) : null}
-              <TableCell className="py-3 text-sm text-muted-foreground">
-                –
-              </TableCell>
-              <TableCell className="pe-6 py-3 text-right">
-                {canInvite ? (
-                  <Menu>
-                    <MenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground"
-                          aria-label={t(
-                            "team:membersTable.ariaInvitationActions",
-                          )}
-                        />
-                      }
-                    >
-                      <EllipsisIcon className="size-4" />
-                    </MenuTrigger>
-                    <MenuPopup align="end">
-                      <MenuItem
-                        onClick={() => copyInvitationLink(invitation.id)}
-                      >
-                        <CopyIcon className="size-4" />
-                        {t("team:invitations.copyLink")}
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => setInvitationToCancel(invitation)}
-                      >
-                        <TrashIcon className="size-4" />
-                        {t("team:membersTable.cancelInvitation")}
-                      </MenuItem>
-                    </MenuPopup>
-                  </Menu>
-                ) : null}
-              </TableCell>
-            </TableRow>
-          ))}
-
-          {users.length === 0 && pendingInvitations.length === 0 ? (
+          {users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columnCount} className="py-16 text-center">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -557,46 +431,6 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
             >
               <TrashIcon className="mr-2 size-4" />
               {t("team:membersTable.removeMember")}
-            </AlertDialogClose>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={!!invitationToCancel}
-        onOpenChange={(open) => !open && setInvitationToCancel(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("team:membersTable.cancelDialogTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("team:membersTable.cancelDialogDescription", {
-                email: invitationToCancel?.email ?? "",
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose
-              render={
-                <Button variant="outline" size="sm" disabled={isCancelling} />
-              }
-            >
-              {t("common:actions.cancel")}
-            </AlertDialogClose>
-            <AlertDialogClose
-              render={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={isCancelling}
-                  onClick={handleCancelInvitation}
-                />
-              }
-            >
-              <TrashIcon className="mr-2 size-4" />
-              {t("team:membersTable.cancelInvitation")}
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>
