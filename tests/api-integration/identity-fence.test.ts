@@ -8,11 +8,15 @@ import {
   vi,
 } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
-import { identity } from "../../apps/api/src/identity";
+import { identity, identityHolder } from "../../apps/api/src/identity";
+import { batonIdentityHooks } from "../../apps/api/src/identity/baton-hooks";
+import { createBetterAuthIdentity } from "../../apps/api/src/identity/better-auth/adapter";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import type { createApp } from "../../apps/api/src/index";
 import {
   initializeWebSocketAdapter,
   isSessionRecheckRunning,
+  SESSION_RECHECK_CHUNK,
   SESSION_RECHECK_MS,
   shutdownWebSocketAdapter,
 } from "../../apps/api/src/ws";
@@ -438,6 +442,7 @@ describe("P2 A6: a revoke closes that session's sockets only", () => {
 });
 
 describe("P2 A7: a banned user who still has a session row", () => {
+  // Real sign-up cookies throughout (adminWithTarget), never the session mock.
   it("gets 401 on REST and no WebSocket upgrade", async () => {
     const world = await setup();
     await db
@@ -460,5 +465,126 @@ describe("P2 A7: a banned user who still has a session row", () => {
       },
     });
     expect(upgrade.status).toBe(401);
+  });
+});
+
+describe("P2 A7 on /api/auth: the provider's routes refuse a banned session", () => {
+  async function banned() {
+    const world = await setup();
+    // The admin is the banned one, so the admin action is a real attempt.
+    await db
+      .update(schema.userTable)
+      .set({ banned: true })
+      .where(eq(schema.userTable.id, world.admin.userId));
+    const call = (method: string, path: string, body?: unknown) =>
+      world.app.request(`/api/auth${path}`, {
+        method,
+        headers: {
+          cookie: world.admin.cookies,
+          origin,
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    return { world, call };
+  }
+
+  it("refuses an organization read and write, an admin action and get-session", async () => {
+    const { call } = await banned();
+    for (const response of [
+      await call("GET", "/organization/list"),
+      await call("POST", "/organization/create", {
+        name: "Banned team",
+        slug: "banned-team",
+      }),
+      await call("GET", "/admin/list-users"),
+      await call("GET", "/get-session"),
+      await call("POST", "/change-password", {
+        currentPassword: PASSWORD,
+        newPassword: "another-long-password",
+      }),
+    ]) {
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({ code: "BANNED_USER" });
+    }
+    expect(
+      await db
+        .select()
+        .from(schema.workspaceTable)
+        .where(eq(schema.workspaceTable.slug, "banned-team")),
+    ).toEqual([]);
+  });
+
+  it("still lets the banned session sign out", async () => {
+    const { world, call } = await banned();
+    const sessionId = await sessionIdOf(world.admin.cookies);
+    expect((await call("POST", "/sign-out", {})).status).toBe(200);
+    expect(await identity.sessions.existing([sessionId])).toEqual(new Set());
+  });
+
+  it("leaves anonymous sign-in and other users' sessions alone", async () => {
+    const { world } = await banned();
+    const cookies = await signIn(world.app, "target@example.com");
+    const session = await world.app.request("/api/auth/get-session", {
+      headers: { cookie: cookies, origin },
+    });
+    expect(session.status).toBe(200);
+    expect(await session.json()).toMatchObject({
+      user: { email: "target@example.com" },
+    });
+  });
+});
+
+describe("P2 A6: the session recheck", () => {
+  function spyOnExisting(existing: (ids: string[]) => Promise<Set<string>>) {
+    const real = createBetterAuthIdentity(auth, batonIdentityHooks);
+    const spy = vi.fn(existing);
+    vi.spyOn(identityHolder, "current", "get").mockReturnValue({
+      ...real,
+      sessions: { ...real.sessions, existing: spy },
+    });
+    return spy;
+  }
+
+  it(`asks about at most ${SESSION_RECHECK_CHUNK} sessions per query`, async () => {
+    const spy = spyOnExisting(async (ids) => new Set(ids));
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    await initializeWebSocketAdapter();
+    const total = SESSION_RECHECK_CHUNK * 2 + 1;
+    for (let n = 0; n < total; n += 1) connectSocket("chunked-user", `s-${n}`);
+
+    await vi.advanceTimersByTimeAsync(SESSION_RECHECK_MS);
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(3));
+    expect(spy.mock.calls.map(([ids]) => ids.length)).toEqual([
+      SESSION_RECHECK_CHUNK,
+      SESSION_RECHECK_CHUNK,
+      1,
+    ]);
+    expect(new Set(spy.mock.calls.flatMap(([ids]) => ids)).size).toBe(total);
+  });
+
+  it("skips a tick while the previous recheck is still running", async () => {
+    let finish!: () => void;
+    const spy = spyOnExisting(
+      (ids) =>
+        new Promise((resolve) => {
+          finish = () => resolve(new Set(ids));
+        }),
+    );
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    await initializeWebSocketAdapter();
+    connectSocket("slow-user", "slow-session");
+
+    await vi.advanceTimersByTimeAsync(SESSION_RECHECK_MS);
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(SESSION_RECHECK_MS * 3);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    finish();
+    await vi.waitFor(async () => {
+      await vi.advanceTimersByTimeAsync(SESSION_RECHECK_MS);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+    finish();
   });
 });
