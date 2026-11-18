@@ -35,100 +35,7 @@ async function createKey(
   return key;
 }
 
-describe("invitation ownership with API keys", () => {
-  it.each([false, true])(
-    "checks the key owner's current membership despite an owner cookie (bearer=%s)",
-    async (bearer) => {
-      const ctx = await invitationSecurityFixture("owner");
-      const key = await createKey(ctx, ctx.actor.cookies, {
-        invitation: ["create"],
-      });
-      await db
-        .update(schema.workspaceUserTable)
-        .set({ role: "recruiter" })
-        .where(eq(schema.workspaceUserTable.id, ctx.membership.id));
-      const send = vi.spyOn(email, "sendWorkspaceInvitationEmail");
-      const headers: Record<string, string> = {
-        cookie: ctx.owner.cookies,
-        ...(bearer
-          ? { authorization: `Bearer ${key.key}` }
-          : { "x-api-key": key.key }),
-      };
-      const denied = await organizationRequest(
-        ctx.app,
-        headers,
-        "invite-member",
-        {
-          organizationId: ctx.workspace.id,
-          email: "invitee@example.com",
-          role: ["member", " owner"],
-        },
-      );
-      expect(denied.status).toBe(403);
-      expect(await db.select().from(schema.invitationTable)).toEqual([]);
-      expect(send).not.toHaveBeenCalled();
-      const allowed = await organizationRequest(
-        ctx.app,
-        headers,
-        "invite-member",
-        {
-          organizationId: ctx.workspace.id,
-          email: "invitee@example.com",
-          role: ["member", " recruiter"],
-        },
-      );
-      expect(allowed.status).toBe(200);
-      expect(await allowed.json()).toMatchObject({ role: "member,recruiter" });
-    },
-  );
-
-  it.each([false, true])(
-    "enforces invitation scope before owner grants and preserves scoped/legacy owner keys (bearer=%s)",
-    async (bearer) => {
-      const ctx = await invitationSecurityFixture();
-      const key = await createKey(ctx, ctx.owner.cookies, {
-        workspace: ["read"],
-      });
-      const headers: Record<string, string> = bearer
-        ? { authorization: `Bearer ${key.key}` }
-        : { "x-api-key": key.key };
-      const send = vi.spyOn(email, "sendWorkspaceInvitationEmail");
-      const denied = await organizationRequest(
-        ctx.app,
-        headers,
-        "invite-member",
-        {
-          organizationId: ctx.workspace.id,
-          email: "invitee@example.com",
-          role: ["member", " owner"],
-        },
-      );
-      expect(denied.status).toBe(403);
-      expect(await denied.json()).toMatchObject({ code: "API_KEY_SCOPE" });
-      expect(await db.select().from(schema.invitationTable)).toEqual([]);
-      expect(send).not.toHaveBeenCalled();
-      for (const permissions of [{ invitation: ["create"] }, null]) {
-        const allowedKey = await createKey(ctx, ctx.owner.cookies, permissions);
-        const response = await organizationRequest(
-          ctx.app,
-          bearer
-            ? { authorization: `Bearer ${allowedKey.key}` }
-            : { "x-api-key": allowedKey.key },
-          "invite-member",
-          {
-            organizationId: ctx.workspace.id,
-            email: permissions ? "scoped@example.com" : "legacy@example.com",
-            role: ["member", " owner"],
-          },
-        );
-        expect(response.status).toBe(200);
-        expect(await response.json()).toMatchObject({ role: "member,owner" });
-      }
-    },
-  );
-});
-
-describe("API key invitation and removal targets", () => {
+describe("API key removal targets", () => {
   const cases = [false, true].flatMap((bearer) =>
     ["admin, owner", "owner"].map((role) => ({ bearer, role })),
   );
@@ -200,21 +107,6 @@ describe("API key invitation and removal targets", () => {
         expect(viewer.session.activeOrganizationId).toBeUndefined();
 
         for (const organizationId of [undefined, ""]) {
-          const invited = await organizationRequest(
-            ctx.app,
-            headers,
-            "invite-member",
-            {
-              organizationId,
-              email: "invitee@example.com",
-              role: "member",
-              resend: true,
-            },
-          );
-          expect(invited.status).toBe(400);
-          expect(await invited.json()).toMatchObject({
-            code: "ORGANIZATION_NOT_FOUND",
-          });
           const removed = await organizationRequest(
             ctx.app,
             headers,
@@ -227,23 +119,7 @@ describe("API key invitation and removal targets", () => {
           });
         }
 
-        // With an explicit target, the stored invitation guard runs even for
-        // a true owner. A malformed actor is also denied before member removal.
-        const invited = await organizationRequest(
-          ctx.app,
-          headers,
-          "invite-member",
-          {
-            organizationId: ctx.workspace.id,
-            email: "invitee@example.com",
-            role: "member",
-            resend: true,
-          },
-        );
-        expect(invited.status).toBe(403);
-        expect(await invited.json()).toMatchObject({
-          code: "OWNER_ROLE_REVIEW_REQUIRED",
-        });
+        // With an explicit target, a malformed actor is denied before member removal.
         if (role !== "owner") {
           const removed = await organizationRequest(
             ctx.app,

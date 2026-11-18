@@ -3,6 +3,8 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { auth } from "../../apps/api/src/auth";
 import db, { schema } from "../../apps/api/src/database";
+import { workspaceJoinLinkTable } from "../../apps/api/src/database/schema";
+import { hashJoinToken } from "../../apps/api/src/join-link/token";
 import { createApp } from "../../apps/api/src/index";
 import { deleteAccountData } from "../../apps/api/src/user/controllers/delete-account-data";
 import { mockAuthenticatedSession } from "./helpers/auth";
@@ -422,24 +424,27 @@ describe("sharing a demo workspace", () => {
     });
   }
 
-  it("refuses invitations, new members, accepted invitations and role changes", async () => {
+  it("refuses join links, new members and role changes", async () => {
     const owner = await signUp("owner@example.com");
     const started = await tourStart(owner.cookie);
     expect(started.status).toBe(200);
     const { demoWorkspace } = (await started.json()) as TourStart;
 
-    const invite = await authPost(
-      "/organization/invite-member",
+    const link = await createApp().app.request(
+      `/api/join-link/workspace/${demoWorkspace.id}`,
       {
-        organizationId: demoWorkspace.id,
-        email: "friend@example.com",
-        role: "member",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          Cookie: owner.cookie,
+        },
+        body: JSON.stringify({}),
       },
-      owner.cookie,
     );
-    expect(invite.status).toBe(403);
-    expect(await invite.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
-    expect(await db.select().from(schema.invitationTable)).toEqual([]);
+    expect(link.status).toBe(403);
+    expect(await link.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
+    expect(await db.select().from(workspaceJoinLinkTable)).toEqual([]);
 
     const friend = await signUp("friend@example.com");
     await expect(
@@ -452,24 +457,24 @@ describe("sharing a demo workspace", () => {
       }),
     ).rejects.toMatchObject({ body: { code: "DEMO_WORKSPACE" } });
 
-    // An invitation written behind the API's back still cannot be accepted.
-    const [invitation] = await db
-      .insert(schema.invitationTable)
-      .values({
-        workspaceId: demoWorkspace.id,
-        email: "friend@example.com",
-        role: "member",
-        status: "pending",
-        inviterId: owner.userId,
-        expiresAt: new Date(Date.now() + 86_400_000),
-      } as typeof schema.invitationTable.$inferInsert)
-      .returning();
-    const accepted = await authPost(
-      "/organization/accept-invitation",
-      { invitationId: invitation!.id },
-      friend.cookie,
-    );
-    expect(accepted.status).toBe(403);
+    // A link written behind the API's back still cannot admit anyone.
+    const token = "d".repeat(43);
+    await db.insert(workspaceJoinLinkTable).values({
+      workspaceId: demoWorkspace.id,
+      tokenHash: hashJoinToken(token),
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+    const joined = await createApp().app.request("/api/join-link/join", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: origin,
+        Cookie: friend.cookie,
+      },
+      body: JSON.stringify({ token }),
+    });
+    expect(joined.status).toBe(404);
+    expect(await joined.json()).toMatchObject({ code: "JOIN_LINK_NOT_FOUND" });
 
     // A member written behind the API's back cannot be given a role.
     const [member] = await db

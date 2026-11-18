@@ -372,9 +372,6 @@ describe("an archived workspace through Better Auth organization endpoints", () 
         organizationId: workspace.id,
         data: { name: "Renamed" },
       }),
-      await call(invitee.cookies, "/auth/organization/accept-invitation", {
-        invitationId: invitation.id,
-      }),
     ]) {
       expect(response.status).toBe(403);
       expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");

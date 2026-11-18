@@ -530,24 +530,13 @@ describe("native organization scope and current workspace grants", () => {
     },
   );
 
-  it("requires native mutation scopes and retains CLI invitation/update operations", async () => {
+  it("requires native mutation scopes and retains CLI update operations", async () => {
     const { app, owner, workspace, invitation } = await fixture();
     const limited = await keyFor(app, owner.cookies, { label: ["read"] });
-    const inviter = await keyFor(app, owner.cookies, {
-      invitation: ["create"],
-    });
     const editor = await keyFor(app, owner.cookies, {
       organization: ["update"],
     });
     const operations = [
-      {
-        path: "invite-member",
-        body: {
-          organizationId: workspace.id,
-          email: "other@example.com",
-          role: "member",
-        },
-      },
       {
         path: "update",
         body: { organizationId: workspace.id, data: { name: "Updated" } },
@@ -574,10 +563,7 @@ describe("native organization scope and current workspace grants", () => {
       );
       expect(response.status).toBe(403);
     }
-    for (const [key, operation] of [
-      [inviter, operations[0]],
-      [editor, operations[1]],
-    ] as const) {
+    for (const [key, operation] of [[editor, operations[0]]] as const) {
       const response = await app.request(
         `/api/auth/organization/${operation.path}`,
         {
@@ -599,68 +585,5 @@ describe("native organization scope and current workspace grants", () => {
       }),
     });
     expect(created.status).toBe(200);
-  });
-
-  it("keeps stored owner-resend checks for bearer sessions and scoped inviter keys", async () => {
-    const {
-      app,
-      owner,
-      viewer,
-      viewerToken,
-      ownerToken,
-      workspace,
-      invitation,
-    } = await fixture();
-    await db
-      .update(schema.workspaceRoleTable)
-      .set({ permission: JSON.stringify({ invitation: ["create"] }) })
-      .where(eq(schema.workspaceRoleTable.workspaceId, workspace.id));
-    await db
-      .update(schema.invitationTable)
-      .set({ role: "member,owner" })
-      .where(eq(schema.invitationTable.id, invitation.id));
-    const key = await keyFor(app, viewer.cookies, { invitation: ["create"] });
-    const body = {
-      organizationId: workspace.id,
-      email: invitation.email,
-      role: "member",
-      resend: true,
-    };
-    for (const headers of [
-      {
-        authorization: `Bearer ${viewerToken}`,
-        "content-type": "application/json",
-      },
-      keyHeaders(key.key, false, owner.cookies),
-      keyHeaders(key.key, true, owner.cookies),
-    ]) {
-      const response = await app.request(
-        "/api/auth/organization/invite-member",
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body),
-        },
-      );
-      expect(response.status).toBe(403);
-      expect(await response.text()).not.toContain(invitation.id);
-      expect(
-        await db.query.invitationTable.findFirst({
-          where: eq(schema.invitationTable.id, invitation.id),
-        }),
-      ).toMatchObject({ expiresAt: invitation.expiresAt });
-    }
-    const ownerResend = await app.request(
-      "/api/auth/organization/invite-member",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${ownerToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ ...body, role: "member,owner" }),
-      },
-    );
-    expect(ownerResend.status).toBe(200);
   });
 });

@@ -109,6 +109,25 @@ describe("Baton API OpenAPI spec", () => {
     expect(new Set(ids).size, "operationIds must be unique").toBe(ids.length);
   });
 
+  it("documents the join-link routes, with only the preview public", () => {
+    const byKey = new Map(
+      operations(spec).map(([method, path, operation]) => [
+        `${method.toUpperCase()} ${path}`,
+        operation,
+      ]),
+    );
+    for (const op of [
+      "GET /join-link/workspace/{workspaceId}",
+      "POST /join-link/workspace/{workspaceId}",
+      "DELETE /join-link/workspace/{workspaceId}",
+      "POST /join-link/preview",
+      "POST /join-link/join",
+    ])
+      expect(byKey.has(op), `missing operation ${op}`).toBe(true);
+    expect(byKey.get("POST /join-link/preview")?.security).toEqual([]);
+    expect(byKey.get("POST /join-link/join")?.security).toBeUndefined();
+  });
+
   it("documents change requests and the applied or requested outcome", () => {
     const keys = new Set(
       operations(spec).map(
