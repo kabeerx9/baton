@@ -2961,6 +2961,12 @@
 				"done": "Done"
 			},
 			"empty": "No tasks",
+			"emptyMine": "Nothing of yours here",
+			"view": {
+				"label": "Show on the board",
+				"all": "All tasks",
+				"mine": "My tasks"
+			},
 			"nav": {
 				"label": "Board. Use the arrow keys to move between tasks.",
 				"position": "{{column}}, {{index}} of {{count}}",

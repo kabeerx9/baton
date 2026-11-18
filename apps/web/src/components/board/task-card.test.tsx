@@ -41,6 +41,9 @@ const renderBoard = () =>
       lanes={[]}
       workspaceId="w"
       olderDoneCount={0}
+      view="all"
+      onViewChange={() => {}}
+      userId="me"
     />,
   );
 

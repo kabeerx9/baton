@@ -86,6 +86,9 @@ describe("render cost of a focus move", () => {
         lanes={[]}
         workspaceId="w"
         olderDoneCount={0}
+        view="all"
+        onViewChange={() => {}}
+        userId="me"
       />,
     );
     expect(renders.cards.size).toBe(40);
@@ -99,6 +102,9 @@ describe("render cost of a focus move", () => {
         lanes={[]}
         workspaceId="w"
         olderDoneCount={0}
+        view="all"
+        onViewChange={() => {}}
+        userId="me"
       />,
     );
     const stubRects = () =>

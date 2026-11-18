@@ -75,6 +75,9 @@ function board(tasks: BoardTask[]) {
         lanes={[]}
         workspaceId="w1"
         olderDoneCount={0}
+        view="all"
+        onViewChange={() => {}}
+        userId="me"
       />
     </ShortcutTestWrapper>
   );
