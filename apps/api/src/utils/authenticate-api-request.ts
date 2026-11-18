@@ -6,6 +6,7 @@ import type { Caller } from "../identity/port";
 import { isMcpToken } from "../mcp/grant/token-secret";
 import { verifyAccessToken } from "../mcp/grant/verify-access-token";
 import { apiKeyRejection } from "./api-key-rejection";
+import { primeInstanceRole } from "./is-instance-admin";
 import { type ApiKeyRateLimit, rateLimitHeaders } from "./rate-limit-headers";
 import type { AuthMethod } from "./request-channel";
 import { verifyApiKey } from "./verify-api-key";
@@ -28,6 +29,8 @@ function setCallerContext(c: Context, caller: Caller | null) {
   c.set("sessionId", caller?.sessionId ?? null);
   c.set("userId", caller?.identity.userId ?? "");
   c.set("userEmail", caller?.identity.email ?? "");
+  if (caller && caller.instanceRole !== undefined)
+    primeInstanceRole(c.req.raw, caller.instanceRole);
 }
 
 function parseBearerToken(authHeader: string | undefined): {

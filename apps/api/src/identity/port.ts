@@ -11,7 +11,21 @@ export type Identity = {
   emailVerified: boolean;
 };
 
-export type Caller = { identity: Identity; sessionId: string };
+export type Caller = {
+  identity: Identity;
+  sessionId: string;
+  /**
+   * The instance role Baton's `canSignIn` read, so a request needs no second
+   * user read. Absent when a caller was built without the hook; readers then
+   * read the role themselves.
+   */
+  instanceRole?: string | null;
+};
+
+/** Baton's sign-in answer: refused, or allowed with the instance role. */
+export type SignInDecision =
+  | { allowed: false }
+  | { allowed: true; instanceRole: string | null };
 
 export type SessionInfo = {
   id: string;
@@ -98,8 +112,8 @@ export type SignUpDecision =
 /** Baton gives these to the adapter at start-up. The adapter calls them; it holds no domain rule. */
 export type IdentityHooks = {
   canSignUp(input: { email: string }): Promise<SignUpDecision>;
-  /** False for a banned user. */
-  canSignIn(input: { userId: string }): Promise<boolean>;
+  /** Refuses a banned user; otherwise carries the instance role. */
+  canSignIn(input: { userId: string }): Promise<SignInDecision>;
   /** Default instance role, first-admin promotion. */
   userCreated(identity: Identity): Promise<void>;
   /** Close sockets. */

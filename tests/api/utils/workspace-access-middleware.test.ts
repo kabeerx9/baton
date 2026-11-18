@@ -46,6 +46,11 @@ vi.mock("../../../apps/api/src/database", async () => {
   return { default: chain, schema };
 });
 
+// The instance-admin answer is its own module; these tests cover lookups.
+vi.mock("../../../apps/api/src/utils/is-instance-admin", () => ({
+  isInstanceAdmin: async () => false,
+}));
+
 vi.mock("../../../apps/api/src/utils/validate-workspace-access", async () => {
   const { HTTPException } = await import("hono/http-exception");
   return {

@@ -70,7 +70,8 @@ export function createBetterAuthIdentity(
       const found = await readSession(headers);
       if (!found) return null;
       // A second guard: deactivation also ends every session.
-      if (!(await hooks.canSignIn({ userId: found.user.id }))) return null;
+      const decision = await hooks.canSignIn({ userId: found.user.id });
+      if (!decision.allowed) return null;
       return {
         identity: {
           userId: found.user.id,
@@ -80,6 +81,7 @@ export function createBetterAuthIdentity(
           emailVerified: found.user.emailVerified,
         },
         sessionId: found.session.id,
+        instanceRole: decision.instanceRole,
       };
     },
 
@@ -94,7 +96,10 @@ export function createBetterAuthIdentity(
         const found = await readSession(request.headers, {
           disableRefresh: true,
         });
-        if (found && !(await hooks.canSignIn({ userId: found.user.id }))) {
+        if (
+          found &&
+          !(await hooks.canSignIn({ userId: found.user.id })).allowed
+        ) {
           return Response.json(
             {
               code: "BANNED_USER",

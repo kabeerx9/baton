@@ -57,7 +57,7 @@ vi.mock("../../apps/api/src/identity/baton-hooks", async (original) => {
   return {
     batonIdentityHooks: {
       ...actual.batonIdentityHooks,
-      canSignIn: async () => true,
+      canSignIn: async () => ({ allowed: true, instanceRole: null }),
     },
   };
 });

@@ -16,11 +16,13 @@ export const batonIdentityHooks: IdentityHooks = {
       .select({
         banned: schema.userTable.banned,
         banExpires: schema.userTable.banExpires,
+        role: schema.userTable.role,
       })
       .from(schema.userTable)
       .where(eq(schema.userTable.id, userId))
       .limit(1);
-    return Boolean(user) && !isBanActive(user);
+    if (!user || isBanActive(user)) return { allowed: false };
+    return { allowed: true, instanceRole: user.role ?? null };
   },
   async userCreated({ userId }) {
     await db

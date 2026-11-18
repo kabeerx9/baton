@@ -18,6 +18,15 @@ async function readIsInstanceAdmin(userId: string) {
   return hasInstanceAdminRole(row?.role);
 }
 
+/**
+ * Records the role the session resolve already read, so `isInstanceAdmin`
+ * reads nothing for a cookie or bearer session. API-key and MCP requests
+ * still read the role once.
+ */
+export function primeInstanceRole(request: Request, role: string | null) {
+  answered.set(request, Promise.resolve(hasInstanceAdminRole(role)));
+}
+
 export function isInstanceAdmin(c: Context): Promise<boolean> {
   const userId = c.get("userId");
   if (!userId) return Promise.resolve(false);

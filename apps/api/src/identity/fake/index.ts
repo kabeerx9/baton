@@ -154,9 +154,16 @@ export function createFakeIdentity(options: FakeIdentityOptions): FakeIdentity {
         (candidate) => candidate.token === token,
       );
       if (!session || session.expiresAt <= new Date()) return null;
-      if (!(await hooks.canSignIn({ userId: session.userId }))) return null;
+      const decision = await hooks.canSignIn({ userId: session.userId });
+      if (!decision.allowed) return null;
       const identity = await readIdentity(session.userId);
-      return identity ? { identity, sessionId: session.id } : null;
+      return identity
+        ? {
+            identity,
+            sessionId: session.id,
+            instanceRole: decision.instanceRole,
+          }
+        : null;
     },
 
     async handle(request) {
