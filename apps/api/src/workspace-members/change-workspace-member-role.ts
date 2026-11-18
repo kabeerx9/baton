@@ -5,6 +5,7 @@ import { ApiError } from "../errors/api-error";
 import { recordWorkspaceMemberAction } from "../admin/audit/record-workspace-member-action";
 import { isAssignableWorkspaceRole } from "../admin/is-assignable-workspace-role";
 import { isOwnerRole } from "../project-access/is-owner-role";
+import { publishMembersUpdated } from "./publish-members-updated";
 import { lockWorkspace } from "../workspace/lifecycle/lock-workspace";
 import { authorizeWorkspaceWrite } from "../workspace/write/authorize-workspace-write";
 import type { WorkspaceActor } from "../workspace/write/workspace-actor";
@@ -64,4 +65,7 @@ export async function changeWorkspaceMemberRole(input: {
         metadata: { previousRole: target.role, role },
       });
   });
+
+  await publishMembersUpdated(workspaceId);
+  return { workspaceId, userId, role };
 }

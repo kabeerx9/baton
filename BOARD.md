@@ -290,6 +290,11 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
 - `owner` is given only by `PUT /owner`, in one transaction that clears the
   new owner's project limits. The only owner can't leave, be removed or be
   demoted (409 `ONLY_OWNER`); only an owner acts on an owner.
+- Member writes answer with the change only (ids and the new role), never
+  member data: the caller may not be allowed to read the list. They publish
+  `workspace.members_updated`, which sends `WORKSPACE_MEMBERS_UPDATED` to
+  everyone who may hold a connection, so clients refetch members and
+  capabilities through the authorized GET.
 - A demo (tour) workspace refuses member, owner and role writes (403
   `DEMO_WORKSPACE`); its owner may rename and delete it.
 - Roles: at most 25 per workspace. `owner`, `admin`, `member` and `viewer` are

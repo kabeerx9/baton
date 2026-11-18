@@ -210,9 +210,6 @@ const updateMemberProjectAccessRoute = createRoute({
   },
 });
 
-const memberList = (workspaceId: string, userId: string) =>
-  getWorkspaceMembersCtrl({ workspaceId, userId });
-
 const workspace = apiRouter<BaseVariables & { workspaceId: string }>()
   .openapi(listWorkspacesRoute, async (c) =>
     c.json(await listWorkspacesCtrl(c.get("userId")), 200),
@@ -258,31 +255,35 @@ const workspace = apiRouter<BaseVariables & { workspaceId: string }>()
   )
   .openapi(removeWorkspaceMemberRoute, async (c) => {
     const workspaceId = c.get("workspaceId");
-    await removeWorkspaceMember({
-      workspaceId,
-      userId: c.req.valid("param").userId,
-      actor: memberActor(c),
-    });
-    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+    return c.json(
+      await removeWorkspaceMember({
+        workspaceId,
+        userId: c.req.valid("param").userId,
+        actor: memberActor(c),
+      }),
+      200,
+    );
   })
   .openapi(updateWorkspaceMemberRoleRoute, async (c) => {
     const workspaceId = c.get("workspaceId");
-    await changeWorkspaceMemberRole({
+    const changed = await changeWorkspaceMemberRole({
       workspaceId,
       userId: c.req.valid("param").userId,
       role: c.req.valid("json").role,
       actor: memberActor(c),
     });
-    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+    return c.json(changed, 200);
   })
   .openapi(transferWorkspaceOwnershipRoute, async (c) => {
     const workspaceId = c.get("workspaceId");
-    await transferWorkspaceOwnership({
+    const actor = memberActor(c);
+    const { ownerId } = await transferWorkspaceOwnership({
       workspaceId,
       userId: c.req.valid("json").userId,
-      actor: memberActor(c),
+      actor,
     });
-    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+    // A member transfer demotes exactly the caller.
+    return c.json({ workspaceId, ownerId, previousOwnerId: actor.userId }, 200);
   })
   .openapi(listWorkspaceRolesRoute, async (c) =>
     c.json(await listWorkspaceRolesCtrl(c.get("workspaceId")), 200),

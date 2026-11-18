@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db, { schema } from "../../database";
 import { splitRoles } from "../../utils/split-roles";
 import type { WorkspaceActor } from "../../workspace/write/workspace-actor";
+import { publishMembersUpdated } from "../../workspace-members/publish-members-updated";
 import { lockForRoleWrite } from "../authorize-role-write";
 import { findLockedRole } from "../find-locked-role";
 import { defaultRoleError, roleInUseError } from "../role-errors";
@@ -13,7 +14,7 @@ async function deleteWorkspaceRole(input: {
   actor: Extract<WorkspaceActor, { kind: "member" }>;
 }) {
   const { workspaceId, roleId, actor } = input;
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const { locked } = await lockForRoleWrite(tx, workspaceId, actor, {
       ac: ["delete"],
     });
@@ -26,6 +27,9 @@ async function deleteWorkspaceRole(input: {
       .where(eq(schema.workspaceRoleTable.id, role.id));
     return { id: role.id };
   });
+  // Open clients refetch members and capabilities.
+  await publishMembersUpdated(workspaceId);
+  return result;
 }
 
 export default deleteWorkspaceRole;

@@ -175,8 +175,10 @@ describe("removal and leave (A7)", () => {
         ctx.as.cookie("owner"),
       );
       expect(response.status).toBe(200);
-      const members = (await response.json()) as Array<{ id: string }>;
-      expect(members.map((row) => row.id)).not.toContain(target);
+      expect(await response.json()).toEqual({
+        workspaceId: s.workspaceId,
+        userId: target,
+      });
       expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
     } finally {
       removeConnection("project", conn);
