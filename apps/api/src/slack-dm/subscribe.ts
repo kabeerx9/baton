@@ -114,7 +114,8 @@ subscribeToEvent<{
 /**
  * "Welcome": a person joined a workspace through a join link. Published once,
  * after the join commits, and only for a new member (not already_member).
- * Live like the other messages: a restart in between drops it.
+ * Nobody is welcomed by their own link. Live like the other messages: a
+ * restart in between drops it.
  */
 subscribeToEvent<{ workspaceId: string; userId: string; linkId: string }>(
   "workspace.member_joined",
@@ -122,11 +123,12 @@ subscribeToEvent<{ workspaceId: string; userId: string; linkId: string }>(
     const config = slackConfig();
     if (!config || !event.workspaceId || !event.userId) return;
     const facts = await loadJoinFacts(event.workspaceId, event.linkId);
-    if (!facts) return;
+    if (!facts || facts.sharer?.id === event.userId) return;
     await sendDm(
       event.userId,
       welcomeMessage({
-        ...facts,
+        workspaceName: facts.workspaceName,
+        sharerName: facts.sharer?.name ?? null,
         boardUrl: `${config.clientUrl}/dashboard/workspace/${event.workspaceId}/board`,
       }),
       { workspaceId: event.workspaceId },

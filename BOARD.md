@@ -330,6 +330,7 @@ Optional. Set `SLACK_BOT_TOKEN` to turn them on; see `.env.sample`. Code: `apps/
 | "Waiting on you: N tasks" | Each person whose open tasks block open work | Each weekday at `SLACK_DIGEST_TIME` in the person's time zone, only if the list is not empty |
 | "X asks to move T-5 to done" | The involved people | A change request is made. With nobody involved, admins find it with `canAnswer=me`. |
 | "Your request was accepted" (or rejected, cancelled, expired) | The requester | Their request ends, unless they ended it |
+| "Welcome to W on Baton!" | A person who joined | They join through a join link. Names the link's creator, else the workspace owner. Not sent to the link's creator. |
 
 Change request messages are also in-app notifications, sent after the change commits.
 
