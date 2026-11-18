@@ -155,16 +155,17 @@ describe("MCP code redemption and concurrent session revocation", () => {
                 role: "admin",
               })
             : null;
+        // A ban is Baton's deactivate route; the rest are the provider's.
         const revokePath =
           operation === "ban"
-            ? "admin/ban-user"
+            ? `/api/admin/users/${user.userId}/deactivate`
             : operation === "revoke-all"
-              ? "revoke-sessions"
+              ? "/api/auth/revoke-sessions"
               : operation === "revoke-other"
-                ? "revoke-other-sessions"
-                : "revoke-session";
+                ? "/api/auth/revoke-other-sessions"
+                : "/api/auth/revoke-session";
         const revoke = () =>
-          app.request(`/api/auth/${revokePath}`, {
+          app.request(revokePath, {
             method: "POST",
             headers: {
               "content-type": "application/json",
@@ -175,7 +176,7 @@ describe("MCP code redemption and concurrent session revocation", () => {
             },
             body: JSON.stringify(
               operation === "ban"
-                ? { userId: user.userId }
+                ? {}
                 : operation === "revoke-one"
                   ? { token: session.token }
                   : {},

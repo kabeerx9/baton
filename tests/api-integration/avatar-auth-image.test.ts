@@ -111,42 +111,27 @@ describe("Better Auth never writes user.image", () => {
       });
     });
 
-    it("stores no picture from admin create-user", async () => {
-      const response = await authPost(
-        "/admin/create-user",
-        {
-          email: "created@example.com",
-          password: "correct horse battery staple",
-          name: "Created",
-          data: { image: "https://tracker.example/pixel.png" },
-        },
-        admin.cookies,
-      );
-      expect(response.status, await response.clone().text()).toBe(200);
-      const { user } = (await response.json()) as { user: { id: string } };
-      expect((await storedUser(user.id))?.image).toBeNull();
-    });
-
-    it("ignores image in admin update-user, alone or with a name", async () => {
-      const imageOnly = await authPost(
-        "/admin/update-user",
-        { userId: me.userId, data: { image: "https://tracker.example/x" } },
-        admin.cookies,
-      );
-      expect(imageOnly.status, await imageOnly.clone().text()).toBe(200);
-      expect((await storedUser(me.userId))?.image).toBe(myUrl);
-
-      const mixed = await authPost(
-        "/admin/update-user",
-        {
-          userId: me.userId,
-          data: { name: "Admin Renamed", image: null },
-        },
-        admin.cookies,
-      );
-      expect(mixed.status).toBe(200);
+    it("has no provider admin create-user or update-user to write one", async () => {
+      for (const [path, body] of [
+        [
+          "/admin/create-user",
+          {
+            email: "created@example.com",
+            password: "correct horse battery staple",
+            name: "Created",
+            data: { image: "https://tracker.example/pixel.png" },
+          },
+        ],
+        [
+          "/admin/update-user",
+          { userId: me.userId, data: { image: "https://tracker.example/x" } },
+        ],
+      ] as const) {
+        const response = await authPost(path, body, admin.cookies);
+        expect(response.status, path).toBe(404);
+      }
       expect(await storedUser(me.userId)).toEqual({
-        name: "Admin Renamed",
+        name: expect.any(String),
         image: myUrl,
       });
     });

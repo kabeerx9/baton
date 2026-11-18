@@ -243,17 +243,17 @@ describe("API integration: error shape", () => {
     expect(body).not.toHaveProperty("message");
   });
 
-  it("answers a rejected API key on auth routes with JSON", async () => {
+  it("answers an API key on auth routes with JSON", async () => {
     const { app } = createApp();
 
     const response = await app.request("/api/auth/get-session", {
       headers: { "x-api-key": "not-a-real-key" },
     });
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(403);
     expect(await readErrorBody(response)).toEqual({
-      message: "Unauthorized",
-      code: "UNAUTHORIZED",
+      message: "A user session is required",
+      code: "SESSION_REQUIRED",
     });
   });
 
