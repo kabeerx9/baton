@@ -1,14 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { Client } from "pg";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import {
   workspaceMemberAccessTable,
@@ -36,28 +29,12 @@ beforeEach(async () => {
 const code = async (response: Response) =>
   ((await response.json()) as { code?: string }).code;
 
-let created = 0;
 async function create(name: unknown, headers = ctx.as.cookie("member")) {
-  const response = await ctx.call(
+  return ctx.call(
     { method: "POST", path: "/workspace", body: { name } },
     headers,
   );
-  if (response.status === 201) created++;
-  return response;
 }
-
-// workspace.created writes the owner's notification after the response;
-// let it land before the next reset truncates the tables.
-afterEach(async () => {
-  await vi.waitFor(async () => {
-    const rows = await db
-      .select({ id: schema.notificationTable.id })
-      .from(schema.notificationTable)
-      .where(eq(schema.notificationTable.type, "workspace_created"));
-    expect(rows.length).toBeGreaterThanOrEqual(created);
-  });
-  created = 0;
-});
 
 const workspaceCount = async () =>
   (

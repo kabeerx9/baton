@@ -107,8 +107,58 @@ export async function resetTestDatabase() {
   }
 
   const formattedTableNames = tableNames.map(quoteIdentifier).join(", ");
-
-  await db.execute(
-    sql.raw(`TRUNCATE TABLE ${formattedTableNames} RESTART IDENTITY CASCADE`),
+  const truncate = sql.raw(
+    `TRUNCATE TABLE ${formattedTableNames} RESTART IDENTITY CASCADE`,
   );
+
+  // Event handlers run after the response (EventEmitter drops their
+  // promises), so the previous test's notification or permission queries can
+  // still hold table locks. TRUNCATE locks tables one by one, so it can
+  // deadlock with them. Wait for them to finish, and retry if one starts
+  // between the wait and the TRUNCATE.
+  for (let attempt = 1; ; attempt++) {
+    await waitForOtherBackendsIdle();
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL lock_timeout = '2s'`);
+        await tx.execute(truncate);
+      });
+      return;
+    } catch (error) {
+      if (attempt >= TRUNCATE_ATTEMPTS || !isLockConflict(error)) throw error;
+      await new Promise((done) => setTimeout(done, 50 * attempt));
+    }
+  }
+}
+
+const TRUNCATE_ATTEMPTS = 5;
+
+/** 40P01 deadlock_detected, 55P03 lock_not_available (lock_timeout). */
+function isLockConflict(error: unknown): boolean {
+  for (let e = error; e; e = (e as { cause?: unknown }).cause) {
+    const code = (e as { code?: unknown }).code;
+    if (code === "40P01" || code === "55P03") return true;
+  }
+  return false;
+}
+
+/**
+ * Polls until no other session on this database runs a query or holds an
+ * open transaction, for at most `timeoutMs`. Gives up quietly: the TRUNCATE
+ * retry still covers a backend that stays busy.
+ */
+async function waitForOtherBackendsIdle(timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const result = await db.execute<{ busy: number }>(sql`
+      SELECT count(*)::int AS busy
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()
+        AND backend_type = 'client backend'
+        AND state IN ('active', 'idle in transaction')
+    `);
+    if ((result.rows[0]?.busy ?? 0) === 0) return;
+    await new Promise((done) => setTimeout(done, 20));
+  }
 }

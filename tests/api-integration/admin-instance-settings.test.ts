@@ -484,15 +484,6 @@ describe("workspace creation", () => {
       code: "WORKSPACE_CREATION_RESTRICTED",
     });
     expect((await create(admin.cookies)).status).toBe(201);
-    // The owner's notification lands after the response; let it finish
-    // before the next reset truncates the tables.
-    await vi.waitFor(async () => {
-      const rows = await db
-        .select({ id: schema.notificationTable.id })
-        .from(schema.notificationTable)
-        .where(eq(schema.notificationTable.type, "workspace_created"));
-      expect(rows).toHaveLength(1);
-    });
   });
 });
 
