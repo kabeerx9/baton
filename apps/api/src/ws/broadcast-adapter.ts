@@ -21,6 +21,12 @@ export type UserBroadcastMessage = {
   [key: string]: unknown;
 };
 
+/** Someone joined the workspace: clients refetch its member lists. */
+export type WorkspaceMembersUpdatedMessage = UserBroadcastMessage & {
+  type: "WORKSPACE_MEMBERS_UPDATED";
+  workspaceId: string;
+};
+
 export type UserBroadcast = {
   userId: string;
   message: UserBroadcastMessage;

@@ -22,6 +22,11 @@ function getSecretEncryptionKey() {
   return createHash("sha256").update(rawKey).digest();
 }
 
+/** Whether encryptSecret/decryptSecret can run; the key is optional outside production. */
+export function hasSecretEncryptionKey() {
+  return getSecretEncryptionKey() !== null;
+}
+
 function requireSecretEncryptionKey() {
   const key = getSecretEncryptionKey();
   if (!key) {

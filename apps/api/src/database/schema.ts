@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -436,6 +437,80 @@ export const invitationTable = pgTable(
     index("invitation_workspaceId_idx").on(table.workspaceId),
     index("invitation_email_idx").on(table.email),
     index("invitation_inviterId_idx").on(table.inviterId),
+  ],
+);
+
+// A shareable link that lets a signed-in person join a workspace. Rows are
+// kept after revoke and expiry; state comes from `deriveLinkState`
+// (join-link/lifecycle.ts). The raw token is never stored: lookup is by its
+// SHA-256 hash, and the ciphertext exists only to show the link again.
+export const workspaceJoinLinkTable = pgTable(
+  "workspace_join_link",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    // Null when the encryption key is unset or the link is revoked.
+    tokenCiphertext: text("token_ciphertext"),
+    role: text("role").default("member").notNull(),
+    maxUses: integer("max_uses"),
+    useCount: integer("use_count").default(0).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdBy: text("created_by").references(() => userTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    revokedBy: text("revoked_by").references(() => userTable.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    check("workspace_join_link_role_check", sql`${table.role} = 'member'`),
+    check(
+      "workspace_join_link_max_uses_check",
+      sql`${table.maxUses} is null or ${table.maxUses} >= 1`,
+    ),
+    check("workspace_join_link_use_count_check", sql`${table.useCount} >= 0`),
+    uniqueIndex("workspace_join_link_tokenHash_uidx").on(table.tokenHash),
+    // One link per workspace that is not revoked. An index cannot read the
+    // clock, so create revokes an expired or used-up row too.
+    uniqueIndex("workspace_join_link_one_open_uidx")
+      .on(table.workspaceId)
+      .where(sql`${table.revokedAt} is null`),
+    index("workspace_join_link_workspaceId_createdAt_idx").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index("workspace_join_link_createdBy_idx").on(table.createdBy),
+    index("workspace_join_link_revokedBy_idx").on(table.revokedBy),
+  ],
+);
+
+// The last time a person was removed from a workspace. A join link created
+// before that time refuses them. A voluntary leave writes nothing.
+export const workspaceMemberRemovalTable = pgTable(
+  "workspace_member_removal",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    removedAt: timestamp("removed_at", { mode: "date" })
+      .default(utcNow)
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.userId] }),
+    index("workspace_member_removal_userId_idx").on(table.userId),
   ],
 );
 

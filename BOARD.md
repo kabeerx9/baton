@@ -275,6 +275,37 @@ An MCP token also works on the REST API, because the tools call it, and acts
 with the person's permissions (`activity.channel` is `agent`). It never works
 on `/api/auth/*`, session-only routes or WebSockets.
 
+## Join links
+
+People join a workspace with a link, not an email invite. Code:
+`apps/api/src/join-link`.
+
+- A workspace has at most one link that is not revoked. Creating a link
+  revokes the previous one. A link adds people as `member` only.
+- A link is active, expired, revoked or used up. The state is one pure
+  function, `deriveLinkState` in `apps/api/src/join-link/lifecycle.ts`; an
+  action runs only on `active`. Expiry is inclusive.
+- The token is stored only as a SHA-256 hash. The ciphertext exists to show
+  the link again; without `NOTIFICATION_SECRET_ENCRYPTION_KEY`, only the
+  create response has the URL.
+- Owners and admins manage the link (`invitation:create`). The preview is
+  public and shows the workspace name only while the link is active.
+- Every route refuses API keys and MCP tokens. There is no MCP tool.
+- Join locks the workspace row, then the link row: the repo lock order. A
+  person who is already a member uses nothing.
+- A link made before a person's removal refuses that person (403
+  `REMOVED_FROM_WORKSPACE`); a newer link admits them. Removal is recorded in
+  `workspace_member_removal` by `handleMemberRemoved`. Leaving is not a
+  removal.
+- A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
+- `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`.
+
+| Call | Purpose |
+| --- | --- |
+| `GET`, `POST`, `DELETE /api/join-link/workspace/{workspaceId}` | Read, create (or replace), revoke the link. |
+| `POST /api/join-link/preview` | Public. What the link leads to. |
+| `POST /api/join-link/join` | Join with a token in the body. |
+
 ## Slack messages
 
 Optional. Set `SLACK_BOT_TOKEN` to turn them on; see `.env.sample`. Code: `apps/api/src/slack-dm`.

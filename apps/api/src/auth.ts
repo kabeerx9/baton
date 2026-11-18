@@ -528,7 +528,7 @@ export const auth = betterAuth({
     window: 10,
     max: 100,
     customRules: {
-      "/sign-up/email": { window: 60, max: 3 },
+      "/sign-up/email": { window: 60, max: 10 },
       "/organization/invite-member": { window: 60, max: 5 },
     },
   },

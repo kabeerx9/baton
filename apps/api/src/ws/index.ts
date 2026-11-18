@@ -17,6 +17,7 @@ import { subscribeToEvent } from "../events";
 import { findInaccessibleProjectIds } from "../project-access/find-inaccessible-project-ids";
 import { filterUsersWithProjectAccess } from "../project-access/filter-users-with-project-access";
 import { listWorkspaceProjectIds } from "../project-access/list-workspace-project-ids";
+import { listWorkspaceAudience } from "../workspace/lifecycle/list-workspace-audience";
 import {
   hasInstanceAdminRole,
   instanceAdminRoleSql,
@@ -32,6 +33,7 @@ import type {
   ProjectBroadcastMessage,
   UserBroadcast,
   UserBroadcastMessage,
+  WorkspaceMembersUpdatedMessage,
 } from "./broadcast-adapter";
 import { InMemoryBroadcastAdapter } from "./in-memory-broadcast-adapter";
 import { RedisBroadcastAdapter } from "./redis-broadcast-adapter";
@@ -1105,6 +1107,25 @@ subscribeToEvent<{ workspaceId: string; projectIds?: string[] }>(
   async ({ workspaceId, projectIds }) => {
     if (!workspaceId) return;
     await broadcastProjectMembersUpdated(workspaceId, projectIds);
+  },
+);
+
+// Live only (no outbox route): a join tells everyone who may hold a
+// connection to the workspace to refetch its members.
+subscribeToEvent<{ workspaceId: string }>(
+  "workspace.member_joined",
+  async ({ workspaceId }) => {
+    if (!workspaceId) return;
+    try {
+      const message: WorkspaceMembersUpdatedMessage = {
+        type: "WORKSPACE_MEMBERS_UPDATED",
+        workspaceId,
+      };
+      for (const userId of await listWorkspaceAudience(workspaceId))
+        broadcastToUser(userId, message);
+    } catch (error) {
+      console.error("Workspace member broadcast failed:", error);
+    }
   },
 );
 

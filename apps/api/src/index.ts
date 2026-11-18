@@ -39,6 +39,9 @@ import githubIntegration, {
 } from "./github-integration";
 import getInstanceStatus from "./instance/controllers/get-instance-status";
 import invitation from "./invitation";
+import joinLink from "./join-link";
+import joinLinkPublic from "./join-link/public";
+import { ApiError } from "./errors/api-error";
 import label from "./label";
 import mcpRoutes, { mcpWellKnownRoutes } from "./mcp";
 import { migrateColumns } from "./migrations/column-migration";
@@ -301,6 +304,9 @@ export function createApp() {
 
   api.post("/github-integration/webhook", handleGithubWebhookRoute);
 
+  // Public: anyone holding a link may preview it, before signing in.
+  const joinLinkPublicApi = api.route("/join-link", joinLinkPublic);
+
   const invitationPublicApi = api.get("/invitation/public/:id", async (c) => {
     const { id } = c.req.param();
     const result = await getInvitationDetails(id);
@@ -549,6 +555,18 @@ export function createApp() {
     return c.json(document);
   });
 
+  // Join links replaced email invites. Blocked here so Better Auth's own
+  // routes and hooks stay unchanged; /api/invitation reads still work.
+  for (const operation of ["invite-member", "accept-invitation"]) {
+    api.post(`/auth/organization/${operation}`, () => {
+      throw new ApiError(410, {
+        code: "INVITATIONS_REMOVED",
+        message:
+          "Email invitations were replaced by join links. Ask a workspace admin for a link.",
+      });
+    });
+  }
+
   api.on(
     ["POST", "GET", "PUT", "PATCH", "DELETE"],
     "/auth/*",
@@ -625,6 +643,7 @@ export function createApp() {
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
   const invitationApi = api.route("/invitation", invitation);
+  const joinLinkApi = api.route("/join-link", joinLink);
   const workspaceApi = api.route("/workspace", workspace);
   const userApi = api.route("/user", user);
   const adminApi = api.route("/admin", admin);
@@ -744,6 +763,8 @@ export function createApp() {
     githubIntegrationApi,
     invitationApi,
     invitationPublicApi,
+    joinLinkApi,
+    joinLinkPublicApi,
     labelApi,
     notificationApi,
     notificationPreferencesApi,
@@ -856,6 +877,8 @@ const {
   githubIntegrationApi,
   invitationApi,
   invitationPublicApi,
+  joinLinkApi,
+  joinLinkPublicApi,
   labelApi,
   notificationApi,
   notificationPreferencesApi,
@@ -904,6 +927,8 @@ export type AppType =
   | typeof externalLinkApi
   | typeof workflowRuleApi
   | typeof invitationApi
+  | typeof joinLinkApi
+  | typeof joinLinkPublicApi
   | typeof workspaceApi
   | typeof userApi
   | typeof adminApi
