@@ -79,6 +79,8 @@ describe("matchesZone", () => {
 describe("displayZone", () => {
   it("shows modern names", () => {
     expect(displayZone("Asia/Calcutta")).toBe("Asia/Kolkata");
+    // Chromium stores the legacy name; the label shows the modern one.
+    expect(displayZone("Asia/Katmandu")).toBe("Asia/Kathmandu");
     expect(displayZone("America/Los_Angeles")).toBe("America/Los Angeles");
   });
 });
