@@ -101,6 +101,12 @@ export const ACTIONS: Record<string, (s: Seeded) => Request> = {
     path: `/workspace/${s.workspaceId}/members/${s.userIds.target}/role`,
     body: { role: "owner" },
   }),
+  // Not in the provider fixture: the provider had no atomic transfer.
+  "member.transfer": (s) => ({
+    method: "PUT",
+    path: `/workspace/${s.workspaceId}/owner`,
+    body: { userId: s.userIds.target },
+  }),
   "roles.list": (s) => ({
     method: "GET",
     path: `/workspace/${s.workspaceId}/roles`,

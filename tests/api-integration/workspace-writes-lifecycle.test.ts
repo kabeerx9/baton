@@ -429,6 +429,20 @@ describe("roles (A9)", () => {
     expect(await snapshot(s.workspaceId)).toEqual(before);
   });
 
+  it("refuses to rename a role members hold (409)", async () => {
+    const s = await ctx.seed("custom");
+    expect(
+      await ctx.cell(
+        {
+          method: "PATCH",
+          path: `/workspace/${s.workspaceId}/roles/${s.roleIds.reviewer}`,
+          body: { role: "auditor" },
+        },
+        ctx.as.cookie("owner2"),
+      ),
+    ).toEqual({ status: 409, code: "ROLE_IN_USE" });
+  });
+
   it("refuses a role that grants more than the actor holds", async () => {
     const s = await ctx.seed("admin");
     expect(

@@ -366,7 +366,7 @@ describe("an archived workspace through the workspace write routes", () => {
       `/workspace/${workspace.id}`,
       { name: "Renamed" },
     );
-    expect(response.status).toBeGreaterThanOrEqual(403);
+    expect(response.status).toBe(404);
     expect(await codeOf(response)).not.toBe("WORKSPACE_ARCHIVED");
   });
 

@@ -282,3 +282,29 @@ describe("promotion to owner clears project access (A5)", () => {
     expect(events.types()).not.toContain("project_access.updated");
   });
 });
+
+describe("an ambiguous stored owner token never acts as owner", () => {
+  it.each(["member, owner", "recruiter, owner", "admin, owner"])(
+    "%j cannot remove, demote or replace an owner",
+    async (role) => {
+      const s = await ctx.seed("admin", { role });
+      const before = await snapshot(s.workspaceId);
+      const admin = ctx.as.cookie("admin");
+      const capabilities = await ctx.call(
+        { method: "GET", path: `/workspace/${s.workspaceId}/capabilities` },
+        admin,
+      );
+      expect(capabilities.status).toBe(200);
+      expect(await capabilities.json()).toMatchObject({
+        deleteWorkspace: false,
+      });
+      for (const response of [
+        await remove(s, s.userIds.owner2!, admin),
+        await setRole(s, s.userIds.owner2!, "member", admin),
+        await transfer(s, s.userIds.target!, admin),
+      ])
+        expect(response.status).toBe(403);
+      expect(await snapshot(s.workspaceId)).toEqual(before);
+    },
+  );
+});

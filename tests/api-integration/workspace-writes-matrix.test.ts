@@ -15,6 +15,12 @@ import {
   writesFixture,
 } from "./helpers/workspace-writes";
 
+/** The actions the provider fixture has; transfer is Baton's own. */
+const MATRIX_ACTIONS = Object.keys(matrix.roles.owner);
+const MATRIX_WRITES = WRITE_ACTIONS.filter((action) =>
+  MATRIX_ACTIONS.includes(action),
+);
+
 type Outcome = "allow" | "deny";
 const outcome = (cell: Cell): Outcome =>
   cell.status >= 200 && cell.status < 300 ? "allow" : "deny";
@@ -48,7 +54,7 @@ describe("roles against the provider matrix (A2)", () => {
   for (const actor of ACTORS) {
     it(`matches for ${actor}`, { timeout: 120_000 }, async () => {
       const mismatches: string[] = [];
-      for (const action of Object.keys(ACTIONS)) {
+      for (const action of MATRIX_ACTIONS) {
         const seeded = await ctx.seed(actor);
         const got = await ctx.cell(
           ACTIONS[action]!(seeded),
@@ -117,7 +123,7 @@ describe("API key scopes against the provider matrix (A2)", () => {
       const unscoped = (await ctx.keyFor("owner", null)).key;
       const readOnly = (await ctx.keyFor("owner", { workspace: ["read"] })).key;
       const mismatches: string[] = [];
-      for (const action of Object.keys(ACTIONS)) {
+      for (const action of MATRIX_ACTIONS) {
         const exact = (await ctx.keyFor("owner", SCOPES[action]!)).key;
         for (const [name, key] of [
           ["unscoped", unscoped],
@@ -193,7 +199,7 @@ describe("rules against the provider matrix (A2)", () => {
       timeout: 60_000,
     },
     async () => {
-      for (const action of WRITE_ACTIONS) {
+      for (const action of MATRIX_WRITES) {
         const seeded = await ctx.seed("owner", { archived: true });
         expect([
           action,
