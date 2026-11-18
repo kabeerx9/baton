@@ -119,7 +119,7 @@ describe("project WebSocket access", () => {
     });
     expect(evictProjectCache).toHaveBeenCalledWith(client, "project-a");
     expect(client.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ["workspace-status"],
+      queryKey: ["workspace"],
     });
     expect(navigate).not.toHaveBeenCalled();
     expect(client.clear).not.toHaveBeenCalled();

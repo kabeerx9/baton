@@ -12,7 +12,9 @@ vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
 }));
 vi.mock("@/hooks/queries/workspace-users/use-get-workspace-users", () => ({
   default: () => ({
-    data: [{ user: { id: "rohan", name: "Rohan", email: null, image: null } }],
+    data: [
+      { id: "rohan", name: "Rohan", email: "", image: null, role: "member" },
+    ],
   }),
 }));
 

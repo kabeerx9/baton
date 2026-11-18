@@ -4,7 +4,7 @@ import WorkspaceLayout from "@/components/common/workspace-layout";
 import PageTitle from "@/components/page-title";
 import { JoinLinkCard } from "@/components/team/join-link-card";
 import MembersTable from "@/components/team/members-table";
-import useGetFullWorkspace from "@/hooks/queries/workspace/use-get-full-workspace";
+import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 export const Route = createFileRoute(
@@ -16,7 +16,7 @@ export const Route = createFileRoute(
 function RouteComponent() {
   const { t } = useTranslation();
   const { workspaceId } = Route.useParams();
-  const { data: workspace } = useGetFullWorkspace({ workspaceId });
+  const { data: members } = useGetWorkspaceUsers(workspaceId);
   const { canInviteUsers } = useWorkspacePermission();
 
   return (
@@ -28,10 +28,7 @@ function RouteComponent() {
             <JoinLinkCard workspaceId={workspaceId} />
           </div>
         ) : null}
-        <MembersTable
-          workspaceId={workspaceId}
-          users={workspace?.members ?? []}
-        />
+        <MembersTable workspaceId={workspaceId} users={members ?? []} />
       </WorkspaceLayout>
     </>
   );

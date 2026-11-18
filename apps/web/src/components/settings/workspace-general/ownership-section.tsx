@@ -8,8 +8,9 @@ import { TransferOwnershipRow } from "@/components/settings/workspace-general/tr
 type OwnershipMember = {
   id: string;
   role: string;
-  userId: string;
-  user: { name: string; email: string; image?: string | null };
+  name: string;
+  email: string;
+  image?: string | null;
 };
 
 type OwnershipSectionProps = {
@@ -39,15 +40,14 @@ export function OwnershipSection({
       <SettingsCard>
         {currentOwner ? (
           <CurrentOwnerRow
-            name={currentOwner.user.name}
-            email={currentOwner.user.email}
-            image={currentOwner.user.image}
+            name={currentOwner.name}
+            email={currentOwner.email}
+            image={currentOwner.image}
           />
         ) : null}
         <TransferOwnershipRow
           workspaceId={workspaceId}
           workspaceName={workspaceName}
-          currentOwnerMemberId={currentOwner?.id}
           candidates={eligibleNewOwners}
         />
       </SettingsCard>

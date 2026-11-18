@@ -9,16 +9,14 @@ import { WorkspaceDangerZone } from "@/components/settings/workspace-general/wor
 import { WorkspaceDetailsSection } from "@/components/settings/workspace-general/workspace-details-section";
 import { getWorkspaceDescription } from "@/components/settings/workspace-general/workspace-form-values";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
-import useGetFullWorkspace from "@/hooks/queries/workspace/use-get-full-workspace";
+import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 export function WorkspaceGeneralPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { data: workspace } = useActiveWorkspace();
-  const { data: fullWorkspace } = useGetFullWorkspace({
-    workspaceId: workspace?.id,
-  });
+  const { data: members } = useGetWorkspaceUsers(workspace?.id);
   const { canManageWorkspace, canDeleteWorkspace, isOwner } =
     useWorkspacePermission();
   const canEdit = canManageWorkspace();
@@ -48,7 +46,7 @@ export function WorkspaceGeneralPage() {
           <OwnershipSection
             workspaceId={workspace?.id}
             workspaceName={workspaceName}
-            members={fullWorkspace?.members ?? []}
+            members={members ?? []}
             currentUserId={currentUser?.id}
           />
         ) : null}

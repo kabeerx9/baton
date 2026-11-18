@@ -14,22 +14,17 @@ import {
 import useTransferWorkspaceOwnership from "@/hooks/mutations/workspace/use-transfer-workspace-ownership";
 import { toast } from "@/lib/toast";
 
-type OwnershipCandidate = {
-  id: string;
-  user: { name: string; email: string };
-};
+type OwnershipCandidate = { id: string; name: string; email: string };
 
 type TransferOwnershipRowProps = {
   workspaceId: string | undefined;
   workspaceName: string;
-  currentOwnerMemberId: string | undefined;
   candidates: OwnershipCandidate[];
 };
 
 export function TransferOwnershipRow({
   workspaceId,
   workspaceName,
-  currentOwnerMemberId,
   candidates,
 }: TransferOwnershipRowProps) {
   const { t } = useTranslation();
@@ -38,19 +33,16 @@ export function TransferOwnershipRow({
   const { mutateAsync: transferOwnership, isPending } =
     useTransferWorkspaceOwnership();
   const selected = candidates.find((member) => member.id === selectedId);
-  const selectedName = selected
-    ? selected.user.name || selected.user.email
-    : "";
+  const selectedName = selected ? selected.name || selected.email : "";
   const hasCandidates = candidates.length > 0;
 
   const handleTransfer = async () => {
-    if (!workspaceId || !currentOwnerMemberId || !selected) return;
+    if (!workspaceId || !selected) return;
 
     try {
       await transferOwnership({
         workspaceId,
-        newOwnerMemberId: selected.id,
-        currentOwnerMemberId,
+        newOwnerUserId: selected.id,
       });
       toast.success(
         t("settings:workspaceGeneral.transferOwnership.toastSuccess"),
@@ -102,7 +94,7 @@ export function TransferOwnershipRow({
         <SelectContent>
           {candidates.map((member) => (
             <SelectItem key={member.id} value={member.id}>
-              {member.user.name} ({member.user.email})
+              {member.name} ({member.email})
             </SelectItem>
           ))}
         </SelectContent>

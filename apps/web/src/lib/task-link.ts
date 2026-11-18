@@ -1,5 +1,5 @@
 import { createSlug } from "@/lib/utils/create-slug";
-import { isReservedWorkspaceSlug } from "@/lib/utils/create-workspace-slug";
+import { isReservedWorkspaceSlug } from "@/lib/utils/reserved-workspace-slugs";
 
 const MAX_TITLE_SLUG_LENGTH = 60;
 const MAX_LOOKUP_VALUE_LENGTH = 128;

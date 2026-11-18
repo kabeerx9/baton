@@ -1,35 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
+import {
+  createWorkspaceRole,
+  type WorkspaceRoleBody,
+} from "@/fetchers/workspace/workspace-roles";
+import { invalidateWorkspaceWrites } from "@/hooks/queries/workspace/invalidate-workspace-writes";
 
-type CreateWorkspaceRoleRequest = {
-  workspaceId: string;
-  role: string;
-  permission: Record<string, string[]>;
-};
+type CreateWorkspaceRoleRequest = WorkspaceRoleBody & { workspaceId: string };
 
 function useCreateWorkspaceRole() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      workspaceId,
-      role,
-      permission,
-    }: CreateWorkspaceRoleRequest) => {
-      const { data, error } = await authClient.organization.createRole({
-        organizationId: workspaceId,
-        role,
-        permission,
-      });
-      if (error) {
-        throw new Error(error.message || "Failed to create role");
-      }
-      return data;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["workspace-roles", variables.workspaceId],
-      });
-    },
+    mutationFn: ({ workspaceId, ...body }: CreateWorkspaceRoleRequest) =>
+      createWorkspaceRole(workspaceId, body),
+    onSuccess: (_data, { workspaceId }) =>
+      invalidateWorkspaceWrites(queryClient, workspaceId),
   });
 }
 

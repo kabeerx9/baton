@@ -9,6 +9,7 @@ import { SettingsRow } from "@/components/settings/settings-row";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
 import useDeleteWorkspace from "@/hooks/mutations/workspace/use-delete-workspace";
 import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { toast } from "@/lib/toast";
@@ -25,6 +26,7 @@ export function WorkspaceDangerZone({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const userId = useAuth().user?.id;
   // The dialog names this workspace; the delete uses this id, never whatever
   // is active when the user confirms.
   const [target, setTarget] = useState<{ id: string; name: string } | null>(
@@ -48,6 +50,7 @@ export function WorkspaceDangerZone({
       await leaveGoneWorkspace(id, {
         queryClient,
         navigate: (destination) => navigate(destination),
+        userId,
       });
     } catch (error) {
       toast.error(

@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "@/lib/toast";
 
 type CreateWorkspaceModalProps = {
@@ -57,10 +56,6 @@ function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceModalProps) {
     setIsSubmitting(true);
     try {
       const createdWorkspace = await mutateAsync({ name, description });
-
-      await authClient.organization.setActive({
-        organizationId: createdWorkspace.id,
-      });
 
       await navigate({
         to: "/dashboard/workspace/$workspaceId",

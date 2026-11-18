@@ -1,35 +1,47 @@
-type Result<T> = { data: T | undefined; isPending: boolean; error: unknown };
+import type { WorkspacePick } from "@/lib/last-workspace/pick-active-workspace";
+import { classifyWorkspaceReadError } from "./workspace-read-error";
+
+type Read<T> = { data: T | undefined; isPending: boolean; error: unknown };
 
 export type ActiveWorkspaceState<W> =
   | { status: "loading" }
   | { status: "none" }
-  | { status: "error"; error: unknown }
-  | { status: "ready"; workspace: W };
+  | { status: "ready"; workspace: W }
+  | { status: "archived"; pick: WorkspacePick & { id: string } }
+  /** 403 or 404: not a member, or the workspace is gone. */
+  | { status: "unavailable"; pick: WorkspacePick & { id: string } }
+  | { status: "error"; error: unknown };
 
-type Input<W extends { id: string }, A extends W> = {
-  routeWorkspaceId: string | undefined;
-  list: Result<readonly W[]>;
-  /** `data: null` means the session has no active workspace. */
-  active: Omit<Result<A | null>, "data"> & { data: A | null | undefined };
+type Input<W> = {
+  /** False until the signed-in user is known: the remembered id needs it. */
+  userKnown: boolean;
+  pick: WorkspacePick;
+  list: Omit<Read<unknown>, "data">;
+  /** `GET /api/workspace/{pick.id}`. */
+  read: Read<W>;
 };
 
 /**
- * The workspace the screen is about: the one in the URL when it is in the
- * user's list, else the session's active one. One pure function, so "none"
- * (nothing active) is never confused with "loading".
+ * The one lifecycle of "the workspace this screen is about". Anything not
+ * proven is `loading`, so no screen shows a workspace it has not read.
  */
-export function deriveActiveWorkspace<W extends { id: string }, A extends W>({
-  routeWorkspaceId,
+export function deriveActiveWorkspace<W>({
+  userKnown,
+  pick,
   list,
-  active,
-}: Input<W, A>): ActiveWorkspaceState<W> {
-  const fromRoute = routeWorkspaceId
-    ? list.data?.find((workspace) => workspace.id === routeWorkspaceId)
-    : undefined;
-  if (fromRoute) return { status: "ready", workspace: fromRoute };
-  if (routeWorkspaceId && list.isPending) return { status: "loading" };
-  if (active.data) return { status: "ready", workspace: active.data };
-  if (active.error) return { status: "error", error: active.error };
-  if (active.isPending) return { status: "loading" };
-  return { status: "none" };
+  read,
+}: Input<W>): ActiveWorkspaceState<W> {
+  if (pick.kind !== "route" && !userKnown) return { status: "loading" };
+  if (pick.kind === "none") {
+    if (list.error) return { status: "error", error: list.error };
+    return list.isPending ? { status: "loading" } : { status: "none" };
+  }
+  if (read.error) {
+    const kind = classifyWorkspaceReadError(read.error);
+    if (kind === "archived") return { status: "archived", pick };
+    if (kind === "forbidden") return { status: "unavailable", pick };
+    if (read.data === undefined) return { status: "error", error: read.error };
+  }
+  if (read.data !== undefined) return { status: "ready", workspace: read.data };
+  return { status: "loading" };
 }

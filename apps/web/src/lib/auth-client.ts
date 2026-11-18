@@ -1,12 +1,6 @@
 import { apiKeyClient } from "@better-auth/api-key/client";
-import {
-  adminClient,
-  inferOrgAdditionalFields,
-  organizationClient,
-} from "better-auth/client/plugins";
-import type { AccessControl } from "better-auth/plugins/access";
+import { adminClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
-import { ac, admin, member, owner, viewer } from "./permissions";
 
 const getBaseURL = () => {
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:1337";
@@ -18,52 +12,10 @@ const getBaseURL = () => {
   }
 };
 
+// Identity only: sign-in, session, password, account link. Workspaces,
+// members and roles are Baton routes read through `@baton/libs`.
 export const authClient = createAuthClient({
   baseURL: getBaseURL(),
   basePath: "/api/auth",
-  plugins: [
-    organizationClient({
-      // Same widening as the server plugin in `apps/api/src/auth.ts`: our
-      // narrow `statement` shape makes `ac`'s inferred `newRole` generic
-      // incompatible with better-auth's looser `AccessControl` type.
-      ac: ac as AccessControl,
-      roles: {
-        viewer,
-        member,
-        admin,
-        owner,
-      },
-      dynamicAccessControl: {
-        enabled: true,
-      },
-      schema: inferOrgAdditionalFields({
-        // 'team' or 'demo'. The product tour's private demo workspace is
-        // 'demo'; the API leaves it out of every workspace list.
-        organization: {
-          additionalFields: {
-            kind: {
-              type: "string",
-              required: false,
-            },
-          },
-        },
-        invitation: {
-          additionalFields: {
-            projectAccess: {
-              type: "string",
-              input: true,
-              required: false,
-            },
-            projectIds: {
-              type: "string[]",
-              input: true,
-              required: false,
-            },
-          },
-        },
-      }),
-    }),
-    apiKeyClient(),
-    adminClient(),
-  ],
+  plugins: [apiKeyClient(), adminClient()],
 });

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute(
@@ -40,10 +39,6 @@ function RouteComponent() {
     setIsSubmitting(true);
     try {
       const createdWorkspace = await mutateAsync({ name, description });
-
-      await authClient.organization.setActive({
-        organizationId: createdWorkspace.id,
-      });
 
       await navigate({
         to: "/dashboard/workspace/$workspaceId",

@@ -35,6 +35,9 @@ vi.mock("@/hooks/mutations/workspace/use-delete-workspace", () => ({
 vi.mock("@/lib/leave-gone-workspace", () => ({
   leaveGoneWorkspace: mocks.leave,
 }));
+vi.mock("@/components/providers/auth-provider/hooks/use-auth", () => ({
+  default: () => ({ user: { id: "u1" } }),
+}));
 vi.mock("@/lib/toast", () => ({
   toast: { success: vi.fn(), error: mocks.toastError },
 }));

@@ -3,11 +3,16 @@ import useGetWorkspaces from "@/hooks/queries/workspace/use-get-workspaces";
 import { useWorkspacesWithPermission } from "@/hooks/queries/workspace/use-workspaces-with-permission";
 import type { ProjectWithTasks } from "@/types/project";
 
-const PROJECT_MOVE_TARGET = {
-  project: ["create"],
-  workspace: ["manage_settings"],
-};
-const PROJECT_UPDATE_AND_DELETE = { project: ["update", "delete"] };
+import type { WorkspaceCapability } from "@baton/permissions";
+
+const PROJECT_MOVE_TARGET: readonly WorkspaceCapability[] = [
+  "createProjects",
+  "manageSettings",
+];
+const PROJECT_UPDATE_AND_DELETE: readonly WorkspaceCapability[] = [
+  "updateProjects",
+  "deleteProjects",
+];
 
 export function useProjectMoveTargets(
   project: ProjectWithTasks | undefined,

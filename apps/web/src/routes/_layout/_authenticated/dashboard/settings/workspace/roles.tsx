@@ -767,7 +767,7 @@ export function CustomRoleEditor({
     try {
       await updateRole({
         workspaceId,
-        roleName: role.role,
+        roleId: role.id,
         permission: currentPermissions,
       });
       toast.success(t("settings:workspaceRoles.toast.updated"), {
@@ -878,7 +878,7 @@ function DeleteRoleConfirm({
           onClick={async () => {
             if (!role) return;
             try {
-              await deleteRole({ workspaceId, roleName: role.role });
+              await deleteRole({ workspaceId, roleId: role.id });
               toast.success(t("settings:workspaceRoles.toast.deleted"), {
                 icon: Trash2Icon,
               });

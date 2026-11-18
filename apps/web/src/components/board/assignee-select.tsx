@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useGetActiveWorkspaceUsers } from "@/hooks/queries/workspace-users/use-get-active-workspace-users";
+import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
 
 const UNASSIGNED = "__none";
 
@@ -19,9 +19,8 @@ export function AssigneeSelect({
   value: string | undefined;
   onChange: (userId: string | undefined) => void;
 }) {
-  const { data } = useGetActiveWorkspaceUsers(workspaceId);
-  const members = data?.members ?? [];
-  const member = members.find((m) => m.userId === value);
+  const { data: members = [] } = useGetWorkspaceUsers(workspaceId);
+  const member = members.find((m) => m.id === value);
   return (
     <Select
       value={value ?? UNASSIGNED}
@@ -30,13 +29,13 @@ export function AssigneeSelect({
       }
     >
       <SelectTrigger aria-label="Assignee">
-        <SelectValue>{member ? member.user.name : "Unassigned"}</SelectValue>
+        <SelectValue>{member ? member.name : "Unassigned"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
         {members.map((m) => (
-          <SelectItem key={m.userId} value={m.userId}>
-            {m.user.name}
+          <SelectItem key={m.id} value={m.id}>
+            {m.name}
           </SelectItem>
         ))}
       </SelectContent>

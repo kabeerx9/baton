@@ -3002,6 +3002,7 @@
 				"projects": "Projects"
 			},
 			"ariaRemoveMember": "Remove member",
+			"roleSelectAria": "Role for {{name}}",
 			"removeDialogTitle": "Remove Team Member?",
 			"removeDialogDescription": "Are you sure you want to remove {{name}} from the workspace? This action cannot be undone.",
 			"removeMember": "Remove Member",

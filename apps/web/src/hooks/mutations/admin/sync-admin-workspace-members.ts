@@ -11,7 +11,6 @@ export function syncAdminWorkspaceMembers(
   queryClient.setQueryData(adminWorkspaceMembersQueryKey(workspaceId), members);
   queryClient.invalidateQueries({ queryKey: ADMIN_WORKSPACES_QUERY_KEY });
   queryClient.invalidateQueries({ queryKey: ["workspace-users", workspaceId] });
-  queryClient.invalidateQueries({
-    queryKey: ["workspace", "full", workspaceId],
-  });
+  // The admin may be a member: their own role is in the workspace read.
+  queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
 }

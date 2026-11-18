@@ -42,7 +42,7 @@ import useGetProject from "@/hooks/queries/project/use-get-project";
 import { useGetTasks } from "@/hooks/queries/task/use-get-tasks";
 import useGetTaskRelations from "@/hooks/queries/task-relation/use-get-task-relations";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
-import { useGetActiveWorkspaceUsers } from "@/hooks/queries/workspace-users/use-get-active-workspace-users";
+import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { getColumnIcon } from "@/lib/column";
 import { toast } from "@/lib/toast";
@@ -104,9 +104,7 @@ export default function TaskRelations({
   const { data: board } = useGetBoard(workspaceId);
   const entries = useTaskStatusStore((state) => state.entries);
   const { data: workspace } = useActiveWorkspace();
-  const { data: workspaceUsers } = useGetActiveWorkspaceUsers(
-    workspace?.id ?? "",
-  );
+  const { data: workspaceUsers } = useGetWorkspaceUsers(workspace?.id);
   const createRelation = useCreateTaskRelation();
   const deleteRelation = useDeleteTaskRelation(taskId);
   const { canUpdateTasks } = useWorkspacePermission();
@@ -242,8 +240,8 @@ export default function TaskRelations({
   };
 
   const getAssignee = (userId: string | null) => {
-    if (!userId || !workspaceUsers?.members) return null;
-    return workspaceUsers.members.find((member) => member.userId === userId);
+    if (!userId || !workspaceUsers) return null;
+    return workspaceUsers.find((member) => member.id === userId);
   };
 
   const buildTaskObject = (item: {
@@ -332,8 +330,8 @@ export default function TaskRelations({
                       <ReferenceAssigneeButton
                         tasks={[taskObj]}
                         workspaceId={workspaceId}
-                        name={assignee?.user?.name ?? item.task.assigneeName}
-                        image={assignee?.user?.image}
+                        name={assignee?.name ?? item.task.assigneeName}
+                        image={assignee?.image}
                       />
                     }
                   />

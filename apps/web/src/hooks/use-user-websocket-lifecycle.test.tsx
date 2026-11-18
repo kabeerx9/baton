@@ -48,10 +48,7 @@ vi.mock("@/lib/auth-client", () => ({
       data: auth.userId
         ? {
             user: { id: auth.userId },
-            session: {
-              id: auth.sessionId,
-              activeOrganizationId: auth.workspaceId,
-            },
+            session: { id: auth.sessionId },
           }
         : null,
     }),
@@ -113,6 +110,7 @@ describe("user WebSocket lifecycle", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
   afterEach(() => {
+    sessionStorage.clear();
     vi.restoreAllMocks();
     cleanup();
     vi.useRealTimers();
@@ -132,7 +130,7 @@ describe("user WebSocket lifecycle", () => {
     );
     expect(navigate).not.toHaveBeenCalled();
     expect(client.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ["workspace-status", "workspace"],
+      queryKey: ["workspace", "workspace"],
     });
     client.invalidateQueries.mockClear();
     act(() =>
@@ -144,9 +142,11 @@ describe("user WebSocket lifecycle", () => {
       }),
     );
     expect(client.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ["workspace-status", "workspace"],
+      queryKey: ["workspace", "workspace"],
     });
-    expect(auth.notify).toHaveBeenCalledWith("$listOrg");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["workspaces"],
+    });
   });
   it.each([
     "/dashboard/settings/workspace/general",
@@ -154,6 +154,8 @@ describe("user WebSocket lifecycle", () => {
     "/dashboard/settings/projects/general",
   ])("redirects a revoked active workspace from %s", (path) => {
     auth.pathname = path;
+    // Settings name no workspace in the URL: the tab's remembered one counts.
+    sessionStorage.setItem("baton:last-workspace:user-a", "workspace");
     renderHook(useUserWebSocket);
     act(() =>
       TestSocket.instances[0].onmessage?.({
@@ -417,9 +419,12 @@ describe("user WebSocket lifecycle", () => {
     });
     expect(navigate).not.toHaveBeenCalled();
     expect(client.removeQueries).toHaveBeenCalledOnce();
-    expect(auth.notify).toHaveBeenCalledWith("$listOrg");
-    expect(auth.notify).toHaveBeenCalledWith("$activeOrgSignal");
-    expect(auth.notify).toHaveBeenCalledWith("$sessionSignal");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["workspaces"],
+    });
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["workspace"],
+    });
   });
 
   it("refreshes project lists in every tab after a project access change", () => {
@@ -511,8 +516,12 @@ describe("user WebSocket lifecycle", () => {
     );
     expect(leave).toHaveBeenCalledWith("workspace", expect.anything());
     expect(client.removeQueries).toHaveBeenCalledOnce();
-    expect(auth.notify).toHaveBeenCalledWith("$listOrg");
-    expect(auth.notify).toHaveBeenCalledWith("$activeOrgSignal");
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["workspaces"],
+    });
+    expect(client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["workspace-capabilities"],
+    });
   });
 });
 

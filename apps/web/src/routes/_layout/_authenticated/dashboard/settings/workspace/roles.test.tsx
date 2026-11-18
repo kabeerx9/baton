@@ -74,7 +74,7 @@ describe("workspace role permission editing", () => {
           workspaceId: "workspace",
           role: "admin",
           permission: defaultRolePayloads.admin,
-          createdAt: new Date(),
+          createdAt: "2026-11-18T00:00:00.000Z",
         }}
         isDefault
         onDelete={() => {}}
@@ -90,7 +90,7 @@ describe("workspace role permission editing", () => {
     await waitFor(() =>
       expect(m.update).toHaveBeenCalledWith({
         workspaceId: "workspace",
-        roleName: "admin",
+        roleId: "role",
         permission: {},
       }),
     );

@@ -32,7 +32,7 @@ describe("syncAdminWorkspaceMembers", () => {
       [
         ["admin", "workspaces"],
         ["workspace-users", "acme"],
-        ["workspace", "full", "acme"],
+        ["workspace", "acme"],
       ],
     );
   });

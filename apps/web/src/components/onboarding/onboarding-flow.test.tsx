@@ -45,7 +45,6 @@ vi.mock("@/lib/toast", () => ({
 }));
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    organization: { setActive: vi.fn() },
     getSession: (options: unknown) => m.getSession(options),
     signOut: () => m.signOut(),
   },
@@ -186,11 +185,7 @@ describe("OnboardingFlow steps", () => {
       await screen.findByText("auth:onboarding.ready.title"),
     ).toBeInTheDocument();
     expect(m.createWorkspace).toHaveBeenCalledTimes(1);
-    expect(m.createWorkspace).toHaveBeenCalledWith({
-      name: "Acme",
-      description: "",
-      userId: "u1",
-    });
+    expect(m.createWorkspace).toHaveBeenCalledWith({ name: "Acme" });
     expect(m.createStarterProject).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "workspace-1",

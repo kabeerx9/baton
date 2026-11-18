@@ -1,4 +1,3 @@
-import { workspaceStatusQueryKey } from "@/hooks/queries/workspace/use-workspace-archived";
 import { windowId } from "@baton/libs";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -6,10 +5,15 @@ import { useEffect, useRef } from "react";
 import { getApiUrl } from "@/fetchers/get-api-url";
 import { membersUpdatedKeys } from "@/hooks/queries/join-link/keys";
 import {
+  WORKSPACES_QUERY_KEY,
+  workspaceQueryKey,
+} from "@/hooks/queries/workspace/workspace-query-keys";
+import {
   evictInaccessibleWorkspaceCache,
   evictWorkspaceCache,
 } from "@/lib/evict-workspace-cache";
 import { authClient } from "@/lib/auth-client";
+import { readRememberedWorkspace } from "@/lib/last-workspace/remembered-workspace";
 import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { reconcileProjectAccess } from "@/lib/reconcile-project-access";
 import {
@@ -37,8 +41,6 @@ export function useUserWebSocket() {
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
   const { data: session } = authClient.useSession();
-  const activeWorkspaceRef = useRef(session?.session?.activeOrganizationId);
-  activeWorkspaceRef.current = session?.session?.activeOrganizationId;
   useEffect(() => {
     if (!session?.user?.id) return;
     const userId = session.user.id;
@@ -46,20 +48,29 @@ export function useUserWebSocket() {
     // Dispose ends the connection, so a previous session cannot act late.
     const isEnded = () => connection.state().status === "ended";
 
-    function refreshOrganizationState() {
-      for (const signal of [
-        "$listOrg",
-        "$activeOrgSignal",
-        "$activeMemberRoleSignal",
-        "$sessionSignal",
+    // Membership or a role may have changed: the list, each workspace read
+    // (it carries the caller's role) and the capability maps.
+    function refreshWorkspaceState() {
+      for (const queryKey of [
+        WORKSPACES_QUERY_KEY,
+        ["workspace"],
+        ["workspace-capabilities"],
       ])
-        authClient.$store.notify(signal);
+        void queryClient.invalidateQueries({ queryKey });
+    }
+
+    // Settings pages name no workspace in the URL; they show this tab's
+    // remembered one.
+    function currentWorkspaceId(path: string) {
+      return /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
+        ? (readRememberedWorkspace(userId) ?? undefined)
+        : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
     }
 
     // The cookie may hold another tab's newer session, so never sign it out.
     function leaveSession() {
       queryClient.clear();
-      refreshOrganizationState();
+      authClient.$store.notify("$sessionSignal");
       void navigate({ to: "/auth/sign-in" });
     }
 
@@ -90,21 +101,15 @@ export function useUserWebSocket() {
           message.workspaceIds.every((id) => typeof id === "string")
         ) {
           evictInaccessibleWorkspaceCache(queryClient, message.workspaceIds);
-          void queryClient.invalidateQueries({
-            queryKey: ["workspace-status"],
-          });
           for (const workspaceId of message.workspaceIds)
             reconcileProjectAccess(queryClient, workspaceId, () => !isEnded());
-          refreshOrganizationState();
-          const path = pathnameRef.current;
-          const current =
-            /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
-              ? activeWorkspaceRef.current
-              : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
+          refreshWorkspaceState();
+          const current = currentWorkspaceId(pathnameRef.current);
           if (current && !message.workspaceIds.includes(current))
             void leaveGoneWorkspace(current, {
               queryClient,
               navigate: (destination) => navigate(destination),
+              userId,
             });
         }
         if (
@@ -112,15 +117,13 @@ export function useUserWebSocket() {
           message.workspaceId
         ) {
           evictWorkspaceCache(queryClient, message.workspaceId);
-          refreshOrganizationState();
-          const path = pathnameRef.current;
-          const current =
-            /^\/dashboard\/settings\/(workspace|projects)(\/|$)/.test(path)
-              ? activeWorkspaceRef.current
-              : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
+          refreshWorkspaceState();
+          // An archived board stays and shows the archived screen.
           void queryClient.invalidateQueries({
-            queryKey: workspaceStatusQueryKey(message.workspaceId),
+            queryKey: workspaceQueryKey(message.workspaceId),
           });
+          const path = pathnameRef.current;
+          const current = currentWorkspaceId(path);
           if (
             current === message.workspaceId &&
             (message.reason !== "archived" ||
@@ -129,6 +132,7 @@ export function useUserWebSocket() {
             void leaveGoneWorkspace(message.workspaceId, {
               queryClient,
               navigate: (destination) => navigate(destination),
+              userId,
             });
         }
         if (message.type === "WORKSPACE_RESTORED" && message.workspaceId) {
@@ -136,10 +140,9 @@ export function useUserWebSocket() {
             queryKey: ["admin", "workspaces"],
           });
           void queryClient.invalidateQueries({
-            queryKey: workspaceStatusQueryKey(message.workspaceId),
+            queryKey: workspaceQueryKey(message.workspaceId),
           });
-          void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-          refreshOrganizationState();
+          refreshWorkspaceState();
         }
         if (message.type === "PROJECT_ACCESS_CHANGED" && message.workspaceId) {
           const { workspaceId } = message;

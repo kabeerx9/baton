@@ -65,12 +65,9 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
   default: () => ({ data: undefined }),
 }));
-vi.mock(
-  "@/hooks/queries/workspace-users/use-get-active-workspace-users",
-  () => ({
-    useGetActiveWorkspaceUsers: () => ({ data: undefined }),
-  }),
-);
+vi.mock("@/hooks/queries/workspace-users/use-get-workspace-users", () => ({
+  default: () => ({ data: undefined }),
+}));
 vi.mock("@/hooks/queries/workspace-users/use-get-project-members", () => ({
   default: () => ({ data: undefined }),
 }));

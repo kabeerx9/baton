@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -45,31 +45,17 @@ export function WorkspaceSwitcher() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isCreateWorkspaceModalOpen, setIsCreateWorkspaceModalOpen] =
     React.useState(false);
-  const [isSwitching, setIsSwitching] = React.useState(false);
-
+  // A switch is a navigation: the route's own read is the pending state.
+  const isSwitching = useRouterState({ select: (s) => s.status === "pending" });
+  // The route is the active workspace; entering it remembers it for this tab.
   const handleWorkspaceChange = React.useCallback(
-    async (selectedWorkspace: Workspace) => {
-      if (isSwitching) return;
-
-      setIsSwitching(true);
-      try {
-        await authClient.organization.setActive({
-          organizationId: selectedWorkspace.id,
-        });
-
-        setTimeout(() => {
-          navigate({
-            to: "/dashboard/workspace/$workspaceId",
-            params: { workspaceId: selectedWorkspace.id },
-          });
-        }, 50);
-      } catch (error) {
-        console.error("Failed to switch workspace:", error);
-      } finally {
-        setTimeout(() => setIsSwitching(false), 100);
-      }
+    (selectedWorkspace: Workspace) => {
+      void navigate({
+        to: "/dashboard/workspace/$workspaceId",
+        params: { workspaceId: selectedWorkspace.id },
+      });
     },
-    [navigate, isSwitching],
+    [navigate],
   );
 
   React.useEffect(() => {

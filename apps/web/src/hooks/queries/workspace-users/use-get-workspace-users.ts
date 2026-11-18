@@ -1,53 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
+import getWorkspaceMembers from "@/fetchers/workspace-user/get-workspace-members";
+import { workspaceUsersQueryKey } from "@/hooks/queries/workspace/workspace-query-keys";
 
-type GetWorkspaceUsersRequest = {
-  workspaceId?: string;
-  limit?: number;
-  offset?: number;
-  sortBy?: string;
-  sortDirection?: "asc" | "desc";
-  filterField?: string;
-  filterOperator?: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "contains";
-  filterValue?: string;
-};
-
-function useGetWorkspaceUsers({
-  workspaceId,
-  limit,
-  offset,
-  sortBy,
-  sortDirection,
-  filterField,
-  filterOperator,
-  filterValue,
-}: GetWorkspaceUsersRequest) {
+/** The workspace's members, flat: `{ id, name, email, image, role }`. */
+function useGetWorkspaceUsers(workspaceId: string | undefined) {
   return useQuery({
-    queryKey: [
-      "workspace-users",
-      workspaceId,
-      limit,
-      offset,
-      sortBy,
-      sortDirection,
-      filterField,
-      filterOperator,
-      filterValue,
-    ],
-    enabled: !!workspaceId,
-    queryFn: async () => {
-      const { data, error } = await authClient.organization.listMembers({
-        query: {
-          organizationId: workspaceId,
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message || "Failed to get workspace users");
-      }
-
-      return data.members;
-    },
+    queryKey: workspaceUsersQueryKey(workspaceId ?? ""),
+    queryFn: () => getWorkspaceMembers(workspaceId as string),
+    enabled: Boolean(workspaceId),
   });
 }
 
