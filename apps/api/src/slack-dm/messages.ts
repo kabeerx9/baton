@@ -54,6 +54,22 @@ export function digestMessage(
   return `*Waiting on you: ${blockers} ${blockers === 1 ? "task" : "tasks"}*\n${lines.join("\n")}\n<${myTasksUrl}|Open My tasks>`;
 }
 
+/** Someone joined a workspace through a join link. */
+export function welcomeMessage({
+  workspaceName,
+  sharerName,
+  boardUrl,
+}: {
+  workspaceName: string;
+  sharerName: string | null;
+  boardUrl: string;
+}) {
+  const sharer = sharerName
+    ? ` ${escape(sharerName)} added you through a join link.`
+    : "";
+  return `*Welcome to ${escape(workspaceName)} on Baton!*${sharer}\n<${boardUrl}|Open the board>`;
+}
+
 export function testMessage() {
   return "*The tracker can reach you here.*\nYou will get a message when someone waits on your task, and when a task that blocks yours is done.";
 }

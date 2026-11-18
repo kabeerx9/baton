@@ -1,6 +1,11 @@
 import { subscribeToEvent } from "../events";
 import { slackConfig } from "./config";
-import { unblockedMessage, waitingOnYouMessage } from "./messages";
+import { loadJoinFacts } from "./join-facts";
+import {
+  unblockedMessage,
+  waitingOnYouMessage,
+  welcomeMessage,
+} from "./messages";
 import { sendDm } from "./send-dm";
 import { blockedBy, loadTasks, openBlockersOf } from "./task-facts";
 
@@ -105,3 +110,26 @@ subscribeToEvent<{
     );
   }
 });
+
+/**
+ * "Welcome": a person joined a workspace through a join link. Published once,
+ * after the join commits, and only for a new member (not already_member).
+ * Live like the other messages: a restart in between drops it.
+ */
+subscribeToEvent<{ workspaceId: string; userId: string; linkId: string }>(
+  "workspace.member_joined",
+  async (event) => {
+    const config = slackConfig();
+    if (!config || !event.workspaceId || !event.userId) return;
+    const facts = await loadJoinFacts(event.workspaceId, event.linkId);
+    if (!facts) return;
+    await sendDm(
+      event.userId,
+      welcomeMessage({
+        ...facts,
+        boardUrl: `${config.clientUrl}/dashboard/workspace/${event.workspaceId}/board`,
+      }),
+      { workspaceId: event.workspaceId },
+    );
+  },
+);

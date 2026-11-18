@@ -3,6 +3,7 @@ import {
   digestMessage,
   unblockedMessage,
   waitingOnYouMessage,
+  welcomeMessage,
 } from "./messages";
 
 const api = { key: "API-3", title: "Return points", url: "https://t/api-3" };
@@ -63,5 +64,27 @@ describe("slack messages", () => {
     });
     expect(text).toContain("A &amp; B");
     expect(text).toContain("Fix &lt;script&gt; &amp; co");
+  });
+
+  it("welcomes a person who joined and names who shared the link", () => {
+    expect(
+      welcomeMessage({
+        workspaceName: "R&D <Team>",
+        sharerName: "Kabeer",
+        boardUrl: "https://t/dashboard/workspace/ws-1/board",
+      }),
+    ).toBe(
+      "*Welcome to R&amp;D &lt;Team&gt; on Baton!* Kabeer added you through a join link.\n<https://t/dashboard/workspace/ws-1/board|Open the board>",
+    );
+  });
+
+  it("leaves out the sharer when that account is gone", () => {
+    expect(
+      welcomeMessage({
+        workspaceName: "Team",
+        sharerName: null,
+        boardUrl: "https://t/b",
+      }),
+    ).toBe("*Welcome to Team on Baton!*\n<https://t/b|Open the board>");
   });
 });
