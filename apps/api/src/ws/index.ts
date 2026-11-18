@@ -290,6 +290,9 @@ export function getLocalRealtimeStats() {
  */
 export const SESSION_RECHECK_MS = 60_000;
 let sessionRecheck: ReturnType<typeof setInterval> | undefined;
+let sessionRecheckRunning = false;
+/** Ids per existence query, so a busy instance never sends one huge IN list. */
+export const SESSION_RECHECK_CHUNK = 500;
 
 export function isSessionRecheckRunning() {
   return sessionRecheck !== undefined;
@@ -380,10 +383,14 @@ export async function initializeWebSocketAdapter({
 
   adapter = nextAdapter;
   revocationDelivery = createRevocationDelivery(nextAdapter);
-  sessionRecheck = setInterval(
-    () => void recheckLocalSessions(),
-    sessionRecheckMs,
-  );
+  sessionRecheck = setInterval(() => {
+    // A slow recheck must not stack up behind itself; skip this tick.
+    if (sessionRecheckRunning) return;
+    sessionRecheckRunning = true;
+    void recheckLocalSessions().finally(() => {
+      sessionRecheckRunning = false;
+    });
+  }, sessionRecheckMs);
   sessionRecheck.unref?.();
   console.log(`📡 WebSockets Initialized using: "${adapter.constructor.name}"`);
 }
@@ -550,7 +557,12 @@ async function recheckLocalSessions() {
   if (ids.length === 0) return;
   let existing: Set<string>;
   try {
-    existing = await identity.sessions.existing(ids);
+    existing = new Set();
+    for (let start = 0; start < ids.length; start += SESSION_RECHECK_CHUNK) {
+      const chunk = ids.slice(start, start + SESSION_RECHECK_CHUNK);
+      for (const id of await identity.sessions.existing(chunk))
+        existing.add(id);
+    }
   } catch (error) {
     console.error("Failed to verify realtime sessions:", error);
     return;

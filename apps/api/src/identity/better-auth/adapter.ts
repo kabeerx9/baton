@@ -25,6 +25,10 @@ function isRejection(error: unknown) {
   return status >= 400 && status < 500;
 }
 
+function hasSessionCredential(headers: Headers) {
+  return headers.has("cookie") || headers.has("authorization");
+}
+
 async function readUser(userId: string) {
   const [user] = await db
     .select({ id: userTable.id, name: userTable.name, email: userTable.email })
@@ -40,20 +44,31 @@ export function createBetterAuthIdentity(
   auth: Auth,
   hooks: IdentityHooks,
 ): IdentityProvider {
+  /** The provider's session for a cookie or bearer token; never an API key's. */
+  async function readSession(
+    headers: Headers,
+    query?: { disableRefresh: boolean },
+  ) {
+    const sessionHeaders = new Headers(headers);
+    // With `enableSessionForAPIKeys` a key header would resolve to its
+    // owner's session. API keys are Baton's; this is a person's session only.
+    sessionHeaders.delete("x-api-key");
+    try {
+      const found = await auth.api.getSession({
+        headers: sessionHeaders,
+        ...(query ? { query } : {}),
+      });
+      return found?.user && found.session ? found : null;
+    } catch (error) {
+      if (isRejection(error)) return null;
+      throw error;
+    }
+  }
+
   return {
     async resolve(headers) {
-      const sessionHeaders = new Headers(headers);
-      // With `enableSessionForAPIKeys` a key header would resolve to its
-      // owner's session. API keys are Baton's; this is a person's session only.
-      sessionHeaders.delete("x-api-key");
-      let found: Awaited<ReturnType<Auth["api"]["getSession"]>>;
-      try {
-        found = await auth.api.getSession({ headers: sessionHeaders });
-      } catch (error) {
-        if (isRejection(error)) return null;
-        throw error;
-      }
-      if (!found?.user || !found.session) return null;
+      const found = await readSession(headers);
+      if (!found) return null;
       // A second guard: deactivation also ends every session.
       if (!(await hooks.canSignIn({ userId: found.user.id }))) return null;
       return {
@@ -68,7 +83,29 @@ export function createBetterAuthIdentity(
       };
     },
 
-    handle: (request) => auth.handler(request),
+    /**
+     * Every /api/auth route passes here, so a banned user's surviving session
+     * is refused once for all of them. Sign-out stays open so the cookie can
+     * be cleared; requests without a session are unchanged.
+     */
+    async handle(request) {
+      const signOut = new URL(request.url).pathname.endsWith("/sign-out");
+      if (!signOut && hasSessionCredential(request.headers)) {
+        const found = await readSession(request.headers, {
+          disableRefresh: true,
+        });
+        if (found && !(await hooks.canSignIn({ userId: found.user.id }))) {
+          return Response.json(
+            {
+              code: "BANNED_USER",
+              message: "This account has been deactivated.",
+            },
+            { status: 403 },
+          );
+        }
+      }
+      return auth.handler(request);
+    },
 
     sessions: {
       async list(userId) {
