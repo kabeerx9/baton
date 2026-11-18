@@ -56,7 +56,6 @@ describe("workspace role permission editing", () => {
       "Change role permissions",
       "Change member roles",
       "Manage join links",
-      "Edit teams",
     ]) {
       expect(screen.getByRole("switch", { name: label })).toBeChecked();
       expect(screen.getByRole("switch", { name: label })).toHaveAttribute(
@@ -135,6 +134,34 @@ describe("workspace role permission editing", () => {
       }),
     );
     expect(onDelete).toHaveBeenCalledOnce();
+  });
+  it("drops rights Baton no longer knows when a role is saved", async () => {
+    render(
+      <CustomRoleEditor
+        workspaceId="workspace"
+        role={{
+          id: "role",
+          workspaceId: "workspace",
+          role: "qa",
+          permission: { task: ["read"], team: ["create", "update"] },
+          createdAt: "2026-11-18T00:00:00.000Z",
+          updatedAt: "2026-11-18T00:00:00.000Z",
+        }}
+        onDelete={() => {}}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings:workspaceRoles.saveChanges",
+      }),
+    );
+    await waitFor(() =>
+      expect(m.update).toHaveBeenCalledWith({
+        workspaceId: "workspace",
+        roleId: "role",
+        permission: { task: ["read"] },
+      }),
+    );
   });
   it("also exposes unknown stored permission entries instead of silently retaining them", () => {
     render(

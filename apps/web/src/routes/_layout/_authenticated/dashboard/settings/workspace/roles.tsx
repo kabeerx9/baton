@@ -65,7 +65,6 @@ const RESOURCE_LABELS: Record<string, string> = {
   organization: "Workspace administration",
   member: "Members",
   invitation: "Invitations",
-  team: "Teams",
   ac: "Roles and permissions",
   project: "Projects",
   task: "Tasks",
@@ -105,18 +104,6 @@ const PERMISSION_LABELS: Record<
   "invitation:cancel": {
     label: "Cancel invitations",
     description: "Not used: email invitations were replaced by join links.",
-  },
-  "team:create": {
-    label: "Create teams",
-    description: "Create teams in this workspace.",
-  },
-  "team:update": {
-    label: "Edit teams",
-    description: "Change teams and team membership.",
-  },
-  "team:delete": {
-    label: "Delete teams",
-    description: "Delete teams in this workspace.",
   },
   "ac:create": {
     label: "Create roles",
@@ -745,9 +732,15 @@ export function CustomRoleEditor({
   const { mutateAsync: updateRole, isPending } = useUpdateWorkspaceRole();
 
   const currentPermissions = useMemo(() => {
+    // Save only rights Baton knows, so a stored right with no meaning (such
+    // as the removed `team`) is dropped on the next save.
+    const known = statement as Record<string, readonly string[]>;
     const out: Record<string, string[]> = Object.create(null);
     for (const [r, set] of Object.entries(permissions)) {
-      if (set.size > 0) out[r] = Array.from(set);
+      const actions = Array.from(set).filter((action) =>
+        known[r]?.includes(action),
+      );
+      if (actions.length > 0) out[r] = actions;
     }
     return out;
   }, [permissions]);
