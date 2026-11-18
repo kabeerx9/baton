@@ -339,6 +339,8 @@ Change request messages are also in-app notifications, sent after the change com
 - Each person sets their IANA time zone (`PUT /api/user/time-zone`). A person with no zone,
   or a zone this server does not know, gets the digest in `SLACK_DIGEST_TZ`.
 - The digest job runs every 15 minutes and sends at most one digest per person per local day.
+  The claim is made before the Slack call and only if the person's zone has not changed since the
+  job read it. A failed send is not retried, so a digest can be lost but never doubled.
 - Nobody is messaged about their own action or about blocking their own task.
 - A Slack failure is logged and never fails the task change.
 - `POST /api/slack-dm/me/test` sends the caller a test message and returns the outcome.

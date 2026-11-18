@@ -47,7 +47,8 @@ export async function sendDueDigests(now = new Date()) {
   let sent = 0;
   for (const [ownerId, links] of byOwner) {
     const first = links[0];
-    if (!first || !(await claimDigest(ownerId, first.day))) continue;
+    if (!first || !(await claimDigest(ownerId, first.day, first.zone)))
+      continue;
     const outcome = await sendDm(
       ownerId,
       digestMessage(

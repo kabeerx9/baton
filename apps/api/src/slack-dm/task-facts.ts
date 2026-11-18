@@ -117,10 +117,12 @@ export async function dueBlockingLinks(clientUrl: string, due: DueZone[]) {
   const result = await db.execute<{
     blocker_id: string;
     blocked_id: string;
+    zone: string | null;
     day: string;
   }>(sql`
     select ${taskRelationTable.sourceTaskId} as blocker_id,
       ${taskRelationTable.targetTaskId} as blocked_id,
+      due.zone as zone,
       due.day as day
     from ${taskRelationTable}
     inner join ${taskTable} on ${taskTable.id} = ${taskRelationTable.sourceTaskId}
@@ -147,6 +149,6 @@ export async function dueBlockingLinks(clientUrl: string, due: DueZone[]) {
     if (!blocker || !blocked || blocker.completed || blocked.completed) {
       return [];
     }
-    return [{ blocker, blocked, day: link.day }];
+    return [{ blocker, blocked, zone: link.zone, day: link.day }];
   });
 }
