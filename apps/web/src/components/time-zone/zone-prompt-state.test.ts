@@ -30,15 +30,20 @@ describe("deriveZonePrompt", () => {
     expect(derive({ pathname: "/onboarding" })).toEqual({ kind: "hidden" });
   });
 
-  it("is hidden on the Profile page, which has its own row", () => {
-    const pathname = "/dashboard/settings/account/information";
-    expect(derive({ pathname })).toEqual({ kind: "hidden" });
-    expect(derive({ pathname, stored: "Europe/London" })).toEqual({
-      kind: "hidden",
-    });
-    expect(
-      derive({ pathname: "/dashboard/settings/account/security" }),
-    ).toEqual({
+  it("is hidden on every settings page, so it covers no page action", () => {
+    for (const pathname of [
+      "/dashboard/settings",
+      "/dashboard/settings/account/information",
+      "/dashboard/settings/account/security",
+      "/dashboard/settings/workspace/general",
+    ]) {
+      expect(derive({ pathname })).toEqual({ kind: "hidden" });
+      expect(derive({ pathname, stored: "Europe/London" })).toEqual({
+        kind: "hidden",
+      });
+    }
+    // A path that only starts with the same letters still shows the card.
+    expect(derive({ pathname: "/dashboard/settingsx" })).toEqual({
       kind: "unset",
       detected: "Asia/Kolkata",
     });

@@ -1,7 +1,8 @@
 import { sameZone } from "@/lib/time-zone/same-zone";
 
-// The Profile page has its own time zone row, with the device hint.
-const PROFILE_PATH = "/dashboard/settings/account/information";
+// Settings pages keep the corner free: Profile has its own time zone row,
+// and the card covered page actions such as Delete workspace.
+const SETTINGS_PATH = "/dashboard/settings";
 
 /** What the time-zone prompt shows. One union, one pure derive. */
 export type ZonePrompt =
@@ -24,7 +25,7 @@ export function deriveZonePrompt(input: {
   if (stored === undefined || detected === null) return { kind: "hidden" };
   if (tourCompleted !== true) return { kind: "hidden" };
   if (!pathname.startsWith("/dashboard/")) return { kind: "hidden" };
-  if (pathname === PROFILE_PATH || pathname.startsWith(`${PROFILE_PATH}/`)) {
+  if (pathname === SETTINGS_PATH || pathname.startsWith(`${SETTINGS_PATH}/`)) {
     return { kind: "hidden" };
   }
   if (dismissedFor === detected) return { kind: "hidden" };
