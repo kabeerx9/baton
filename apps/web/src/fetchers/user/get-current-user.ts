@@ -1,7 +1,8 @@
-import type { CurrentUser } from "./time-zone-types";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-export async function getCurrentUser(): Promise<CurrentUser> {
-  // TODO(user-timezone): after the backend merges, call `client.user.me.$get()`,
-  // throw `HttpError.fromResponse` when not ok, and return `response.json()`.
-  throw new Error("getCurrentUser is not wired to the API yet");
+export async function getCurrentUser() {
+  const response = await client.user.me.$get();
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }

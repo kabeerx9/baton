@@ -1,15 +1,13 @@
-// Shapes from the user-timezone contract, section 3. Hand-written until the
-// backend merges; then derive them from the client with InferResponseType.
+import type { client } from "@baton/libs";
+import type { InferResponseType } from "hono/client";
+
+// Derived from the API, so the contract cannot drift from the server.
 
 /** GET /api/user/me. `timeZone` is null until the person answers. */
-export type CurrentUser = {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-  role: string | null;
-  timeZone: string | null;
-};
+export type CurrentUser = InferResponseType<typeof client.user.me.$get, 200>;
 
 /** PUT /api/user/time-zone, 200. */
-export type UserTimeZone = { timeZone: string };
+export type UserTimeZone = InferResponseType<
+  (typeof client.user)["time-zone"]["$put"],
+  200
+>;

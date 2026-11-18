@@ -1,9 +1,8 @@
-import type { UserTimeZone } from "./time-zone-types";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-export async function setTimeZone(timeZone: string): Promise<UserTimeZone> {
-  // TODO(user-timezone): after the backend merges, call
-  // `client.user["time-zone"].$put({ json: { timeZone } })`, throw
-  // `HttpError.fromResponse` when not ok, and return `response.json()`.
-  void timeZone;
-  throw new Error("setTimeZone is not wired to the API yet");
+export async function setTimeZone(timeZone: string) {
+  const response = await client.user["time-zone"].$put({ json: { timeZone } });
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
 }
