@@ -5,6 +5,7 @@ import { MoveProjectRow } from "@/components/settings/project-general/move-proje
 import { useProjectMoveTargets } from "@/components/settings/project-general/use-project-move-targets";
 import { SettingsCard } from "@/components/settings/settings-card";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import type { ProjectWithTasks } from "@/types/project";
 
 type ProjectTasksSectionProps = {
@@ -19,6 +20,8 @@ export function ProjectTasksSection({
   flushPendingSave,
 }: ProjectTasksSectionProps) {
   const { t } = useTranslation();
+  // Import creates tasks; the API refuses a viewer.
+  const canImport = useWorkspacePermission().canCreateTasks();
   const { moveTargets, moveTargetsFailed, canShowMove } = useProjectMoveTargets(
     project,
     isCurrentProject,
@@ -28,7 +31,7 @@ export function ProjectTasksSection({
     <SettingsSection title={t("settings:projectGeneral.tasksTitle")}>
       <SettingsCard>
         <ExportTasksRow project={project} />
-        <ImportTasksRow project={project} />
+        {canImport ? <ImportTasksRow project={project} /> : null}
         {canShowMove ? (
           <MoveProjectRow
             projectId={project.id}
