@@ -43,6 +43,31 @@ export const workspaceMemberSchema = z
 
 export const workspaceMemberListSchema = z.array(workspaceMemberSchema);
 
+// Member writes answer with the change only, never member data: the caller
+// may lack read (a member:update-only key) or have just removed themselves.
+// Clients refetch the list through GET /{workspaceId}/members.
+export const removedMemberSchema = z
+  .object({ workspaceId: z.string(), userId: z.string() })
+  .openapi("RemovedWorkspaceMember");
+
+export const memberRoleChangedSchema = z
+  .object({
+    workspaceId: z.string(),
+    userId: z.string(),
+    role: z.string().openapi({ description: "The member's new role." }),
+  })
+  .openapi("WorkspaceMemberRoleChanged");
+
+export const ownershipTransferredSchema = z
+  .object({
+    workspaceId: z.string(),
+    ownerId: z.string().openapi({ description: "The new owner." }),
+    previousOwnerId: z.string().openapi({
+      description: "The caller, who is now an admin.",
+    }),
+  })
+  .openapi("WorkspaceOwnershipTransferred");
+
 export const memberProjectAccessSchema = z
   .object({
     userId: z.string(),

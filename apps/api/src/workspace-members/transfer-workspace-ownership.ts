@@ -6,6 +6,7 @@ import { publishEvent } from "../events";
 import { recordWorkspaceMemberAction } from "../admin/audit/record-workspace-member-action";
 import { clearMemberProjectAccess } from "../project-access/clear-member-project-access";
 import { isOwnerRole } from "../project-access/is-owner-role";
+import { publishMembersUpdated } from "./publish-members-updated";
 import { lockWorkspace } from "../workspace/lifecycle/lock-workspace";
 import { authorizeWorkspaceWrite } from "../workspace/write/authorize-workspace-write";
 import type { WorkspaceActor } from "../workspace/write/workspace-actor";
@@ -26,7 +27,7 @@ export async function transferWorkspaceOwnership(input: {
   actor: WorkspaceActor;
 }) {
   const { workspaceId, userId, actor } = input;
-  await db.transaction(async (tx) => {
+  const previousOwnerIds = await db.transaction(async (tx) => {
     const locked = await lockWorkspace(tx, workspaceId, {
       allowDemo: actor.kind === "member",
     });
@@ -80,7 +81,10 @@ export async function transferWorkspaceOwnership(input: {
         userId,
         metadata: { previousRole: target.role, previousOwnerIds: demoted },
       });
+    return demoted;
   });
 
   await publishEvent("project_access.updated", { workspaceId, userId });
+  await publishMembersUpdated(workspaceId);
+  return { workspaceId, ownerId: userId, previousOwnerIds };
 }

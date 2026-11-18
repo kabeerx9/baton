@@ -5,6 +5,7 @@ import { clearMemberRemoval } from "../../join-link/record-member-removal";
 import { clearMemberProjectAccess } from "../../project-access/clear-member-project-access";
 import { isOwnerRole } from "../../project-access/is-owner-role";
 import { revokeWorkspaceConnections } from "../../ws";
+import { publishMembersUpdated } from "../../workspace-members/publish-members-updated";
 import { lockWorkspace } from "../lifecycle/lock-workspace";
 import { authorizeWorkspaceWrite } from "../write/authorize-workspace-write";
 import type { WorkspaceActor } from "../write/workspace-actor";
@@ -53,9 +54,15 @@ async function leaveWorkspace(input: {
   });
 
   await publishEvent("project_members.updated", { workspaceId });
-  await revokeWorkspaceConnections(actor.userId, workspaceId, {
-    role: userRole,
-  });
+  await publishMembersUpdated(workspaceId);
+  try {
+    await revokeWorkspaceConnections(actor.userId, workspaceId, {
+      role: userRole,
+    });
+  } catch (error) {
+    // The leave is committed; the socket recheck (every 60 s) closes it.
+    console.error("Socket revocation failed after leave:", error);
+  }
   return { workspaceId };
 }
 

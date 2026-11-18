@@ -16,14 +16,17 @@ import {
 import { assertStoredOwnerRoleSafe } from "./assert-stored-owner-role-safe";
 import { handleMemberRemoved } from "./handle-member-removed";
 
-/** Remove a member. The member route and `/api/admin/*` share this path. */
+/**
+ * Remove a member. The member route and `/api/admin/*` share this path. The
+ * result names only the removal; callers that may read members refetch them.
+ */
 export async function removeWorkspaceMember(input: {
   workspaceId: string;
   userId: string;
   actor: WorkspaceActor;
 }) {
   const { workspaceId, userId, actor } = input;
-  await db.transaction(async (tx) => {
+  const userRole = await db.transaction(async (tx) => {
     const locked = await lockWorkspace(tx, workspaceId, {
       allowDemo: actor.kind === "member",
     });
@@ -62,12 +65,16 @@ export async function removeWorkspaceMember(input: {
         userId,
         metadata: { role: target.role },
       });
+    // The socket revocation's input, read here so no lookup after commit
+    // can fail it.
+    const [user] = await tx
+      .select({ role: userTable.role })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1);
+    return user?.role ?? null;
   });
 
-  const [user] = await db
-    .select({ role: userTable.role })
-    .from(userTable)
-    .where(eq(userTable.id, userId))
-    .limit(1);
-  await handleMemberRemoved({ workspaceId, userId, userRole: user?.role });
+  await handleMemberRemoved({ workspaceId, userId, userRole });
+  return { workspaceId, userId };
 }

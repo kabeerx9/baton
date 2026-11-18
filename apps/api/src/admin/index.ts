@@ -167,10 +167,12 @@ const addWorkspaceMemberRoute = createRoute({
   tags: ["Admin"],
   summary: "Add a user to a workspace",
   description:
-    "Add an existing user to a workspace with a role. They start with access to every project. Returns the updated member list. Requires the `workspaces:manage` instance permission; API keys are rejected.",
+    "Add an existing user to a workspace with a role. They start with access to every project. Returns the updated member list. Requires the `workspaces:manage` and `workspaces:read` instance permissions; API keys are rejected.",
   middleware: [
     requireUserSession,
     requireInstancePermission("workspaces:manage"),
+    // The answer is the member list, so it needs the list's own check.
+    requireInstancePermission("workspaces:read"),
   ] as const,
   request: {
     params: adminWorkspaceParam,
@@ -198,10 +200,12 @@ const updateWorkspaceMemberRoleRoute = createRoute({
   tags: ["Admin"],
   summary: "Change a workspace member's role",
   description:
-    "Change a member's role. Use the ownership transfer to make someone the owner; the only owner's role can't be changed. Returns the updated member list. Requires the `workspaces:manage` instance permission; API keys are rejected.",
+    "Change a member's role. Use the ownership transfer to make someone the owner; the only owner's role can't be changed. Returns the updated member list. Requires the `workspaces:manage` and `workspaces:read` instance permissions; API keys are rejected.",
   middleware: [
     requireUserSession,
     requireInstancePermission("workspaces:manage"),
+    // The answer is the member list, so it needs the list's own check.
+    requireInstancePermission("workspaces:read"),
   ] as const,
   request: {
     params: adminWorkspaceMemberParam,
@@ -231,10 +235,12 @@ const removeWorkspaceMemberRoute = createRoute({
   tags: ["Admin"],
   summary: "Remove a workspace member",
   description:
-    "Remove a member from a workspace. Their account stays. The only owner can't be removed. Returns the updated member list. Requires the `workspaces:manage` instance permission; API keys are rejected.",
+    "Remove a member from a workspace. Their account stays. The only owner can't be removed. Returns the updated member list. Requires the `workspaces:manage` and `workspaces:read` instance permissions; API keys are rejected.",
   middleware: [
     requireUserSession,
     requireInstancePermission("workspaces:manage"),
+    // The answer is the member list, so it needs the list's own check.
+    requireInstancePermission("workspaces:read"),
   ] as const,
   request: { params: adminWorkspaceMemberParam },
   responses: {
@@ -255,10 +261,12 @@ const transferWorkspaceOwnershipRoute = createRoute({
   tags: ["Admin"],
   summary: "Transfer workspace ownership",
   description:
-    "Make an existing member the only owner of a workspace, for example when the previous owner has left. Previous owners become admins. Returns the updated member list. Requires the `workspaces:manage` instance permission; API keys are rejected.",
+    "Make an existing member the only owner of a workspace, for example when the previous owner has left. Previous owners become admins. Returns the updated member list. Requires the `workspaces:manage` and `workspaces:read` instance permissions; API keys are rejected.",
   middleware: [
     requireUserSession,
     requireInstancePermission("workspaces:manage"),
+    // The answer is the member list, so it needs the list's own check.
+    requireInstancePermission("workspaces:read"),
   ] as const,
   request: {
     params: adminWorkspaceParam,
