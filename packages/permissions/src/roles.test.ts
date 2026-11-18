@@ -16,20 +16,30 @@ const PAYLOADS_BEFORE =
 const PROVIDER_ROLES_FROZEN =
   '{"viewer":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["read"],"task":["read"],"label":["read"],"workspace":["read"]},"member":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["create","read"],"task":["create","read","update"],"label":["create","read","update","delete"],"workspace":["read"]},"admin":{"organization":["update"],"invitation":["create","cancel"],"member":["create","update","delete"],"team":["create","update","delete"],"ac":["create","read","update","delete"],"project":["create","read","update","delete","share"],"task":["create","read","update","delete","assign"],"label":["create","read","update","delete"],"workspace":["read","update","manage_settings"]},"owner":{"organization":["update","delete"],"member":["create","update","delete"],"invitation":["create","cancel"],"team":["create","update","delete"],"ac":["create","read","update","delete"],"project":["create","read","update","delete","share"],"task":["create","read","update","delete","assign"],"label":["create","read","update","delete"],"workspace":["read","update","delete","manage_settings"]}}';
 
+/** A snapshot with `team` removed: it left the vocabulary in auth-boundary P4. */
+function withoutTeam(snapshot: string) {
+  const roles = JSON.parse(snapshot) as Record<string, Record<string, unknown>>;
+  for (const role of Object.values(roles)) delete role.team;
+  return JSON.stringify(roles);
+}
+
 // The plugin's own default resources, written out in statements.ts.
 const PROVIDER_DEFAULT_STATEMENTS = {
   organization: ["update", "delete"],
   member: ["create", "update", "delete"],
   invitation: ["create", "cancel"],
-  team: ["create", "update", "delete"],
   ac: ["create", "read", "update", "delete"],
 };
 
 describe("plain roles match the frozen provider roles", () => {
-  it("is byte-equal to the snapshot", () => {
+  it("is byte-equal to the snapshot, less `team`", () => {
     expect(JSON.stringify(BUILT_IN_ROLE_STATEMENTS)).toBe(
-      PROVIDER_ROLES_FROZEN,
+      withoutTeam(PROVIDER_ROLES_FROZEN),
     );
+  });
+
+  it("no longer knows `team`", () => {
+    expect(Object.keys(statement)).not.toContain("team");
   });
 
   it("writes out the provider's default resources unchanged", () => {
@@ -42,8 +52,10 @@ describe("plain roles match the frozen provider roles", () => {
 });
 
 describe("defaultRolePayloads", () => {
-  it("is byte-equal to the value before the plain-data move", () => {
-    expect(JSON.stringify(defaultRolePayloads)).toBe(PAYLOADS_BEFORE);
+  it("is byte-equal to the value before the plain-data move, less `team`", () => {
+    expect(JSON.stringify(defaultRolePayloads)).toBe(
+      withoutTeam(PAYLOADS_BEFORE),
+    );
   });
 
   it("copies arrays, so a payload edit never changes a built-in role", () => {

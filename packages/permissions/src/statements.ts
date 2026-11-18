@@ -6,7 +6,6 @@ export const statement = {
   organization: ["update", "delete"],
   member: ["create", "update", "delete"],
   invitation: ["create", "cancel"],
-  team: ["create", "update", "delete"],
   ac: ["create", "read", "update", "delete"],
   project: ["create", "read", "update", "delete", "share"],
   task: ["create", "read", "update", "delete", "assign"],
