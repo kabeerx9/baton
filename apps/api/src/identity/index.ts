@@ -1,40 +1,55 @@
-import { batonIdentityHooks } from "./baton-hooks";
-import { createBetterAuthIdentity } from "./better-auth/adapter";
-import { auth } from "./better-auth/auth";
 import type { IdentityProvider } from "./port";
 
 export type * from "./port";
 
-let configured: IdentityProvider | undefined;
+let configured: Promise<IdentityProvider> | undefined;
 let override: IdentityProvider | null = null;
+
+/**
+ * Loaded on first use, so importing `identity` (ws, GitHub, MCP) does not
+ * pull the provider and its hooks into every module graph.
+ */
+async function configure(): Promise<IdentityProvider> {
+  const [{ createBetterAuthIdentity }, { auth }, { batonIdentityHooks }] =
+    await Promise.all([
+      import("./better-auth/adapter"),
+      import("./better-auth/auth"),
+      import("./baton-hooks"),
+    ]);
+  return createBetterAuthIdentity(auth, batonIdentityHooks);
+}
 
 /**
  * Which adapter `identity` forwards to. A getter, so tests can swap it with
  * `setIdentityForTests` or spy on it and have `vi.restoreAllMocks` undo that.
  */
 export const identityHolder = {
-  get current(): IdentityProvider {
+  get current(): IdentityProvider | Promise<IdentityProvider> {
     if (override) return override;
-    configured ??= createBetterAuthIdentity(auth, batonIdentityHooks);
+    configured ??= configure();
     return configured;
   },
 };
 
-function forward<T extends object>(read: () => T): T {
-  return new Proxy({} as T, {
-    get(_, key) {
-      const target = read();
-      const value = Reflect.get(target, key);
-      if (typeof value === "function") return value.bind(target);
-      if (value && typeof value === "object")
-        return forward(() => Reflect.get(read(), key) as object);
-      return value;
-    },
+// Every port method is async, so each call can wait for the adapter.
+function forward(path: PropertyKey[]): unknown {
+  const call = async (...args: unknown[]) => {
+    let owner: unknown = await identityHolder.current;
+    for (const key of path.slice(0, -1))
+      owner = Reflect.get(owner as object, key);
+    const method = Reflect.get(owner as object, path.at(-1)!) as (
+      ...args: unknown[]
+    ) => unknown;
+    return method.apply(owner, args);
+  };
+  return new Proxy(call, {
+    // Not a thenable: `await identity` must not call into the adapter.
+    get: (_, key) => (key === "then" ? undefined : forward([...path, key])),
   });
 }
 
 /** The configured identity provider. The only way Baton reaches the provider. */
-export const identity: IdentityProvider = forward(() => identityHolder.current);
+export const identity = forward([]) as IdentityProvider;
 
 /** Replace the adapter until called again with null. Tests only. */
 export function setIdentityForTests(adapter: IdentityProvider | null) {

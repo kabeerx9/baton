@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { createEmailVerificationToken, isAPIError } from "better-auth/api";
 import { and, count, desc, eq, gt, gte, inArray, ne, sql } from "drizzle-orm";
-import db, { schema } from "../../database";
+import db from "../../database";
+import { accountTable, sessionTable, userTable } from "../../database/schema";
 import { notBannedCondition } from "../../utils/user-ban";
 import type { IdentityHooks, IdentityProvider, SessionInfo } from "../port";
 import { userRows } from "../user-rows";
@@ -12,8 +13,6 @@ type Auth = typeof betterAuth;
 // A new account has longer to act on its first email than a reset link.
 const SETUP_LINK_SECONDS = 2 * 24 * 60 * 60;
 const VERIFICATION_LINK_SECONDS = 24 * 60 * 60;
-
-const { userTable, sessionTable, accountTable } = schema;
 
 function clientUrl(path: string) {
   const base = process.env.BATON_CLIENT_URL || "http://localhost:5173";

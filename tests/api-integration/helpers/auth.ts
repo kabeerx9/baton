@@ -44,7 +44,9 @@ export function installFakeIdentity(
 /**
  * Fake only who is signed in, as the old `getSession` spy did. Sessions,
  * accounts and the fence still read the provider's rows, which these tests
- * seed directly.
+ * seed directly (admin-overview, github-binding-routes). A deliberate
+ * narrowing of "installs the fake" (auth-boundary P2, coordinator 2026-11-18);
+ * the full fake runs in the contract suite and websocket-security.
  */
 function installSignedInAs(signedInAs: FakeIdentityOptions["signedInAs"]) {
   const fake = createFakeIdentity({ hooks: batonIdentityHooks, signedInAs });

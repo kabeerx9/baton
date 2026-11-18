@@ -1,9 +1,7 @@
 import { eq, sql } from "drizzle-orm";
-import { schema } from "../database";
+import { userTable } from "../database/schema";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import type { IdentityProvider } from "./port";
-
-const { userTable } = schema;
 
 /**
  * The identity fields live on Baton's `user` row for every adapter here, so
