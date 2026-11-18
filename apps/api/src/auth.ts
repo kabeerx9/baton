@@ -751,6 +751,26 @@ export const auth = betterAuth({
           }
         }
 
+        if (
+          ctx.path === "/organization/leave" &&
+          organizationViewer &&
+          typeof ctx.body?.organizationId === "string"
+        ) {
+          // Last, right before Better Auth deletes the member: a leave ends
+          // any earlier removal, and clearing first means a removal that
+          // starts later keeps its row (join-link/record-member-removal.ts).
+          // A failed clear must not block the leave; it only keeps old links
+          // refusing this person.
+          await clearMemberRemoval(
+            db,
+            ctx.body.organizationId,
+            organizationViewer.user.id,
+          ).catch((error) => {
+            console.error("Clearing a workspace removal failed:", error);
+            Sentry.captureException(error);
+          });
+        }
+
         const verification = await emailVerificationContext(ctx);
 
         if (ctx.path !== "/sign-up/email") {
@@ -906,17 +926,6 @@ export const auth = betterAuth({
           typeof removed.organizationId === "string" &&
           removed.organizationId === ctx.body?.organizationId
         ) {
-          // Leaving ends any earlier removal (join-link/record-member-removal.ts).
-          // A failed clear must not block the leave; it only keeps old links
-          // refusing this person.
-          await clearMemberRemoval(
-            db,
-            removed.organizationId,
-            removed.userId,
-          ).catch((error) => {
-            console.error("Clearing a workspace removal failed:", error);
-            Sentry.captureException(error);
-          });
           await clearMemberProjectAccess(
             removed.organizationId,
             removed.userId,

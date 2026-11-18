@@ -398,6 +398,48 @@ describe("a removal marker means the last exit was a removal", () => {
     expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
   });
 
+  it("keeps a later removal after a leave that failed after its clear", async () => {
+    const { ctx, token, joiner, remove, markers } = await setup();
+    const leave = () =>
+      ctx.call("/auth/organization/leave", {
+        method: "POST",
+        body: { organizationId: ctx.workspace.id },
+        headers: { cookie: joiner.cookies },
+      });
+    const allowDeletes = await refuseMemberDeletes();
+    try {
+      expect((await remove()).status).toBeGreaterThanOrEqual(400);
+      expect(await markers()).toHaveLength(1);
+      expect((await leave()).status).toBeGreaterThanOrEqual(400);
+    } finally {
+      await allowDeletes();
+    }
+    // The leave cleared the marker before its delete failed; the person
+    // stays a member, so the missing marker admits no one.
+    expect(await memberRows(ctx.workspace.id, joiner.userId)).toHaveLength(1);
+    expect(await markers()).toEqual([]);
+
+    expect((await remove()).status).toBe(200);
+    const refused = await ctx.join(joiner, token);
+    expect(refused.status).toBe(403);
+    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+
+  it("does not let a removed person clear the marker by calling leave", async () => {
+    const { ctx, token, joiner, remove, markers } = await setup();
+    expect((await remove()).status).toBe(200);
+    const left = await ctx.call("/auth/organization/leave", {
+      method: "POST",
+      body: { organizationId: ctx.workspace.id },
+      headers: { cookie: joiner.cookies },
+    });
+    expect(left.status).toBeGreaterThanOrEqual(400);
+    expect(await markers()).toHaveLength(1);
+    const refused = await ctx.join(joiner, token);
+    expect(refused.status).toBe(403);
+    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+
   it("keeps refusing the old link after one successful removal", async () => {
     const { ctx, token, joiner, remove, markers } = await setup();
     expect((await remove()).status).toBe(200);

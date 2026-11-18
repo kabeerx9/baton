@@ -215,8 +215,9 @@ describe("join races with a removal (4)", () => {
       duringRemoval = await ctx.join(joiner, token);
     } finally {
       await lock.release();
+      await Promise.allSettled([removal]);
     }
-    expect((await removal).status).toBe(200);
+    expect((await removal)?.status).toBe(200);
     expect(duringRemoval.status).toBe(200);
     expect(await duringRemoval.json()).toMatchObject({
       outcome: "already_member",
@@ -225,5 +226,60 @@ describe("join races with a removal (4)", () => {
     const after = await ctx.join(joiner, token);
     expect(after.status).toBe(403);
     expect(await code(after)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+
+  it("keeps a removal that lands while an earlier leave finishes", async () => {
+    const ctx = await joinLinkFixture();
+    const { token } = await ctx.createLink();
+    const joiner = await ctx.person("Leaving Person");
+    expect((await ctx.join(joiner, token)).status).toBe(200);
+    const instanceAdmin = await ctx.person("Instance Admin", "admin");
+    const asAdmin = { cookie: instanceAdmin.cookies };
+
+    // Leave resets the active workspace after its member delete, so holding
+    // the session row stops it between the delete and its return. A leave
+    // that cleared the marker after the delete would erase this removal.
+    await db
+      .update(schema.sessionTable)
+      .set({ activeOrganizationId: ctx.workspace.id })
+      .where(eq(schema.sessionTable.userId, joiner.userId));
+    const lock = await holdRowLock("session", { user_id: joiner.userId });
+    let leave: Promise<Response> | undefined;
+    try {
+      leave = ctx.call("/auth/organization/leave", {
+        method: "POST",
+        body: { organizationId: ctx.workspace.id },
+        headers: { cookie: joiner.cookies },
+      });
+      await waitForLockWaiters(1);
+      expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
+      const readded = await ctx.call(
+        `/admin/workspaces/${ctx.workspace.id}/members`,
+        {
+          method: "POST",
+          body: { userId: joiner.userId, role: "member" },
+          headers: asAdmin,
+        },
+      );
+      expect(readded.status).toBe(200);
+      const removed = await ctx.call(
+        `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
+        { method: "DELETE", headers: asAdmin },
+      );
+      expect(removed.status).toBe(200);
+    } finally {
+      await lock.release();
+      await Promise.allSettled([leave]);
+    }
+    expect((await leave)?.status).toBe(200);
+
+    const markers = await db
+      .select()
+      .from(workspaceMemberRemovalTable)
+      .where(eq(workspaceMemberRemovalTable.userId, joiner.userId));
+    expect(markers).toHaveLength(1);
+    const refused = await ctx.join(joiner, token);
+    expect(refused.status).toBe(403);
+    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
   });
 });

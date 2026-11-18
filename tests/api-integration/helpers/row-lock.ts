@@ -66,8 +66,8 @@ type Lock = Awaited<ReturnType<typeof holdRowLock>>;
 /**
  * Starts each stage's requests while `lock` is held, waits until `waiters`
  * backends queue on locks after that stage, then releases the lock before
- * awaiting the requests. The lock is released even when a wait fails, so a
- * failing test cannot block later database resets.
+ * awaiting the requests. When a wait fails, it releases the lock, lets every
+ * started request settle, then rethrows the wait's error.
  */
 export async function releaseWhenQueued<T>(
   lock: Lock,
@@ -79,8 +79,13 @@ export async function releaseWhenQueued<T>(
       started.push(...stage.start());
       await waitForLockWaiters(stage.waiters);
     }
-  } finally {
+  } catch (error) {
+    // Let every started request finish before the test fails, so none is
+    // still running when the next test resets the database.
     await lock.release();
+    await Promise.allSettled(started);
+    throw error;
   }
+  await lock.release();
   return Promise.all(started);
 }
