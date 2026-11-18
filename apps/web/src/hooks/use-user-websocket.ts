@@ -4,11 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { getApiUrl } from "@/fetchers/get-api-url";
+import { membersUpdatedKeys } from "@/hooks/queries/join-link/keys";
 import {
   evictInaccessibleWorkspaceCache,
   evictWorkspaceCache,
 } from "@/lib/evict-workspace-cache";
 import { authClient } from "@/lib/auth-client";
+import { leaveGoneWorkspace } from "@/lib/leave-gone-workspace";
 import { reconcileProjectAccess } from "@/lib/reconcile-project-access";
 import {
   classifyUserClose,
@@ -100,7 +102,10 @@ export function useUserWebSocket() {
               ? activeWorkspaceRef.current
               : path.match(/^\/dashboard\/workspace\/([^/]+)/)?.[1];
           if (current && !message.workspaceIds.includes(current))
-            void navigate({ to: "/dashboard" });
+            void leaveGoneWorkspace(current, {
+              queryClient,
+              navigate: (destination) => navigate(destination),
+            });
         }
         if (
           message.type === "WORKSPACE_ACCESS_REVOKED" &&
@@ -121,7 +126,10 @@ export function useUserWebSocket() {
             (message.reason !== "archived" ||
               !path.startsWith("/dashboard/workspace/"))
           )
-            void navigate({ to: "/dashboard" });
+            void leaveGoneWorkspace(message.workspaceId, {
+              queryClient,
+              navigate: (destination) => navigate(destination),
+            });
         }
         if (message.type === "WORKSPACE_RESTORED" && message.workspaceId) {
           void queryClient.invalidateQueries({
@@ -146,6 +154,13 @@ export function useUserWebSocket() {
           ])
             void queryClient.invalidateQueries({ queryKey });
           reconcileProjectAccess(queryClient, workspaceId, () => !isEnded());
+        }
+        if (
+          message.type === "WORKSPACE_MEMBERS_UPDATED" &&
+          message.workspaceId
+        ) {
+          for (const queryKey of membersUpdatedKeys(message.workspaceId))
+            void queryClient.invalidateQueries({ queryKey });
         }
         if (message.type === "NOTIFICATION_CREATED") {
           queryClient.invalidateQueries({ queryKey: ["notifications"] });

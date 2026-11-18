@@ -4,7 +4,7 @@ import { ClosedAnimation } from "@/components/auth/closed-animation";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 
-// Shown on /auth/sign-up when registration is closed and there is no invitation.
+// Shown on /auth/sign-up when registration is closed.
 export function RegistrationClosed() {
   const { t } = useTranslation();
   return (

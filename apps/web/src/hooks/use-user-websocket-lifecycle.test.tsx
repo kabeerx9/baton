@@ -9,7 +9,7 @@ import {
 } from "vite-plus/test";
 import { useUserWebSocket } from "./use-user-websocket";
 
-const { client, auth, navigate, evictProject } = vi.hoisted(() => ({
+const { client, auth, navigate, leave, evictProject } = vi.hoisted(() => ({
   client: {
     invalidateQueries: vi.fn(),
     cancelQueries: vi.fn(),
@@ -21,6 +21,7 @@ const { client, auth, navigate, evictProject } = vi.hoisted(() => ({
     resetQueries: vi.fn(),
   },
   navigate: vi.fn(),
+  leave: vi.fn(),
   evictProject: vi.fn(),
   auth: {
     userId: "user-a" as string | null,
@@ -57,6 +58,9 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 vi.mock("@baton/libs", () => ({ windowId: "local-test" }));
+vi.mock("@/lib/leave-gone-workspace", () => ({
+  leaveGoneWorkspace: leave,
+}));
 vi.mock("@/lib/evict-project-cache", () => ({
   evictProjectCache: evictProject,
 }));
@@ -159,7 +163,7 @@ describe("user WebSocket lifecycle", () => {
         }),
       }),
     );
-    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(leave).toHaveBeenCalledWith("workspace", expect.anything());
   });
   it("clears revoked workspace data from the global user connection", () => {
     renderHook(() => useUserWebSocket());
@@ -174,7 +178,7 @@ describe("user WebSocket lifecycle", () => {
     );
     expect(client.cancelQueries).toHaveBeenCalledOnce();
     expect(client.removeQueries).toHaveBeenCalledOnce();
-    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(leave).toHaveBeenCalledWith("workspace", expect.anything());
   });
 
   it("ignores events from an old account without stopping the new account's keepalive", () => {
@@ -258,7 +262,7 @@ describe("user WebSocket lifecycle", () => {
         }),
       });
     });
-    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(leave).toHaveBeenCalledWith("workspace", expect.anything());
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -505,7 +509,7 @@ describe("user WebSocket lifecycle", () => {
         }),
       }),
     );
-    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(leave).toHaveBeenCalledWith("workspace", expect.anything());
     expect(client.removeQueries).toHaveBeenCalledOnce();
     expect(auth.notify).toHaveBeenCalledWith("$listOrg");
     expect(auth.notify).toHaveBeenCalledWith("$activeOrgSignal");

@@ -25,7 +25,6 @@ const m = vi.hoisted(() => ({
   config: vi.fn(),
   authUser: vi.fn(),
   getSession: vi.fn(),
-  inviteMember: vi.fn(),
   signOut: vi.fn(),
   useSignOut: vi.fn(),
   toastError: vi.fn(),
@@ -50,9 +49,6 @@ vi.mock("@/lib/auth-client", () => ({
     getSession: (options: unknown) => m.getSession(options),
     signOut: () => m.signOut(),
   },
-}));
-vi.mock("@/hooks/mutations/workspace-user/use-invite-workspace-user", () => ({
-  default: () => ({ mutateAsync: m.inviteMember }),
 }));
 vi.mock("@/hooks/queries/workspace/use-create-workspace", () => ({
   default: () => ({ mutateAsync: m.createWorkspace, isPending: false }),
@@ -87,7 +83,6 @@ beforeEach(() => {
     data: { disableWorkspaceCreation: false },
     isPending: false,
   });
-  m.inviteMember.mockResolvedValue({ id: "invite-1" });
   m.signOut.mockResolvedValue({});
   m.useSignOut.mockReturnValue({ mutateAsync: m.signOut });
 });
@@ -114,9 +109,24 @@ function render(ui: ReactNode) {
 const settled = () => act(async () => {});
 const continueButton = () =>
   screen.getByRole("button", { name: "auth:onboarding.continue" });
-const creationForm = () =>
-  screen.queryByText("auth:onboarding.workspace.title");
+const startButton = () =>
+  screen.getByRole("button", { name: "joinLink:onboarding.join.continue" });
+const chooseCreate = () =>
+  fireEvent.click(
+    screen.getByRole("button", { name: "joinLink:onboarding.create.title" }),
+  );
+const startStep = () => screen.queryByText("joinLink:onboarding.title");
 const restricted = () => screen.queryByText("auth:onboarding.restrictedTitle");
+const createOption = () =>
+  screen.queryByRole("button", { name: "joinLink:onboarding.create.title" });
+const TOKEN = "Ab3_-Zx9".repeat(5) + "Abc";
+
+async function toCreationStep() {
+  render(<OnboardingFlow />);
+  await settled();
+  chooseCreate();
+  await screen.findByText("auth:onboarding.workspace.title");
+}
 
 const toWorkspace = {
   to: "/dashboard/workspace/$workspaceId",
@@ -125,15 +135,9 @@ const toWorkspace = {
 };
 
 async function walkToProject({
-  smtp = false,
   usage = "team",
-}: { smtp?: boolean; usage?: "solo" | "team" } = {}) {
-  m.config.mockReturnValue({
-    data: { hasSmtp: smtp },
-    isPending: false,
-  });
-  render(<OnboardingFlow />);
-  await settled();
+}: { usage?: "solo" | "team" } = {}) {
+  await toCreationStep();
   fireEvent.change(screen.getByLabelText("auth:onboarding.workspaceName"), {
     target: { value: "Acme" },
   });
@@ -166,8 +170,7 @@ describe("OnboardingFlow steps", () => {
   });
 
   it("asks for a workspace name before moving on", async () => {
-    render(<OnboardingFlow />);
-    await settled();
+    await toCreationStep();
     fireEvent.click(continueButton());
 
     expect(
@@ -200,15 +203,6 @@ describe("OnboardingFlow steps", () => {
       screen.getByRole("button", { name: "auth:onboarding.ready.open" }),
     );
     await waitFor(() => expect(m.navigate).toHaveBeenCalledWith(toWorkspace));
-  });
-
-  it("skips invites on an instance that cannot send email", async () => {
-    await createWorkspace({ smtp: false });
-
-    expect(
-      await screen.findByText("auth:onboarding.ready.title"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("auth:onboarding.invite.title")).toBeNull();
   });
 
   it("stays on the project step and keeps the answers when creation fails", async () => {
@@ -244,108 +238,59 @@ describe("OnboardingFlow steps", () => {
       expect(m.toastError).toHaveBeenCalledWith("Could not sign out"),
     );
     expect(m.navigate).not.toHaveBeenCalled();
-    expect(creationForm()).toBeInTheDocument();
+    expect(startStep()).toBeInTheDocument();
   });
 });
 
-describe("OnboardingFlow invites", () => {
-  const sendButton = () =>
-    screen.getByRole("button", { name: "auth:onboarding.invite.send" });
+describe("OnboardingFlow join with a link", () => {
+  const field = () => screen.getByLabelText("joinLink:onboarding.join.label");
 
-  it("invites each filled address once and moves on", async () => {
-    await createWorkspace({ smtp: true });
-    const [first, second] = await screen.findAllByPlaceholderText(
-      "auth:onboarding.cloud.invite.emailPlaceholder",
-    );
-    fireEvent.change(first, { target: { value: "a@example.com" } });
-    fireEvent.change(second, { target: { value: "A@example.com" } });
-    fireEvent.click(sendButton());
+  it("opens the join page for a pasted URL", async () => {
+    render(<OnboardingFlow />);
+    await settled();
+    fireEvent.change(field(), {
+      target: { value: `https://baton.example/join/${TOKEN}` },
+    });
+    fireEvent.click(startButton());
 
-    expect(
-      await screen.findByText("auth:onboarding.ready.title"),
-    ).toBeInTheDocument();
-    expect(m.inviteMember).toHaveBeenCalledTimes(1);
-    expect(m.inviteMember).toHaveBeenCalledWith({
-      email: "a@example.com",
-      workspaceId: "workspace-1",
-      role: "member",
+    expect(m.navigate).toHaveBeenCalledWith({
+      to: "/join/$token",
+      params: { token: TOKEN },
     });
   });
 
-  it("keeps only failed addresses for a retry", async () => {
-    m.inviteMember.mockImplementation(({ email }: { email: string }) =>
-      email === "b@example.com"
-        ? Promise.reject(new Error("already a member"))
-        : Promise.resolve({ id: "invite-1" }),
-    );
-    await createWorkspace({ smtp: true });
-    const [first, second] = await screen.findAllByPlaceholderText(
-      "auth:onboarding.cloud.invite.emailPlaceholder",
-    );
-    fireEvent.change(first, { target: { value: "a@example.com" } });
-    fireEvent.change(second, { target: { value: "b@example.com" } });
-    fireEvent.click(sendButton());
+  it("opens the join page for a raw token", async () => {
+    render(<OnboardingFlow />);
+    await settled();
+    fireEvent.change(field(), { target: { value: TOKEN } });
+    fireEvent.click(startButton());
 
-    await waitFor(() =>
-      expect(
-        screen.getAllByPlaceholderText(
-          "auth:onboarding.cloud.invite.emailPlaceholder",
-        ),
-      ).toHaveLength(1),
-    );
-    expect(screen.getByDisplayValue("b@example.com")).toBeInTheDocument();
-
-    m.inviteMember.mockReset();
-    m.inviteMember.mockResolvedValue({ id: "invite-2" });
-    fireEvent.click(sendButton());
-
-    expect(
-      await screen.findByText("auth:onboarding.ready.title"),
-    ).toBeInTheDocument();
-    expect(m.inviteMember).toHaveBeenCalledWith({
-      email: "b@example.com",
-      workspaceId: "workspace-1",
-      role: "member",
-      resend: true,
+    expect(m.navigate).toHaveBeenCalledWith({
+      to: "/join/$token",
+      params: { token: TOKEN },
     });
   });
 
-  it("holds the invite step on a malformed address", async () => {
-    await createWorkspace({ smtp: true });
-    const [first] = await screen.findAllByPlaceholderText(
-      "auth:onboarding.cloud.invite.emailPlaceholder",
-    );
-    fireEvent.change(first, { target: { value: "not-an-email" } });
-    fireEvent.click(sendButton());
+  it("shows an error and stays put for input that is not a join link", async () => {
+    render(<OnboardingFlow />);
+    await settled();
+    fireEvent.change(field(), { target: { value: "hello" } });
+    fireEvent.click(startButton());
 
     expect(
-      await screen.findByText("auth:onboarding.cloud.invite.invalidEmail"),
+      screen.getByText("joinLink:onboarding.join.invalid"),
     ).toBeInTheDocument();
-    expect(first).toHaveFocus();
-    expect(m.inviteMember).not.toHaveBeenCalled();
-  });
-
-  it("can skip invites", async () => {
-    await createWorkspace({ smtp: true });
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "auth:onboarding.cloud.invite.skip",
-      }),
-    );
-
-    expect(
-      await screen.findByText("auth:onboarding.ready.title"),
-    ).toBeInTheDocument();
-    expect(m.inviteMember).not.toHaveBeenCalled();
+    expect(m.navigate).not.toHaveBeenCalled();
   });
 });
 
 describe("OnboardingFlow access", () => {
-  it("offers the flow when anyone may create a workspace", async () => {
+  it("offers both choices when anyone may create a workspace", async () => {
     render(<OnboardingFlow />);
     await settled();
 
-    expect(creationForm()).toBeInTheDocument();
+    expect(startStep()).toBeInTheDocument();
+    expect(createOption()).toBeInTheDocument();
     expect(restricted()).not.toBeInTheDocument();
   });
 
@@ -358,9 +303,9 @@ describe("OnboardingFlow access", () => {
     await settled();
 
     expect(restricted()).toBeInTheDocument();
-    expect(creationForm()).not.toBeInTheDocument();
+    expect(createOption()).not.toBeInTheDocument();
     expect(
-      screen.getByText("auth:onboarding.restrictedCheckInvitations"),
+      screen.getByLabelText("joinLink:onboarding.join.label"),
     ).toBeInTheDocument();
   });
 
@@ -376,7 +321,7 @@ describe("OnboardingFlow access", () => {
     render(<OnboardingFlow />);
     await settled();
 
-    expect(creationForm()).toBeInTheDocument();
+    expect(createOption()).toBeInTheDocument();
     expect(restricted()).not.toBeInTheDocument();
   });
 
@@ -386,7 +331,7 @@ describe("OnboardingFlow access", () => {
     await settled();
 
     expect(screen.getByRole("status")).toBeInTheDocument();
-    expect(creationForm()).not.toBeInTheDocument();
+    expect(startStep()).not.toBeInTheDocument();
     expect(restricted()).not.toBeInTheDocument();
   });
 
@@ -395,7 +340,7 @@ describe("OnboardingFlow access", () => {
     render(<OnboardingFlow />);
     await settled();
 
-    expect(creationForm()).toBeInTheDocument();
+    expect(createOption()).toBeInTheDocument();
     expect(restricted()).not.toBeInTheDocument();
   });
 
@@ -412,7 +357,7 @@ describe("OnboardingFlow access", () => {
     await settled();
     await settled();
 
-    expect(creationForm()).toBeInTheDocument();
+    expect(createOption()).toBeInTheDocument();
   });
 
   it("re-reads the role past the cookie cache, once", async () => {
@@ -437,6 +382,6 @@ describe("OnboardingFlow access", () => {
     expect(
       await screen.findByText("auth:onboarding.ready.title"),
     ).toBeInTheDocument();
-    expect(creationForm()).toBeNull();
+    expect(startStep()).toBeNull();
   });
 });

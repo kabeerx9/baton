@@ -13,7 +13,6 @@ import {
   getSignInFooter,
 } from "@/components/auth/auth-methods";
 import { AuthPage } from "@/components/auth/auth-page";
-import { InvitationNotice } from "@/components/auth/invitation-notice";
 import { PasswordSignInForm } from "@/components/auth/password-sign-in-form";
 import { SignInFooterLine } from "@/components/auth/sign-in-footer-line";
 import PageTitle from "@/components/page-title";
@@ -23,7 +22,6 @@ import useInstanceStatus from "@/hooks/queries/instance/use-instance-status";
 import { toast } from "@/lib/toast";
 
 const signInSearchSchema = z.object({
-  invitationId: z.string().optional(),
   email: z.string().optional(),
   redirect: z.string().optional(),
   error: z.string().optional(),
@@ -46,11 +44,8 @@ function SignIn() {
     error: instanceStatusError,
   } = useInstanceStatus();
 
-  const invitationId = search.invitationId;
   const redirectPath = getSafeRedirectPath(search.redirect);
-  const destination =
-    redirectPath ??
-    (invitationId ? `/invitation/accept/${invitationId}` : "/dashboard");
+  const destination = redirectPath ?? "/dashboard";
 
   useEffect(() => {
     if (instanceStatus?.hasUsers === false) {
@@ -97,21 +92,11 @@ function SignIn() {
         title={t("auth:signIn.heading")}
         description={t("auth:signIn.subtitle.password")}
         notice={
-          errorMessage || invitationId ? (
-            <>
-              {errorMessage ? (
-                <Alert variant="error">
-                  <CircleAlert />
-                  <AlertDescription>{errorMessage}</AlertDescription>
-                </Alert>
-              ) : null}
-              {invitationId ? (
-                <InvitationNotice
-                  invitationId={invitationId}
-                  description={t("auth:signIn.invitation.description")}
-                />
-              ) : null}
-            </>
+          errorMessage ? (
+            <Alert variant="error">
+              <CircleAlert />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
           ) : null
         }
       >
@@ -123,7 +108,7 @@ function SignIn() {
         <div className="flex flex-col gap-2 pt-8 text-muted-foreground text-sm">
           <SignInFooterLine
             footer={getSignInFooter(config)}
-            invitationId={invitationId}
+            redirect={redirectPath}
             email={search.email}
           />
         </div>

@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { TimeZoneGate } from "@/components/time-zone/time-zone-gate";
 import { TourGate } from "@/components/tour/tour-gate";
 import { GlobalShortcuts } from "@/components/shortcuts/global-shortcuts";
 import { useTrackSignup } from "@/hooks/use-track-signup";
@@ -55,6 +56,7 @@ function AuthenticatedLayout() {
       <GlobalShortcuts />
       <Outlet />
       <TourGate />
+      <TimeZoneGate />
     </>
   );
 }

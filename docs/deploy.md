@@ -39,7 +39,7 @@ created with; the name is cosmetic.
    `BATON_CLIENT_URL=${APP_URL}`, `BATON_CLOUD=true`,
    `TRUSTED_PROXIES=127.0.0.0/8,10.0.0.0/8`, `DATABASE_POOL_MAX=10`,
    `DISABLE_REGISTRATION=false` for the first signup (then `true`),
-   `SLACK_DIGEST_CRON=0 10 * * 1-5`, `SLACK_DIGEST_TZ=America/New_York`,
+   `SLACK_DIGEST_TIME=10:00`, `SLACK_DIGEST_TZ=America/New_York`,
    `SENTRY_ENVIRONMENT=production`. Watch for typos; we once had `DATABSE_URL`.
 6. **Health check**: HTTP `/api/health`.
 7. **First account**: open the app URL and sign up; the first account becomes the instance

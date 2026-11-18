@@ -5,7 +5,6 @@ import {
   Inbox,
   SquareKanban,
   type LucideIcon,
-  Mail,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -16,7 +15,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { usePendingInvitations } from "@/hooks/queries/invitation/use-pending-invitations";
 import useGetNotifications from "@/hooks/queries/notification/use-get-notifications";
 import useGetAssignedTasks from "@/hooks/queries/task/use-get-assigned-tasks";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
@@ -39,7 +37,6 @@ export function NavMain() {
   const pathname = useLocation({
     select: (location) => location.pathname.replace(/\/+$/, ""),
   });
-  const { data: invitations = [] } = usePendingInvitations();
   const { data: notifications = [] } = useGetNotifications(workspace?.id);
   const { data: assignedTasks } = useGetAssignedTasks(workspace?.id, true);
 
@@ -82,17 +79,6 @@ export function NavMain() {
       url: `${homeUrl}/members`,
     },
   ];
-
-  // Invitations to other workspaces only matter while one is waiting.
-  if (invitations.length > 0) {
-    navItems.push({
-      title: t("navigation:sidebar.invitations"),
-      icon: Mail,
-      url: "/dashboard/invitations",
-      count: invitations.length,
-      emphasizeCount: true,
-    });
-  }
 
   return (
     <SidebarGroup className="gap-1 p-2">

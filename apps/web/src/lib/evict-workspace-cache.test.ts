@@ -138,3 +138,14 @@ it.each(["revocation", "snapshot"])(
     client.clear();
   },
 );
+
+it("evicts a revoked workspace's join link, which holds a secret URL", () => {
+  const client = new QueryClient();
+  client.setQueryData(["join-link", "revoked"], {
+    id: "link-1",
+    url: "secret",
+  });
+  evictWorkspaceCache(client, "revoked");
+  expect(client.getQueryData(["join-link", "revoked"])).toBeUndefined();
+  client.clear();
+});

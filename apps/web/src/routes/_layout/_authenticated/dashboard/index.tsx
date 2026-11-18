@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { getPendingInvitations } from "@/fetchers/invitation/get-pending-invitations";
 import getWorkspaces from "@/fetchers/workspace/get-workspaces";
 import { authClient } from "@/lib/auth-client";
 import { handleUnauthorized, isUnauthorizedError } from "@/lib/http-error";
@@ -8,12 +7,10 @@ import type Workspace from "@/types/workspace";
 export const Route = createFileRoute("/_layout/_authenticated/dashboard/")({
   beforeLoad: async () => {
     let workspaces: Workspace[];
-    let invitations: Awaited<ReturnType<typeof getPendingInvitations>>;
     let session: Awaited<ReturnType<typeof authClient.getSession>>;
     try {
-      [workspaces, invitations, session] = await Promise.all([
+      [workspaces, session] = await Promise.all([
         getWorkspaces(),
-        getPendingInvitations(),
         authClient.getSession(),
       ]);
     } catch (error) {
@@ -22,10 +19,6 @@ export const Route = createFileRoute("/_layout/_authenticated/dashboard/")({
         return;
       }
       throw error;
-    }
-
-    if (invitations && invitations.length > 0 && !workspaces.length) {
-      throw redirect({ to: "/invitations" });
     }
 
     const activeWorkspaceId = session?.data?.session?.activeOrganizationId;
@@ -43,7 +36,9 @@ export const Route = createFileRoute("/_layout/_authenticated/dashboard/")({
 
       const firstWorkspace = workspaces[0];
 
-      authClient.organization.setActive({
+      // Await it: the board must not mount while the session still names a
+      // workspace that is gone.
+      await authClient.organization.setActive({
         organizationId: firstWorkspace.id,
       });
 
