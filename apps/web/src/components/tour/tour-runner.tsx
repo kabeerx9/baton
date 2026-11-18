@@ -11,6 +11,7 @@ import { deriveDemoSnapshot, isDoneMutation } from "./demo-snapshot";
 import { FinishBreak } from "./finish-break";
 import { useCachedQueryData } from "./use-cached-query-data";
 import { TourOverlay } from "./tour-overlay";
+import { parseTourProgress, type TourProgressStore } from "./tour-progress";
 import {
   type CloseReason,
   INITIAL_TOUR_STATE,
@@ -38,6 +39,8 @@ export type TourEnv = {
   leaveDemo: (session: TourSession) => void;
   /** The real workspace the tour began in, if known. */
   originWorkspaceId: string | null;
+  /** Saves the step, so a reload continues the tour. Optional in tests. */
+  progress?: TourProgressStore;
   /** The current route, so the tour knows when the user opens a task. */
   pathname?: string;
   /** A start or finish call failed; the host shows a message. */
@@ -75,7 +78,8 @@ export function TourRunner({ env }: { env: TourEnv }) {
   const watching =
     state.status === "active" || state.status === "confirming-skip";
 
-  // Start once per mount (reload restarts the tour, and `start` resets).
+  // Start once per mount. `start` returns the running tour's demo, so a
+  // reload continues it at the saved step.
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
@@ -84,8 +88,19 @@ export function TourRunner({ env }: { env: TourEnv }) {
     envRef.current
       .start()
       .then((result) => {
-        const next = toSession(result, envRef.current.originWorkspaceId);
-        if (next) dispatch({ type: "STARTED", session: next });
+        const saved = parseTourProgress(
+          envRef.current.progress?.read(),
+          result.demoWorkspace.id,
+        );
+        // After a reload the URL is the demo, so the saved origin wins.
+        const origin =
+          saved?.originWorkspaceId ??
+          (envRef.current.originWorkspaceId === result.demoWorkspace.id
+            ? null
+            : envRef.current.originWorkspaceId);
+        const next = toSession(result, origin);
+        if (next)
+          dispatch({ type: "STARTED", session: next, step: saved?.step });
         else throw new Error("incomplete demo tasks");
       })
       .catch(() => {
@@ -93,6 +108,24 @@ export function TourRunner({ env }: { env: TourEnv }) {
         dispatch({ type: "START_FAILED" });
       });
   }, []);
+
+  // Save the step while the tour runs; forget it once the tour ends. A
+  // failed start keeps it: the demo is still there for the next try.
+  const ended =
+    state.status === "breaking" ||
+    (state.status === "closed" && state.reason !== "error");
+  useEffect(() => {
+    const store = envRef.current.progress;
+    if (!store) return;
+    if (ended) store.clear();
+    else if (step && session) {
+      store.write({
+        demoWorkspaceId: session.demoWorkspaceId,
+        step,
+        originWorkspaceId: session.originWorkspaceId,
+      });
+    }
+  }, [ended, step, session]);
 
   // The demo board in the query cache is the only source of progress.
   const board = useQuery({

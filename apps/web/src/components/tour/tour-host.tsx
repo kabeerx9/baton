@@ -15,6 +15,7 @@ import {
 import { toast } from "@/lib/toast";
 import type { CloseReason, TourSession } from "./tour-machine";
 import type { StepPage } from "./tour-steps";
+import { localTourProgress } from "./tour-progress";
 import { TourRunner, type TourEnv } from "./tour-runner";
 
 const WORKSPACE_PATH = /^\/dashboard\/workspace\/([^/]+)/;
@@ -84,6 +85,7 @@ export default function TourHost({
         })();
       },
       originWorkspaceId: origin,
+      progress: userId ? localTourProgress(userId) : undefined,
       pathname,
       onError: (kind) =>
         toast.error(kind === "start" ? t("startError") : t("finishError")),

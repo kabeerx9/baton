@@ -41,7 +41,8 @@ export type TourState =
 
 export type TourEvent =
   | { type: "START" }
-  | { type: "STARTED"; session: TourSession }
+  /** `step` resumes a running tour after a reload; absent starts at 1. */
+  | { type: "STARTED"; session: TourSession; step?: StepId }
   | { type: "START_FAILED" }
   | { type: "NEXT" }
   | { type: "BACK" }
@@ -94,7 +95,14 @@ export function tourReducer(state: TourState, event: TourEvent): TourState {
       return state.status === "idle" ? { status: "starting" } : state;
     case "STARTED":
       return state.status === "starting"
-        ? { status: "active", step: FIRST_STEP, session: event.session }
+        ? {
+            status: "active",
+            step:
+              event.step && Object.hasOwn(STEPS, event.step)
+                ? event.step
+                : FIRST_STEP,
+            session: event.session,
+          }
         : state;
     case "START_FAILED":
       return state.status === "starting" ? CLOSED_ERROR : state;

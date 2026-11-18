@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -18,6 +19,7 @@ import {
 import { HttpError } from "@/lib/http-error";
 import type { BoardResponse } from "@/fetchers/board/get-board";
 import { demoBoard, TASK_IDS } from "./test-fixtures";
+import { localTourProgress } from "./tour-progress";
 import { STEP_IDS } from "./tour-steps";
 import { TourRunner, type TourEnv } from "./tour-runner";
 
@@ -406,5 +408,76 @@ describe("TourRunner", () => {
     await waitFor(() => expect(env.onClosed).toHaveBeenCalledWith("error"));
     expect(env.onError).toHaveBeenCalledWith("start");
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  describe("reload", () => {
+    afterEach(() => window.localStorage.clear());
+
+    it("saves the step and resumes the same demo at it on the next mount", async () => {
+      const progress = localTourProgress("u1");
+      setup({ progress });
+      await walkTo("waits-on");
+      await waitFor(() =>
+        expect(progress.read()).toMatchObject({
+          demoWorkspaceId: "demo",
+          step: "waits-on",
+          originWorkspaceId: "real",
+        }),
+      );
+      cleanup();
+
+      // A reload: the page is inside the demo, so the URL origin is the demo.
+      const { env } = setup({ progress, originWorkspaceId: "demo" });
+      expect(await heading("waits-on")).toBeInTheDocument();
+      expect(env.start).toHaveBeenCalledTimes(1);
+      await waitFor(() =>
+        expect(progress.read()).toMatchObject({ originWorkspaceId: "real" }),
+      );
+    });
+
+    it("resumes on the agents page step, where the URL has no workspace", async () => {
+      const progress = localTourProgress("u1");
+      progress.write({
+        demoWorkspaceId: "demo",
+        step: "mcp",
+        originWorkspaceId: "real",
+      });
+      const { env } = setup({ progress, originWorkspaceId: null });
+      expect(await heading("mcp")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(env.goTo).toHaveBeenLastCalledWith("demo", "agents"),
+      );
+    });
+
+    it("starts at step 1 when the saved progress is for another demo", async () => {
+      const progress = localTourProgress("u1");
+      progress.write({
+        demoWorkspaceId: "older-demo",
+        step: "mcp",
+        originWorkspaceId: "real",
+      });
+      setup({ progress });
+      expect(await heading("welcome")).toBeInTheDocument();
+    });
+
+    it("skips after a reload, returns to the saved origin and forgets the step", async () => {
+      const progress = localTourProgress("u1");
+      progress.write({
+        demoWorkspaceId: "demo",
+        step: "task-card",
+        originWorkspaceId: "real",
+      });
+      const { env } = setup({ progress, originWorkspaceId: "demo" });
+      expect(await heading("task-card")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "skip" }));
+      fireEvent.click(
+        await screen.findByRole("button", { name: "skipConfirm.confirm" }),
+      );
+      await waitFor(() => expect(env.onClosed).toHaveBeenCalledWith("skipped"));
+      expect(env.leaveDemo).toHaveBeenCalledWith(
+        expect.objectContaining({ originWorkspaceId: "real" }),
+      );
+      expect(progress.read()).toBeNull();
+    });
   });
 });

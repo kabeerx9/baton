@@ -43,6 +43,18 @@ describe("tourReducer", () => {
     );
   });
 
+  it("resumes at a saved step, and falls back to the first on an unknown one", () => {
+    expect(
+      run([{ type: "START" }, { type: "STARTED", session, step: "nav-board" }]),
+    ).toEqual(atStep("nav-board"));
+    expect(
+      run([
+        { type: "START" },
+        { type: "STARTED", session, step: "toString" as never },
+      ]),
+    ).toEqual(atStep("welcome"));
+  });
+
   it("walks the steps with Next, but never past a data step", () => {
     let state = atStep("nav-board");
     state = run([{ type: "NEXT" }], state);
