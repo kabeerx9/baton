@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db, { schema } from "../../database";
 import { splitRoles } from "../../utils/split-roles";
 import type { WorkspaceActor } from "../../workspace/write/workspace-actor";
+import { publishMembersUpdated } from "../../workspace-members/publish-members-updated";
 import { assertGrantable, lockForRoleWrite } from "../authorize-role-write";
 import { findLockedRole } from "../find-locked-role";
 import { defaultRoleError, roleInUseError } from "../role-errors";
@@ -20,7 +21,7 @@ async function updateWorkspaceRole(input: {
   patch: { role?: string; permission?: Record<string, string[]> };
 }) {
   const { workspaceId, roleId, actor, patch } = input;
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const { locked, member } = await lockForRoleWrite(tx, workspaceId, actor, {
       ac: ["update"],
     });
@@ -51,6 +52,9 @@ async function updateWorkspaceRole(input: {
       .returning();
     return toRoleResponse(row!);
   });
+  // Holders of the role see their capabilities change.
+  await publishMembersUpdated(workspaceId);
+  return result;
 }
 
 export default updateWorkspaceRole;

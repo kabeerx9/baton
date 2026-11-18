@@ -1138,24 +1138,28 @@ subscribeToEvent<{ workspaceId: string; projectIds?: string[] }>(
   },
 );
 
-// Live only (no outbox route): a join tells everyone who may hold a
-// connection to the workspace to refetch its members.
-subscribeToEvent<{ workspaceId: string }>(
-  "workspace.member_joined",
-  async ({ workspaceId }) => {
-    if (!workspaceId) return;
-    try {
-      const message: WorkspaceMembersUpdatedMessage = {
-        type: "WORKSPACE_MEMBERS_UPDATED",
-        workspaceId,
-      };
-      for (const userId of await listWorkspaceAudience(workspaceId))
-        broadcastToUser(userId, message);
-    } catch (error) {
-      console.error("Workspace member broadcast failed:", error);
-    }
-  },
-);
+// Live only (no outbox route): a join, removal, leave, role change, role
+// edit or ownership transfer tells everyone who may hold a connection to the
+// workspace to refetch its members and their own capabilities.
+async function broadcastWorkspaceMembersUpdated({
+  workspaceId,
+}: {
+  workspaceId: string;
+}) {
+  if (!workspaceId) return;
+  try {
+    const message: WorkspaceMembersUpdatedMessage = {
+      type: "WORKSPACE_MEMBERS_UPDATED",
+      workspaceId,
+    };
+    for (const userId of await listWorkspaceAudience(workspaceId))
+      broadcastToUser(userId, message);
+  } catch (error) {
+    console.error("Workspace member broadcast failed:", error);
+  }
+}
+subscribeToEvent("workspace.member_joined", broadcastWorkspaceMembersUpdated);
+subscribeToEvent("workspace.members_updated", broadcastWorkspaceMembersUpdated);
 
 subscribeToEvent<{
   projectId: string;

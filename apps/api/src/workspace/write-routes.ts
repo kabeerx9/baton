@@ -6,7 +6,9 @@ import { refuseMcpToken } from "./write/refuse-mcp-token";
 import {
   deletedIdSchema,
   leftWorkspaceSchema,
-  workspaceMemberListSchema,
+  memberRoleChangedSchema,
+  ownershipTransferredSchema,
+  removedMemberSchema,
   workspaceSchema,
 } from "./response";
 import {
@@ -127,8 +129,8 @@ export const removeWorkspaceMemberRoute = createRoute({
   request: { params: workspaceMemberParam },
   responses: {
     200: jsonResponse(
-      "The members after the removal",
-      workspaceMemberListSchema,
+      "The removal: the workspace and the removed member's id. Refetch the members with GET /{workspaceId}/members.",
+      removedMemberSchema,
     ),
     403: errorResponse(
       "Missing member:delete, a non-owner acting on an owner (OWNER_REQUIRED), or a tour workspace",
@@ -152,8 +154,8 @@ export const updateWorkspaceMemberRoleRoute = createRoute({
   request: { params: workspaceMemberParam, body: json(updateMemberRoleBody) },
   responses: {
     200: jsonResponse(
-      "The members after the change",
-      workspaceMemberListSchema,
+      "The change: the member's id and new role. Refetch the members with GET /{workspaceId}/members.",
+      memberRoleChangedSchema,
     ),
     400: errorResponse("Unknown role, or owner (code UNKNOWN_ROLE)"),
     403: errorResponse("Missing member:update, or OWNER_REQUIRED"),
@@ -176,8 +178,8 @@ export const transferWorkspaceOwnershipRoute = createRoute({
   request: { params: workspaceIdParam, body: json(transferOwnershipBody) },
   responses: {
     200: jsonResponse(
-      "The members after the transfer",
-      workspaceMemberListSchema,
+      "The transfer: the new owner and the previous owner. Refetch the members with GET /{workspaceId}/members.",
+      ownershipTransferredSchema,
     ),
     400: errorResponse("The caller named themselves (code ALREADY_OWNER)"),
     403: errorResponse("The caller is not an owner (code OWNER_REQUIRED)"),

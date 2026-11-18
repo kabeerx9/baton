@@ -147,23 +147,31 @@ const routes: Route[] = [
   },
   {
     permission: "workspaces:manage",
+    // These answer with the member list, so they need its read check too.
+    requiredPermissions: ["workspaces:manage", "workspaces:read"],
     method: "POST",
     path: (ids) => `/workspaces/${ids.workspaceId}/members`,
     body: (ids) => ({ userId: ids.userId, role: "member" }),
   },
   {
     permission: "workspaces:manage",
+    // These answer with the member list, so they need its read check too.
+    requiredPermissions: ["workspaces:manage", "workspaces:read"],
     method: "PUT",
     path: (ids) => `/workspaces/${ids.workspaceId}/members/${ids.userId}/role`,
     body: () => ({ role: "viewer" }),
   },
   {
     permission: "workspaces:manage",
+    // These answer with the member list, so they need its read check too.
+    requiredPermissions: ["workspaces:manage", "workspaces:read"],
     method: "DELETE",
     path: (ids) => `/workspaces/${ids.workspaceId}/members/${ids.userId}`,
   },
   {
     permission: "workspaces:manage",
+    // These answer with the member list, so they need its read check too.
+    requiredPermissions: ["workspaces:manage", "workspaces:read"],
     method: "PUT",
     path: (ids) => `/workspaces/${ids.workspaceId}/owner`,
     body: (ids) => ({ userId: ids.userId }),
