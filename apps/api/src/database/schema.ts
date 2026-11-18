@@ -79,9 +79,6 @@ export const sessionTable = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => userTable.id, { onDelete: "cascade" }),
-    activeOrganizationId: text("active_organization_id"),
-    activeTeamId: text("active_team_id"),
-    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
 );
@@ -370,75 +367,6 @@ export const workspaceUserTable = pgTable(
   (table) => [
     index("workspace_member_workspaceId_idx").on(table.workspaceId),
     index("workspace_member_userId_idx").on(table.userId),
-  ],
-);
-
-export const teamTable = pgTable(
-  "team",
-  {
-    id: text("id").primaryKey(),
-    name: text("name").notNull(),
-    memberCount: integer("member_count").default(0).notNull(),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaceTable.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").$onUpdate(
-      () => /* @__PURE__ */ new Date(),
-    ),
-  },
-  (table) => [index("team_workspaceId_idx").on(table.workspaceId)],
-);
-
-export const teamMemberTable = pgTable(
-  "team_member",
-  {
-    id: text("id").primaryKey(),
-    teamId: text("team_id")
-      .notNull()
-      .references(() => teamTable.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => userTable.id, { onDelete: "cascade" }),
-    membershipKey: text("membership_key").unique(),
-    createdAt: timestamp("created_at"),
-  },
-  (table) => [
-    index("teamMember_teamId_idx").on(table.teamId),
-    index("teamMember_userId_idx").on(table.userId),
-  ],
-);
-
-export const invitationTable = pgTable(
-  "invitation",
-  {
-    id: text("id")
-      .$defaultFn(() => createId())
-      .primaryKey(),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaceTable.id, { onDelete: "cascade" }),
-    email: text("email").notNull(),
-    role: text("role"),
-    teamId: text("team_id"),
-    status: text("status").default("pending").notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
-    createdAt: timestamp("created_at", { mode: "date" })
-      .default(utcNow)
-      .notNull(),
-    inviterId: text("inviter_id")
-      .notNull()
-      .references(() => userTable.id, { onDelete: "cascade" }),
-    projectAccess: text("project_access").default("all").notNull(),
-    projectIds: text("project_ids")
-      .array()
-      .default(sql`'{}'::text[]`)
-      .notNull(),
-  },
-  (table) => [
-    index("invitation_workspaceId_idx").on(table.workspaceId),
-    index("invitation_email_idx").on(table.email),
-    index("invitation_inviterId_idx").on(table.inviterId),
   ],
 );
 
@@ -1585,19 +1513,14 @@ export const session = sessionTable;
 export const account = accountTable;
 export const verification = verificationTable;
 export const workspace = workspaceTable;
-export const team = teamTable;
-export const teamMember = teamMemberTable;
 export const workspace_member = workspaceUserTable;
-export const invitation = invitationTable;
 export const organizationRole = workspaceRoleTable;
 export const apikey = apikeyTable;
 // Auth-schema compatible relation exports in schema.ts
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
-  teamMembers: many(teamMember),
   workspace_members: many(workspace_member),
-  invitations: many(invitation),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -1615,28 +1538,7 @@ export const accountRelations = relations(account, ({ one }) => ({
 }));
 
 export const workspaceRelations = relations(workspace, ({ many }) => ({
-  teams: many(team),
   workspace_members: many(workspace_member),
-  invitations: many(invitation),
-}));
-
-export const teamRelations = relations(team, ({ one, many }) => ({
-  workspace: one(workspace, {
-    fields: [team.workspaceId],
-    references: [workspace.id],
-  }),
-  teamMembers: many(teamMember),
-}));
-
-export const teamMemberRelations = relations(teamMember, ({ one }) => ({
-  team: one(team, {
-    fields: [teamMember.teamId],
-    references: [team.id],
-  }),
-  user: one(user, {
-    fields: [teamMember.userId],
-    references: [user.id],
-  }),
 }));
 
 export const workspace_memberRelations = relations(
@@ -1652,17 +1554,6 @@ export const workspace_memberRelations = relations(
     }),
   }),
 );
-
-export const invitationRelations = relations(invitation, ({ one }) => ({
-  workspace: one(workspace, {
-    fields: [invitation.workspaceId],
-    references: [workspace.id],
-  }),
-  user: one(user, {
-    fields: [invitation.inviterId],
-    references: [user.id],
-  }),
-}));
 
 export const organizationRoleRelations = relations(
   organizationRole,

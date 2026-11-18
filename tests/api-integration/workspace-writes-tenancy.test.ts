@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { signUpWithSession } from "./helpers/auth-session";
@@ -184,16 +184,20 @@ describe("the provider organization endpoints are gone (A10)", () => {
     expect(source).not.toContain("/organization");
   });
 
-  it("writes no active_organization_id at sign-up", async () => {
+  it("signs up without an active organization, which has no column now", async () => {
     const person = await signUpWithSession(ctx.app, {
       email: "fresh@example.com",
       name: "Fresh",
     });
     const sessions = await db
-      .select({ active: schema.sessionTable.activeOrganizationId })
+      .select({ id: schema.sessionTable.id })
       .from(schema.sessionTable)
       .where(eq(schema.sessionTable.userId, person.userId));
     expect(sessions.length).toBeGreaterThan(0);
-    expect(sessions.every((row) => row.active === null)).toBe(true);
+    const columns = await db.execute<{ column_name: string }>(sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'session'
+        AND column_name = 'active_organization_id'`);
+    expect(columns.rows).toEqual([]);
   });
 });

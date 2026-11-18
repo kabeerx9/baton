@@ -9,7 +9,6 @@ import {
   externalLinkTable,
   githubIntegrationTable,
   integrationTable,
-  invitationTable,
   labelTable,
   mcpGrantTable,
   mcpTokenTable,
@@ -19,8 +18,6 @@ import {
   taskRelationTable,
   taskReminderSentTable,
   taskTable,
-  teamMemberTable,
-  teamTable,
   userNotificationPreferenceTable,
   userNotificationWorkspaceProjectTable,
   userNotificationWorkspaceRuleTable,
@@ -35,7 +32,6 @@ import {
 export const userTableRelations = relations(userTable, ({ many, one }) => ({
   sessions: many(sessionTable),
   accounts: many(accountTable),
-  teamMembers: many(teamMemberTable),
   workspaceMemberships: many(workspaceUserTable),
   assignedTasks: many(taskTable),
   activities: many(activityTable),
@@ -44,7 +40,6 @@ export const userTableRelations = relations(userTable, ({ many, one }) => ({
   notifications: many(notificationTable),
   notificationPreference: one(userNotificationPreferenceTable),
   notificationWorkspaceRules: many(userNotificationWorkspaceRuleTable),
-  sentInvitations: many(invitationTable),
   apikeys: many(apikeyTable),
   mcpGrants: many(mcpGrantTable),
 }));
@@ -71,11 +66,9 @@ export const verificationTableRelations = relations(
 export const workspaceTableRelations = relations(
   workspaceTable,
   ({ many }) => ({
-    teams: many(teamTable),
     members: many(workspaceUserTable),
     projects: many(projectTable),
     assets: many(assetTable),
-    invitations: many(invitationTable),
     notificationWorkspaceRules: many(userNotificationWorkspaceRuleTable),
   }),
 );
@@ -262,42 +255,6 @@ export const githubIntegrationTableRelations = relations(
     project: one(projectTable, {
       fields: [githubIntegrationTable.projectId],
       references: [projectTable.id],
-    }),
-  }),
-);
-
-export const teamTableRelations = relations(teamTable, ({ one, many }) => ({
-  workspace: one(workspaceTable, {
-    fields: [teamTable.workspaceId],
-    references: [workspaceTable.id],
-  }),
-  teamMembers: many(teamMemberTable),
-}));
-
-export const teamMemberTableRelations = relations(
-  teamMemberTable,
-  ({ one }) => ({
-    team: one(teamTable, {
-      fields: [teamMemberTable.teamId],
-      references: [teamTable.id],
-    }),
-    user: one(userTable, {
-      fields: [teamMemberTable.userId],
-      references: [userTable.id],
-    }),
-  }),
-);
-
-export const invitationTableRelations = relations(
-  invitationTable,
-  ({ one }) => ({
-    workspace: one(workspaceTable, {
-      fields: [invitationTable.workspaceId],
-      references: [workspaceTable.id],
-    }),
-    inviter: one(userTable, {
-      fields: [invitationTable.inviterId],
-      references: [userTable.id],
     }),
   }),
 );

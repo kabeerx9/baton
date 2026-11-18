@@ -32,6 +32,7 @@ it("ships the baseline first, then later migrations", () => {
     "0002_notification_resource_index",
     "0003_join_links",
     "0004_user_time_zone",
+    "0005_auth_boundary_drops",
   ]);
 });
 

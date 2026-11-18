@@ -823,6 +823,5 @@ describe("email invitations are removed (20)", () => {
       });
       expect([operation, response.status]).toEqual([operation, 404]);
     }
-    expect(await db.select().from(schema.invitationTable)).toEqual([]);
   });
 });

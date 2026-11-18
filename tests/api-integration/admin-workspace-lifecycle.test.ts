@@ -368,15 +368,6 @@ describe("deleting a workspace", () => {
       .update(schema.projectTable)
       .set({ backgroundObjectKey: backgroundKey })
       .where(eq(schema.projectTable.id, project.id));
-    await db.insert(schema.invitationTable).values({
-      workspaceId: workspace.id,
-      inviterId: owner.id,
-      email: "invitee@example.com",
-      role: "member",
-      status: "pending",
-      expiresAt: new Date(Date.now() + 86_400_000),
-    });
-
     const admin = await createInstanceAdmin();
     mockAuthenticatedSession(admin);
     const userSocket = fakeSocket();
@@ -409,12 +400,6 @@ describe("deleting a workspace", () => {
         .select()
         .from(schema.taskTable)
         .where(eq(schema.taskTable.id, task.id)),
-    ).toEqual([]);
-    expect(
-      await db
-        .select()
-        .from(schema.invitationTable)
-        .where(eq(schema.invitationTable.workspaceId, workspace.id)),
     ).toEqual([]);
     const queued = await db
       .select({ objectKey: schema.storageCleanupTable.objectKey })

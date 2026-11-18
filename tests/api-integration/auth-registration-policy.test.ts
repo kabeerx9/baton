@@ -39,22 +39,6 @@ function signup(email: string, extraHeaders?: Record<string, string>) {
     extraHeaders,
   );
 }
-async function invitation(email: string) {
-  const inviter = await createWorkspaceMember({ role: "owner" });
-  const [row] = await db
-    .insert(schema.invitationTable)
-    .values({
-      email,
-      workspaceId: inviter.workspace.id,
-      inviterId: inviter.user.id,
-      role: "member",
-      status: "pending",
-      expiresAt: new Date(Date.now() + 60_000),
-    })
-    .returning();
-  return row;
-}
-
 describe("auth registration and bootstrap boundaries", () => {
   beforeEach(async () => {
     await resetTestDatabase();
@@ -132,17 +116,19 @@ describe("auth registration and bootstrap boundaries", () => {
     ).toHaveLength(0);
   });
 
-  it("no longer lets an invitation open closed registration", async () => {
-    const invite = await invitation("invitee@example.com");
+  it("no longer lets an invitation header open closed registration", async () => {
+    await createWorkspaceMember();
     vi.stubEnv("DISABLE_REGISTRATION", "true");
-    expect((await signup(invite.email)).status).toBe(403);
+    const email = "invitee@example.com";
+    expect((await signup(email)).status).toBe(403);
     expect(
-      (await signup(invite.email, { "x-invitation-id": invite.id })).status,
+      (await signup(email, { "x-invitation-id": "old-invitation" })).status,
     ).toBe(403);
   });
 
   it("refuses a new account at the user-create boundary when registration is closed", async () => {
-    const invite = await invitation("invitee@example.com");
+    await createWorkspaceMember();
+    const invite = { email: "invitee@example.com" };
     vi.stubEnv("DISABLE_REGISTRATION", "true");
     expect(await signUpDecision({ email: invite.email })).toMatchObject({
       ok: false,
