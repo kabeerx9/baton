@@ -29,7 +29,9 @@ export const tourStartSchema = z
           description: "The project that holds the demo tasks.",
         }),
       })
-      .openapi({ description: "The fresh demo workspace." }),
+      .openapi({
+        description: "The demo workspace: the existing one, or a fresh one.",
+      }),
     tasks: z
       .array(
         z.object({
@@ -38,7 +40,7 @@ export const tourStartSchema = z
           number: z.number().int().optional(),
         }),
       )
-      .openapi({ description: "The seeded demo tasks, by tour key." }),
+      .openapi({ description: "The demo tasks, by tour key." }),
   })
   .openapi("TourStart");
 

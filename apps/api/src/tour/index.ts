@@ -36,14 +36,11 @@ const startTourRoute = createRoute({
   tags: ["Tour"],
   summary: "Start the tour",
   description:
-    "Deletes the caller's demo workspace, if any, and seeds a fresh one with five demo tasks, in one transaction. A user has at most one demo workspace. A demo workspace sends nothing outside Baton: no Slack, email, push, webhook or integration.",
+    "Idempotent while the tour runs: returns the caller's existing demo workspace, so a reload or a second tab continues the same tour. Seeds one with five demo tasks when none exists, and replaces a demo that lost one of its tour tasks. A user has at most one demo workspace. A demo workspace sends nothing outside Baton: no Slack, email, push, webhook or integration.",
   // A reset deletes data: only the person, never an API key or agent.
   middleware: [requireUserSession] as const,
   responses: {
-    200: jsonResponse(
-      "The fresh demo workspace and its tasks",
-      tourStartSchema,
-    ),
+    200: jsonResponse("The demo workspace and its tasks", tourStartSchema),
     403: errorResponse(
       "A user session is required; API keys and agents cannot",
     ),
@@ -85,7 +82,7 @@ const replayTourRoute = createRoute({
   tags: ["Tour"],
   summary: "Replay the tour",
   description:
-    "Clears the caller's completion so the tour can start again. Call start next.",
+    "Clears the caller's completion and deletes any leftover demo workspace, so the next start seeds a fresh tour. Call start next.",
   // A reset deletes data: only the person, never an API key or agent.
   middleware: [requireUserSession] as const,
   responses: {

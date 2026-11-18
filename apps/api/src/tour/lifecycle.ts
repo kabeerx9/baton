@@ -4,11 +4,21 @@
  */
 export type TourState = { kind: "pending" } | { kind: "completed"; at: Date };
 
+/**
+ * The user's demo workspace as `start` finds it. `broken` means a demo task
+ * the tour needs is gone, so the tour cannot continue in it.
+ */
+export type DemoState = "none" | "intact" | "broken";
+
 export type TourCommand = "start" | "finish" | "replay";
 
 /** What one command does to the stored state and the demo workspace. */
 export type TourAction =
-  /** Delete any demo workspace and seed a fresh one. */
+  /** No demo yet: seed one. */
+  | { kind: "seed_demo" }
+  /** A tour is running: return its demo unchanged (a reload, a second tab). */
+  | { kind: "resume_demo" }
+  /** The demo lost a tour task: delete it and seed a fresh one. */
   | { kind: "reset_demo" }
   /** The tour is done; the client must replay before it starts again. */
   | { kind: "refuse_completed" }
@@ -16,7 +26,7 @@ export type TourAction =
   | { kind: "complete" }
   /** Already completed: keep the time, delete any demo workspace left over. */
   | { kind: "clean_up" }
-  /** Clear completion; the demo workspace is left for the next start. */
+  /** Clear completion and delete any leftover demo: a replay starts fresh. */
   | { kind: "reopen" };
 
 export function toTourState(completedAt: Date | null): TourState {
@@ -25,13 +35,20 @@ export function toTourState(completedAt: Date | null): TourState {
     : { kind: "pending" };
 }
 
-/** The one transition rule for every tour route. */
-export function decideTour(state: TourState, command: TourCommand): TourAction {
+/**
+ * The one transition rule for every tour route. Start is idempotent while
+ * the tour runs; only finish, replay and the cleanup job delete a demo.
+ */
+export function decideTour(
+  state: TourState,
+  command: TourCommand,
+  demo: DemoState = "none",
+): TourAction {
   switch (command) {
     case "start":
-      return state.kind === "pending"
-        ? { kind: "reset_demo" }
-        : { kind: "refuse_completed" };
+      if (state.kind !== "pending") return { kind: "refuse_completed" };
+      if (demo === "intact") return { kind: "resume_demo" };
+      return demo === "broken" ? { kind: "reset_demo" } : { kind: "seed_demo" };
     case "finish":
       return state.kind === "pending"
         ? { kind: "complete" }

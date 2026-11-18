@@ -5,27 +5,46 @@ import {
   deleteDemoWorkspace,
   lockDemoWorkspace,
 } from "../demo/delete-demo-workspace";
+import { readDemoWorkspace } from "../demo/read-demo-workspace";
 import { seedDemoWorkspace } from "../demo/seed-demo-workspace";
 import { decideTour } from "../lifecycle";
 import { lockTourUser } from "../lock-tour-user";
 
-/** Start and restart are one reset: delete the demo, seed a fresh one. */
+/**
+ * Idempotent while the tour runs: a reload or a second tab gets the same
+ * demo back. Seeds one when none exists, and replaces a demo that lost a
+ * tour task, since the tour cannot continue in it.
+ */
 async function startTour(userId: string) {
-  const { seeded, deleted } = await db.transaction(async (tx) => {
-    const action = decideTour(await lockTourUser(tx, userId), "start");
-    if (action.kind === "refuse_completed") {
-      throw new HTTPException(409, {
-        message: "The tour is already completed. Replay it before starting.",
-      });
+  const { demo, deleted } = await db.transaction(async (tx) => {
+    const tourState = await lockTourUser(tx, userId);
+    const existing =
+      tourState.kind === "pending" ? await lockDemoWorkspace(tx, userId) : null;
+    const current = existing ? await readDemoWorkspace(tx, existing) : null;
+    const action = decideTour(
+      tourState,
+      "start",
+      !existing ? "none" : current ? "intact" : "broken",
+    );
+    switch (action.kind) {
+      case "refuse_completed":
+        throw new HTTPException(409, {
+          message: "The tour is already completed. Replay it before starting.",
+        });
+      case "resume_demo":
+        return { demo: current!, deleted: null };
+      case "reset_demo": {
+        const deleted = await deleteDemoWorkspace(tx, existing!, userId);
+        return { demo: await seedDemoWorkspace(tx, userId), deleted };
+      }
+      case "seed_demo":
+        return { demo: await seedDemoWorkspace(tx, userId), deleted: null };
+      default:
+        throw new HTTPException(500, { message: "Unexpected tour action" });
     }
-    const existing = await lockDemoWorkspace(tx, userId);
-    const deleted = existing
-      ? await deleteDemoWorkspace(tx, existing, userId)
-      : null;
-    return { seeded: await seedDemoWorkspace(tx, userId), deleted };
   });
   await afterDemoDeleted(deleted);
-  return seeded;
+  return demo;
 }
 
 export default startTour;

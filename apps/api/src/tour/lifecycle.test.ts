@@ -10,14 +10,28 @@ describe("decideTour", () => {
     expect(completed.kind).toBe("completed");
   });
 
-  it("starts a pending tour by resetting the demo workspace", () => {
-    expect(decideTour(pending, "start")).toEqual({ kind: "reset_demo" });
+  it("seeds a demo when a pending tour has none", () => {
+    expect(decideTour(pending, "start", "none")).toEqual({ kind: "seed_demo" });
+  });
+
+  it("resumes an intact demo, so a reload keeps the same tour", () => {
+    expect(decideTour(pending, "start", "intact")).toEqual({
+      kind: "resume_demo",
+    });
+  });
+
+  it("replaces a demo that lost a tour task", () => {
+    expect(decideTour(pending, "start", "broken")).toEqual({
+      kind: "reset_demo",
+    });
   });
 
   it("refuses to start a completed tour", () => {
-    expect(decideTour(completed, "start")).toEqual({
-      kind: "refuse_completed",
-    });
+    for (const demo of ["none", "intact", "broken"] as const) {
+      expect(decideTour(completed, "start", demo)).toEqual({
+        kind: "refuse_completed",
+      });
+    }
   });
 
   it("finishes once, then only cleans up", () => {

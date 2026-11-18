@@ -108,13 +108,40 @@ describe("tour routes", () => {
     });
   });
 
-  it("resets on a second start and keeps one demo workspace", async () => {
+  it("resumes the same demo on a second start, even after the user edits it", async () => {
     const { user } = await createWorkspaceMember();
     mockAuthenticatedSession(user);
     const first = await start();
+    // The user renames and moves a task during the tour; a reload follows.
+    const apiTask = first.tasks.find((task) => task.key === "api-endpoint")!;
+    await db
+      .update(schema.taskTable)
+      .set({ title: "Renamed during the tour", status: "done" })
+      .where(eq(schema.taskTable.id, apiTask.id));
+    const second = await start();
+
+    expect(second).toEqual(first);
+    expect(await demoWorkspacesOf(user.id)).toEqual([
+      { id: first.demoWorkspace.id },
+    ]);
+    const [kept] = await db
+      .select({ status: schema.taskTable.status })
+      .from(schema.taskTable)
+      .where(eq(schema.taskTable.id, apiTask.id));
+    expect(kept?.status).toBe("done");
+  });
+
+  it("replaces a demo that lost a tour task", async () => {
+    const { user } = await createWorkspaceMember();
+    mockAuthenticatedSession(user);
+    const first = await start();
+    await db
+      .delete(schema.taskTable)
+      .where(eq(schema.taskTable.id, first.tasks[0]!.id));
     const second = await start();
 
     expect(second.demoWorkspace.id).not.toBe(first.demoWorkspace.id);
+    expect(second.tasks).toHaveLength(5);
     expect(await demoWorkspacesOf(user.id)).toEqual([
       { id: second.demoWorkspace.id },
     ]);
@@ -137,6 +164,11 @@ describe("tour routes", () => {
     expect(responses.map((response) => response.status)).toEqual([
       200, 200, 200, 200,
     ]);
+    const bodies = (await Promise.all(
+      responses.map((response) => response.json()),
+    )) as TourStart[];
+    // Every start returns the one demo: the later ones resume it.
+    expect(new Set(bodies.map((body) => body.demoWorkspace.id)).size).toBe(1);
     expect(await demoWorkspacesOf(user.id)).toHaveLength(1);
     const tasks = await db.execute(
       sql`select count(*)::int as n from task t join project p on p.id = t.project_id join workspace w on w.id = p.workspace_id where w.demo_owner_user_id = ${user.id}`,
@@ -292,6 +324,16 @@ describe("tour routes", () => {
     expect(await replay.json()).toEqual({ completed: false });
     await start();
     expect(await demoWorkspacesOf(user.id)).toHaveLength(1);
+  });
+
+  it("replay deletes a running demo, so the next start is a fresh tour", async () => {
+    const { user } = await createWorkspaceMember();
+    mockAuthenticatedSession(user);
+    const first = await start();
+    expect((await post("/tour/replay")).status).toBe(200);
+    expect(await demoWorkspacesOf(user.id)).toEqual([]);
+    const second = await start();
+    expect(second.demoWorkspace.id).not.toBe(first.demoWorkspace.id);
   });
 });
 
