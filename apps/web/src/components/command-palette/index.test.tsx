@@ -54,8 +54,8 @@ vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
 vi.mock("@/hooks/queries/config/use-get-config", () => ({
   default: () => ({ data: undefined }),
 }));
-vi.mock("@/lib/auth-client", () => ({
-  authClient: { useSession: () => ({ data: null }) },
+vi.mock("@/hooks/queries/user/use-current-user", () => ({
+  useCurrentUser: () => ({ data: undefined }),
 }));
 vi.mock("@/components/search-command-menu", () => ({ default: () => null }));
 vi.mock("@/components/board/new-task-dialog", () => ({

@@ -24,7 +24,7 @@ const m = vi.hoisted(() => ({
   createStarterProject: vi.fn(),
   config: vi.fn(),
   authUser: vi.fn(),
-  getSession: vi.fn(),
+  getCurrentUser: vi.fn(),
   signOut: vi.fn(),
   useSignOut: vi.fn(),
   toastError: vi.fn(),
@@ -45,9 +45,14 @@ vi.mock("@/lib/toast", () => ({
 }));
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    getSession: (options: unknown) => m.getSession(options),
     signOut: () => m.signOut(),
   },
+}));
+vi.mock("@/fetchers/user/get-current-user", () => ({
+  getCurrentUser: () => m.getCurrentUser(),
+}));
+vi.mock("@/hooks/queries/user/use-current-user", () => ({
+  useCurrentUser: () => ({ data: m.authUser() }),
 }));
 vi.mock("@/hooks/queries/workspace/use-create-workspace", () => ({
   default: () => ({ mutateAsync: m.createWorkspace, isPending: false }),
@@ -74,10 +79,7 @@ beforeEach(() => {
     email: "sam@example.com",
     role: "user",
   });
-  m.getSession.mockResolvedValue({
-    data: { user: { id: "u1", role: "user" } },
-    error: null,
-  });
+  m.getCurrentUser.mockResolvedValue({ id: "u1", role: "user" });
   m.config.mockReturnValue({
     data: { disableWorkspaceCreation: false },
     isPending: false,
@@ -309,10 +311,7 @@ describe("OnboardingFlow access", () => {
       data: { disableWorkspaceCreation: true },
       isPending: false,
     });
-    m.getSession.mockResolvedValue({
-      data: { user: { id: "u1", role: "admin" } },
-      error: null,
-    });
+    m.getCurrentUser.mockResolvedValue({ id: "u1", role: "admin" });
     render(<OnboardingFlow />);
     await settled();
 
@@ -344,10 +343,7 @@ describe("OnboardingFlow access", () => {
       data: { disableWorkspaceCreation: true },
       isPending: false,
     });
-    m.getSession.mockResolvedValue({
-      data: null,
-      error: { status: 500, message: "network" },
-    });
+    m.getCurrentUser.mockRejectedValue(new Error("network"));
     render(<OnboardingFlow />);
     await settled();
     await settled();
@@ -355,17 +351,15 @@ describe("OnboardingFlow access", () => {
     expect(createOption()).toBeInTheDocument();
   });
 
-  it("re-reads the role past the cookie cache, once", async () => {
+  it("re-reads the role from the API, once", async () => {
     const { rerender } = render(<OnboardingFlow />);
     await settled();
-    expect(m.getSession).toHaveBeenCalledWith({
-      query: { disableCookieCache: true },
-    });
+    expect(m.getCurrentUser).toHaveBeenCalledTimes(1);
 
-    m.getSession.mockClear();
+    m.getCurrentUser.mockClear();
     rerender(<OnboardingFlow />);
     await settled();
-    expect(m.getSession).not.toHaveBeenCalled();
+    expect(m.getCurrentUser).not.toHaveBeenCalled();
   });
 
   it("does not bring the first step back if config recovers after creation", async () => {

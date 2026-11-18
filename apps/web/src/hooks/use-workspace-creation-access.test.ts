@@ -2,19 +2,15 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import useWorkspaceCreationAccess from "./use-workspace-creation-access";
 
-const { getSession, useAuth, useGetConfig } = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  useAuth: vi.fn(),
+const { getCurrentUser, useCurrentUser, useGetConfig } = vi.hoisted(() => ({
+  getCurrentUser: vi.fn(),
+  useCurrentUser: vi.fn(),
   useGetConfig: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-client", () => ({
-  authClient: { getSession },
-}));
+vi.mock("@/fetchers/user/get-current-user", () => ({ getCurrentUser }));
 
-vi.mock("@/components/providers/auth-provider/hooks/use-auth", () => ({
-  default: useAuth,
-}));
+vi.mock("@/hooks/queries/user/use-current-user", () => ({ useCurrentUser }));
 
 vi.mock("@/hooks/queries/config/use-get-config", () => ({
   default: useGetConfig,
@@ -22,8 +18,8 @@ vi.mock("@/hooks/queries/config/use-get-config", () => ({
 
 describe("useWorkspaceCreationAccess", () => {
   beforeEach(() => {
-    getSession.mockReset();
-    useAuth.mockReset();
+    getCurrentUser.mockReset();
+    useCurrentUser.mockReset();
     useGetConfig.mockReset();
     useGetConfig.mockReturnValue({
       data: { disableWorkspaceCreation: true },
@@ -32,11 +28,8 @@ describe("useWorkspaceCreationAccess", () => {
   });
 
   it("does not restrict a refreshed multi-role user that includes admin", async () => {
-    useAuth.mockReturnValue({ user: { role: "user" } });
-    getSession.mockResolvedValue({
-      data: { user: { role: "user,admin" } },
-      error: null,
-    });
+    useCurrentUser.mockReturnValue({ data: { role: "user" } });
+    getCurrentUser.mockResolvedValue({ role: "user,admin" });
 
     const { result } = renderHook(() => useWorkspaceCreationAccess());
 
@@ -46,11 +39,8 @@ describe("useWorkspaceCreationAccess", () => {
   });
 
   it("restricts a refreshed non-admin when creation is disabled", async () => {
-    useAuth.mockReturnValue({ user: { role: "user" } });
-    getSession.mockResolvedValue({
-      data: { user: { role: "user" } },
-      error: null,
-    });
+    useCurrentUser.mockReturnValue({ data: { role: "user" } });
+    getCurrentUser.mockResolvedValue({ role: "user" });
 
     const { result } = renderHook(() => useWorkspaceCreationAccess());
 
@@ -60,8 +50,8 @@ describe("useWorkspaceCreationAccess", () => {
   });
 
   it("falls back to the cached multi-role admin when the refresh fails", async () => {
-    useAuth.mockReturnValue({ user: { role: "user,admin" } });
-    getSession.mockRejectedValue(new Error("network"));
+    useCurrentUser.mockReturnValue({ data: { role: "user,admin" } });
+    getCurrentUser.mockRejectedValue(new Error("network"));
 
     const { result } = renderHook(() => useWorkspaceCreationAccess());
 

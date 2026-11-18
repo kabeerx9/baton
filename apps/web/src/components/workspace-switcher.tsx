@@ -26,7 +26,7 @@ import useGetWorkspaces from "@/hooks/queries/workspace/use-get-workspaces";
 import { Kbd } from "@/components/ui/kbd";
 import { getModifierKeyText } from "@/lib/shortcuts/platform";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
-import { authClient } from "@/lib/auth-client";
+import { useCurrentUser } from "@/hooks/queries/user/use-current-user";
 import { hasInstanceAdminRole } from "@/lib/instance-admin";
 import type { Workspace } from "@/types/workspace";
 import CreateWorkspaceModal from "./shared/modals/create-workspace-modal";
@@ -36,9 +36,9 @@ export function WorkspaceSwitcher() {
   const { data: workspace } = useActiveWorkspace();
 
   const { data: workspaces } = useGetWorkspaces();
-  const { data: session } = authClient.useSession();
+  const { data: currentUser } = useCurrentUser();
   const { data: config } = useGetConfig();
-  const isAdmin = hasInstanceAdminRole(session?.user?.role);
+  const isAdmin = hasInstanceAdminRole(currentUser?.role);
   const canCreateWorkspace =
     isAdmin || (config !== undefined && !config.disableWorkspaceCreation);
   const navigate = useNavigate();

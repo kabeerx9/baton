@@ -1,15 +1,21 @@
-import type { authClient } from "@/lib/auth-client";
+import type { client } from "@baton/libs";
+import type { InferRequestType, InferResponseType } from "hono/client";
 
-export type ApiKey = NonNullable<
-  Awaited<ReturnType<typeof authClient.apiKey.list>>["data"]
->;
+// Derived from the API, so the contract cannot drift from the server.
 
-export type CreateApiKeyRequest = NonNullable<
-  Parameters<typeof authClient.apiKey.create>[0]
->;
+/** GET /api/api-key: one key, never its secret. */
+export type ApiKey = InferResponseType<
+  (typeof client)["api-key"]["$get"],
+  200
+>[number];
 
-export type CreateApiKeyClientRequest = Omit<CreateApiKeyRequest, "userId">;
+/** POST /api/api-key body. */
+export type CreateApiKeyRequest = InferRequestType<
+  (typeof client)["api-key"]["$post"]
+>["json"];
 
-export type CreateApiKeyResponse = NonNullable<
-  Awaited<ReturnType<typeof authClient.apiKey.create>>["data"]
+/** POST /api/api-key, 201: the key and its secret, shown once. */
+export type CreateApiKeyResponse = InferResponseType<
+  (typeof client)["api-key"]["$post"],
+  201
 >;

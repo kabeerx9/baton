@@ -1,21 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
+import { deleteApiKey } from "@/fetchers/api-key/delete-api-key";
 
 function useDeleteApiKey() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (keyId: string) => {
-      const result = await authClient.apiKey.delete({
-        keyId: keyId,
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-
-      return result.data;
-    },
+    mutationFn: deleteApiKey,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
     },

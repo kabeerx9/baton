@@ -27,7 +27,7 @@ import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import type { ShortcutId } from "@/lib/shortcuts/catalog";
-import { authClient } from "@/lib/auth-client";
+import { useCurrentUser } from "@/hooks/queries/user/use-current-user";
 import { hasInstanceAdminRole } from "@/lib/instance-admin";
 import { useUserPreferencesStore } from "@/store/user-preferences";
 import CreateProjectModal from "../shared/modals/create-project-modal";
@@ -50,9 +50,9 @@ function CommandPalette() {
   const { setTheme } = useUserPreferencesStore();
   const navigate = useNavigate();
   const { data: workspace } = useActiveWorkspace();
-  const { data: session } = authClient.useSession();
+  const { data: currentUser } = useCurrentUser();
   const { data: config } = useGetConfig();
-  const isAdmin = hasInstanceAdminRole(session?.user?.role);
+  const isAdmin = hasInstanceAdminRole(currentUser?.role);
   const canCreateWorkspace =
     isAdmin || (config !== undefined && !config.disableWorkspaceCreation);
   const [open, setOpen] = useState(false);
