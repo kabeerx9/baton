@@ -1628,7 +1628,7 @@ export default function CommentEditor({
       )}
       {slashMenu && !readOnly && !disabled && (
         <div
-          className="baton-tiptap-slash-menu"
+          className="baton-tiptap-slash-menu motion-caret-popup"
           style={{
             top: slashMenu.top,
             left: slashMenu.left,

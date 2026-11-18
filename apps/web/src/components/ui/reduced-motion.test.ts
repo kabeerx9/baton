@@ -15,6 +15,7 @@ describe("Reduced motion for popup slots", () => {
     "popover-content",
     "select-content",
     "menu-content",
+    "combobox-content",
     "tooltip-content",
     "hover-card-content",
     "dialog-content",

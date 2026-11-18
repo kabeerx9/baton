@@ -59,6 +59,30 @@ input:-webkit-autofill:active {
   }
 }
 
+/* Editor menus (slash, mention) open just below the caret and never flip, so
+   they grow from their top-left corner. Reduced motion keeps the fade. */
+@keyframes caret-popup-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes caret-popup-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@utility motion-caret-popup {
+  transform-origin: top left;
+  animation: caret-popup-in 120ms var(--ease-out) backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: caret-popup-fade 120ms var(--ease-out) backwards;
+  }
+}
+
 @keyframes shell-enter {
   from {
     opacity: 0;
@@ -120,6 +144,7 @@ input:-webkit-autofill:active {
   [data-slot="popover-content"],
   [data-slot="select-content"],
   [data-slot="menu-content"],
+  [data-slot="combobox-content"],
   [data-slot="tooltip-content"],
   [data-slot="hover-card-content"],
   [data-slot="dialog-content"],
