@@ -1,6 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { ADMIN_WORKSPACES_QUERY_KEY } from "@/hooks/queries/admin/use-admin-workspaces";
-import { authClient } from "@/lib/auth-client";
 
 /**
  * After an archive, restore, or delete: refresh the admin directory and the
@@ -9,5 +8,5 @@ import { authClient } from "@/lib/auth-client";
 export function refreshAfterWorkspaceLifecycle(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: ADMIN_WORKSPACES_QUERY_KEY });
   void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-  authClient.$store.notify("$listOrg");
+  void queryClient.invalidateQueries({ queryKey: ["workspace"] });
 }

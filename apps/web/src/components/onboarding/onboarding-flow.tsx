@@ -13,7 +13,6 @@ import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
 import useWorkspaceCreationAccess from "@/hooks/use-workspace-creation-access";
 import { track } from "@/lib/analytics/track";
-import { authClient } from "@/lib/auth-client";
 import generateProjectSlug from "@/lib/generate-project-id";
 import {
   createStarterProject,
@@ -33,6 +32,7 @@ import { ReadyStep } from "./ready-step";
 import { StartStep } from "./start-step";
 import { UsageStep } from "./usage-step";
 import { WorkspaceStep } from "./workspace-step";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type CreatedWorkspace = { workspaceId: string };
 
@@ -85,11 +85,8 @@ export function OnboardingFlow() {
     try {
       const workspace = await createWorkspace({
         name,
-        description: "",
-        userId: user?.id,
       });
       track("Workspace Created", { props: { usage } });
-      await authClient.organization.setActive({ organizationId: workspace.id });
       await createStarterProject({
         workspaceId: workspace.id,
         name: projectName.trim(),
@@ -101,9 +98,10 @@ export function OnboardingFlow() {
       setStep(getNextStep("project"));
     } catch (error) {
       toast.error(
-        error instanceof Error && error.message
-          ? error.message
-          : t("auth:onboarding.toast.createFailed"),
+        workspaceWriteErrorMessage(
+          error,
+          t("auth:onboarding.toast.createFailed"),
+        ),
       );
     } finally {
       setIsCreating(false);
@@ -115,9 +113,10 @@ export function OnboardingFlow() {
       await signOut();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("navigation:userMenu.signOutFailed"),
+        workspaceWriteErrorMessage(
+          error,
+          t("navigation:userMenu.signOutFailed"),
+        ),
       );
     }
   };

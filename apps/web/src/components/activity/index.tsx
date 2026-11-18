@@ -2,6 +2,7 @@ import { Calendar, CircleAlert, History, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
+import type { WorkspaceUser } from "@/types/workspace-user";
 import { formatDateMedium, formatRelativeTime } from "@/lib/format";
 import { getInitials } from "@/lib/get-initials";
 import { getPriorityLabel, getStatusLabel } from "@/lib/i18n/domain";
@@ -41,15 +42,6 @@ function getEventDataRecord(
 
   return eventData as Record<string, unknown>;
 }
-
-type WorkspaceUser = {
-  user?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  } | null;
-};
 
 function getActivityTypeIcon(type: string) {
   const iconClass = "size-3.5";
@@ -94,8 +86,7 @@ function toDisplayCase(value: string) {
 function findUserByName(users: WorkspaceUser[] | undefined, name: string) {
   if (!users) return null;
   const matches = users.filter(
-    (member) =>
-      member.user?.name?.toLowerCase().trim() === name.toLowerCase().trim(),
+    (member) => member.name?.toLowerCase().trim() === name.toLowerCase().trim(),
   );
 
   if (matches.length !== 1) return null;
@@ -109,7 +100,7 @@ function UserHoverName({
   user: WorkspaceUser | null;
   fallbackName: string;
 }) {
-  if (!user?.user) {
+  if (!user) {
     return (
       <span className="font-medium text-foreground/85">{fallbackName}</span>
     );
@@ -117,29 +108,24 @@ function UserHoverName({
 
   return (
     <HoverCard>
-      <HoverCardTrigger aria-label={user.user.name || fallbackName} asChild>
+      <HoverCardTrigger aria-label={user.name || fallbackName} asChild>
         <span className="cursor-pointer font-medium text-foreground/85 transition-colors hover:text-foreground">
-          {user.user.name}
+          {user.name}
         </span>
       </HoverCardTrigger>
       <HoverCardContent className="w-52 p-3">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage
-              src={user.user.image ?? ""}
-              alt={user.user.name || ""}
-            />
+            <AvatarImage src={user.image ?? ""} alt={user.name || ""} />
             <AvatarFallback className="bg-muted text-xs font-medium">
-              {getInitials(user.user.name)}
+              {getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground leading-none">
-              {user.user.name}
+              {user.name}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {user.user.email}
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{user.email}</p>
           </div>
         </div>
       </HoverCardContent>
@@ -156,7 +142,7 @@ function ActorAvatar({
 }) {
   return (
     <Avatar className="size-4.5">
-      <AvatarImage src={user?.user?.image ?? ""} alt={fallbackName} />
+      <AvatarImage src={user?.image ?? ""} alt={fallbackName} />
       <AvatarFallback className="bg-muted font-semibold text-[8px]">
         {getInitials(fallbackName)}
       </AvatarFallback>
@@ -308,12 +294,12 @@ function renderActivityContent({
       const targetId = String(eventData.newAssigneeId ?? "");
       const targetName = String(eventData.newAssignee ?? "");
       const targetUser =
-        workspaceUsers?.find((member) => member.user?.id === targetId) || null;
+        workspaceUsers?.find((member) => member.id === targetId) || null;
 
       return (
         <span className="text-muted-foreground">
           {t("activity:assignedTo", {
-            name: targetUser?.user?.name ?? targetName,
+            name: targetUser?.name ?? targetName,
           })}
         </span>
       );
@@ -333,12 +319,12 @@ function renderActivityContent({
     if (tokenMatch) {
       const [, targetId, targetName] = tokenMatch;
       const targetUser =
-        workspaceUsers?.find((member) => member.user?.id === targetId) || null;
+        workspaceUsers?.find((member) => member.id === targetId) || null;
 
       return (
         <span className="text-muted-foreground">
           {t("activity:assignedTo", {
-            name: targetUser?.user?.name ?? targetName,
+            name: targetUser?.name ?? targetName,
           })}
         </span>
       );
@@ -351,7 +337,7 @@ function renderActivityContent({
       return (
         <span className="text-muted-foreground">
           {t("activity:assignedTo", {
-            name: targetUser?.user?.name ?? targetName,
+            name: targetUser?.name ?? targetName,
           })}
         </span>
       );
@@ -422,18 +408,16 @@ function Activity({
 }) {
   const { t } = useTranslation();
   const { data: workspace } = useActiveWorkspace();
-  const { data: workspaceUsers } = useGetWorkspaceUsers({
-    workspaceId: workspace?.id,
-  });
+  const { data: workspaceUsers } = useGetWorkspaceUsers(workspace?.id);
 
   const user = activity.userId
     ? workspaceUsers?.find(
-        (workspaceUser) => workspaceUser.user?.id === activity.userId,
+        (workspaceUser) => workspaceUser.id === activity.userId,
       )
     : null;
 
   const isExternalComment = Boolean(activity.externalSource);
-  const actorName = user?.user?.name || t("common:people.someone");
+  const actorName = user?.name || t("common:people.someone");
 
   if (isCommentActivity(activity)) {
     const commentUser = isExternalComment
@@ -444,10 +428,10 @@ function Activity({
           image: activity.externalUserAvatar ?? undefined,
         }
       : {
-          id: user?.user?.id,
-          name: user?.user?.name,
-          email: user?.user?.email,
-          image: user?.user?.image,
+          id: user?.id,
+          name: user?.name,
+          email: user?.email,
+          image: user?.image,
         };
 
     return (

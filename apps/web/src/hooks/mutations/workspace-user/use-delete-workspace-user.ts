@@ -1,35 +1,16 @@
-import { useMutation } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
-import queryClient from "@/query-client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { removeWorkspaceMember } from "@/fetchers/workspace-user/workspace-member-writes";
+import { invalidateWorkspaceWrites } from "@/hooks/queries/workspace/invalidate-workspace-writes";
 
-type DeleteWorkspaceUserRequest = {
-  workspaceId: string;
-  userId: string;
-};
+type DeleteWorkspaceUserRequest = { workspaceId: string; userId: string };
 
 function useDeleteWorkspaceUser() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ workspaceId, userId }: DeleteWorkspaceUserRequest) => {
-      const { data, error } = await authClient.organization.removeMember({
-        memberIdOrEmail: userId,
-        organizationId: workspaceId,
-      });
-
-      if (error) {
-        throw new Error(error.message || "Failed to remove workspace member");
-      }
-
-      return data;
-    },
-    onSuccess: (_, { workspaceId }) => {
-      queryClient.invalidateQueries({
-        queryKey: ["workspace", "full", workspaceId],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["workspace-users", workspaceId],
-      });
-    },
+    mutationFn: ({ workspaceId, userId }: DeleteWorkspaceUserRequest) =>
+      removeWorkspaceMember(workspaceId, userId),
+    onSuccess: (_data, { workspaceId }) =>
+      invalidateWorkspaceWrites(queryClient, workspaceId),
   });
 }
 

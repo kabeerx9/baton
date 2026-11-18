@@ -1,7 +1,7 @@
 type OwnershipMember = {
+  /** The member's user id (flat API shape). */
   id: string;
   role: string;
-  userId: string;
 };
 
 export function getOwnershipCandidates<T extends OwnershipMember>(
@@ -11,7 +11,7 @@ export function getOwnershipCandidates<T extends OwnershipMember>(
   return {
     currentOwner: members.find((member) => member.role === "owner"),
     eligibleNewOwners: members.filter(
-      (member) => member.role !== "owner" && member.userId !== currentUserId,
+      (member) => member.role !== "owner" && member.id !== currentUserId,
     ),
   };
 }

@@ -1,54 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
+import { getWorkspaceRoles } from "@/fetchers/workspace/workspace-roles";
+import { workspaceRolesQueryKey } from "./workspace-query-keys";
 
-export type WorkspaceRole = {
-  id: string;
-  workspaceId: string;
-  role: string;
-  permission: Record<string, string[]>;
-  createdAt: Date | string;
-  updatedAt?: Date | string | null;
-};
-
-function parsePermission(raw: unknown): Record<string, string[]> {
-  if (raw && typeof raw === "object") {
-    return raw as Record<string, string[]>;
-  }
-  if (typeof raw !== "string") {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") {
-      return parsed as Record<string, string[]>;
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
+export type { WorkspaceRole } from "@/fetchers/workspace/types";
 
 function useWorkspaceRoles(workspaceId: string | undefined) {
-  return useQuery<WorkspaceRole[]>({
-    queryKey: ["workspace-roles", workspaceId],
-    enabled: !!workspaceId,
-    queryFn: async () => {
-      if (!workspaceId) return [];
-      const result = await authClient.organization.listRoles({
-        query: { organizationId: workspaceId },
-      });
-      if (result.error) throw new Error(result.error.message);
-      const roles = result.data ?? [];
-
-      return roles.map((r) => ({
-        id: r.id,
-        workspaceId: r.organizationId,
-        role: r.role,
-        permission: parsePermission(r.permission),
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      }));
-    },
+  return useQuery({
+    queryKey: workspaceRolesQueryKey(workspaceId ?? ""),
+    enabled: Boolean(workspaceId),
+    queryFn: () => getWorkspaceRoles(workspaceId as string),
   });
 }
 

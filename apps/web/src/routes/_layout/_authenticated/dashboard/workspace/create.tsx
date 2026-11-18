@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/workspace/create",
@@ -41,10 +41,6 @@ function RouteComponent() {
     try {
       const createdWorkspace = await mutateAsync({ name, description });
 
-      await authClient.organization.setActive({
-        organizationId: createdWorkspace.id,
-      });
-
       await navigate({
         to: "/dashboard/workspace/$workspaceId",
         params: {
@@ -55,7 +51,7 @@ function RouteComponent() {
       toast.success(t("workspace:create.success"), { icon: SquarePlusIcon });
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : t("workspace:create.error"),
+        workspaceWriteErrorMessage(error, t("workspace:create.error")),
       );
     } finally {
       setIsSubmitting(false);

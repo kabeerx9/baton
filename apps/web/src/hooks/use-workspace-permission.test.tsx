@@ -5,10 +5,13 @@ import { workspaceCapabilities } from "@baton/permissions";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { useWorkspacePermission } from "./use-workspace-permission";
 
-const { getMyCapabilities, hasPermission, active } = vi.hoisted(() => ({
+type ActiveStub = { id: string; kind?: string; role: string | null };
+
+const { getMyCapabilities, active } = vi.hoisted(() => ({
   getMyCapabilities: vi.fn(),
-  hasPermission: vi.fn(),
-  active: { workspace: { id: "workspace-1" } as { id: string; kind?: string } },
+  active: {
+    workspace: { id: "workspace-1", role: "member" } as ActiveStub,
+  },
 }));
 
 vi.mock("@/fetchers/workspace/get-my-capabilities", () => ({
@@ -17,16 +20,6 @@ vi.mock("@/fetchers/workspace/get-my-capabilities", () => ({
 
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
   default: () => ({ data: active.workspace }),
-}));
-
-vi.mock("@/hooks/queries/workspace-users/use-active-workspace-user", () => ({
-  useGetActiveWorkspaceUser: () => ({ data: { role: "member" } }),
-}));
-
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    organization: { hasPermission },
-  },
 }));
 
 function createWrapper() {
@@ -44,8 +37,7 @@ function createWrapper() {
 describe("useWorkspacePermission", () => {
   beforeEach(() => {
     getMyCapabilities.mockReset();
-    hasPermission.mockReset();
-    active.workspace = { id: "workspace-1" };
+    active.workspace = { id: "workspace-1", role: "member" };
   });
 
   it("hides every delete action in a demo workspace, even for an owner", async () => {
@@ -55,7 +47,7 @@ describe("useWorkspacePermission", () => {
         Object.keys(workspaceCapabilities).map((name) => [name, true]),
       ),
     );
-    active.workspace = { id: "demo-1", kind: "demo" };
+    active.workspace = { id: "demo-1", kind: "demo", role: "owner" };
 
     const { result } = renderHook(() => useWorkspacePermission(), {
       wrapper: createWrapper(),
@@ -77,7 +69,7 @@ describe("useWorkspacePermission", () => {
         Object.keys(workspaceCapabilities).map((name) => [name, true]),
       ),
     );
-    active.workspace = { id: "team-1", kind: "team" };
+    active.workspace = { id: "team-1", kind: "team", role: "owner" };
 
     const { result } = renderHook(() => useWorkspacePermission(), {
       wrapper: createWrapper(),
@@ -138,7 +130,29 @@ describe("useWorkspacePermission", () => {
 
     expect(getMyCapabilities).toHaveBeenCalledTimes(1);
     expect(getMyCapabilities).toHaveBeenCalledWith("workspace-1");
-    expect(hasPermission).not.toHaveBeenCalled();
+  });
+
+  it("reads the caller's role from the workspace read, not a member list", async () => {
+    getMyCapabilities.mockResolvedValue({});
+    active.workspace = { id: "workspace-1", role: "viewer" };
+
+    const { result } = renderHook(() => useWorkspacePermission(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.role).toBe("viewer");
+    expect(result.current.isOwner).toBe(false);
+  });
+
+  it("checks nothing for an instance admin who is not a member", () => {
+    active.workspace = { id: "workspace-1", role: null };
+
+    const { result } = renderHook(() => useWorkspacePermission(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isCheckingPermissions).toBe(false);
+    expect(getMyCapabilities).not.toHaveBeenCalled();
   });
 
   it("stops checking and denies everything when the request fails", async () => {

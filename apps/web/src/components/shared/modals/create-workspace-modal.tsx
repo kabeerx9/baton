@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import useCreateWorkspace from "@/hooks/queries/workspace/use-create-workspace";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type CreateWorkspaceModalProps = {
   open: boolean;
@@ -58,10 +58,6 @@ function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceModalProps) {
     try {
       const createdWorkspace = await mutateAsync({ name, description });
 
-      await authClient.organization.setActive({
-        organizationId: createdWorkspace.id,
-      });
-
       await navigate({
         to: "/dashboard/workspace/$workspaceId",
         params: {
@@ -75,9 +71,10 @@ function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceModalProps) {
       handleClose();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("common:modals.createWorkspace.errorToast"),
+        workspaceWriteErrorMessage(
+          error,
+          t("common:modals.createWorkspace.errorToast"),
+        ),
       );
     } finally {
       setIsSubmitting(false);

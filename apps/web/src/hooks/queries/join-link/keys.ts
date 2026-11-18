@@ -4,11 +4,12 @@ export const joinLinkKey = (workspaceId: string) =>
 export const joinLinkPreviewKey = (token: string) =>
   ["join-link-preview", token] as const;
 
-/** What a "someone joined this workspace" event makes stale. */
+/** What a member event (join, removal, role change) makes stale. */
 export const membersUpdatedKeys = (workspaceId: string) =>
   [
-    ["workspace", "full", workspaceId],
+    ["workspace", workspaceId],
     ["workspace-users", workspaceId],
+    ["workspace-capabilities", workspaceId],
     joinLinkKey(workspaceId),
     ["workspaces"],
   ] as const;

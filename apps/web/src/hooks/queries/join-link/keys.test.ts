@@ -7,10 +7,11 @@ describe("join-link query keys", () => {
     expect(joinLinkPreviewKey("t")).toEqual(["join-link-preview", "t"]);
   });
 
-  it("refreshes the member list, the link and the workspace list when someone joins", () => {
+  it("refreshes the members, the caller's role, the link and the list on a member event", () => {
     expect(membersUpdatedKeys("w1")).toEqual([
-      ["workspace", "full", "w1"],
+      ["workspace", "w1"],
       ["workspace-users", "w1"],
+      ["workspace-capabilities", "w1"],
       ["join-link", "w1"],
       ["workspaces"],
     ]);

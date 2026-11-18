@@ -24,8 +24,9 @@ const m = vi.hoisted(() => ({
   members: [] as Array<{
     id: string;
     role: string;
-    userId: string;
-    user: { name: string; email: string; image: string | null };
+    name: string;
+    email: string;
+    image: string | null;
   }>,
 }));
 
@@ -45,8 +46,8 @@ vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
     data: { id: "w1", name: "Studio", description: "", metadata: null },
   }),
 }));
-vi.mock("@/hooks/queries/workspace/use-get-full-workspace", () => ({
-  default: () => ({ data: { members: m.members } }),
+vi.mock("@/hooks/queries/workspace-users/use-get-workspace-users", () => ({
+  default: () => ({ data: m.members }),
 }));
 vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
@@ -69,10 +70,11 @@ vi.mock("@/lib/toast", () => ({
 }));
 
 const owner = {
-  id: "m1",
+  id: "u1",
   role: "owner",
-  userId: "u1",
-  user: { name: "Owner Person", email: "owner@example.com", image: null },
+  name: "Owner Person",
+  email: "owner@example.com",
+  image: null,
 };
 
 describe("WorkspaceGeneralPage", () => {

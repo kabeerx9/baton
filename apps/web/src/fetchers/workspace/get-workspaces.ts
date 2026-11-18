@@ -1,17 +1,11 @@
-import { authClient } from "@/lib/auth-client";
+import { client } from "@baton/libs";
+import { HttpError } from "@/lib/http-error";
 
-const getWorkspaces = async () => {
-  // A read must not notify Better Auth's organization signals: the signal
-  // bridge invalidates the workspace queries, which would refetch forever.
-  const { data, error } = await authClient.organization.list({
-    fetchOptions: { disableSignal: true },
-  });
-
-  if (error) {
-    throw new Error(error.message || "Failed to fetch workspaces");
-  }
-
-  return data || [];
-};
+/** The caller's team workspaces; the API leaves out demo and archived ones. */
+async function getWorkspaces() {
+  const response = await client.workspace.$get();
+  if (!response.ok) throw await HttpError.fromResponse(response);
+  return response.json();
+}
 
 export default getWorkspaces;

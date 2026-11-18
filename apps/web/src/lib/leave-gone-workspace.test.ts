@@ -1,44 +1,56 @@
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { leaveGoneWorkspace } from "./leave-gone-workspace";
+
+const KEY = "baton:last-workspace:u1";
 
 function setup(options: {
   remaining?: { id: string; kind?: string }[];
   fetchError?: boolean;
-  setActiveResult?: unknown;
 }) {
   const queryClient = new QueryClient();
-  const order: string[] = [];
-  const navigate = vi.fn(async (destination: unknown) => {
-    order.push("navigate");
-    return destination;
-  });
-  const setActive = vi.fn(async (id: string | null) => {
-    order.push(`setActive:${id}`);
-    return options.setActiveResult ?? { data: {} };
-  });
+  const navigate = vi.fn(async (destination: unknown) => destination);
   const fetchWorkspaces = vi.fn(async () => {
     if (options.fetchError) throw new Error("429");
     return options.remaining ?? [];
   });
-  return { queryClient, navigate, setActive, fetchWorkspaces, order };
+  return { queryClient, navigate, fetchWorkspaces, userId: "u1" };
 }
 
+beforeEach(() => {
+  sessionStorage.clear();
+  localStorage.clear();
+});
+
 describe("leaveGoneWorkspace", () => {
-  it("activates the next workspace before navigating to its board", async () => {
+  it("navigates to the next workspace's board", async () => {
     const t = setup({ remaining: [{ id: "b", kind: "team" }] });
     await leaveGoneWorkspace("a", t);
-    expect(t.order).toEqual(["setActive:b", "navigate"]);
     expect(t.navigate).toHaveBeenCalledWith({
       to: "/dashboard/workspace/$workspaceId",
       params: { workspaceId: "b" },
     });
   });
 
-  it("clears the active workspace and lands on onboarding when none remain", async () => {
+  it("forgets the gone workspace so no screen picks it again", async () => {
+    sessionStorage.setItem(KEY, "a");
+    localStorage.setItem(KEY, "a");
+    const t = setup({ remaining: [{ id: "b" }] });
+    await leaveGoneWorkspace("a", t);
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("keeps another tab's remembered workspace", async () => {
+    localStorage.setItem(KEY, "c");
+    const t = setup({ remaining: [{ id: "b" }] });
+    await leaveGoneWorkspace("a", t);
+    expect(localStorage.getItem(KEY)).toBe("c");
+  });
+
+  it("lands on onboarding when none remain", async () => {
     const t = setup({ remaining: [] });
     await leaveGoneWorkspace("a", t);
-    expect(t.setActive).toHaveBeenCalledWith(null);
     expect(t.navigate).toHaveBeenCalledWith({ to: "/onboarding" });
   });
 
@@ -51,21 +63,14 @@ describe("leaveGoneWorkspace", () => {
       ],
     });
     await leaveGoneWorkspace("a", t);
-    expect(t.setActive).toHaveBeenCalledWith("c");
+    expect(t.navigate).toHaveBeenCalledWith({
+      to: "/dashboard/workspace/$workspaceId",
+      params: { workspaceId: "c" },
+    });
   });
 
   it("falls back to /dashboard when the list cannot be read", async () => {
     const t = setup({ fetchError: true });
-    await leaveGoneWorkspace("a", t);
-    expect(t.setActive).not.toHaveBeenCalled();
-    expect(t.navigate).toHaveBeenCalledWith({ to: "/dashboard" });
-  });
-
-  it("falls back to /dashboard when setActive reports an error", async () => {
-    const t = setup({
-      remaining: [{ id: "b" }],
-      setActiveResult: { error: { message: "boom" } },
-    });
     await leaveGoneWorkspace("a", t);
     expect(t.navigate).toHaveBeenCalledWith({ to: "/dashboard" });
   });

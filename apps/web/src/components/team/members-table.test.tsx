@@ -28,14 +28,17 @@ vi.mock("@/lib/format", () => ({
   formatDateMedium: () => "Sep 1, 2026",
 }));
 
+const removeMember = vi.fn();
+const updateRole = vi.fn();
+
 vi.mock("@/hooks/mutations/workspace-user/use-delete-workspace-user", () => ({
-  default: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  default: () => ({ mutateAsync: removeMember, isPending: false }),
 }));
 
 vi.mock(
   "@/hooks/mutations/workspace-user/use-update-workspace-user-role",
   () => ({
-    default: () => ({ mutateAsync: vi.fn() }),
+    default: () => ({ mutateAsync: updateRole }),
   }),
 );
 
@@ -105,12 +108,13 @@ afterEach(() => {
 
 function makeMember(userId: string, role: string, name: string) {
   return {
-    id: `member-${userId}`,
-    userId,
+    id: userId,
     role,
-    createdAt: "2026-09-01T00:00:00.000Z",
-    user: { id: userId, name, email: `${userId}@example.com`, image: null },
-  } as unknown as WorkspaceUser;
+    joinedAt: "2026-09-01T00:00:00.000Z",
+    name,
+    email: `${userId}@example.com`,
+    image: null,
+  } satisfies WorkspaceUser;
 }
 
 describe("MembersTable project access", () => {
@@ -194,5 +198,103 @@ describe("MembersTable project access", () => {
       await screen.findByText("team:projectAccess.selectAtLeastOne"),
     ).toBeVisible();
     expect(updateProjectAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("MembersTable removal", () => {
+  it("removes a member by user id, not by email", async () => {
+    removeMember.mockResolvedValue({});
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "team:membersTable.ariaRemoveMember",
+      }),
+    );
+    fireEvent.click(await screen.findByText("team:membersTable.removeMember"));
+    const confirm = await screen.findAllByRole("button", {
+      name: "team:membersTable.removeMember",
+    });
+    fireEvent.click(confirm[confirm.length - 1]);
+
+    await waitFor(() =>
+      expect(removeMember).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        userId: "other-user",
+      }),
+    );
+    expect(success).toHaveBeenCalledWith("team:membersTable.removeSuccess");
+  });
+
+  it("shows the error and keeps the member when removal fails", async () => {
+    removeMember.mockRejectedValue(new Error("Only owner"));
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "team:membersTable.ariaRemoveMember",
+      }),
+    );
+    fireEvent.click(await screen.findByText("team:membersTable.removeMember"));
+    const confirm = await screen.findAllByRole("button", {
+      name: "team:membersTable.removeMember",
+    });
+    fireEvent.click(confirm[confirm.length - 1]);
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith("Only owner"));
+    expect(screen.getByText("Oscar Other")).toBeVisible();
+  });
+});
+
+describe("MembersTable role change", () => {
+  async function pickRole(name: string) {
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "team:membersTable.roleSelectAria",
+      }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name }));
+  }
+
+  it("changes a role by user id and confirms it", async () => {
+    updateRole.mockResolvedValue({});
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+    await pickRole("team:roles.admin");
+    await waitFor(() =>
+      expect(updateRole).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        userId: "other-user",
+        role: "admin",
+      }),
+    );
+    expect(success).toHaveBeenCalledWith("team:membersTable.roleUpdateSuccess");
+  });
+
+  it("shows the API's error when the change is refused", async () => {
+    updateRole.mockRejectedValue(new Error("Role not found"));
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+    await pickRole("team:roles.viewer");
+    await waitFor(() => expect(error).toHaveBeenCalledWith("Role not found"));
+    expect(success).not.toHaveBeenCalled();
   });
 });

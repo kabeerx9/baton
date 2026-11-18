@@ -6,8 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import getMyCapabilities from "@/fetchers/workspace/get-my-capabilities";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
-import { useGetActiveWorkspaceUser } from "@/hooks/queries/workspace-users/use-active-workspace-user";
-import { authClient } from "@/lib/auth-client";
 
 // Capabilities are named permission bundles (see `workspaceCapabilities` in
 // @baton/permissions). The server evaluates all of them in one request with
@@ -26,12 +24,13 @@ function emptyCapabilityMap(): CapabilityMap {
 
 export function useWorkspacePermission() {
   const { data: activeWorkspace } = useActiveWorkspace();
-  const { data: activeMember } = useGetActiveWorkspaceUser();
   const workspaceId = activeWorkspace?.id;
   // The tour's demo workspace is deleted by the tour itself. Hiding the
   // delete actions is a hint; the API stays the authority.
   const isDemo = activeWorkspace?.kind === "demo";
-  const role = activeMember?.role as string | undefined;
+  // `GET /api/workspace/{id}` carries the caller's role, so a role change
+  // invalidates one query, not a member list.
+  const role = activeWorkspace?.role ?? undefined;
 
   // Cached by (workspaceId, role). Refetches when either changes, e.g., when
   // the admin edits the role's permissions in the Roles UI and we invalidate
@@ -72,27 +71,12 @@ export function useWorkspacePermission() {
       canManageTeam: () => can.manageTeam,
       canUpdateMembers: () => can.updateMembers,
       canRemoveMembers: () => can.removeMembers,
-      // Escape hatch for ad-hoc permission checks (uncached). Prefer adding
-      // a capability above.
-      hasPermission: async (permissions: Record<string, string[]>) => {
-        try {
-          const res = await authClient.organization.hasPermission({
-            organizationId: workspaceId,
-            permissions,
-          });
-          return res.data?.success === true;
-        } catch (error) {
-          console.error("hasPermission check failed:", error);
-          return false;
-        }
-      },
     };
-  }, [can, workspaceId, isDemo]);
+  }, [can, isDemo]);
 
   return {
     ...helpers,
     workspace: activeWorkspace,
-    member: activeMember,
     role,
     isOwner: role === "owner",
     isAdmin: role === "owner" || role === "admin",

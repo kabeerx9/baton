@@ -9,9 +9,6 @@ function useUpdateMemberProjectAccess() {
       queryClient.invalidateQueries({
         queryKey: ["workspace-users", workspaceId],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["active-workspace-users", workspaceId],
-      });
       queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] });
     },
   });

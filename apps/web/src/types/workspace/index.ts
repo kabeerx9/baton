@@ -1,9 +1,2 @@
-import type { authClient } from "@/lib/auth-client";
-
-export type Workspace = NonNullable<
-  Awaited<
-    ReturnType<typeof authClient.organization.getFullOrganization>
-  >["data"]
->;
-
-export default Workspace;
+export type { Workspace } from "@/fetchers/workspace/types";
+export type { Workspace as default } from "@/fetchers/workspace/types";

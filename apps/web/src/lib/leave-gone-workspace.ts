@@ -1,11 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import getWorkspaces from "@/fetchers/workspace/get-workspaces";
-import {
-  ACTIVE_ORGANIZATION_QUERY_KEY,
-  WORKSPACES_QUERY_KEY,
-} from "@/hooks/queries/workspace/workspace-query-keys";
-import { authClient } from "@/lib/auth-client";
+import { WORKSPACES_QUERY_KEY } from "@/hooks/queries/workspace/workspace-query-keys";
 import { evictWorkspaceCache } from "@/lib/evict-workspace-cache";
+import { forgetWorkspace } from "@/lib/last-workspace/remembered-workspace";
 import { chooseNextWorkspace, type WorkspaceRef } from "@/lib/next-workspace";
 
 export type LeaveDestination =
@@ -16,30 +13,23 @@ export type LeaveDestination =
 type Deps = {
   queryClient: QueryClient;
   navigate: (destination: LeaveDestination) => unknown;
-  /** Test seams. */
+  /** The signed-in user; their remembered workspace is forgotten. */
+  userId: string | undefined;
+  /** Test seam. */
   fetchWorkspaces?: () => Promise<readonly WorkspaceRef[]>;
-  setActive?: (workspaceId: string | null) => Promise<unknown>;
 };
 
-const defaultSetActive = (workspaceId: string | null) =>
-  authClient.organization.setActive({ organizationId: workspaceId });
-
 /**
- * Leave a workspace that is deleted, archived or revoked. Picks the next
- * workspace, makes it the session's active one before navigating (so no screen
- * reads the gone workspace as active), drops the gone workspace's cache, and
- * lands on its board or on onboarding. It never throws: a failed step falls
- * back to `/dashboard`, which re-derives the destination.
+ * Leave a workspace that is deleted, archived or revoked. Forgets it as this
+ * tab's workspace, drops its cache, and lands on the next workspace's board
+ * (its route remembers it) or on onboarding. It never throws: a failed list
+ * read falls back to `/dashboard`, which picks the destination again.
  */
 export async function leaveGoneWorkspace(
   goneId: string,
-  {
-    queryClient,
-    navigate,
-    fetchWorkspaces = getWorkspaces,
-    setActive = defaultSetActive,
-  }: Deps,
+  { queryClient, navigate, userId, fetchWorkspaces = getWorkspaces }: Deps,
 ) {
+  if (userId) forgetWorkspace(userId, goneId);
   evictWorkspaceCache(queryClient, goneId);
 
   let remaining: readonly WorkspaceRef[];
@@ -55,18 +45,6 @@ export async function leaveGoneWorkspace(
   }
 
   const next = chooseNextWorkspace(remaining, goneId);
-  try {
-    const result = await setActive(next?.id ?? null);
-    const error = (result as { error?: unknown } | null)?.error;
-    if (error) throw error;
-  } catch {
-    await navigate({ to: "/dashboard" });
-    return;
-  }
-
-  void queryClient.invalidateQueries({
-    queryKey: ACTIVE_ORGANIZATION_QUERY_KEY,
-  });
   await navigate(
     next
       ? {

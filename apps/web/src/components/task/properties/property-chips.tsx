@@ -85,8 +85,8 @@ export function PropertyChips({
               className={cn(chip, "pl-1.5")}
             >
               <AssigneeAvatar
-                name={assignee?.user?.name || task.assigneeName}
-                image={assignee?.user?.image}
+                name={assignee?.name || task.assigneeName}
+                image={assignee?.image}
                 assigned={Boolean(task.userId)}
               />
               <span
@@ -95,7 +95,7 @@ export function PropertyChips({
                   !task.userId && "text-muted-foreground",
                 )}
               >
-                {assignee?.user?.name ||
+                {assignee?.name ||
                   task.assigneeName ||
                   t("tasks:popover.assignee.unassigned")}
               </span>

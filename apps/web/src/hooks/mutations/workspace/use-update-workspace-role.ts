@@ -1,38 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authClient } from "@/lib/auth-client";
+import { updateWorkspaceRole } from "@/fetchers/workspace/workspace-roles";
+import { invalidateWorkspaceWrites } from "@/hooks/queries/workspace/invalidate-workspace-writes";
 
 type UpdateWorkspaceRoleRequest = {
   workspaceId: string;
-  roleName: string;
+  roleId: string;
   permission: Record<string, string[]>;
 };
 
 function useUpdateWorkspaceRole() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       workspaceId,
-      roleName,
+      roleId,
       permission,
-    }: UpdateWorkspaceRoleRequest) => {
-      const { data, error } = await authClient.organization.updateRole({
-        organizationId: workspaceId,
-        roleName,
-        data: { permission },
-      });
-      if (error) throw new Error(error.message || "Failed to update role");
-      return data;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["workspace-roles", variables.workspaceId],
-      });
-      // The role's permission set just changed, so any cached capability
-      // map for members assigned to this role is now stale.
-      queryClient.invalidateQueries({
-        queryKey: ["workspace-capabilities", variables.workspaceId],
-      });
-    },
+    }: UpdateWorkspaceRoleRequest) =>
+      updateWorkspaceRole(workspaceId, roleId, { permission }),
+    // Members holding this role now have other capabilities.
+    onSuccess: (_data, { workspaceId }) =>
+      invalidateWorkspaceWrites(queryClient, workspaceId),
   });
 }
 

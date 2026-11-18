@@ -55,6 +55,7 @@ import {
   type ProjectAccessValue,
 } from "./project-access/project-access-value";
 import { findMemberProjectAccess } from "./project-access/find-member-project-access";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type Props = {
   workspaceId: string;
@@ -108,7 +109,11 @@ function MembersTable({ workspaceId, users }: Props) {
   const { user: currentUser } = useAuth();
   const { mutateAsync: deleteWorkspaceUser, isPending: isDeleting } =
     useDeleteWorkspaceUser();
-  const { mutateAsync: updateMemberRole } = useUpdateWorkspaceUserRole();
+  const {
+    mutateAsync: updateMemberRole,
+    isPending: isUpdatingRole,
+    variables: roleUpdate,
+  } = useUpdateWorkspaceUserRole();
   const { data: allWorkspaceRoles = [] } = useWorkspaceRoles(workspaceId);
   const { canManageTeam, canUpdateMembers, canRemoveMembers } =
     useWorkspacePermission();
@@ -149,15 +154,16 @@ function MembersTable({ workspaceId, users }: Props) {
   const handleChangeRole = async (member: WorkspaceUser, role: string) => {
     if (role === member.role) return;
     try {
-      await updateMemberRole({ workspaceId, memberId: member.id, role });
+      await updateMemberRole({ workspaceId, userId: member.id, role });
       toast.success(t("team:membersTable.roleUpdateSuccess"), {
         icon: ShieldCheckIcon,
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("team:membersTable.roleUpdateError"),
+        workspaceWriteErrorMessage(
+          error,
+          t("team:membersTable.roleUpdateError"),
+        ),
       );
     }
   };
@@ -167,16 +173,14 @@ function MembersTable({ workspaceId, users }: Props) {
     try {
       await deleteWorkspaceUser({
         workspaceId,
-        userId: memberToDelete.user.email,
+        userId: memberToDelete.id,
       });
       toast.success(t("team:membersTable.removeSuccess"), {
         icon: UserMinusIcon,
       });
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t("team:membersTable.removeError"),
+        workspaceWriteErrorMessage(error, t("team:membersTable.removeError")),
       );
     } finally {
       setMemberToDelete(null);
@@ -211,32 +215,32 @@ function MembersTable({ workspaceId, users }: Props) {
         </TableHeader>
         <TableBody>
           {sortedUsers.map((member) => {
-            const isSelf = currentUser?.id === member.userId;
+            const isSelf = currentUser?.id === member.id;
             const showRoleSelect =
               canChangeRoles && !isSelf && member.role !== "owner";
             const access =
               member.role === "owner"
                 ? ALL_PROJECTS_ACCESS
-                : findMemberProjectAccess(projectAccessEntries, member.userId);
+                : findMemberProjectAccess(projectAccessEntries, member.id);
             const showAccessEdit =
               canManageProjectAccess &&
               !isSelf &&
               member.role !== "owner" &&
               !(managerLimited && access.projectAccess === "all");
             const accessLabel = describeAccess(access);
-            const memberName = member.user.name || member.user.email;
-            const tone = toneFor(member.user.email);
+            const memberName = member.name || member.email;
+            const tone = toneFor(member.email);
             return (
-              <TableRow key={member.user.email}>
+              <TableRow key={member.email}>
                 <TableCell className="ps-6 py-3">
                   <div className="flex items-center gap-3">
                     <Avatar className={cn("size-8", tone)}>
                       <AvatarImage
-                        src={member.user.image ?? ""}
-                        alt={member.user.name ?? ""}
+                        src={member.image ?? ""}
+                        alt={member.name ?? ""}
                       />
                       <AvatarFallback className="bg-transparent text-[11px] font-medium">
-                        {getInitials(member.user.name)}
+                        {getInitials(member.name)}
                       </AvatarFallback>
                     </Avatar>
                     {/* Capped on phones so the email truncates and the role column
@@ -244,7 +248,7 @@ function MembersTable({ workspaceId, users }: Props) {
                     <div className="min-w-0 max-w-[55vw] sm:max-w-none">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">
-                          {member.user.name}
+                          {member.name}
                         </span>
                         {isSelf ? (
                           <span className="text-xs text-muted-foreground">
@@ -253,7 +257,7 @@ function MembersTable({ workspaceId, users }: Props) {
                         ) : null}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {member.user.email}
+                        {member.email}
                       </div>
                     </div>
                   </div>
@@ -267,13 +271,22 @@ function MembersTable({ workspaceId, users }: Props) {
                   ) : showRoleSelect ? (
                     <Select
                       value={member.role}
+                      disabled={
+                        isUpdatingRole && roleUpdate?.userId === member.id
+                      }
                       onValueChange={(value) => {
                         if (typeof value === "string" && value) {
                           handleChangeRole(member, value);
                         }
                       }}
                     >
-                      <SelectTrigger size="sm" className="h-8 w-32">
+                      <SelectTrigger
+                        size="sm"
+                        className="h-8 w-32"
+                        aria-label={t("team:membersTable.roleSelectAria", {
+                          name: memberName,
+                        })}
+                      >
                         <SelectValue>
                           {t(`team:roles.${member.role}`, {
                             defaultValue: capitalize(member.role),
@@ -290,10 +303,9 @@ function MembersTable({ workspaceId, users }: Props) {
                         <SelectItem value="admin">
                           {t("team:roles.admin", { defaultValue: "Admin" })}
                         </SelectItem>
-                        {/* Owner is intentionally NOT offered here: the better-auth
-                            organization plugin requires an explicit ownership
-                            transfer flow (a workspace must have exactly one owner).
-                            That UI lives in workspace settings (TODO). */}
+                        {/* Owner is not offered: the role route refuses it.
+                            Ownership moves only by the transfer in workspace
+                            settings. */}
                         {customRoles.map((r) => (
                           <SelectItem key={r.id} value={r.role}>
                             {capitalize(r.role)}
@@ -324,7 +336,7 @@ function MembersTable({ workspaceId, users }: Props) {
                         })}
                         onClick={() => {
                           setAccessTarget({
-                            userId: member.userId,
+                            userId: member.id,
                             name: memberName,
                             access,
                           });
@@ -340,7 +352,7 @@ function MembersTable({ workspaceId, users }: Props) {
                   </TableCell>
                 ) : null}
                 <TableCell className="py-3 text-sm text-muted-foreground tabular-nums">
-                  {member.createdAt ? formatDateMedium(member.createdAt) : "–"}
+                  {member.joinedAt ? formatDateMedium(member.joinedAt) : "–"}
                 </TableCell>
                 <TableCell className="pe-6 py-3 text-right">
                   {!isSelf && canRemove ? (
@@ -406,8 +418,7 @@ function MembersTable({ workspaceId, users }: Props) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {t("team:membersTable.removeDialogDescription", {
-                name:
-                  memberToDelete?.user.name || memberToDelete?.user.email || "",
+                name: memberToDelete?.name || memberToDelete?.email || "",
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>

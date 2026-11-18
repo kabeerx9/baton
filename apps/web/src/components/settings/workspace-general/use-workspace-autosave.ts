@@ -1,5 +1,4 @@
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -11,6 +10,7 @@ import {
 } from "@/components/settings/workspace-general/workspace-form-values";
 import useUpdateWorkspace from "@/hooks/mutations/workspace/use-update-workspace";
 import { toast } from "@/lib/toast";
+import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message";
 
 type UseWorkspaceAutosaveOptions = {
   workspaceId: string | undefined;
@@ -26,7 +26,6 @@ export function useWorkspaceAutosave({
   canEdit,
 }: UseWorkspaceAutosaveOptions) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const { mutateAsync: updateWorkspace } = useUpdateWorkspace();
   const schema = useMemo(() => createWorkspaceFormSchema(t), [t]);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -81,15 +80,12 @@ export function useWorkspaceAutosave({
         form.reset(normalizedData, { keepDirty: false });
         lastSavedRef.current = normalizedData;
         queuedSaveRef.current = null;
-
-        await queryClient.invalidateQueries({
-          queryKey: ["active-organization"],
-        });
       } catch (error) {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : t("settings:workspaceGeneral.toastUpdateError"),
+          workspaceWriteErrorMessage(
+            error,
+            t("settings:workspaceGeneral.toastUpdateError"),
+          ),
         );
       } finally {
         isSavingRef.current = false;
@@ -101,7 +97,7 @@ export function useWorkspaceAutosave({
         }
       }
     },
-    [workspaceId, updateWorkspace, queryClient, form, t],
+    [workspaceId, updateWorkspace, form, t],
   );
 
   const debouncedSave = useCallback(() => {

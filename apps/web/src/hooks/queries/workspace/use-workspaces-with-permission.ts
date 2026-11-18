@@ -1,27 +1,22 @@
+import type { WorkspaceCapability } from "@baton/permissions";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { authClient } from "@/lib/auth-client";
+import getMyCapabilities from "@/fetchers/workspace/get-my-capabilities";
 
-// `useWorkspacePermission` can only answer for the active workspace — it pins
-// `organizationId` to it. This asks the same server endpoint about a set of
-// other workspaces instead, which is what the project move needs: both the
-// source workspace the project actually lives in and the candidate targets.
+// `useWorkspacePermission` answers for the active workspace. This asks the
+// capabilities endpoint about a set of other workspaces instead, which is
+// what the project move needs: the source workspace and the targets.
 //
-// Pass a module-level constant for `permissions` so its identity is stable.
-// Several actions on the same workspace belong in one call: the endpoint
-// requires all of them, and asking separately doubles the round-trips.
+// Pass a module-level constant for `capabilities` so its identity is stable.
+// A workspace is allowed when every named capability is granted.
 export function useWorkspacesWithPermission(
   workspaceIds: string[],
-  permissions: Record<string, string[]>,
+  capabilities: readonly WorkspaceCapability[],
 ) {
   const ids = useMemo(() => [...workspaceIds].sort(), [workspaceIds]);
-  const permissionKey = useMemo(
-    () => JSON.stringify(permissions),
-    [permissions],
-  );
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["workspace-capabilities", "by-permission", permissionKey, ids],
+    queryKey: ["workspace-capabilities", "by-capability", capabilities, ids],
     enabled: ids.length > 0,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -29,13 +24,11 @@ export function useWorkspacesWithPermission(
       // "no permission" is indistinguishable from a real denial, so a
       // transient error would silently hide the action instead of retrying.
       const results = await Promise.all(
-        ids.map(async (organizationId) => {
-          const res = await authClient.organization.hasPermission({
-            organizationId,
-            permissions,
-          });
-          if (res.error) throw new Error(res.error.message);
-          return res.data?.success === true ? organizationId : null;
+        ids.map(async (workspaceId) => {
+          const granted = await getMyCapabilities(workspaceId);
+          return capabilities.every((name) => granted[name])
+            ? workspaceId
+            : null;
         }),
       );
       return results.filter((id): id is string => id !== null);

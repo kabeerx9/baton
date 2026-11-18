@@ -534,9 +534,7 @@ export function useProjectWebSocket(projectId: string) {
       switch (state.reason) {
         case "workspace-archived":
           evictProjectCache(queryClient, projectId);
-          void queryClient.invalidateQueries({
-            queryKey: ["workspace-status"],
-          });
+          void queryClient.invalidateQueries({ queryKey: ["workspace"] });
           return;
         case "workspace-access-revoked":
           void queryClient.cancelQueries();

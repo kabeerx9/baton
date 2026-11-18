@@ -48,7 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
-import { useGetActiveWorkspaceUsers } from "@/hooks/queries/workspace-users/use-get-active-workspace-users";
+import useGetWorkspaceUsers from "@/hooks/queries/workspace-users/use-get-workspace-users";
 import useGetProjectMembers from "@/hooks/queries/workspace-users/use-get-project-members";
 import { cn } from "@/lib/cn";
 import {
@@ -168,8 +168,8 @@ export default function CommentEditor({
     placeholder ?? t("activity:comment.leavePlaceholder");
   const { data: activeWorkspace } = useActiveWorkspace();
   const mentionWorkspaceId = activeWorkspace?.id ?? "";
-  const { data: workspaceUsers } = useGetActiveWorkspaceUsers(
-    projectId ? "" : mentionWorkspaceId,
+  const { data: workspaceUsers } = useGetWorkspaceUsers(
+    projectId ? undefined : mentionWorkspaceId || undefined,
   );
   const { data: projectMembers } = useGetProjectMembers({
     workspaceId: mentionWorkspaceId,
@@ -184,10 +184,10 @@ export default function CommentEditor({
             label: member.name || member.email,
             image: member.image,
           }))
-        : (workspaceUsers?.members ?? []).map((member) => ({
-            id: member.userId,
-            label: member.user?.name ?? member.user?.email ?? "",
-            image: member.user?.image ?? null,
+        : (workspaceUsers ?? []).map((member) => ({
+            id: member.id,
+            label: member.name || member.email,
+            image: member.image,
           })),
     [projectId, projectMembers, workspaceUsers],
   );
