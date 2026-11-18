@@ -2,7 +2,7 @@ export type AnalyticsEvent =
   | "Signup"
   | "Workspace Created"
   | "First Task"
-  | "Invite Sent"
+  | "Join Link Created"
   | "Checkout Started"
   | "Subscribed";
 

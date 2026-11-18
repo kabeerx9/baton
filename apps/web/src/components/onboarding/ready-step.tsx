@@ -6,7 +6,6 @@ type ReadyStepProps = {
   workspaceName: string;
   projectName: string;
   taskCount: number;
-  invitedCount: number;
   opening: boolean;
   onOpen: () => void;
 };
@@ -15,7 +14,6 @@ export function ReadyStep({
   workspaceName,
   projectName,
   taskCount,
-  invitedCount,
   opening,
   onOpen,
 }: ReadyStepProps) {
@@ -35,14 +33,6 @@ export function ReadyStep({
             count: taskCount,
           })}
         />
-        {invitedCount > 0 ? (
-          <ReadySummaryRow
-            label={t("auth:onboarding.ready.invitations")}
-            value={t("auth:onboarding.ready.invitationsValue", {
-              count: invitedCount,
-            })}
-          />
-        ) : null}
       </ul>
       <Button
         size="lg"

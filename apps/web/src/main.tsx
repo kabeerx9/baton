@@ -5,6 +5,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nextProvider, useTranslation } from "react-i18next";
+import { bridgeOrganizationSignals } from "@/lib/organization-signal-bridge";
 import queryClient from "@/query-client";
 import { watchTaskReads } from "@/store/task-status/watch-reads";
 import "@/index.css";
@@ -43,6 +44,7 @@ console.log(`
 
 // One listener for the app: a read of a task ends its "uncertain" status write.
 watchTaskReads(queryClient);
+bridgeOrganizationSignals(queryClient);
 
 const router = createRouter({
   routeTree,

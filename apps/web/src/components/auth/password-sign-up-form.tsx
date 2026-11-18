@@ -27,14 +27,15 @@ type PasswordSignUpValues = { name: string; email: string; password: string };
 
 type PasswordSignUpFormProps = {
   defaultEmail?: string;
-  invitationId?: string;
+  /** Where the person goes after sign-up. Kept if a verification step comes first. */
+  redirect?: string;
   disabled?: boolean;
   onSuccess: () => void;
 };
 
 export function PasswordSignUpForm({
   defaultEmail,
-  invitationId,
+  redirect,
   disabled = false,
   onSuccess,
 }: PasswordSignUpFormProps) {
@@ -61,12 +62,11 @@ export function PasswordSignUpForm({
   const onSubmit = async ({ name, email, password }: PasswordSignUpValues) => {
     setIsPending(true);
     try {
-      const headers: Record<string, string> = {};
-      if (invitationId) headers["x-invitation-id"] = invitationId;
-      const result = await authClient.signUp.email(
-        { name: name.trim(), email, password },
-        { headers },
-      );
+      const result = await authClient.signUp.email({
+        name: name.trim(),
+        email,
+        password,
+      });
       if (result.error) {
         if (result.error.code === "DISPOSABLE_EMAIL_NOT_ALLOWED") {
           form.setError("email", { message: t("auth:forms.disposableEmail") });
@@ -79,7 +79,7 @@ export function PasswordSignUpForm({
       // The instance requires a confirmed email: no session until then.
       if (!result.data?.token) {
         toast.success(t("auth:signUp.verifyEmail"));
-        await navigate({ to: "/auth/sign-in" });
+        await navigate({ to: "/auth/sign-in", search: { redirect } });
         return;
       }
       onSuccess();

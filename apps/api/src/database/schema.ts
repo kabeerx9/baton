@@ -58,6 +58,8 @@ export const userTable = pgTable("user", {
   // When the user finished or skipped the product tour. Null means the web
   // app shows the tour; every creation path gets null from the column.
   tourCompletedAt: timestamp("tour_completed_at", { mode: "date" }),
+  // IANA zone name. Null means not set; reminders then use `SLACK_DIGEST_TZ`.
+  timeZone: text("time_zone"),
 });
 
 export const sessionTable = pgTable(

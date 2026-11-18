@@ -21,18 +21,16 @@ import {
 } from "@/lib/onboarding/create-starter-project";
 import { starterTasks } from "@/lib/onboarding/starter-tasks";
 import { toast } from "@/lib/toast";
-import { InviteStep } from "./invite-step";
-import { OnboardingRestricted } from "./onboarding-restricted";
 import { OnboardingShell } from "./onboarding-shell";
 import {
   getNextStep,
-  getOnboardingSteps,
   getStepProgress,
   type OnboardingStepId,
 } from "./onboarding-steps";
 import { WorkspacePreview } from "./preview/workspace-preview";
 import { ProjectStep } from "./project-step";
 import { ReadyStep } from "./ready-step";
+import { StartStep } from "./start-step";
 import { UsageStep } from "./usage-step";
 import { WorkspaceStep } from "./workspace-step";
 
@@ -46,28 +44,23 @@ export function OnboardingFlow() {
   const { mutateAsync: createWorkspace } = useCreateWorkspace();
   const { isCreationRestricted, isDecided: isAccessDecided } =
     useWorkspaceCreationAccess();
-  const { data: config, isPending: isConfigPending } = useGetConfig();
+  const { isPending: isConfigPending } = useGetConfig();
   const { mutateAsync: signOut } = useSignOut();
   const isDecided = isAccessDecided && !isConfigPending;
-  const isCloud = config?.isCloud === true;
 
-  const [step, setStep] = useState<OnboardingStepId>("workspace");
+  const [step, setStep] = useState<OnboardingStepId>("start");
   const [workspaceName, setWorkspaceName] = useState("");
   const [usage, setUsage] = useState<WorkspaceUsage>(DEFAULT_WORKSPACE_USAGE);
   const [projectName, setProjectName] = useState(() =>
     t("auth:onboarding.projectNameDefault"),
   );
-  const [invitedCount, setInvitedCount] = useState(0);
   const [created, setCreated] = useState<CreatedWorkspace | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [opening, setOpening] = useState(false);
 
-  const canInvite = isCloud || config?.hasSmtp === true;
-  const steps = getOnboardingSteps({ usage, canInvite });
   const name = workspaceName.trim();
   const projectKey = generateProjectSlug(projectName) || FALLBACK_PROJECT_SLUG;
-  const stepIndex = steps.indexOf(step);
-  const reachedProject = stepIndex >= steps.indexOf("project");
+  const reachedProject = step === "project" || step === "ready";
   const tasks = useMemo(
     () =>
       starterTasks(t, usage).map((task, position) => ({
@@ -105,7 +98,7 @@ export function OnboardingFlow() {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
 
       setCreated({ workspaceId: workspace.id });
-      setStep(getNextStep(getOnboardingSteps({ usage, canInvite }), "project"));
+      setStep(getNextStep("project"));
     } catch (error) {
       toast.error(
         error instanceof Error && error.message
@@ -129,7 +122,7 @@ export function OnboardingFlow() {
     }
   };
 
-  if (step === "workspace" && !isDecided) {
+  if (step === "start" && !isDecided) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background">
         <Spinner className="size-6 text-muted-foreground" />
@@ -137,12 +130,18 @@ export function OnboardingFlow() {
     );
   }
 
-  if (step === "workspace" && isCreationRestricted) {
-    return <OnboardingRestricted />;
-  }
-
   const stepContent = () => {
     switch (step) {
+      case "start":
+        return (
+          <StartStep
+            canCreate={!isCreationRestricted}
+            onCreate={() => setStep("workspace")}
+            onJoin={(token) =>
+              navigate({ to: "/join/$token", params: { token } })
+            }
+          />
+        );
       case "workspace":
         return (
           <WorkspaceStep
@@ -169,23 +168,12 @@ export function OnboardingFlow() {
             onContinue={createWorkspaceAndProject}
           />
         );
-      case "invite":
-        return created ? (
-          <InviteStep
-            workspaceId={created.workspaceId}
-            onDone={(sent) => {
-              setInvitedCount(sent);
-              setStep(getNextStep(steps, "invite"));
-            }}
-          />
-        ) : null;
       default:
         return (
           <ReadyStep
             workspaceName={name}
             projectName={projectName.trim()}
             taskCount={tasks.length}
-            invitedCount={invitedCount}
             opening={opening}
             onOpen={() => setOpening(true)}
           />
@@ -193,10 +181,20 @@ export function OnboardingFlow() {
     }
   };
 
+  const startHeading = isCreationRestricted
+    ? {
+        title: t("auth:onboarding.restrictedTitle"),
+        description: t("auth:onboarding.restrictedSubtitle"),
+      }
+    : {
+        title: t("joinLink:onboarding.title"),
+        description: t("joinLink:onboarding.description"),
+      };
   const headings: Record<
     OnboardingStepId,
     { title: string; description?: string }
   > = {
+    start: startHeading,
     workspace: {
       title: t("auth:onboarding.workspace.title"),
       description: t("auth:onboarding.workspace.description"),
@@ -209,17 +207,13 @@ export function OnboardingFlow() {
       title: t("auth:onboarding.project.title"),
       description: t("auth:onboarding.project.description"),
     },
-    invite: {
-      title: t("auth:onboarding.invite.title"),
-      description: t("auth:onboarding.invite.description", { name }),
-    },
     ready: {
       title: t("auth:onboarding.ready.title", { name }),
       description: t("auth:onboarding.ready.description"),
     },
   };
   const heading = headings[step];
-  const progress = step === "ready" ? null : getStepProgress(steps, step);
+  const progress = getStepProgress(step);
 
   return (
     <OnboardingShell

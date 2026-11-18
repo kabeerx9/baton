@@ -6,6 +6,7 @@ const currentUserSchema = z.object({
   name: z.string(),
   email: z.string(),
   role: z.string().nullish(),
+  timeZone: z.string().nullish(),
 });
 
 // /api/user/me works for API keys and MCP tokens alike; the auth API refuses

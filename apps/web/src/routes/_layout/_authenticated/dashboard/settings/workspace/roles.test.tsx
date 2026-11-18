@@ -50,12 +50,12 @@ beforeEach(() => {
 });
 
 describe("workspace role permission editing", () => {
-  it("shows role administration, membership and invitations in read-only role details", () => {
+  it("shows role administration, membership and join links in read-only role details", () => {
     render(<PermissionList permissions={defaultRolePayloads.admin} readOnly />);
     for (const label of [
       "Change role permissions",
       "Change member roles",
-      "Invite members",
+      "Manage join links",
       "Edit teams",
     ]) {
       expect(screen.getByRole("switch", { name: label })).toBeChecked();

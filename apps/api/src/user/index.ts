@@ -15,13 +15,15 @@ import { MAX_AVATAR_BYTES, MAX_AVATAR_REQUEST_BYTES } from "./avatar";
 import deleteOwnAvatar from "./controllers/delete-own-avatar";
 import getCurrentUser from "./controllers/get-current-user";
 import revokeOwnSession from "./controllers/revoke-own-session";
+import setTimeZone from "./controllers/set-time-zone";
 import uploadOwnAvatar from "./controllers/upload-own-avatar";
 import {
   avatarDeletedSchema,
   avatarSchema,
   currentUserSchema,
+  userTimeZoneSchema,
 } from "./response";
-import { uploadAvatarBody, userSessionParam } from "./schema";
+import { setTimeZoneBody, uploadAvatarBody, userSessionParam } from "./schema";
 
 const getCurrentUserRoute = createRoute({
   method: "get",
@@ -33,6 +35,30 @@ const getCurrentUserRoute = createRoute({
   responses: {
     200: jsonResponse("Current user", currentUserSchema),
     401: errorResponse("Unauthorized"),
+    404: errorResponse("User not found"),
+  },
+});
+
+const setTimeZoneRoute = createRoute({
+  method: "put",
+  operationId: "setUserTimeZone",
+  path: "/time-zone",
+  tags: ["User"],
+  summary: "Set your time zone",
+  description:
+    "Store the current user's IANA time zone, used for the time of their Slack digest. Last write wins; the zone cannot be cleared. Requires a user session; API keys and agent tokens are rejected.",
+  middleware: [requireUserSession] as const,
+  request: {
+    body: {
+      required: true,
+      content: { "application/json": { schema: setTimeZoneBody } },
+    },
+  },
+  responses: {
+    200: jsonResponse("Time zone stored", userTimeZoneSchema),
+    400: errorResponse("Not an IANA time zone name"),
+    401: errorResponse("Unauthorized"),
+    403: errorResponse("Authenticated with an API key or agent token"),
     404: errorResponse("User not found"),
   },
 });
@@ -125,6 +151,12 @@ const revokeSessionRoute = createRoute({
 const user = apiRouter()
   .openapi(getCurrentUserRoute, async (c) =>
     c.json(await getCurrentUser(c.get("userId")), 200),
+  )
+  .openapi(setTimeZoneRoute, async (c) =>
+    c.json(
+      await setTimeZone(c.get("userId"), c.req.valid("json").timeZone),
+      200,
+    ),
   )
   .openapi(uploadAvatarRoute, async (c) =>
     c.json(await uploadOwnAvatar(c.get("userId"), c.req.valid("json")), 200),

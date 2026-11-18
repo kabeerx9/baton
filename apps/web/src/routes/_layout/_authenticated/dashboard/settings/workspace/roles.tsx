@@ -98,12 +98,12 @@ const PERMISSION_LABELS: Record<
     description: "Remove users from this workspace.",
   },
   "invitation:create": {
-    label: "Invite members",
-    description: "Send workspace invitations.",
+    label: "Manage join links",
+    description: "Create, replace and revoke the workspace join link.",
   },
   "invitation:cancel": {
     label: "Cancel invitations",
-    description: "Revoke pending workspace invitations.",
+    description: "Not used: email invitations were replaced by join links.",
   },
   "team:create": {
     label: "Create teams",

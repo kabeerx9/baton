@@ -23,10 +23,6 @@ function useDeleteWorkspaceUser() {
     },
     onSuccess: (_, { workspaceId }) => {
       queryClient.invalidateQueries({
-        queryKey: ["workspace-invites", workspaceId],
-      });
-
-      queryClient.invalidateQueries({
         queryKey: ["workspace", "full", workspaceId],
       });
 

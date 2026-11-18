@@ -94,9 +94,9 @@ services:
       - key: SLACK_BOT_TOKEN
         scope: RUN_TIME
         type: SECRET
-      - key: SLACK_DIGEST_CRON
+      - key: SLACK_DIGEST_TIME
         scope: RUN_TIME
-        value: "0 10 * * 1-5"
+        value: "10:00"
       - key: SLACK_DIGEST_TZ
         scope: RUN_TIME
         value: "America/New_York"

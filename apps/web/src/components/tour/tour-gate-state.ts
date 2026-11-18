@@ -5,11 +5,8 @@ export function shouldHostTour(input: {
   pathname: string;
 }) {
   if (input.completed !== false || !input.hasRealWorkspace) return false;
-  // Only inside the app proper: not onboarding, profile setup or an invite.
-  return (
-    input.pathname.startsWith("/dashboard/") &&
-    !input.pathname.startsWith("/dashboard/invitations")
-  );
+  // Only inside the app proper: not onboarding, profile setup or a join page.
+  return input.pathname.startsWith("/dashboard/");
 }
 
 /**

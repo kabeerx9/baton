@@ -1,41 +1,28 @@
-import type { WorkspaceUsage } from "@/constants/onboarding";
-
 export type OnboardingStepId =
+  | "start"
   | "workspace"
   | "usage"
   | "project"
-  | "invite"
   | "ready";
 
-type StepOptions = {
-  usage: WorkspaceUsage;
-  canInvite: boolean;
-};
+export const ONBOARDING_STEPS: readonly OnboardingStepId[] = [
+  "start",
+  "workspace",
+  "usage",
+  "project",
+  "ready",
+];
 
-export function getOnboardingSteps({
-  usage,
-  canInvite,
-}: StepOptions): OnboardingStepId[] {
-  const steps: OnboardingStepId[] = ["workspace", "usage", "project"];
-  if (usage === "team" && canInvite) steps.push("invite");
-  steps.push("ready");
-  return steps;
+/** The fork and the summary are not counted: only the three setup steps are. */
+const UNCOUNTED: readonly OnboardingStepId[] = ["start", "ready"];
+
+export function getStepProgress(current: OnboardingStepId) {
+  const counted = ONBOARDING_STEPS.filter((step) => !UNCOUNTED.includes(step));
+  const index = counted.indexOf(current);
+  if (index < 0) return null;
+  return { current: index + 1, total: counted.length };
 }
 
-export function getStepProgress(
-  steps: OnboardingStepId[],
-  current: OnboardingStepId,
-) {
-  const counted: OnboardingStepId[] = steps.filter((step) => step !== "ready");
-  return {
-    current: counted.indexOf(current) + 1,
-    total: counted.length,
-  };
-}
-
-export function getNextStep(
-  steps: OnboardingStepId[],
-  current: OnboardingStepId,
-): OnboardingStepId {
-  return steps[steps.indexOf(current) + 1] ?? "ready";
+export function getNextStep(current: OnboardingStepId): OnboardingStepId {
+  return ONBOARDING_STEPS[ONBOARDING_STEPS.indexOf(current) + 1] ?? "ready";
 }
