@@ -68,7 +68,13 @@ workspaces, members, roles, API keys, MCP grants and tasks stay. The full plan i
 
 1. Stop using the app, the MCP and any API-key script. Pause agents with MCP grants.
 2. Remove `SLACK_BOT_TOKEN` from the app (this redeploys the current image). A restore would
-   send Slack messages again otherwise.
+   send Slack messages again otherwise. If these are configured by then, also:
+   - Email: remove `SMTP_HOST`. A restore would send emails again.
+   - S3: no switch stops cleanup alone. Copy the bucket with the dump (step 4): cleanup
+     deletes objects that a restore cannot bring back.
+   - GitHub App: remove `GITHUB_WEBHOOK_SECRET` (the webhook route then refuses). GitHub
+     does not redeliver by itself; redeliver the failed deliveries from the App's page in
+     step 7.
 3. Run `select count(*) from instance_webhook where enabled;`. If it is not 0, disable those
    webhooks in the admin settings.
 4. Take the only recovery point: `pg_dump -Fc "$DATABASE_URL" > baton-before-auth-boundary.dump`
@@ -78,7 +84,8 @@ workspaces, members, roles, API keys, MCP grants and tasks stay. The full plan i
    still answers.
 6. Check: sign in, open each workspace, check members and roles, call REST with an existing
    API key, connect the MCP. If sessions misbehave, `DELETE FROM session` is safe.
-7. Put `SLACK_BOT_TOKEN` back and re-enable the webhooks.
+7. Put `SLACK_BOT_TOKEN` back and re-enable the webhooks. Put back `SMTP_HOST` and
+   `GITHUB_WEBHOOK_SECRET` if you removed them, then redeliver the failed GitHub deliveries.
 
 **Rollback:** keep the freeze, restore the dump with `pg_restore --clean --if-exists`,
 deploy the previous image, then end the freeze. Every write after the dump is lost; that is
