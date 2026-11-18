@@ -150,8 +150,9 @@ export async function decideMcpAuthorizationRequest(params: {
     throwOAuthError(403, "invalid_origin");
   }
 
-  const session = await getUserSession(params.headers);
-  if (!session?.user?.id) throwOAuthError(401, "unauthorized");
+  const caller = await getUserSession(params.headers);
+  if (!caller) throwOAuthError(401, "unauthorized");
+  const userId = caller.identity.userId;
 
   const request = await getAuthorizationRequest(params.requestId);
   if (!request) throwOAuthError(404, "invalid_or_expired_request");
@@ -172,14 +173,14 @@ export async function decideMcpAuthorizationRequest(params: {
   }
 
   const defaultWorkspaceId = await chooseDefaultWorkspace(
-    session.user.id,
+    userId,
     params.decision.workspaceId ?? null,
   );
   const code = await createAuthCode(
     {
       clientId: request.clientId,
-      userId: session.user.id,
-      sessionId: session.session.id,
+      userId: userId,
+      sessionId: caller.sessionId,
       codeChallenge: request.codeChallenge,
       redirectUri: request.redirectUri,
       defaultWorkspaceId,
@@ -188,7 +189,7 @@ export async function decideMcpAuthorizationRequest(params: {
   );
   await publishEvent("mcp.authorization_code_issued", {
     clientId: request.clientId,
-    userId: session.user.id,
+    userId: userId,
     redirectUri: request.redirectUri,
   });
   return buildAuthorizationRedirect(request, { code });

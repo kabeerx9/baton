@@ -8,7 +8,7 @@ export function requireInstancePermission(
   ...permissions: InstancePermission[]
 ) {
   return async function requirePermission(c: Context, next: Next) {
-    const access = await getUserAccess(c.get("user").id);
+    const access = await getUserAccess(c.get("userId"));
     const missingPermissions = permissions.filter(
       (permission) => !access.permissions.includes(permission),
     );

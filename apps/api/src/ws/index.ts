@@ -9,11 +9,11 @@ import db from "../database";
 import {
   apikeyTable,
   projectTable,
-  sessionTable,
   userTable,
   workspaceUserTable,
 } from "../database/schema";
 import { subscribeToEvent } from "../events";
+import { identity } from "../identity";
 import { findInaccessibleProjectIds } from "../project-access/find-inaccessible-project-ids";
 import { filterUsersWithProjectAccess } from "../project-access/filter-users-with-project-access";
 import { listWorkspaceProjectIds } from "../project-access/list-workspace-project-ids";
@@ -284,8 +284,21 @@ export function getLocalRealtimeStats() {
   };
 }
 
+/**
+ * A failed cross-instance send can leave another instance's socket open after
+ * its session ended; this recheck closes it within one interval.
+ */
+export const SESSION_RECHECK_MS = 60_000;
+let sessionRecheck: ReturnType<typeof setInterval> | undefined;
+
+export function isSessionRecheckRunning() {
+  return sessionRecheck !== undefined;
+}
+
 // --- Subscribe to incoming broadcasts and deliver to local connections ---
-export async function initializeWebSocketAdapter() {
+export async function initializeWebSocketAdapter({
+  sessionRecheckMs = SESSION_RECHECK_MS,
+}: { sessionRecheckMs?: number } = {}) {
   if (adapter) return;
 
   const nextAdapter = isRedisConfigured()
@@ -367,10 +380,17 @@ export async function initializeWebSocketAdapter() {
 
   adapter = nextAdapter;
   revocationDelivery = createRevocationDelivery(nextAdapter);
+  sessionRecheck = setInterval(
+    () => void recheckLocalSessions(),
+    sessionRecheckMs,
+  );
+  sessionRecheck.unref?.();
   console.log(`📡 WebSockets Initialized using: "${adapter.constructor.name}"`);
 }
 
 export async function shutdownWebSocketAdapter() {
+  clearInterval(sessionRecheck);
+  sessionRecheck = undefined;
   revocationDelivery?.stop();
   revocationDelivery = undefined;
   receivedRevocations?.stop();
@@ -530,11 +550,7 @@ async function recheckLocalSessions() {
   if (ids.length === 0) return;
   let existing: Set<string>;
   try {
-    const rows = await db
-      .select({ id: sessionTable.id })
-      .from(sessionTable)
-      .where(inArray(sessionTable.id, ids));
-    existing = new Set(rows.map((row) => row.id));
+    existing = await identity.sessions.existing(ids);
   } catch (error) {
     console.error("Failed to verify realtime sessions:", error);
     return;

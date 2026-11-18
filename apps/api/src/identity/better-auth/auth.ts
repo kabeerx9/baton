@@ -1,12 +1,9 @@
 import * as Sentry from "@sentry/node";
 import { readClientIp } from "../../utils/client-ip";
 import { deleteNativeWorkspace } from "../../workspace/lifecycle/delete-native-workspace";
-import {
-  revokeApiKeyConnections,
-  revokeSessionConnections,
-  revokeUserConnections,
-  revokeWorkspaceConnections,
-} from "../../ws";
+import { revokeApiKeyConnections, revokeWorkspaceConnections } from "../../ws";
+import { batonIdentityHooks as hooks } from "../baton-hooks";
+import { toProviderError } from "./to-provider-error";
 import { apiKey } from "@better-auth/api-key";
 import {
   isSmtpConfigured,
@@ -44,7 +41,6 @@ import {
   signUpNeedsVerification,
 } from "../../instance-settings/email-verification-gate";
 import { getInstanceSettings } from "../../instance-settings/get-instance-settings";
-import { readStoredSettings } from "../../instance-settings/read-stored-settings";
 import { lockedSessionRevocation } from "./locked-session-revocation";
 import { publishEvent } from "../../events";
 import { applyInvitationProjectAccess } from "../../project-access/apply-invitation-project-access";
@@ -105,18 +101,11 @@ import {
   assertOAuthCallbackLinks,
   oauthSignInRefused,
 } from "./oauth-sign-in-guard";
-import {
-  hasRegisteredUsers,
-  promoteInitialAdministrator,
-} from "../../utils/instance-bootstrap";
+import { hasRegisteredUsers } from "../../utils/instance-bootstrap";
 import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
 import { isCloud } from "../../utils/is-cloud";
 import { isDisposableEmail } from "../../utils/is-disposable-email";
 import { trackPasswordResetDelivery } from "../../utils/password-reset-delivery";
-import {
-  assertUserRegistrationAllowed,
-  normalizeInvitationId,
-} from "../../utils/registration-policy";
 
 config();
 
@@ -189,7 +178,9 @@ export const auth = betterAuth({
     deleteUser: {
       enabled: true,
       beforeDelete: async (user) => {
-        await deleteAccountData(user.id);
+        await deleteAccountData(user.id).catch((error) => {
+          throw toProviderError(error);
+        });
       },
     },
   },
@@ -213,7 +204,7 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     // A reset means someone else may know the password: disconnect agents too.
     onPasswordReset: async ({ user }) => {
-      await revokeUserGrants(user.id);
+      await hooks.passwordReset(user.id);
     },
     resetPasswordTokenExpiresIn: 60 * 60,
     sendResetPassword: async ({ user, url }, request) => {
@@ -545,7 +536,7 @@ export const auth = betterAuth({
     user: {
       delete: {
         after: async (user) => {
-          await revokeUserConnections(user.id);
+          await hooks.userDeleted(user.id);
         },
       },
       update: {
@@ -572,30 +563,38 @@ export const auth = betterAuth({
       },
       create: {
         before: async (user, ctx) => {
-          await assertUserRegistrationAllowed(user, {
-            invitationId:
-              ctx?.body?.invitationId ||
-              ctx?.query?.invitationId ||
-              ctx?.headers?.get("x-invitation-id"),
-          });
+          const decision = await hooks.canSignUp({ email: user.email });
+          if (!decision.ok) {
+            throw new APIError(
+              decision.code === "DISPOSABLE_EMAIL_NOT_ALLOWED"
+                ? "BAD_REQUEST"
+                : "FORBIDDEN",
+              { code: decision.code, message: decision.message },
+            );
+          }
           // A new account has no picture until it uploads one; ignore any
           // `image` sent with sign-up or admin create.
-          // A password sign-up gets the default role. better-auth's admin
-          // endpoint sets its own role.
           if (ctx?.path === "/admin/create-user")
             return { data: { image: null } };
           return {
             data: {
               image: null,
-              role: (await readStoredSettings()).defaultRole,
               ...((await signUpNeedsVerification(ctx?.path))
                 ? { emailVerificationRequired: true }
                 : {}),
             },
           };
         },
-        after: async (user) => {
-          await promoteInitialAdministrator(user.id);
+        after: async (user, ctx) => {
+          // better-auth's admin endpoint sets its own role.
+          if (ctx?.path === "/admin/create-user") return;
+          await hooks.userCreated({
+            userId: user.id,
+            subject: user.id,
+            email: user.email,
+            name: user.name,
+            emailVerified: user.emailVerified,
+          });
         },
       },
     },
@@ -611,7 +610,7 @@ export const auth = betterAuth({
         // Sign-out, revoking other sessions, password resets and deactivation
         // all end sessions here; close their realtime connections right away.
         after: async (session) => {
-          await revokeSessionConnections(session.userId, [session.id]);
+          await hooks.sessionsEnded(session.userId, [session.id]);
         },
       },
     },
@@ -672,7 +671,9 @@ export const auth = betterAuth({
           auth.api.getSession({ headers, query: { disableRefresh: true } }),
         );
         if (ctx.path === "/admin/remove-user") {
-          await prepareAdminUserRemoval(ctx);
+          await prepareAdminUserRemoval(ctx).catch((error) => {
+            throw toProviderError(error);
+          });
         }
 
         if (
@@ -791,17 +792,7 @@ export const auth = betterAuth({
           return verification;
         }
 
-        const email =
-          ctx.body?.email ||
-          ctx.query?.email ||
-          ctx.headers?.get("x-invitation-email");
-        const invitationId = normalizeInvitationId(
-          ctx.body?.invitationId ||
-            ctx.query?.invitationId ||
-            ctx.headers?.get("x-invitation-id"),
-        );
-
-        const result = await checkRegistrationAllowed(email, invitationId);
+        const result = await checkRegistrationAllowed(ctx.body?.email);
         if (!result.allowed) {
           throw new APIError("FORBIDDEN", {
             code: "REGISTRATION_NOT_ALLOWED",

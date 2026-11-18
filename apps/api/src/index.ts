@@ -11,7 +11,7 @@ import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import * as Sentry from "@sentry/node";
-import type { Session, User } from "better-auth/types";
+import type { Identity } from "./identity/port";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Hono } from "hono";
@@ -102,8 +102,8 @@ type ApiKey = {
 
 type AppVariables = {
   Variables: {
-    user: User | null;
-    session: Session | null;
+    identity: Identity | null;
+    sessionId: string | null;
     userId: string;
     apiKey?: ApiKey;
   };
@@ -111,8 +111,8 @@ type AppVariables = {
 
 type ApiVariables = {
   Variables: {
-    user: User | null;
-    session: Session | null;
+    identity: Identity | null;
+    sessionId: string | null;
     userId: string;
     userEmail: string;
     apiKey?: ApiKey;
@@ -666,7 +666,7 @@ export function createApp() {
       assertWebSocketOrigin(c.req.raw.headers);
 
       const userId = c.get("userId");
-      const sessionId = c.get("session")?.id ?? null;
+      const sessionId = c.get("sessionId") ?? null;
       const apiKeyId = c.get("apiKey")?.id;
       let conn: ReturnType<typeof addUserConnection> | null = null;
 
@@ -721,7 +721,7 @@ export function createApp() {
 
       const windowId = c.req.query("windowId");
       const initiatorId = windowId ? `${userId}:${windowId}` : userId;
-      const sessionId = c.get("session")?.id ?? null;
+      const sessionId = c.get("sessionId") ?? null;
       let conn: ReturnType<typeof addConnection> | null = null;
 
       return {

@@ -12,7 +12,7 @@ import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import getInstanceStatus from "../../apps/api/src/instance/controllers/get-instance-status";
 import { promoteInitialAdministrator } from "../../apps/api/src/utils/instance-bootstrap";
-import { assertUserRegistrationAllowed } from "../../apps/api/src/utils/registration-policy";
+import { signUpDecision } from "../../apps/api/src/utils/registration-policy";
 import { resetTestDatabase } from "./helpers/database";
 import { createWorkspaceMember } from "./helpers/fixtures";
 
@@ -132,40 +132,24 @@ describe("auth registration and bootstrap boundaries", () => {
     ).toHaveLength(0);
   });
 
-  it("requires the matching invitation secret for password signup", async () => {
+  it("no longer lets an invitation open closed registration", async () => {
     const invite = await invitation("invitee@example.com");
     vi.stubEnv("DISABLE_REGISTRATION", "true");
     expect((await signup(invite.email)).status).toBe(403);
     expect(
-      (await signup(invite.email, { "x-invitation-id": "wrong" })).status,
-    ).toBe(403);
-    expect(
-      (await signup("other@example.com", { "x-invitation-id": invite.id }))
-        .status,
-    ).toBe(403);
-    expect(
       (await signup(invite.email, { "x-invitation-id": invite.id })).status,
-    ).toBe(200);
+    ).toBe(403);
   });
 
-  it("requires a valid invitation at the user-create boundary when registration is disabled", async () => {
+  it("refuses a new account at the user-create boundary when registration is closed", async () => {
     const invite = await invitation("invitee@example.com");
     vi.stubEnv("DISABLE_REGISTRATION", "true");
-    await expect(
-      assertUserRegistrationAllowed({ email: invite.email }),
-    ).rejects.toMatchObject({ status: "FORBIDDEN" });
-    await expect(
-      assertUserRegistrationAllowed(
-        { email: invite.email },
-        { invitationId: "missing" },
-      ),
-    ).rejects.toMatchObject({ status: "FORBIDDEN" });
-    await expect(
-      assertUserRegistrationAllowed(
-        { email: invite.email },
-        { invitationId: invite.id },
-      ),
-    ).resolves.toBeUndefined();
+    expect(await signUpDecision({ email: invite.email })).toMatchObject({
+      ok: false,
+      code: "REGISTRATION_NOT_ALLOWED",
+    });
+    vi.stubEnv("DISABLE_REGISTRATION", "false");
+    expect(await signUpDecision({ email: invite.email })).toEqual({ ok: true });
   });
 
   it.each([

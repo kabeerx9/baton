@@ -1,5 +1,5 @@
 import db from "../../database";
-import { deleteUserSessions } from "../../sessions/delete-user-sessions";
+import { identity } from "../../identity";
 import { revokeSessionConnections } from "../../ws";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
@@ -13,8 +13,8 @@ async function revokeUserSessions(
 ) {
   const revoked = await db.transaction(async (tx) => {
     const user = await findAdminTargetUser(tx, userId);
-    const ids = await deleteUserSessions(tx, userId, {
-      exceptSessionId: adminSessionId,
+    const ids = await identity.fence.endSessions(tx, userId, {
+      allExcept: adminSessionId,
     });
     if (ids.length > 0) {
       await recordAdminAction(

@@ -21,6 +21,6 @@ export async function assertCanManageUser(actorId: string, targetId: string) {
 /** For routes with a `{userId}` path parameter; an unknown user is left to the route. */
 export async function requireManageableUser(c: Context, next: Next) {
   const targetId = c.req.param("userId");
-  if (targetId) await assertCanManageUser(c.get("user").id, targetId);
+  if (targetId) await assertCanManageUser(c.get("userId"), targetId);
   return next();
 }

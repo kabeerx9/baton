@@ -10,7 +10,7 @@ export type AdminAuditRequest = {
 
 export function adminAuditRequest(c: Context): AdminAuditRequest {
   return {
-    actorUserId: c.get("user")?.id ?? null,
+    actorUserId: c.get("userId") || null,
     ipAddress: readClientIp(c.req.raw.headers),
     userAgent: c.req.header("user-agent") ?? null,
   };

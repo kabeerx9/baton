@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import db from "../../database";
 import { userTable } from "../../database/schema";
 import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
-import { deleteUserSessions } from "../../sessions/delete-user-sessions";
+import { identity } from "../../identity";
 import { isBanActive } from "../../utils/user-ban";
 import { revokeSessionConnections } from "../../ws";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
@@ -31,8 +31,8 @@ async function deactivateUser(
       .update(userTable)
       .set({ banned: true, banReason: BAN_REASON, banExpires: null })
       .where(eq(userTable.id, userId));
-    const sessionIds = await deleteUserSessions(tx, userId, {
-      exceptSessionId: null,
+    const sessionIds = await identity.fence.endSessions(tx, userId, {
+      allExcept: null,
     });
     await revokeUserGrants(userId, tx);
     if (!isBanActive(target) || target.banExpires) {

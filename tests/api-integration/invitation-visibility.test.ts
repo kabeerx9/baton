@@ -113,7 +113,7 @@ describe("workspace invitation visibility", () => {
   });
 
   it.each([false, true])(
-    "lets an invited email sign up but refuses the invitation (invite-only=%s)",
+    "lets an invited email sign up only while registration is open, and refuses the invitation (invite-only=%s)",
     async (inviteOnly) => {
       const { app, invitation } = await setup("viewer");
       process.env.DISABLE_REGISTRATION = String(inviteOnly);
@@ -127,6 +127,11 @@ describe("workspace invitation visibility", () => {
           invitationId: invitation.id,
         }),
       });
+      // An invitation no longer opens closed registration (auth-boundary P2).
+      if (inviteOnly) {
+        expect(signup.status).toBe(403);
+        return;
+      }
       expect(signup.status).toBe(200);
       const { token, user } = (await signup.json()) as {
         token: string;

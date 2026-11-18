@@ -1,5 +1,5 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi";
-import type { Session, User } from "better-auth/types";
+import type { Identity } from "./identity/port";
 import { apiErrorSchema } from "./errors/api-error-schema";
 import { validationHook } from "./errors/validation-error";
 import type { AuthMethod } from "./utils/request-channel";
@@ -17,8 +17,8 @@ export type ApiKey = {
 export type BaseVariables = {
   userId: string;
   userEmail: string;
-  user: User | null;
-  session: Session | null;
+  identity: Identity | null;
+  sessionId: string | null;
   apiKey?: ApiKey;
   authMethod?: AuthMethod;
 };

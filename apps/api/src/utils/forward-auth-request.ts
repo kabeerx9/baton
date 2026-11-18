@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { auth } from "../identity/better-auth/auth";
+import { identity } from "../identity";
 import { isMcpToken } from "../mcp/grant/token-secret";
 import { withJsonNotFound } from "../errors/not-found-response";
 import { withJsonRateLimit } from "../errors/rate-limit-response";
@@ -33,13 +33,12 @@ export async function forwardAuthRequest(c: Context): Promise<Response> {
     } else if (verified) {
       throw apiKeyRejection(verified);
     } else {
-      const session = await auth.api.getSession({ headers });
-      if (!session?.session || !session.user) throw apiKeyRejection(null);
+      if (!(await identity.resolve(headers))) throw apiKeyRejection(null);
     }
   }
   const response = await withJsonRateLimit(
     await withJsonNotFound(
-      await auth.handler(new Request(c.req.raw, { headers })),
+      await identity.handle(new Request(c.req.raw, { headers })),
     ),
   );
   if (bearerKey) {

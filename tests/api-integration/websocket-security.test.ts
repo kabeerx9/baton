@@ -14,7 +14,6 @@ import {
 } from "vite-plus/test";
 import { serve } from "../../apps/api/node_modules/@hono/node-server";
 import type { NodeWebSocket } from "../../apps/api/node_modules/@hono/node-ws";
-import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { createApp } from "../../apps/api/src/index";
 import {
   broadcastToProject,
@@ -23,7 +22,7 @@ import {
   shutdownWebSocketAdapter,
 } from "../../apps/api/src/ws";
 import { handleWebSocketMessage } from "../../apps/api/src/ws/security";
-import { mockAuthenticatedSession } from "./helpers/auth";
+import { installFakeIdentity } from "./helpers/auth";
 import { resetTestDatabase } from "./helpers/database";
 import {
   createProjectFixture,
@@ -86,15 +85,8 @@ beforeEach(async () => {
     workspaceId: member.workspace.id,
   });
   projectId = project.id;
-  const sessionMock = mockAuthenticatedSession(member.user);
-  const session = await auth.api.getSession({ headers: new Headers() });
-  sessionMock.mockImplementation(async ({ headers }) => {
-    const h = new Headers(headers);
-    return h.get("authorization") === "Bearer valid-test-session" ||
-      h.get("cookie") === "test-session=valid"
-      ? session
-      : null;
-  });
+  const fake = installFakeIdentity();
+  fake.addSession(member.user.id, { token: "valid-test-session" });
   const created = createApp();
   server = serve({ fetch: created.app.fetch, hostname: "127.0.0.1", port: 0 });
   created.injectWebSocket(server);
@@ -151,7 +143,7 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
       "http://localhost:5174",
     ]) {
       const { status } = await connect(path(), {
-        cookie: "test-session=valid",
+        cookie: "fake_session=valid-test-session",
         ...(origin === undefined ? {} : { origin }),
       });
       expect(status, String(origin)).toBe(403);
@@ -164,8 +156,12 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
       "https://extra.example.test",
     ]) {
       expect(
-        (await connect(path(), { cookie: "test-session=valid", origin }))
-          .status,
+        (
+          await connect(path(), {
+            cookie: "fake_session=valid-test-session",
+            origin,
+          })
+        ).status,
       ).toBe(101);
     }
     expect(
@@ -176,7 +172,7 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
       (
         await connect(path(), {
           authorization: "Bearer invalid",
-          cookie: "test-session=valid",
+          cookie: "fake_session=valid-test-session",
         })
       ).status,
     ).toBe(401);
@@ -188,7 +184,7 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
     "rejects oversized %s messages before application delivery",
     async (kind) => {
       const { socket, status } = await connect(path(), {
-        cookie: "test-session=valid",
+        cookie: "fake_session=valid-test-session",
         origin: "http://localhost:5173",
       });
       expect(status).toBe(101);
@@ -211,7 +207,7 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
     "closes %s and keeps valid pings working",
     async (_name, payload, code) => {
       const { socket, status } = await connect(path(), {
-        cookie: "test-session=valid",
+        cookie: "fake_session=valid-test-session",
         origin: "http://localhost:5173",
       });
       expect(status).toBe(101);
@@ -229,7 +225,7 @@ describe.each(["project", "user"])("%s WebSocket", (endpoint) => {
 
 it("preserves user event delivery after keepalive", async () => {
   const { socket, status } = await connect("user", {
-    cookie: "test-session=valid",
+    cookie: "fake_session=valid-test-session",
     origin: "http://localhost:5173",
   });
   expect(status).toBe(101);
@@ -251,7 +247,7 @@ it("still rejects access to a foreign project with a valid Origin", async () => 
     workspaceId: foreign.workspace.id,
   });
   const headers = {
-    cookie: "test-session=valid",
+    cookie: "fake_session=valid-test-session",
     origin: "http://localhost:5173",
   };
   expect((await connect(project.id, headers)).status).toBe(404);
@@ -316,7 +312,7 @@ describe("project WebSocket read authorization", () => {
       });
       const keyed = await connect(projectId, { "x-api-key": key });
       const browser = await connect(projectId, {
-        cookie: "test-session=valid",
+        cookie: "fake_session=valid-test-session",
         origin: "http://localhost:5173",
       });
       expect(keyed.status).toBe(101);

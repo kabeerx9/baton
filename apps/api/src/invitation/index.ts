@@ -39,8 +39,7 @@ const getInvitationRoute = createRoute({
 
 const invitation = apiRouter()
   .openapi(getPendingRoute, async (c) => {
-    const user = c.get("user");
-    if (!user?.emailVerified) {
+    if (!c.get("identity")?.emailVerified) {
       return c.json([], 200);
     }
     return c.json(await getUserPendingInvitations(c.get("userEmail")), 200);

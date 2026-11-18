@@ -4,7 +4,7 @@ import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { providerIssue } from "../../apps/api/src/plugins/sync/provider-issue";
-import { deleteUserSessions } from "../../apps/api/src/sessions/delete-user-sessions";
+import { identity } from "../../apps/api/src/identity";
 import getTaskByTicketId from "../../apps/api/src/task/controllers/get-task-by-ticket-id";
 import {
   deleteDemoWorkspace,
@@ -202,7 +202,7 @@ describe("lock order: user row first, then workspaces", () => {
       // Tour start now waits on the user row instead of taking it first.
       tourStart = send("POST", "/tour/start");
       await new Promise((resolve) => setTimeout(resolve, 300));
-      await deleteUserSessions(tx, user.id, { exceptSessionId: null });
+      await identity.fence.endSessions(tx, user.id, { allExcept: null });
       await tx.delete(schema.userTable).where(eq(schema.userTable.id, user.id));
     });
 

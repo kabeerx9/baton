@@ -1,6 +1,6 @@
-import { APIError } from "better-auth/api";
 import { and, eq, inArray } from "drizzle-orm";
 import db from "../../database";
+import { ApiError } from "../../errors/api-error";
 import { revokeWorkspaceConnections } from "../../ws";
 import {
   userTable,
@@ -96,7 +96,7 @@ async function deleteAccountRows(userId: string, database: DbOrTx) {
   const plan = planAccountDeletion(await collectMemberships(userId, database));
 
   if (plan.blockedWorkspaceNames.length > 0) {
-    throw new APIError("CONFLICT", {
+    throw new ApiError(409, {
       code: "SOLE_WORKSPACE_OWNER",
       message: formatBlockedWorkspacesMessage(plan.blockedWorkspaceNames),
     });

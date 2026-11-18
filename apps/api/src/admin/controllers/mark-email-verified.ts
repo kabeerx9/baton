@@ -1,20 +1,16 @@
-import { and, eq } from "drizzle-orm";
 import db from "../../database";
-import { userTable } from "../../database/schema";
+import { identity } from "../../identity";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
-import { findAdminTargetUser } from "../users/find-admin-target-user";
+import { lockAdminTargetUser } from "../users/lock-admin-target-user";
 
 /** Mark a user's email verified. Already verified addresses are left alone. */
 async function markEmailVerified(userId: string, audit: AdminAuditRequest) {
   await db.transaction(async (tx) => {
-    await findAdminTargetUser(userId, tx);
-    const [updated] = await tx
-      .update(userTable)
-      .set({ emailVerified: true })
-      .where(and(eq(userTable.id, userId), eq(userTable.emailVerified, false)))
-      .returning({ email: userTable.email });
-    if (!updated) return;
+    // Locked, so two requests cannot both see "unverified" and both audit.
+    const target = await lockAdminTargetUser(userId, tx);
+    if (target.emailVerified) return;
+    await identity.users.update(tx, userId, { emailVerified: true });
 
     await recordAdminAction(
       {
@@ -22,7 +18,7 @@ async function markEmailVerified(userId: string, audit: AdminAuditRequest) {
         action: "user.email_verified",
         targetType: "user",
         targetId: userId,
-        targetLabel: updated.email,
+        targetLabel: target.email,
       },
       tx,
     );

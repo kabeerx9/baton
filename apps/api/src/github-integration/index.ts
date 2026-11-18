@@ -3,7 +3,8 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import db from "../database";
 import { publishEvent } from "../events";
-import { accountTable, integrationTable } from "../database/schema";
+import { integrationTable } from "../database/schema";
+import { identity } from "../identity";
 import { scopeToProjectFromBody } from "../integrations/middleware";
 import { projectIdParam } from "../integrations/schema";
 import {
@@ -265,13 +266,7 @@ const importIssuesRoute = createRoute({
 
 const githubIntegration = apiRouter<BaseVariables & { workspaceId: string }>()
   .openapi(getAppInfoRoute, async (c) => {
-    const account = await db.query.accountTable.findFirst({
-      where: and(
-        eq(accountTable.userId, c.get("userId")),
-        eq(accountTable.providerId, "github"),
-      ),
-      columns: { id: true },
-    });
+    const account = await identity.linkedAccount(c.get("userId"), "github");
     return c.json(
       {
         appName: process.env.GITHUB_APP_NAME || null,

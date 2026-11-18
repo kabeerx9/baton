@@ -1,7 +1,5 @@
-import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
-import db from "../../database";
-import { accountTable } from "../../database/schema";
+import { identity } from "../../identity";
 import { getGithubApp } from "../../plugins/github/utils/github-app";
 
 /** Account IDs come from completed OAuth, never from submitted repository data. */
@@ -59,12 +57,7 @@ export async function verifyRepositoryOwner(
 }
 
 export async function getGithubAccount(userId: string) {
-  const account = await db.query.accountTable.findFirst({
-    where: and(
-      eq(accountTable.userId, userId),
-      eq(accountTable.providerId, "github"),
-    ),
-  });
+  const account = await identity.linkedAccount(userId, "github");
   const accountId = Number(account?.accountId);
   if (!account || !Number.isSafeInteger(accountId) || accountId <= 0) {
     throw new HTTPException(403, {

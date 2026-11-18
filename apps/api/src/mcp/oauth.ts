@@ -1,13 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq, gt, isNotNull, lt, or } from "drizzle-orm";
+import { and, eq, isNotNull, lt, or } from "drizzle-orm";
 import db from "../database";
 import {
-  accountTable,
   mcpGrantTable,
   mcpOauthStateTable,
-  sessionTable,
   userTable,
 } from "../database/schema";
+import { identity } from "../identity";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import { notBannedCondition } from "../utils/user-ban";
 import { DEAD_GRANT_RETENTION_MS, GRANT_IDLE_MS } from "./grant/constants";
@@ -31,7 +30,7 @@ type AuthCode = {
   /** Chosen on the consent page; null lets the tools fall back. */
   defaultWorkspaceId?: string | null;
   /**
-   * `account.credential_generation` at consent, null without a password.
+   * The provider's credential generation at consent, null without a password.
    * Any password change bumps it, which voids the code. No clocks involved.
    */
   credentialGeneration?: number | null;
@@ -76,24 +75,6 @@ export async function registerClient(params: {
   return client;
 }
 
-/** The user's password generation, or null when they have no password. */
-async function credentialGeneration(
-  tx: DbOrTx,
-  userId: string,
-): Promise<number | null> {
-  const [credential] = await tx
-    .select({ generation: accountTable.credentialGeneration })
-    .from(accountTable)
-    .where(
-      and(
-        eq(accountTable.userId, userId),
-        eq(accountTable.providerId, "credential"),
-      ),
-    )
-    .limit(1);
-  return credential?.generation ?? null;
-}
-
 export async function createAuthCode(
   params: Omit<AuthCode, "credentialGeneration">,
   requestId?: string,
@@ -104,7 +85,11 @@ export async function createAuthCode(
     code,
     {
       ...params,
-      credentialGeneration: await credentialGeneration(db, params.userId),
+      // Unfenced read: redemption compares it again under the user lock.
+      credentialGeneration: await identity.fence.credentialGeneration(
+        db,
+        params.userId,
+      ),
     } satisfies AuthCode,
     new Date(Date.now() + codeTtlMs),
     requestId,
@@ -190,25 +175,20 @@ export async function exchangeCode(
       .limit(1)
       .for("update");
     if (!user) return null;
-    const [approver] = await tx
-      .select({ id: sessionTable.id, expiresAt: sessionTable.expiresAt })
-      .from(sessionTable)
-      .where(
-        and(
-          eq(sessionTable.id, stored.sessionId),
-          eq(sessionTable.userId, stored.userId),
-          gt(sessionTable.expiresAt, new Date()),
-        ),
-      )
-      .limit(1)
-      .for("update");
-    if (!approver || approver.expiresAt <= new Date()) return null;
+    // Locks the approving session row, after the user row.
+    if (
+      !(await identity.fence.sessionIsLive(tx, {
+        userId: stored.userId,
+        sessionId: stored.sessionId,
+      }))
+    )
+      return null;
     // An admin password reset keeps sessions, so the session check above
     // cannot catch it. Any password change since consent bumped the
     // generation. Read under the user lock that revokeUserGrants also takes.
     if (
       stored.credentialGeneration === undefined ||
-      (await credentialGeneration(tx, stored.userId)) !==
+      (await identity.fence.credentialGeneration(tx, stored.userId)) !==
         stored.credentialGeneration
     )
       return null;

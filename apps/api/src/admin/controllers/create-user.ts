@@ -1,7 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import db from "../../database";
 import { userTable } from "../../database/schema";
 import { ApiError } from "../../errors/api-error";
+import { identity } from "../../identity";
 import { readStoredSettings } from "../../instance-settings/read-stored-settings";
 import { isCloud } from "../../utils/is-cloud";
 import { isDisposableEmail } from "../../utils/is-disposable-email";
@@ -47,26 +48,20 @@ async function createUser(input: CreateUserInput, audit: AdminAuditRequest) {
   const userId = await db.transaction(async (tx) => {
     const role = input.role ?? (await readStoredSettings(tx)).defaultRole;
     await assertAssignableRole(role, actor, tx);
-    const [existing] = await tx
-      .select({ id: userTable.id })
-      .from(userTable)
-      .where(eq(sql`lower(${userTable.email})`, email))
-      .limit(1);
-    if (existing) throw emailTaken();
-
-    const [created] = await tx
-      .insert(userTable)
-      .values({ name, email, role, emailVerified: false })
-      .onConflictDoNothing({ target: userTable.email })
-      .returning({ id: userTable.id });
+    const created = await identity.users.create(tx, { name, email });
     if (!created) throw emailTaken();
+    // The instance role is Baton's column, set in the same transaction.
+    await tx
+      .update(userTable)
+      .set({ role })
+      .where(eq(userTable.id, created.userId));
 
     await recordAdminAction(
       {
         ...audit,
         action: "user.created",
         targetType: "user",
-        targetId: created.id,
+        targetId: created.userId,
         targetLabel: email,
         metadata: {
           name,
@@ -76,7 +71,7 @@ async function createUser(input: CreateUserInput, audit: AdminAuditRequest) {
       },
       tx,
     );
-    return created.id;
+    return created.userId;
   });
 
   let passwordSetupEmail: PasswordSetupEmail;

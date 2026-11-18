@@ -1,11 +1,8 @@
-import { isAPIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import db from "../../database";
 import { userTable } from "../../database/schema";
 import { ApiError } from "../../errors/api-error";
-import type { DbOrTx } from "../../project-access/db-or-tx";
-import { deleteUserSessions } from "../../sessions/delete-user-sessions";
+import { identity } from "../../identity";
 import deleteAccountData from "../../user/controllers/delete-account-data";
 import { hasOtherInstanceAdmin } from "../../utils/has-other-instance-admin";
 import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
@@ -13,19 +10,6 @@ import { revokeUserConnections } from "../../ws";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
 import { rejectSelfAction } from "../users/reject-self-action";
-
-/** The same cleanup as self-service account deletion, with its conflicts. */
-async function removeAccountData(userId: string, tx: DbOrTx) {
-  try {
-    await deleteAccountData(userId, tx);
-  } catch (error) {
-    if (!isAPIError(error)) throw error;
-    throw new ApiError(error.statusCode as ContentfulStatusCode, {
-      code: String(error.body?.code ?? "ACCOUNT_DELETION_BLOCKED"),
-      message: error.message,
-    });
-  }
-}
 
 /** Delete a user's account, workspaces they solely own, and their sessions. */
 async function deleteUser(
@@ -60,11 +44,12 @@ async function deleteUser(
         message: "The instance must have at least one administrator.",
       });
     }
-    await removeAccountData(userId, tx);
-    // removeAccountData locked the user (NO KEY UPDATE), then workspaces.
+    // The same cleanup as self-service account deletion, with its conflicts.
+    await deleteAccountData(userId, tx);
+    // deleteAccountData locked the user (NO KEY UPDATE), then workspaces.
     // Sessions take the full user lock last, after the workspace deletes.
-    await deleteUserSessions(tx, userId, { exceptSessionId: null });
-    await tx.delete(userTable).where(eq(userTable.id, userId));
+    await identity.fence.endSessions(tx, userId, { allExcept: null });
+    await identity.fence.removeUser(tx, userId);
     await recordAdminAction(
       {
         ...audit,
