@@ -1,8 +1,21 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { BoardResponse } from "@/fetchers/board/get-board";
 import { TaskDetailPage } from "./task-detail-page";
+
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
 
 const m = vi.hoisted(() => ({
   task: undefined as unknown,
@@ -48,7 +61,7 @@ vi.mock("@/components/external-links/external-links-accordion", () => ({
   ExternalLinksAccordion: m.nothing,
 }));
 vi.mock("@/components/board/add-subtask-dialog", () => ({
-  AddSubtaskDialog: m.nothing,
+  AddSubtaskDialog: () => <p>add task dialog</p>,
 }));
 vi.mock("@/components/task/change-request/task-change-request", () => ({
   TaskChangeRequest: m.nothing,
@@ -92,12 +105,25 @@ vi.mock("./status-bar/task-status-bar", () => ({
   ),
 }));
 vi.mock("@/components/board/task-flow/task-stream", () => ({
-  TaskStream: ({ feature }: { feature: { subtasks: { title: string }[] } }) => (
-    <ul aria-label="tasks">
-      {feature.subtasks.map((s) => (
-        <li key={s.title}>{s.title}</li>
-      ))}
-    </ul>
+  TaskStream: ({
+    feature,
+    onAdd,
+  }: {
+    feature: { subtasks: { title: string }[] };
+    onAdd?: () => void;
+  }) => (
+    <>
+      <ul aria-label="tasks">
+        {feature.subtasks.map((s) => (
+          <li key={s.title}>{s.title}</li>
+        ))}
+      </ul>
+      {onAdd && (
+        <button type="button" onClick={onAdd}>
+          Add task
+        </button>
+      )}
+    </>
   ),
 }));
 vi.mock("@/components/board/task-flow/siblings", () => ({
@@ -180,9 +206,14 @@ const related = (id: string, over = {}) => ({
   ...over,
 });
 
-const page = (taskId: string, projectId = "board") =>
+const page = (taskId: string, projectId = "board", openAddTask = false) =>
   render(
-    <TaskDetailPage taskId={taskId} projectId={projectId} workspaceId="w" />,
+    <TaskDetailPage
+      taskId={taskId}
+      projectId={projectId}
+      workspaceId="w"
+      openAddTask={openAddTask}
+    />,
   );
 
 beforeEach(() => {
@@ -190,6 +221,26 @@ beforeEach(() => {
   m.item = undefined;
   m.itemEnabled = undefined;
   m.relations = [];
+  permissions.canCreateTasks = true;
+});
+
+describe("adding a task under this one", () => {
+  it("offers Add task to people who can create tasks", () => {
+    m.task = task("f");
+    m.item = { task: oldFeature };
+    page("f");
+    fireEvent.click(screen.getByRole("button", { name: "Add task" }));
+    expect(screen.getByText("add task dialog")).toBeTruthy();
+  });
+
+  it("gives a viewer no Add task button, even from the URL request", () => {
+    permissions.canCreateTasks = false;
+    m.task = task("f");
+    m.item = { task: oldFeature };
+    page("f", "board", true);
+    expect(screen.queryByRole("button", { name: "Add task" })).toBeNull();
+    expect(screen.queryByText("add task dialog")).toBeNull();
+  });
 });
 
 describe("when the page reads the board item", () => {

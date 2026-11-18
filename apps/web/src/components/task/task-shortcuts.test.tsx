@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   canUpdateTasks: vi.fn(),
   canAssignTasks: vi.fn(),
+  canCreateTasks: vi.fn(),
   task: {
     id: "task-1",
     number: 42,
@@ -85,6 +86,7 @@ vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
     canUpdateTasks: mocks.canUpdateTasks,
     canAssignTasks: mocks.canAssignTasks,
+    canCreateTasks: mocks.canCreateTasks,
   }),
 }));
 vi.mock("@/lib/toast", () => ({
@@ -92,12 +94,18 @@ vi.mock("@/lib/toast", () => ({
 }));
 
 const onStatus = vi.fn();
+const onAddSubtask = vi.fn();
 
 function renderTaskShortcuts(enabled = true) {
   return render(
     <ShortcutTestWrapper>
       <div data-task-view>
         <button type="button" data-task-action="status" onClick={onStatus} />
+        <button
+          type="button"
+          data-task-action="addSubtask"
+          onClick={onAddSubtask}
+        />
       </div>
       <TaskShortcuts
         taskId="task-1"
@@ -116,6 +124,7 @@ function press(init: KeyboardEventInit) {
 beforeEach(() => {
   mocks.canUpdateTasks.mockReturnValue(true);
   mocks.canAssignTasks.mockReturnValue(true);
+  mocks.canCreateTasks.mockReturnValue(true);
   mocks.updateAssignee.mockResolvedValue({});
   mocks.updateDueDate.mockResolvedValue({});
   mocks.writeText.mockResolvedValue(undefined);
@@ -248,6 +257,22 @@ describe("TaskShortcuts", () => {
     expect(onStatus).not.toHaveBeenCalled();
     expect(useRelationPickerStore.getState().request).toBeNull();
     expect(mocks.writeText).toHaveBeenCalledWith("KAN-42");
+  });
+
+  it("adds a subtask only with create permission, even when edits are allowed", async () => {
+    mocks.canCreateTasks.mockReturnValue(false);
+    const { unmount } = renderTaskShortcuts();
+    press({ key: "O", code: "KeyO", ctrlKey: true, shiftKey: true });
+    await act(async () => {});
+    expect(onAddSubtask).not.toHaveBeenCalled();
+    unmount();
+    shortcutRegistry.reset();
+
+    mocks.canCreateTasks.mockReturnValue(true);
+    renderTaskShortcuts();
+    press({ key: "O", code: "KeyO", ctrlKey: true, shiftKey: true });
+    await act(async () => {});
+    expect(onAddSubtask).toHaveBeenCalledTimes(1);
   });
 
   it("does not assign without assign permission", async () => {

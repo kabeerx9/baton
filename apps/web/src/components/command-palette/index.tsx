@@ -25,6 +25,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import type { ShortcutId } from "@/lib/shortcuts/catalog";
 import { useCurrentUser } from "@/hooks/queries/user/use-current-user";
@@ -50,6 +51,11 @@ function CommandPalette() {
   const { setTheme } = useUserPreferencesStore();
   const navigate = useNavigate();
   const { data: workspace } = useActiveWorkspace();
+  // The API refuses these to a viewer; the palette and shortcuts offer them
+  // only to people who can.
+  const { canCreateTasks, canCreateProjects } = useWorkspacePermission();
+  const canCreateTask = Boolean(workspace?.id) && canCreateTasks();
+  const canCreateProject = canCreateProjects();
   const { data: currentUser } = useCurrentUser();
   const { data: config } = useGetConfig();
   const isAdmin = hasInstanceAdminRole(currentUser?.role);
@@ -64,8 +70,12 @@ function CommandPalette() {
   const openShortcutsPanel = useShortcutsPanelStore((state) => state.setOpen);
 
   useShortcut("openCommandMenu", () => setOpen((prev) => !prev));
-  useShortcut("createTask", () => setIsCreateTaskOpen(true));
-  useShortcut("createProject", () => setIsCreateProjectOpen(true));
+  useShortcut("createTask", () => setIsCreateTaskOpen(true), {
+    enabled: canCreateTask,
+  });
+  useShortcut("createProject", () => setIsCreateProjectOpen(true), {
+    enabled: canCreateProject,
+  });
 
   const runCommand = useCallback((command: () => void) => {
     command();
@@ -109,18 +119,26 @@ function CommandPalette() {
               });
             },
           },
-          {
-            value: "create-task",
-            label: t("navigation:commandPalette.createTask"),
-            shortcutId: "createTask",
-            onRun: () => setIsCreateTaskOpen(true),
-          },
-          {
-            value: "create-project",
-            label: t("navigation:commandPalette.createProject"),
-            shortcutId: "createProject",
-            onRun: () => setIsCreateProjectOpen(true),
-          },
+          ...(canCreateTask
+            ? [
+                {
+                  value: "create-task",
+                  label: t("navigation:commandPalette.createTask"),
+                  shortcutId: "createTask" as const,
+                  onRun: () => setIsCreateTaskOpen(true),
+                },
+              ]
+            : []),
+          ...(canCreateProject
+            ? [
+                {
+                  value: "create-project",
+                  label: t("navigation:commandPalette.createProject"),
+                  shortcutId: "createProject" as const,
+                  onRun: () => setIsCreateProjectOpen(true),
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -166,6 +184,8 @@ function CommandPalette() {
       t,
       workspace?.id,
       canCreateWorkspace,
+      canCreateTask,
+      canCreateProject,
       openShortcutsPanel,
     ],
   );
@@ -246,7 +266,7 @@ function CommandPalette() {
       </CommandDialog>
 
       <SearchCommandMenu open={isSearchOpen} setOpen={setIsSearchOpen} />
-      {workspace?.id ? (
+      {workspace?.id && canCreateTask ? (
         <NewTaskDialog
           workspaceId={workspace.id}
           open={isCreateTaskOpen}
@@ -258,10 +278,12 @@ function CommandPalette() {
         open={isCreateWorkspaceOpen}
         onClose={() => setIsCreateWorkspaceOpen(false)}
       />
-      <CreateProjectModal
-        open={isCreateProjectOpen}
-        onClose={() => setIsCreateProjectOpen(false)}
-      />
+      {canCreateProject && (
+        <CreateProjectModal
+          open={isCreateProjectOpen}
+          onClose={() => setIsCreateProjectOpen(false)}
+        />
+      )}
     </>
   );
 }

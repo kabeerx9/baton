@@ -180,7 +180,8 @@ export function TaskStream({
   feature: BoardTask;
   lanes: Lane[];
   workspaceId: string;
-  onAdd: () => void;
+  /** Absent for people who cannot create tasks: the Add button is hidden. */
+  onAdd?: () => void;
 }) {
   const tasks = feature.subtasks;
   const done = tasks.filter((t) => t.status === "done").length;
@@ -198,14 +199,16 @@ export function TaskStream({
             {done} of {tasks.length} done
           </span>
         )}
-        <button
-          type="button"
-          onClick={onAdd}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-xs outline-none transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="size-3.5" />
-          Add task
-        </button>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-xs outline-none transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="size-3.5" />
+            Add task
+          </button>
+        )}
       </div>
       {tasks.length === 0 ? (
         <p className="text-muted-foreground text-xs">

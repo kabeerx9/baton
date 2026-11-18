@@ -9,6 +9,19 @@ import {
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import CommandPalette from "./index";
 
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
+
 const m = vi.hoisted(() => ({
   navigate: vi.fn(),
   shortcuts: {} as Record<string, () => void>,

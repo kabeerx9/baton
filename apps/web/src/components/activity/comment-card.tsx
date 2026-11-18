@@ -24,6 +24,7 @@ import useUpdateComment from "@/hooks/mutations/comment/use-update-comment";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { getInitials } from "@/lib/get-initials";
 import { toast } from "@/lib/toast";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 const forges = {
   github: { name: "GitHub", Icon: GithubIcon },
@@ -66,6 +67,7 @@ export default function CommentCard({
 }: CommentCardProps) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
+  const permissions = useWorkspacePermission();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
   const { mutateAsync: updateComment, isPending } = useUpdateComment();
@@ -73,7 +75,8 @@ export default function CommentCard({
     useDeleteComment(taskId);
   const queryClient = useQueryClient();
 
-  const canEdit = currentUser?.id === user?.id;
+  // Edit and delete need authorship and task:update (a demoted viewer).
+  const canEdit = currentUser?.id === user?.id && permissions.canUpdateTasks();
   const forge = forgeOf(externalSource);
   const sourceName = forge
     ? forge.name

@@ -5,14 +5,28 @@ import { cloneElement, isValidElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import CommentCard from "./comment-card";
 
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
+
 afterEach(cleanup);
 
 vi.mock("@/components/activity/comment-editor", () => ({
   default: ({ value }: { value: string }) => <div>{value}</div>,
 }));
 
+const auth = vi.hoisted(() => ({ user: null as { id: string } | null }));
 vi.mock("@/components/providers/auth-provider/hooks/use-auth", () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => ({ user: auth.user }),
 }));
 
 vi.mock("@/hooks/mutations/comment/use-update-comment", () => ({
@@ -163,5 +177,27 @@ describe("CommentCard", () => {
 
     fireEvent.focus(trigger);
     expect(await screen.findByText("Apr 5, 2026, 11:38 AM")).toBeVisible();
+  });
+
+  describe("edit and delete on the author's own comment", () => {
+    afterEach(() => {
+      auth.user = null;
+      permissions.canUpdateTasks = true;
+    });
+
+    it("are offered to an author who can update tasks", () => {
+      auth.user = { id: "user-1" };
+      renderCommentCard();
+      expect(document.querySelector(".lucide-pencil")).not.toBeNull();
+      expect(document.querySelector(".lucide-trash-2")).not.toBeNull();
+    });
+
+    it("are hidden from an author who is now a viewer", () => {
+      auth.user = { id: "user-1" };
+      permissions.canUpdateTasks = false;
+      renderCommentCard();
+      expect(document.querySelector(".lucide-pencil")).toBeNull();
+      expect(document.querySelector(".lucide-trash-2")).toBeNull();
+    });
   });
 });

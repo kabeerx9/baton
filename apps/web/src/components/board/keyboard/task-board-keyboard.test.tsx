@@ -23,6 +23,19 @@ import { TaskBoard } from "../task-board";
 import type { BoardTask } from "../model";
 import { boardTaskFixture } from "../test-fixtures";
 
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
+
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
     to,

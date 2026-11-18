@@ -35,10 +35,12 @@ export function TaskShortcuts({
   const { mutateAsync: updateAssignee } = useUpdateTaskAssignee();
   const { mutateAsync: updateDueDate } = useUpdateTaskDueDate();
   const openRelationPicker = useRelationPickerStore((state) => state.open);
-  const { canUpdateTasks, canAssignTasks } = useWorkspacePermission();
+  const { canUpdateTasks, canAssignTasks, canCreateTasks } =
+    useWorkspacePermission();
   const active = { enabled: enabled && Boolean(task) };
   const editable = { enabled: active.enabled && canUpdateTasks() };
   const assignable = { enabled: active.enabled && canAssignTasks() };
+  const creatable = { enabled: active.enabled && canCreateTasks() };
 
   const openTask = (id: string | undefined) => {
     if (!id) return;
@@ -55,7 +57,7 @@ export function TaskShortcuts({
   useShortcut("setDueDate", () => clickTaskAction("dueDate"), editable);
   useShortcut("moveToProject", () => clickTaskAction("move"), editable);
   useShortcut("addLink", () => clickTaskAction("addLink"), editable);
-  useShortcut("createSubtask", () => clickTaskAction("addSubtask"), editable);
+  useShortcut("createSubtask", () => clickTaskAction("addSubtask"), creatable);
   useShortcut("toggleResources", () => clickTaskAction("resources"), active);
   useShortcut("renameTask", () => focusTaskAction("title"), editable);
   useShortcut(

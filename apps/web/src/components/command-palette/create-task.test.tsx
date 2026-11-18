@@ -15,8 +15,21 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import createBoardTask from "@/fetchers/board/create-board-task";
 import CommandPalette from "./index";
 
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
+
 const m = vi.hoisted(() => ({
-  shortcuts: {} as Record<string, () => void>,
+  shortcuts: {} as Record<string, (() => void) | undefined>,
   board: [] as { id: string; title: string }[],
 }));
 
@@ -28,8 +41,13 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 vi.mock("@/lib/shortcuts/use-shortcut", () => ({
-  useShortcut: (id: string, handler: () => void) => {
-    m.shortcuts[id] = handler;
+  // A disabled shortcut is not registered, as the real hook does.
+  useShortcut: (
+    id: string,
+    handler: () => void,
+    options?: { enabled?: boolean },
+  ) => {
+    m.shortcuts[id] = options?.enabled === false ? undefined : handler;
   },
 }));
 vi.mock("@/components/shortcuts/shortcut-keys", () => ({
@@ -60,6 +78,9 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   m.board = [];
+  m.shortcuts = {};
+  permissions.canCreateTasks = true;
+  permissions.canCreateProjects = true;
 });
 
 /** Stands in for the board page: reads the board query the palette must refresh. */
@@ -92,7 +113,7 @@ describe("command palette: create task", () => {
     );
     await waitFor(() => expect(screen.queryByRole("listitem")).toBeNull());
 
-    act(() => m.shortcuts.createTask());
+    act(() => m.shortcuts.createTask!());
     const name = await screen.findByLabelText("What is it");
     fireEvent.change(name, { target: { value: "Fix the login crash" } });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -104,6 +125,29 @@ describe("command palette: create task", () => {
       title: "Fix the login crash",
     });
     expect(await screen.findByText("Fix the login crash")).toBeVisible();
+    expect(screen.queryByLabelText("What is it")).toBeNull();
+  });
+
+  it("offers no create command, shortcut or dialog to a viewer", async () => {
+    permissions.canCreateTasks = false;
+    permissions.canCreateProjects = false;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CommandPalette />
+      </QueryClientProvider>,
+    );
+    expect(m.shortcuts.createTask).toBeUndefined();
+    expect(m.shortcuts.createProject).toBeUndefined();
+    act(() => m.shortcuts.openCommandMenu!());
+    expect(
+      await screen.findByText("navigation:commandPalette.darkTheme"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("navigation:commandPalette.createTask"),
+    ).toBeNull();
+    expect(
+      screen.queryByText("navigation:commandPalette.createProject"),
+    ).toBeNull();
     expect(screen.queryByLabelText("What is it")).toBeNull();
   });
 });

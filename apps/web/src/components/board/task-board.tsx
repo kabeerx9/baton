@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useLocalDay } from "@/hooks/use-local-day";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { BoardViewSwitch } from "./board-view-switch";
 import { BoardColumn } from "./board-column";
 import { COLUMNS, columnOrder } from "./column-order";
@@ -50,6 +51,8 @@ export function TaskBoard({
     describe: (details) =>
       recoveryText(details, (key, values) => t(key, values)),
   });
+  // A viewer cannot create tasks (403), so the button and dialog are absent.
+  const canCreate = useWorkspacePermission().canCreateTasks();
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const clearJustCreated = useCallback(() => setJustCreated(null), []);
@@ -72,10 +75,16 @@ export function TaskBoard({
           {single === 1 ? "task" : "tasks"}
         </p>
         <BoardViewSwitch view={view} onChoose={onViewChange} />
-        <Button className="ml-auto" size="sm" onClick={() => setCreating(true)}>
-          <Plus className="size-4" />
-          New task
-        </Button>
+        {canCreate && (
+          <Button
+            className="ml-auto"
+            size="sm"
+            onClick={() => setCreating(true)}
+          >
+            <Plus className="size-4" />
+            New task
+          </Button>
+        )}
       </div>
       <BoardNavRoot
         nav={nav}
@@ -98,12 +107,14 @@ export function TaskBoard({
           />
         ))}
       </BoardNavRoot>
-      <NewTaskDialog
-        workspaceId={workspaceId}
-        open={creating}
-        onOpenChange={setCreating}
-        onCreated={(task) => setJustCreated(task.id)}
-      />
+      {canCreate && (
+        <NewTaskDialog
+          workspaceId={workspaceId}
+          open={creating}
+          onOpenChange={setCreating}
+          onCreated={(task) => setJustCreated(task.id)}
+        />
+      )}
     </div>
   );
 }

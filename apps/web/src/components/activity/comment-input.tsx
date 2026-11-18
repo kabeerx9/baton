@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import useCreateComment from "@/hooks/mutations/comment/use-create-comment";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 
@@ -26,6 +27,8 @@ export default function CommentInput({ taskId, projectId }: CommentInputProps) {
   const [attachAction, setAttachAction] = useState<(() => void) | null>(null);
   const { mutateAsync: createComment, isPending } = useCreateComment();
   const queryClient = useQueryClient();
+  // Commenting needs task:update; the API refuses a viewer.
+  const canComment = useWorkspacePermission().canUpdateTasks();
 
   const handleSubmit = useCallback(async () => {
     if (!content.trim()) {
@@ -55,6 +58,8 @@ export default function CommentInput({ taskId, projectId }: CommentInputProps) {
     },
     [],
   );
+
+  if (!canComment) return null;
 
   return (
     <div className="w-full" data-task-action="comment">

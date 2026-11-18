@@ -40,6 +40,7 @@ import { useGetColumns } from "@/hooks/queries/column/use-get-columns";
 import useExternalLinks from "@/hooks/queries/external-link/use-external-links";
 import useGetTask from "@/hooks/queries/task/use-get-task";
 import useGetTaskRelations from "@/hooks/queries/task-relation/use-get-task-relations";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import type { ExternalLink } from "@/types/external-link";
 import { DiagramCore } from "./diagram/diagram-core";
 import { TaskDiagram } from "./diagram/task-diagram";
@@ -102,6 +103,8 @@ export function TaskDetailPage({
   const { isLoading: activitiesLoading } = useGetActivitiesByTaskId(taskId);
   const { data: externalLinks = [], isLoading: linksLoading } =
     useExternalLinks(taskId);
+  // Adding a task under this one is a create: a viewer gets no Add button.
+  const canCreate = useWorkspacePermission().canCreateTasks();
   const [adding, setAdding] = useState(openAddTask);
   const requestTaken = useRef(false);
   useEffect(() => {
@@ -297,9 +300,9 @@ export function TaskDetailPage({
                 feature={boardTask}
                 lanes={built.lanes}
                 workspaceId={workspaceId}
-                onAdd={() => setAdding(true)}
+                onAdd={canCreate ? () => setAdding(true) : undefined}
               />
-              {adding && (
+              {adding && canCreate && (
                 <AddSubtaskDialog
                   boardTask={boardTask}
                   lanes={built.lanes}

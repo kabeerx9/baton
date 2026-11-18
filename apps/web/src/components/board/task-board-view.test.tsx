@@ -6,6 +6,19 @@ import type { Person } from "./model";
 import { TaskBoard } from "./task-board";
 import { boardTaskFixture } from "./test-fixtures";
 
+const permissions = vi.hoisted(() => ({
+  canCreateTasks: true,
+  canCreateProjects: true,
+  canUpdateTasks: true,
+}));
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCreateTasks: () => permissions.canCreateTasks,
+    canCreateProjects: () => permissions.canCreateProjects,
+    canUpdateTasks: () => permissions.canUpdateTasks,
+  }),
+}));
+
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
     to,
@@ -25,7 +38,10 @@ vi.mock("@tanstack/react-router", () => ({
 vi.mock("@/hooks/queries/board/use-board-member-name", () => ({
   useBoardMemberName: () => () => null,
 }));
-vi.mock("./new-task-dialog", () => ({ NewTaskDialog: () => null }));
+vi.mock("./new-task-dialog", () => ({
+  NewTaskDialog: ({ open }: { open: boolean }) =>
+    open ? <p>new task dialog</p> : null,
+}));
 vi.mock("./status-menu", () => ({ StatusMenu: () => null }));
 
 const me: Person = { id: "me", name: "Me", initials: "M", hue: 0, image: null };
@@ -69,5 +85,19 @@ describe("TaskBoard view", () => {
     renderBoard("all", onViewChange);
     fireEvent.click(screen.getByRole("radio", { name: "My tasks" }));
     expect(onViewChange).toHaveBeenCalledWith("mine");
+  });
+
+  it("offers New task to people who can create tasks", () => {
+    permissions.canCreateTasks = true;
+    renderBoard("all");
+    fireEvent.click(screen.getByRole("button", { name: "New task" }));
+    expect(screen.getByText("new task dialog")).toBeTruthy();
+  });
+
+  it("shows a viewer no New task button", () => {
+    permissions.canCreateTasks = false;
+    renderBoard("all");
+    expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
+    permissions.canCreateTasks = true;
   });
 });
