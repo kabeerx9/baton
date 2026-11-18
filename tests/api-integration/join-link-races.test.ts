@@ -8,11 +8,18 @@ import {
   vi,
 } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
-import { workspaceJoinLinkTable } from "../../apps/api/src/database/schema";
+import {
+  workspaceJoinLinkTable,
+  workspaceMemberRemovalTable,
+} from "../../apps/api/src/database/schema";
 import { resetJoinLinkRateLimits } from "../../apps/api/src/join-link/rate-limit";
 import { resetTestDatabase } from "./helpers/database";
 import { joinLinkFixture, linkRow, memberRows } from "./helpers/join-link";
-import { holdRowLock, waitForLockWaiters } from "./helpers/row-lock";
+import {
+  holdRowLock,
+  releaseWhenQueued,
+  waitForLockWaiters,
+} from "./helpers/row-lock";
 
 // Each race is forced: a separate connection holds a row lock while the
 // contenders start, the test waits until they all queue on a lock, then
@@ -29,6 +36,16 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+type Fixture = Awaited<ReturnType<typeof joinLinkFixture>>;
+
+function deleteWorkspace(ctx: Fixture) {
+  return ctx.call("/auth/organization/delete", {
+    method: "POST",
+    body: { organizationId: ctx.workspace.id },
+    headers: { cookie: ctx.owner.cookies },
+  });
+}
+
 async function code(response: Response) {
   return ((await response.json()) as { code?: string }).code;
 }
@@ -42,10 +59,12 @@ describe("join races", () => {
 
     // Both joins read the link unlocked, then queue on the workspace lock.
     const lock = await holdRowLock("workspace", ctx.workspace.id);
-    const pending = [ctx.join(first, token), ctx.join(second, token)];
-    await waitForLockWaiters(2);
-    await lock.release();
-    const responses = await Promise.all(pending);
+    const responses = await releaseWhenQueued(lock, [
+      {
+        start: () => [ctx.join(first, token), ctx.join(second, token)],
+        waiters: 2,
+      },
+    ]);
 
     expect(responses.map((response) => response.status).sort()).toEqual([
       200, 410,
@@ -66,10 +85,12 @@ describe("join races", () => {
     const joiner = await ctx.person();
 
     const lock = await holdRowLock("workspace", ctx.workspace.id);
-    const pending = [ctx.join(joiner, token), ctx.join(joiner, token)];
-    await waitForLockWaiters(2);
-    await lock.release();
-    const responses = await Promise.all(pending);
+    const responses = await releaseWhenQueued(lock, [
+      {
+        start: () => [ctx.join(joiner, token), ctx.join(joiner, token)],
+        waiters: 2,
+      },
+    ]);
 
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
     const outcomes = await Promise.all(
@@ -92,16 +113,10 @@ describe("join races", () => {
     // on the link, and the delete waits on the workspace. A join that locked
     // the link first would instead deadlock with the delete's cascade.
     const lock = await holdRowLock("workspace_join_link", link.id);
-    const join = ctx.join(joiner, token);
-    await waitForLockWaiters(1);
-    const deleted = ctx.call("/auth/organization/delete", {
-      method: "POST",
-      body: { organizationId: ctx.workspace.id },
-      headers: { cookie: ctx.owner.cookies },
-    });
-    await waitForLockWaiters(2);
-    await lock.release();
-    const [joined, removed] = await Promise.all([join, deleted]);
+    const [joined, removed] = await releaseWhenQueued(lock, [
+      { start: () => [ctx.join(joiner, token)], waiters: 1 },
+      { start: () => [deleteWorkspace(ctx)], waiters: 2 },
+    ]);
 
     expect(joined.status).toBe(200);
     expect(await joined.json()).toMatchObject({ outcome: "joined" });
@@ -126,16 +141,10 @@ describe("join races", () => {
     const joiner = await ctx.person();
 
     const lock = await holdRowLock("workspace", ctx.workspace.id);
-    const deleted = ctx.call("/auth/organization/delete", {
-      method: "POST",
-      body: { organizationId: ctx.workspace.id },
-      headers: { cookie: ctx.owner.cookies },
-    });
-    await waitForLockWaiters(1);
-    const join = ctx.join(joiner, token);
-    await waitForLockWaiters(2);
-    await lock.release();
-    const [removed, joined] = await Promise.all([deleted, join]);
+    const [removed, joined] = await releaseWhenQueued(lock, [
+      { start: () => [deleteWorkspace(ctx)], waiters: 1 },
+      { start: () => [ctx.join(joiner, token)], waiters: 2 },
+    ]);
 
     expect(removed.status).toBe(200);
     expect(joined.status).toBe(404);
@@ -152,15 +161,18 @@ describe("join races with a removal (4)", () => {
     const instanceAdmin = await ctx.person("Instance Admin", "admin");
 
     const lock = await holdRowLock("workspace", ctx.workspace.id);
-    const removal = ctx.call(
-      `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
-      { method: "DELETE", headers: { cookie: instanceAdmin.cookies } },
-    );
-    await waitForLockWaiters(1);
-    const join = ctx.join(joiner, token);
-    await waitForLockWaiters(2);
-    await lock.release();
-    const [removed, joined] = await Promise.all([removal, join]);
+    const [removed, joined] = await releaseWhenQueued(lock, [
+      {
+        start: () => [
+          ctx.call(
+            `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
+            { method: "DELETE", headers: { cookie: instanceAdmin.cookies } },
+          ),
+        ],
+        waiters: 1,
+      },
+      { start: () => [ctx.join(joiner, token)], waiters: 2 },
+    ]);
 
     expect(removed.status).toBe(200);
     expect(joined.status).toBe(403);
@@ -168,36 +180,50 @@ describe("join races with a removal (4)", () => {
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
   });
 
-  it("never leaves a person removed through Better Auth still a member", async () => {
+  it("never readmits a person while Better Auth removes them", async () => {
     const ctx = await joinLinkFixture();
-    const { token } = await ctx.createLink();
     const joiner = await ctx.person("Racing Person");
+    // An older removal gives the marker row a lock to hold. It predates the
+    // link, so this link admits the person until the new removal.
+    await db.insert(workspaceMemberRemovalTable).values({
+      workspaceId: ctx.workspace.id,
+      userId: joiner.userId,
+      removedAt: new Date(Date.now() - 86_400_000),
+    });
+    const { token } = await ctx.createLink();
     expect((await ctx.join(joiner, token)).status).toBe(200);
 
-    // Better Auth's delete does not lock the workspace, so the joins run on
-    // both sides of it. The removal is recorded before the delete commits,
-    // so whichever side a join lands on, it cannot readmit the person.
-    const joins = Array.from({ length: 6 }, () => ctx.join(joiner, token));
-    const removed = await ctx.call("/auth/organization/remove-member", {
-      method: "POST",
-      body: {
-        organizationId: ctx.workspace.id,
-        memberIdOrEmail: "racing-person@example.com",
-      },
-      headers: { cookie: ctx.owner.cookies },
+    // The removal stops where it writes the marker. Written before the
+    // delete, the person is still a member there, so a join is a no-op. An
+    // implementation that wrote it after the delete would let this join in.
+    const lock = await holdRowLock("workspace_member_removal", {
+      workspace_id: ctx.workspace.id,
+      user_id: joiner.userId,
     });
-    expect(removed.status).toBe(200);
-    for (const response of await Promise.all(joins)) {
-      if (response.status === 200)
-        expect(await response.json()).toMatchObject({
-          outcome: "already_member",
-        });
-      else {
-        expect(response.status).toBe(403);
-        expect(await code(response)).toBe("REMOVED_FROM_WORKSPACE");
-      }
+    let removal: Promise<Response> | undefined;
+    let duringRemoval: Response;
+    try {
+      removal = ctx.call("/auth/organization/remove-member", {
+        method: "POST",
+        body: {
+          organizationId: ctx.workspace.id,
+          memberIdOrEmail: "racing-person@example.com",
+        },
+        headers: { cookie: ctx.owner.cookies },
+      });
+      await waitForLockWaiters(1);
+      duringRemoval = await ctx.join(joiner, token);
+    } finally {
+      await lock.release();
     }
+    expect((await removal).status).toBe(200);
+    expect(duringRemoval.status).toBe(200);
+    expect(await duringRemoval.json()).toMatchObject({
+      outcome: "already_member",
+    });
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
-    expect((await ctx.join(joiner, token)).status).toBe(403);
+    const after = await ctx.join(joiner, token);
+    expect(after.status).toBe(403);
+    expect(await code(after)).toBe("REMOVED_FROM_WORKSPACE");
   });
 });

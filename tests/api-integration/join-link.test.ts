@@ -322,6 +322,92 @@ describe("removed members (4)", () => {
   });
 });
 
+describe("a removal marker means the last exit was a removal", () => {
+  async function refuseMemberDeletes() {
+    await db.execute(sql`
+      CREATE FUNCTION refuse_member_delete() RETURNS trigger LANGUAGE plpgsql AS
+        $$ BEGIN RAISE EXCEPTION 'member delete refused'; END $$;
+      CREATE TRIGGER refuse_member_delete BEFORE DELETE
+        ON workspace_member FOR EACH ROW EXECUTE FUNCTION refuse_member_delete();
+    `);
+    return async () => {
+      await db.execute(sql`
+        DROP TRIGGER IF EXISTS refuse_member_delete ON workspace_member;
+        DROP FUNCTION IF EXISTS refuse_member_delete();
+      `);
+    };
+  }
+
+  async function setup() {
+    const ctx = await joinLinkFixture();
+    const { token } = await ctx.createLink();
+    const joiner = await ctx.person("Marked Person");
+    expect((await ctx.join(joiner, token)).status).toBe(200);
+    const remove = () =>
+      ctx.call("/auth/organization/remove-member", {
+        method: "POST",
+        body: {
+          organizationId: ctx.workspace.id,
+          memberIdOrEmail: "marked-person@example.com",
+        },
+        headers: { cookie: ctx.owner.cookies },
+      });
+    const markers = () =>
+      db
+        .select()
+        .from(workspaceMemberRemovalTable)
+        .where(eq(workspaceMemberRemovalTable.userId, joiner.userId));
+    return { ctx, token, joiner, remove, markers };
+  }
+
+  it("clears a stale marker from a failed removal when the person leaves", async () => {
+    const { ctx, token, joiner, remove, markers } = await setup();
+    const allowDeletes = await refuseMemberDeletes();
+    try {
+      expect((await remove()).status).toBeGreaterThanOrEqual(400);
+    } finally {
+      await allowDeletes();
+    }
+    expect(await memberRows(ctx.workspace.id, joiner.userId)).toHaveLength(1);
+    expect(await markers()).toHaveLength(1);
+
+    const left = await ctx.call("/auth/organization/leave", {
+      method: "POST",
+      body: { organizationId: ctx.workspace.id },
+      headers: { cookie: joiner.cookies },
+    });
+    expect(left.status).toBe(200);
+    expect(await markers()).toEqual([]);
+
+    const rejoined = await ctx.join(joiner, token);
+    expect(rejoined.status).toBe(200);
+    expect(await rejoined.json()).toMatchObject({ outcome: "joined" });
+  });
+
+  it("keeps refusing the old link after a removal that failed, then succeeded", async () => {
+    const { ctx, token, joiner, remove } = await setup();
+    const allowDeletes = await refuseMemberDeletes();
+    try {
+      expect((await remove()).status).toBeGreaterThanOrEqual(400);
+    } finally {
+      await allowDeletes();
+    }
+    expect((await remove()).status).toBe(200);
+    const refused = await ctx.join(joiner, token);
+    expect(refused.status).toBe(403);
+    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+
+  it("keeps refusing the old link after one successful removal", async () => {
+    const { ctx, token, joiner, remove, markers } = await setup();
+    expect((await remove()).status).toBe(200);
+    expect(await markers()).toHaveLength(1);
+    const refused = await ctx.join(joiner, token);
+    expect(refused.status).toBe(403);
+    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+  });
+});
+
 describe("archived workspaces (5)", () => {
   it("hides the link while archived and admits again after restore", async () => {
     const ctx = await joinLinkFixture();

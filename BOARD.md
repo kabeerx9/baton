@@ -298,7 +298,10 @@ People join a workspace with a link, not an email invite. Code:
   write `workspace_member_removal` before the member row goes (Better Auth's
   `beforeRemoveMember`, and the admin route inside its transaction), so an
   old link never readmits them. If that write fails, the removal fails.
-  Leaving is not a removal.
+- Invariant: a removal row means the person's last exit from the workspace
+  was a removal. A voluntary leave deletes the row, so the person can rejoin
+  with any active link. A removal that failed after writing the row leaves it
+  only while the person is still a member; their next leave clears it.
 - A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
 - `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`;
   the OpenAPI spec marks both deprecated.
