@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { verifyApiKey } from "../../apps/api/src/utils/verify-api-key";
 import { resetTestDatabase } from "./helpers/database";

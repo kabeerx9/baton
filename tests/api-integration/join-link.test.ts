@@ -600,7 +600,8 @@ describe("management access (11, 12, 14)", () => {
   it("refuses API keys and MCP tokens on every authenticated route", async () => {
     const ctx = await joinLinkFixture();
     const { token } = await ctx.createLink();
-    const { auth } = await import("../../apps/api/src/auth");
+    const { auth } =
+      await import("../../apps/api/src/identity/better-auth/auth");
     const { connectMcpAgent } = await import("./helpers/mcp-oauth");
     const { key } = await auth.api.createApiKey({
       body: { userId: ctx.owner.userId, name: "Join links" },

@@ -1,4 +1,4 @@
-import { auth } from "../auth";
+import { auth } from "../identity/better-auth/auth";
 
 export function getUserSession(headers: Headers) {
   const sessionHeaders = new Headers(headers);

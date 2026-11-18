@@ -1,5 +1,5 @@
 import { createAuthEndpoint, revokeOtherSessions } from "better-auth/api";
-import { revokeOtherUserSessions } from "../database/auth-adapter";
+import { revokeOtherUserSessions } from "./session-locking-adapter";
 
 export const lockedSessionRevocation = {
   id: "locked-session-revocation",

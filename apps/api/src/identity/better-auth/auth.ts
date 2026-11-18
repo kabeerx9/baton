@@ -1,12 +1,12 @@
 import * as Sentry from "@sentry/node";
-import { readClientIp } from "./utils/client-ip";
-import { deleteNativeWorkspace } from "./workspace/lifecycle/delete-native-workspace";
+import { readClientIp } from "../../utils/client-ip";
+import { deleteNativeWorkspace } from "../../workspace/lifecycle/delete-native-workspace";
 import {
   revokeApiKeyConnections,
   revokeSessionConnections,
   revokeUserConnections,
   revokeWorkspaceConnections,
-} from "./ws";
+} from "../../ws";
 import { apiKey } from "@better-auth/api-key";
 import {
   isSmtpConfigured,
@@ -37,86 +37,86 @@ import {
 import type { AccessControl } from "better-auth/plugins/access";
 import { config } from "dotenv-mono";
 import { eq } from "drizzle-orm";
-import db, { schema } from "./database";
-import { authDatabaseAdapter } from "./database/auth-adapter";
+import db, { schema } from "../../database";
+import { authDatabaseAdapter } from "./session-locking-adapter";
 import {
   emailVerificationContext,
   signUpNeedsVerification,
-} from "./instance-settings/email-verification-gate";
-import { getInstanceSettings } from "./instance-settings/get-instance-settings";
-import { readStoredSettings } from "./instance-settings/read-stored-settings";
-import { lockedSessionRevocation } from "./utils/locked-session-revocation";
-import { publishEvent } from "./events";
-import { applyInvitationProjectAccess } from "./project-access/apply-invitation-project-access";
-import { resolveInvitationProjectAccess } from "./project-access/resolve-invitation-project-access";
-import { clearMemberProjectAccess } from "./project-access/clear-member-project-access";
-import { isOwnerRole } from "./project-access/is-owner-role";
-import { publishMemberProjects } from "./project-access/publish-member-projects";
-import { handleMemberAdded } from "./workspace-members/handle-member-added";
+} from "../../instance-settings/email-verification-gate";
+import { getInstanceSettings } from "../../instance-settings/get-instance-settings";
+import { readStoredSettings } from "../../instance-settings/read-stored-settings";
+import { lockedSessionRevocation } from "./locked-session-revocation";
+import { publishEvent } from "../../events";
+import { applyInvitationProjectAccess } from "../../project-access/apply-invitation-project-access";
+import { resolveInvitationProjectAccess } from "../../project-access/resolve-invitation-project-access";
+import { clearMemberProjectAccess } from "../../project-access/clear-member-project-access";
+import { isOwnerRole } from "../../project-access/is-owner-role";
+import { publishMemberProjects } from "../../project-access/publish-member-projects";
+import { handleMemberAdded } from "../../workspace-members/handle-member-added";
 import {
   clearMemberRemoval,
   recordMemberRemoval,
-} from "./join-link/record-member-removal";
-import { handleMemberRemoved } from "./workspace-members/handle-member-removed";
-import { handleOwnerPromoted } from "./workspace-members/handle-owner-promoted";
-import { assertInvitationOwnerAllowed } from "./workspace-members/assert-invitation-owner-allowed";
-import { assertStoredOwnerRoleSafe } from "./workspace-members/assert-stored-owner-role-safe";
-import { assertNativeOwnerRoleSafe } from "./workspace-members/assert-native-owner-role-safe";
-import { normalizeInvitationRole } from "./workspace-members/normalize-invitation-role";
-import { hideInaccessibleInvitationProjects } from "./project-access/hide-inaccessible-invitation-projects";
-import { hideInvitationsFromNonInviters } from "./utils/hide-invitations-from-non-inviters";
-import { assertOwnerInvitationResendAllowed } from "./utils/assert-owner-invitation-resend-allowed";
+} from "../../join-link/record-member-removal";
+import { handleMemberRemoved } from "../../workspace-members/handle-member-removed";
+import { handleOwnerPromoted } from "../../workspace-members/handle-owner-promoted";
+import { assertInvitationOwnerAllowed } from "../../workspace-members/assert-invitation-owner-allowed";
+import { assertStoredOwnerRoleSafe } from "../../workspace-members/assert-stored-owner-role-safe";
+import { assertNativeOwnerRoleSafe } from "../../workspace-members/assert-native-owner-role-safe";
+import { normalizeInvitationRole } from "../../workspace-members/normalize-invitation-role";
+import { hideInaccessibleInvitationProjects } from "../../project-access/hide-inaccessible-invitation-projects";
+import { hideInvitationsFromNonInviters } from "../../utils/hide-invitations-from-non-inviters";
+import { assertOwnerInvitationResendAllowed } from "../../utils/assert-owner-invitation-resend-allowed";
 import {
   assertNativeAuthApiKeyAllowed,
   nativeAuthApiKey,
-} from "./utils/native-auth-api-key";
+} from "../../utils/native-auth-api-key";
 import {
   assertNativeOrganizationReadAllowed,
   readableNativeOrganizations,
-} from "./utils/native-organization-read-access";
-import { assertNativeOrganizationActive } from "./workspace/archive/assert-native-organization-active";
-import { dropArchivedInvitations } from "./workspace/archive/drop-archived-invitations";
-import { satisfies } from "./utils/role-permissions";
-import { captureAuthAdminAudit } from "./admin/audit/capture-auth-admin-audit";
-import { recordAuthAdminAudit } from "./admin/audit/record-auth-admin-audit";
-import { assertKnownInstanceRoles } from "./admin/roles/assert-known-instance-roles";
-import clearEmailVerificationOnAdminChange from "./user/controllers/clear-email-verification-on-admin-change";
-import { stripAuthImageWrite } from "./user/avatar-store/strip-auth-image-write";
-import deleteAccountData from "./user/controllers/delete-account-data";
-import prepareAdminUserRemoval from "./user/controllers/prepare-admin-user-removal";
-import { resolveAuthSecret } from "./utils/auth-secret";
-import { checkRegistrationAllowed } from "./utils/check-registration-allowed";
-import { checkWorkspaceName } from "./utils/check-workspace-name";
-import { getEmailRequestContext } from "./utils/email-request-context";
-import { getDefaultCookieAttributes } from "./utils/get-default-cookie-attributes";
-import { getInvitationEmailSubject } from "./utils/get-invitation-email-subject";
+} from "../../utils/native-organization-read-access";
+import { assertNativeOrganizationActive } from "../../workspace/archive/assert-native-organization-active";
+import { dropArchivedInvitations } from "../../workspace/archive/drop-archived-invitations";
+import { satisfies } from "../../utils/role-permissions";
+import { captureAuthAdminAudit } from "../../admin/audit/capture-auth-admin-audit";
+import { recordAuthAdminAudit } from "../../admin/audit/record-auth-admin-audit";
+import { assertKnownInstanceRoles } from "../../admin/roles/assert-known-instance-roles";
+import clearEmailVerificationOnAdminChange from "../../user/controllers/clear-email-verification-on-admin-change";
+import { stripAuthImageWrite } from "../../user/avatar-store/strip-auth-image-write";
+import deleteAccountData from "../../user/controllers/delete-account-data";
+import prepareAdminUserRemoval from "../../user/controllers/prepare-admin-user-removal";
+import { resolveAuthSecret } from "../../utils/auth-secret";
+import { checkRegistrationAllowed } from "../../utils/check-registration-allowed";
+import { checkWorkspaceName } from "../../utils/check-workspace-name";
+import { getEmailRequestContext } from "../../utils/email-request-context";
+import { getDefaultCookieAttributes } from "../../utils/get-default-cookie-attributes";
+import { getInvitationEmailSubject } from "../../utils/get-invitation-email-subject";
 import {
   getInvitationRoleLabel,
   getWorkspaceInvitationEmailCopy,
-} from "./utils/get-workspace-invitation-email-copy";
-import { getGithubSsoOAuthCredentials } from "./utils/github-sso-env";
-import { hasInstanceAdminRole } from "./utils/instance-admin-role";
+} from "../../utils/get-workspace-invitation-email-copy";
+import { getGithubSsoOAuthCredentials } from "../../utils/github-sso-env";
+import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
 import {
   assertRolesEditable,
   assertShareableOrganization,
-} from "./workspace/kind/assert-shareable-workspace";
+} from "../../workspace/kind/assert-shareable-workspace";
 import {
   assertNoOAuthSignIn,
   assertOAuthCallbackLinks,
   oauthSignInRefused,
-} from "./utils/oauth-sign-in-guard";
+} from "./oauth-sign-in-guard";
 import {
   hasRegisteredUsers,
   promoteInitialAdministrator,
-} from "./utils/instance-bootstrap";
-import { revokeUserGrants } from "./mcp/grant/revoke-grants";
-import { isCloud } from "./utils/is-cloud";
-import { isDisposableEmail } from "./utils/is-disposable-email";
-import { trackPasswordResetDelivery } from "./utils/password-reset-delivery";
+} from "../../utils/instance-bootstrap";
+import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
+import { isCloud } from "../../utils/is-cloud";
+import { isDisposableEmail } from "../../utils/is-disposable-email";
+import { trackPasswordResetDelivery } from "../../utils/password-reset-delivery";
 import {
   assertUserRegistrationAllowed,
   normalizeInvitationId,
-} from "./utils/registration-policy";
+} from "../../utils/registration-policy";
 
 config();
 

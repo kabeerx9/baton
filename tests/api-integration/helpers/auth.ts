@@ -1,6 +1,6 @@
 import type { Session, User } from "better-auth/types";
 import { vi } from "vite-plus/test";
-import { auth } from "../../../apps/api/src/auth";
+import { auth } from "../../../apps/api/src/identity/better-auth/auth";
 
 function createSession(userId: string): Session {
   const now = new Date();

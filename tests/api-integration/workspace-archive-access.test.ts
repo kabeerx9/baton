@@ -3,7 +3,7 @@ import { replayDeferredLabelFields } from "../../apps/api/src/plugins/sync/repla
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { getSyncIntegrations } from "../../apps/api/src/plugins/sync/integrations";

@@ -7,9 +7,9 @@ import {
 } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { asc, eq, inArray } from "drizzle-orm";
-import { hasOtherInstanceAdmin } from "../utils/has-other-instance-admin";
-import { hasInstanceAdminRole } from "../utils/instance-admin-role";
-import db, { schema } from ".";
+import { hasOtherInstanceAdmin } from "../../utils/has-other-instance-admin";
+import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
+import db, { schema } from "../../database";
 
 type OtherSessionRevocationAdapter = DBAdapter & {
   revokeOtherUserSessions(

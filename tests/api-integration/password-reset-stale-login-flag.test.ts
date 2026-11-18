@@ -1,6 +1,6 @@
 import * as email from "@baton/email";
 import { afterEach, expect, it, vi } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 
 // Older installs may still set DISABLE_LOGIN_FORM. Email and password is now
 // the only sign-in method, so the stale flag must not lock anyone out.

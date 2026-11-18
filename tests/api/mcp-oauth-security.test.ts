@@ -46,7 +46,7 @@ const mocks = vi.hoisted(() => {
   return { getSession, insert, select, update, remove, insertedRows };
 });
 
-vi.mock("../../apps/api/src/auth", () => ({
+vi.mock("../../apps/api/src/identity/better-auth/auth", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 

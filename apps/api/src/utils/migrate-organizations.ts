@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { auth } from "../auth";
+import { auth } from "../identity/better-auth/auth";
 import db, { schema } from "../database";
 
 async function migrateOrganizations() {

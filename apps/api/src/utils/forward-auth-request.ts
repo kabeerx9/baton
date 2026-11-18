@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { auth } from "../auth";
+import { auth } from "../identity/better-auth/auth";
 import { isMcpToken } from "../mcp/grant/token-secret";
 import { withJsonNotFound } from "../errors/not-found-response";
 import { withJsonRateLimit } from "../errors/rate-limit-response";

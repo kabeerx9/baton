@@ -7,7 +7,7 @@ import {
   sendEmailVerificationEmail,
 } from "@baton/email";
 import { createEmailVerificationToken } from "better-auth/api";
-import { auth } from "../../auth";
+import { auth } from "../../identity/better-auth/auth";
 import { accountEmailSubject } from "./account-email-subjects";
 import type { AdminTargetUser } from "./find-admin-target-user";
 
