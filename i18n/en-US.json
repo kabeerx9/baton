@@ -1110,6 +1110,20 @@
 			"toastUpdateError": "Failed to update workspace",
 			"toastDeleted": "Workspace deleted successfully",
 			"toastDeleteError": "Failed to delete workspace",
+			"leave": {
+				"title": "Leave workspace",
+				"description": "You lose access to {{name}}. To come back, you need a new join link.",
+				"ownerDescription": "You own {{name}}, so you can't leave it. Transfer ownership to another member first.",
+				"button": "Leave workspace",
+				"dialogTitle": "Leave {{name}}?",
+				"dialogDescription": "You lose access to {{name}} and its projects and tasks. To come back, you need a new join link.",
+				"confirm": "Leave workspace",
+				"leaving": "Leaving…",
+				"toastLeft": "You left {{name}}",
+				"toastError": "Failed to leave the workspace",
+				"errorOnlyOwner": "You are the only owner. Transfer ownership to another member before you leave.",
+				"errorDemo": "You can't leave the tour's demo workspace."
+			},
 			"validation": {
 				"nameRequired": "Workspace name is required",
 				"nameShort": "Workspace name must be at least 2 characters"
@@ -1153,7 +1167,7 @@
 			"discard": "Discard",
 			"createRole": "Create role",
 			"deleteRole": "Delete role",
-			"defaultRoleHelp": "Default role: name is reserved and the row can't be deleted.",
+			"defaultRoleHelp": "Built-in role: you can change its permissions, but you can't rename or delete it.",
 			"unsavedChanges": "You have unsaved changes",
 			"allChangesSaved": "All changes saved",
 			"saveChanges": "Save changes",
@@ -1336,7 +1350,7 @@
 			},
 			"deleteDialog": {
 				"title": "Delete role",
-				"description": "This will permanently delete the role \"{{role}}\". Members assigned to this role will lose its permissions."
+				"description": "This permanently deletes the role \"{{role}}\". If members still hold it, move them to another role first."
 			}
 		},
 		"workspaceLabels": {

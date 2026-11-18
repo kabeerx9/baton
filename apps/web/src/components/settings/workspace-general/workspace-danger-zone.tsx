@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/settings/confirm-dialog";
 import { SettingsCard } from "@/components/settings/settings-card";
 import { SettingsRow } from "@/components/settings/settings-row";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { LeaveWorkspaceRow } from "@/components/settings/workspace-general/leave-workspace-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
@@ -18,11 +19,19 @@ import { workspaceWriteErrorMessage } from "@/lib/workspace-write-error-message"
 type WorkspaceDangerZoneProps = {
   workspaceId: string | undefined;
   workspaceName: string;
+  /** Shows the delete row. */
+  canDelete?: boolean;
+  /** Shows the leave row; `isOwner` says why the owner cannot leave. */
+  canLeave?: boolean;
+  isOwner?: boolean;
 };
 
 export function WorkspaceDangerZone({
   workspaceId,
   workspaceName,
+  canDelete = true,
+  canLeave = false,
+  isOwner = false,
 }: WorkspaceDangerZoneProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -66,30 +75,39 @@ export function WorkspaceDangerZone({
   return (
     <SettingsSection title={t("settings:workspaceGeneral.dangerZone")}>
       <SettingsCard tone="danger">
-        <SettingsRow
-          stack
-          title={t("settings:workspaceGeneral.deleteWorkspace")}
-          description={t(
-            "settings:workspaceGeneral.deleteWorkspaceDescription",
-            {
-              name: workspaceName,
-            },
-          )}
-        >
-          <Button
-            type="button"
-            variant="destructive-outline"
-            size="sm"
-            disabled={!workspaceId}
-            onClick={() => {
-              if (!workspaceId) return;
-              setTypedName("");
-              setTarget({ id: workspaceId, name: workspaceName });
-            }}
+        {canLeave ? (
+          <LeaveWorkspaceRow
+            workspaceId={workspaceId}
+            workspaceName={workspaceName}
+            isOwner={isOwner}
+          />
+        ) : null}
+        {canDelete ? (
+          <SettingsRow
+            stack
+            title={t("settings:workspaceGeneral.deleteWorkspace")}
+            description={t(
+              "settings:workspaceGeneral.deleteWorkspaceDescription",
+              {
+                name: workspaceName,
+              },
+            )}
           >
-            {t("settings:workspaceGeneral.deleteWorkspace")}
-          </Button>
-        </SettingsRow>
+            <Button
+              type="button"
+              variant="destructive-outline"
+              size="sm"
+              disabled={!workspaceId}
+              onClick={() => {
+                if (!workspaceId) return;
+                setTypedName("");
+                setTarget({ id: workspaceId, name: workspaceName });
+              }}
+            >
+              {t("settings:workspaceGeneral.deleteWorkspace")}
+            </Button>
+          </SettingsRow>
+        ) : null}
       </SettingsCard>
       <ConfirmDialog
         open={open}

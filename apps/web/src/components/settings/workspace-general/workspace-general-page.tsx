@@ -21,6 +21,8 @@ export function WorkspaceGeneralPage() {
     useWorkspacePermission();
   const canEdit = canManageWorkspace();
   const canDelete = canDeleteWorkspace();
+  // A tour demo is the caller's own sandbox: the tour removes it.
+  const canLeave = workspace !== undefined && workspace.kind !== "demo";
   const workspaceName = workspace?.name ?? "";
   const form = useWorkspaceAutosave({
     workspaceId: workspace?.id,
@@ -50,10 +52,13 @@ export function WorkspaceGeneralPage() {
             currentUserId={currentUser?.id}
           />
         ) : null}
-        {canDelete ? (
+        {canDelete || canLeave ? (
           <WorkspaceDangerZone
             workspaceId={workspace?.id}
             workspaceName={workspaceName}
+            canDelete={canDelete}
+            canLeave={canLeave}
+            isOwner={isOwner}
           />
         ) : null}
       </SettingsPage>
