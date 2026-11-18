@@ -63,6 +63,10 @@ export function describeIdentityContract(
       it("answers a valid session with the person", async () => {
         const user = await driver.signUp("valid@example.com");
         const caller = await identity.resolve(user.headers);
+        const [stored] = await db
+          .select({ role: schema.userTable.role })
+          .from(schema.userTable)
+          .where(eq(schema.userTable.id, user.userId));
         expect(caller).toEqual({
           identity: {
             userId: user.userId,
@@ -72,6 +76,7 @@ export function describeIdentityContract(
             emailVerified: false,
           },
           sessionId: user.sessionId,
+          instanceRole: stored?.role ?? null,
         });
       });
 
