@@ -1,48 +1,34 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Client, Pool } from "pg";
+import { Pool } from "pg";
 import { afterAll, beforeAll, expect, it } from "vite-plus/test";
 import {
   baselineOnlyMigrations,
   migrationsThrough,
 } from "./helpers/baseline-only-migrations";
+import {
+  createScratchDatabase,
+  type ScratchDatabase,
+} from "./helpers/scratch-database";
 
 // The join-link migration on a database that already has invitations, as on
 // the hosted instance. A scratch database keeps the suite's own untouched.
-const scratchName = `${new URL(process.env.DATABASE_URL!).pathname.slice(1)}_join_link_migration`;
-
-function urlFor(database: string) {
-  const url = new URL(process.env.DATABASE_URL!);
-  url.pathname = `/${database}`;
-  return url.toString();
-}
-
-async function admin(statement: string) {
-  const client = new Client({ connectionString: urlFor("postgres") });
-  await client.connect();
-  try {
-    await client.query(statement);
-  } finally {
-    await client.end();
-  }
-}
-
 let pool: Pool;
+let scratch: ScratchDatabase | undefined;
 const baseline = baselineOnlyMigrations();
 // Stop at the join-link migration: a later one drops `invitation`.
 const joinLinks = migrationsThrough("0003_join_links");
 
 beforeAll(async () => {
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}"`);
-  await admin(`CREATE DATABASE "${scratchName}"`);
-  pool = new Pool({ connectionString: urlFor(scratchName) });
+  scratch = await createScratchDatabase("join_link_migration");
+  pool = new Pool({ connectionString: scratch.url });
 });
 
 afterAll(async () => {
   await pool?.end();
   baseline.remove();
   joinLinks.remove();
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}"`);
+  await scratch?.drop();
 });
 
 it("cancels pending invitations, keeps the others, and adds both tables", async () => {
