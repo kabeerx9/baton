@@ -6,8 +6,8 @@ import { replayDeferredLabelFields } from "../plugins/sync/replay-deferred-label
 import * as Sentry from "@sentry/node";
 import { Cron } from "croner";
 import { checkDueDateReminders } from "./due-date-reminders";
-import { slackConfig } from "../slack-dm/config";
-import { sendMorningDigests } from "../slack-dm/digest";
+import { digestConfigWarnings, slackConfig } from "../slack-dm/config";
+import { sendDueDigests } from "../slack-dm/digest";
 import { expireChangeRequests } from "../task-change-request/expire-change-requests";
 import { checkOutboxHealth } from "../events/outbox/health";
 import { pruneOutbox } from "../events/outbox/prune";
@@ -117,14 +117,18 @@ export function initializeScheduler(): void {
       withCheckIn("demo-workspace-cleanup", () => cleanupDemoWorkspaces()),
     ),
   );
-  // The Slack digest exists only when a bot token is set.
-  const slack = slackConfig();
-  if (slack) {
+  // The Slack digest exists only when a bot token is set. Every real UTC
+  // offset is a multiple of 15 minutes, so each person's send time lands on a
+  // tick; sendDueDigests decides who is due in their own zone.
+  if (slackConfig()) {
+    for (const warning of digestConfigWarnings()) {
+      console.warn(`[slack-dm] ${warning}`);
+    }
     jobs.push(
       new Cron(
-        slack.digestCron,
-        { protect: true, timezone: slack.digestTimezone },
-        withCheckIn("slack-morning-digest", sendMorningDigests),
+        "*/15 * * * *",
+        { protect: true },
+        withCheckIn("slack-morning-digest", sendDueDigests),
       ),
     );
   }
