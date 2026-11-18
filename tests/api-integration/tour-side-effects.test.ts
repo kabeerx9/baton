@@ -15,7 +15,7 @@ import { encryptSecret } from "../../apps/api/src/notification-preferences/secre
 import { deliverNotification } from "../../apps/api/src/notification-preferences/delivery";
 import { activeIntegrationCondition } from "../../apps/api/src/plugins/active-integration-condition";
 import { sendDm } from "../../apps/api/src/slack-dm/send-dm";
-import { openBlockingLinks } from "../../apps/api/src/slack-dm/task-facts";
+import { dueBlockingLinks } from "../../apps/api/src/slack-dm/task-facts";
 import { sendOutboundRequest } from "../../apps/api/src/utils/outbound-request";
 import { mockAuthenticatedSession } from "./helpers/auth";
 import { resetTestDatabase } from "./helpers/database";
@@ -189,7 +189,9 @@ describe("side-effect guard sinks", () => {
       relationType: "blocks",
     });
 
-    const links = await openBlockingLinks("https://baton.test");
+    const links = await dueBlockingLinks("https://baton.test", [
+      { stored: null, day: "2026-11-18" },
+    ]);
     expect(links.map((link) => link.blocker.workspaceId)).toEqual([
       workspace.id,
     ]);

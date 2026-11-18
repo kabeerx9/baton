@@ -327,7 +327,7 @@ Optional. Set `SLACK_BOT_TOKEN` to turn them on; see `.env.sample`. Code: `apps/
 | --- | --- | --- |
 | "X is waiting on you" | The owner of the blocking task | A task is linked as blocked by theirs, or a blocking task is reassigned to them |
 | "You can continue" | The owner of the blocked task | A task that blocked theirs is finished |
-| "Waiting on you: N tasks" | Each person whose open tasks block open work | Once a day, only if the list is not empty |
+| "Waiting on you: N tasks" | Each person whose open tasks block open work | Each weekday at `SLACK_DIGEST_TIME` in the person's time zone, only if the list is not empty |
 | "X asks to move T-5 to done" | The involved people | A change request is made. With nobody involved, admins find it with `canAnswer=me`. |
 | "Your request was accepted" (or rejected, cancelled, expired) | The requester | Their request ends, unless they ended it |
 
@@ -335,6 +335,9 @@ Change request messages are also in-app notifications, sent after the change com
 
 - A person is matched to Slack by the email of their tracker account. The answer is saved
   in `slack_user_link`. `PUT /api/slack-dm/me` sets a Slack member ID by hand.
+- Each person sets their IANA time zone (`PUT /api/user/time-zone`). A person with no zone,
+  or a zone this server does not know, gets the digest in `SLACK_DIGEST_TZ`.
+- The digest job runs every 15 minutes and sends at most one digest per person per local day.
 - Nobody is messaged about their own action or about blocking their own task.
 - A Slack failure is logged and never fails the task change.
 - `POST /api/slack-dm/me/test` sends the caller a test message and returns the outcome.

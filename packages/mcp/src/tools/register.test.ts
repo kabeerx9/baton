@@ -61,6 +61,7 @@ describe("registerTools", () => {
         name: "Mohiuddin",
         email: "user@example.com",
         role: "user",
+        timeZone: "Asia/Kolkata",
         token: "unexpected-user-secret",
       }),
     };
@@ -85,6 +86,7 @@ describe("registerTools", () => {
             name: "Mohiuddin",
             email: "user@example.com",
             role: "user",
+            timeZone: "Asia/Kolkata",
           },
           null,
           2,

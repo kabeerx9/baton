@@ -26,5 +26,17 @@ export const currentUserSchema = z
     email: z.string(),
     image: z.string().nullable(),
     role: z.string().nullable(),
+    timeZone: z.string().nullable().openapi({
+      description: "The caller's IANA time zone. Null when not set.",
+    }),
   })
   .openapi("CurrentUser");
+
+export const userTimeZoneSchema = z
+  .object({
+    timeZone: z.string().openapi({
+      description: "The stored IANA time zone name, exactly as sent.",
+      example: "Asia/Kolkata",
+    }),
+  })
+  .openapi("UserTimeZone");
