@@ -1,0 +1,364 @@
+{
+	"recordedWith": "@better-auth/api-key 1.7.14",
+	"owner": {
+		"id": "fixture-key-owner",
+		"email": "fixture-key-owner@example.com",
+		"name": "Fixture key owner"
+	},
+	"workspace": {
+		"id": "fixture-key-workspace",
+		"name": "Fixture keys"
+	},
+	"keys": {
+		"plain": {
+			"secret": "GowbNDMirHozbtnfSaubTcLDBcvVytjGVdBHggEMvXsLInLMvuvPQZQuiaBthKjt",
+			"row": {
+				"id": "RuQqDQIZjM4f2yBlkf2Jvjm8QCMTRisK",
+				"configId": "default",
+				"name": "Plain",
+				"start": "GowbND",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "iriwW4Fy41sCHYMFginIxfH0sIpfwK1U5bmlSB13kOk",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": null,
+				"createdAt": -56,
+				"updatedAt": -56,
+				"permissions": null,
+				"metadata": "null"
+			}
+		},
+		"prefixed": {
+			"secret": "bat_KZANyrOpAFbnrLsEmRHIniyIteWLdSQygDUgHIDmfHStsjkcMxDhFFoMMDGAkrBv",
+			"row": {
+				"id": "S4MwP6SeQ9jCHkgQqhb4XHHZLkpLS2wV",
+				"configId": "default",
+				"name": "Prefixed",
+				"start": "bat_KZ",
+				"referenceId": "fixture-key-owner",
+				"prefix": "bat_",
+				"key": "lhhwlkbp8sy2dVo0xtp7n2OBL6zax9UZT096PEsozRQ",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": null,
+				"createdAt": -39,
+				"updatedAt": -39,
+				"permissions": null,
+				"metadata": "null"
+			}
+		},
+		"rate-limited": {
+			"secret": "NPDOoFJWoDBBPUUsNKeOVgUyYubgmisSfFSnkzNSCkWCubRjyyhyncbyfWMSjbCd",
+			"row": {
+				"id": "WhHDmpw6XezpKPNil4mVoF8GcivBijiX",
+				"configId": "default",
+				"name": "Rate limited",
+				"start": "NPDOoF",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "aluaIirt1IAkgmeajY6ZdUpXO_6OKCHXHIXOpwD-a-A",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 3,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": null,
+				"createdAt": -35,
+				"updatedAt": -35,
+				"permissions": null,
+				"metadata": "null"
+			}
+		},
+		"scoped": {
+			"secret": "wEHWwjznpxXPAXFbviGGNDRMlstpEDlaBOzDtolgkpTfxulQRPAmsFKqzoyZSNCG",
+			"row": {
+				"id": "lROayFl5Njyj08gK1yJ5epL6nRR6dOhg",
+				"configId": "default",
+				"name": "Scoped",
+				"start": "wEHWwj",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "osq2aa6eAnkeIoYIVpDtypetqEZs4mrDtZR6V8eutRQ",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": null,
+				"createdAt": -31,
+				"updatedAt": -31,
+				"permissions": "{\"task\":[\"read\"],\"project\":[\"read\"]}",
+				"metadata": "null"
+			}
+		},
+		"expiring": {
+			"secret": "jtoGSPTAehaKIJYYyWAcXxXhZRvCreJUFSIfYrvFXpAcPGeIWgbHadqfrRELyjla",
+			"row": {
+				"id": "hPvt7OqU7VnjYS9L3SwhcT7eqbZQCmVW",
+				"configId": "default",
+				"name": "Expiring",
+				"start": "jtoGSP",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "pikDpq797POczIfXLdxYr3Xfw_VmzLjN6PDnopjTTRA",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": 2591999972,
+				"createdAt": -28,
+				"updatedAt": -28,
+				"permissions": null,
+				"metadata": "null"
+			}
+		},
+		"expired": {
+			"secret": "ZQpVByqVPGDeagDYMuiITiWQXZKSRdwltnpzUfUCaucRkJhIutsLGuBjuOmKYzkN",
+			"row": {
+				"id": "tMzvTBnfAvIGodqKOlYMn9YJmNIyNkBQ",
+				"configId": "default",
+				"name": "Expired",
+				"start": "ZQpVBy",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "NK6TwRPVsSvybdnoeUVWP6fiPY1NoCr4sod8BJgsS_0",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": true,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": -3600009,
+				"createdAt": -25,
+				"updatedAt": -25,
+				"permissions": null,
+				"metadata": "null"
+			}
+		},
+		"disabled": {
+			"secret": "VTVXvpVkbDaWnPWtUpyymQCYxdrvxaMyvVYJnPfYghLaqqKUofhiPMEngVKTRuBa",
+			"row": {
+				"id": "CUWBFaZ3i8uC1FtXs1vMcSDr5ftUPCHf",
+				"configId": "default",
+				"name": "Disabled",
+				"start": "VTVXvp",
+				"referenceId": "fixture-key-owner",
+				"prefix": null,
+				"key": "_NLF_ToWw05kc6k0AlVxyB3SmKTW_8_f7tPgl6xaZYc",
+				"userId": null,
+				"refillInterval": null,
+				"refillAmount": null,
+				"lastRefillAt": null,
+				"enabled": false,
+				"rateLimitEnabled": true,
+				"rateLimitTimeWindow": 60000,
+				"rateLimitMax": 100,
+				"requestCount": 0,
+				"remaining": null,
+				"lastRequest": null,
+				"expiresAt": null,
+				"createdAt": -21,
+				"updatedAt": -21,
+				"permissions": null,
+				"metadata": "null"
+			}
+		}
+	},
+	"behaviour": {
+		"plain": {
+			"/api/user/me": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "99",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			],
+			"/api/workspace": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "98",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			]
+		},
+		"prefixed": {
+			"/api/user/me": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "99",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			]
+		},
+		"rate-limited": {
+			"/api/user/me": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "3",
+						"x-ratelimit-remaining": "2",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				},
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "3",
+						"x-ratelimit-remaining": "1",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				},
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "3",
+						"x-ratelimit-remaining": "0",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				},
+				{
+					"status": 429,
+					"code": "RATE_LIMITED",
+					"headers": {
+						"x-ratelimit-limit": "3",
+						"x-ratelimit-remaining": "0",
+						"x-ratelimit-reset": "present",
+						"retry-after": "present"
+					}
+				}
+			]
+		},
+		"scoped": {
+			"/api/user/me": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "99",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			],
+			"/api/workspace": [
+				{
+					"status": 403,
+					"code": "API_KEY_SCOPE",
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "98",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			]
+		},
+		"expiring": {
+			"/api/user/me": [
+				{
+					"status": 200,
+					"code": null,
+					"headers": {
+						"x-ratelimit-limit": "100",
+						"x-ratelimit-remaining": "99",
+						"x-ratelimit-reset": "present",
+						"retry-after": null
+					}
+				}
+			]
+		},
+		"expired": {
+			"/api/user/me": [
+				{
+					"status": 401,
+					"code": "UNAUTHORIZED",
+					"headers": {
+						"x-ratelimit-limit": null,
+						"x-ratelimit-remaining": null,
+						"x-ratelimit-reset": null,
+						"retry-after": null
+					}
+				}
+			]
+		},
+		"disabled": {
+			"/api/user/me": [
+				{
+					"status": 401,
+					"code": "UNAUTHORIZED",
+					"headers": {
+						"x-ratelimit-limit": null,
+						"x-ratelimit-remaining": null,
+						"x-ratelimit-reset": null,
+						"retry-after": null
+					}
+				}
+			]
+		}
+	}
+}
