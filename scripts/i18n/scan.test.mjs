@@ -37,3 +37,26 @@ test("pruning drops unused leaves and empty branches", () => {
     common: { keep: "k" },
   });
 });
+
+test("useTranslation(ns) qualifies the file's unqualified keys", () => {
+  const scan = scanSource(
+    `const { t } = useTranslation("tour"); t("next"); t("common:a.b"); t(\`steps.\${id}.title\`);`,
+    new Set(["common", "tour"]),
+  );
+  assert.deepEqual([...scan.staticKeys].sort(), ["common:a.b", "tour:next"]);
+  assert.deepEqual(scan.dynamicPrefixes, ["tour:steps."]);
+});
+
+test("two default namespaces in one file leave keys as written", () => {
+  const scan = scanSource(
+    `useTranslation("tour"); useTranslation("common"); t("next");`,
+    new Set(["common", "tour"]),
+  );
+  assert.deepEqual([...scan.staticKeys], ["next"]);
+});
+
+test("a template with text after the interpolation is a computed key", () => {
+  const scan = scanSource(`t(\`common:x.\${id}.title\`);`, namespaces);
+  assert.equal(scan.dynamicCalls.length, 1);
+  assert.deepEqual(scan.dynamicPrefixes, ["common:x."]);
+});
