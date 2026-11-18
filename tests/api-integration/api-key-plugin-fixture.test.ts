@@ -6,10 +6,10 @@ import { createApp } from "../../apps/api/src/index";
 import { signIn } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
 import {
-  type Observed,
   pluginKeyFixture,
   pluginKeyNames,
   pluginKeyRow,
+  replayPluginKeyRequests,
 } from "./helpers/plugin-api-keys";
 
 // auth-boundary P4 A1: keys the Better Auth plugin made, recorded before it
@@ -19,37 +19,7 @@ const bcrypt = createRequire(
   new URL("../../apps/api/package.json", import.meta.url),
 )("bcryptjs") as { hash(value: string, rounds: number): Promise<string> };
 
-type App = ReturnType<typeof createApp>["app"];
 const { owner, workspace, keys, behaviour } = pluginKeyFixture;
-const RATE_HEADERS = [
-  "x-ratelimit-limit",
-  "x-ratelimit-remaining",
-  "x-ratelimit-reset",
-  "retry-after",
-];
-
-async function observe(app: App, path: string, key: string): Promise<Observed> {
-  const response = await app.request(path, { headers: { "x-api-key": key } });
-  const body = (await response.json().catch(() => null)) as {
-    code?: string;
-  } | null;
-  return {
-    status: response.status,
-    code: body?.code ?? null,
-    headers: Object.fromEntries(
-      RATE_HEADERS.map((name) => {
-        const value = response.headers.get(name);
-        if (value === null) return [name, null];
-        return [
-          name,
-          name === "x-ratelimit-reset" || name === "retry-after"
-            ? "present"
-            : value,
-        ];
-      }),
-    ),
-  };
-}
 
 async function seed() {
   await db.insert(schema.userTable).values({ ...owner, emailVerified: true });
@@ -93,26 +63,7 @@ describe("plugin-made API keys under Baton's verifier (A1)", () => {
 
   it("answers every recorded request as the plugin-era API did", async () => {
     const { app } = createApp();
-    // The recorder's order: one request per key, then the rate-limited key's
-    // remaining three, then the two workspace reads.
-    const seen: Record<string, Record<string, Observed[]>> = {};
-    for (const name of pluginKeyNames) {
-      seen[name] = {
-        "/api/user/me": [await observe(app, "/api/user/me", keys[name].secret)],
-      };
-    }
-    for (let i = 0; i < 3; i += 1) {
-      seen["rate-limited"]!["/api/user/me"]!.push(
-        await observe(app, "/api/user/me", keys["rate-limited"].secret),
-      );
-    }
-    seen.scoped!["/api/workspace"] = [
-      await observe(app, "/api/workspace", keys.scoped.secret),
-    ];
-    seen.plain!["/api/workspace"] = [
-      await observe(app, "/api/workspace", keys.plain.secret),
-    ];
-
+    const seen = await replayPluginKeyRequests(app);
     expect(seen).toEqual(behaviour);
     // The cases the record names, spelled out.
     expect(seen.expired!["/api/user/me"]![0]!.status).toBe(401);

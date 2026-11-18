@@ -4,7 +4,7 @@ import { Client, Pool } from "pg";
 import { afterAll, beforeAll, expect, it } from "vite-plus/test";
 import {
   baselineOnlyMigrations,
-  migrationsFolder,
+  migrationsThrough,
 } from "./helpers/baseline-only-migrations";
 
 // The join-link migration on a database that already has invitations, as on
@@ -29,6 +29,8 @@ async function admin(statement: string) {
 
 let pool: Pool;
 const baseline = baselineOnlyMigrations();
+// Stop at the join-link migration: a later one drops `invitation`.
+const joinLinks = migrationsThrough("0003_join_links");
 
 beforeAll(async () => {
   await admin(`DROP DATABASE IF EXISTS "${scratchName}"`);
@@ -39,6 +41,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await pool?.end();
   baseline.remove();
+  joinLinks.remove();
   await admin(`DROP DATABASE IF EXISTS "${scratchName}"`);
 });
 
@@ -60,7 +63,7 @@ it("cancels pending invitations, keeps the others, and adds both tables", async 
        ('rejected-1', 'ws-1', 'd@example.com', 'member', 'rejected', now(), 'owner')`,
   );
 
-  await migrate(database, { migrationsFolder });
+  await migrate(database, { migrationsFolder: joinLinks.folder });
 
   const statuses = await pool.query(
     `SELECT id, status FROM invitation ORDER BY id`,

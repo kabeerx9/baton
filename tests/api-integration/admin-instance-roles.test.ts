@@ -315,7 +315,7 @@ describe("instance role escalation", () => {
     expect(await readAuditLog()).toEqual([]);
   });
 
-  it("does not let a custom role manage roles or use better-auth admin endpoints", async () => {
+  it("does not let a custom role manage roles; the provider's admin endpoints are gone", async () => {
     const { app } = createApp();
     await insertInstanceRole("support", [
       "users:read",
@@ -343,32 +343,28 @@ describe("instance role escalation", () => {
       ],
     ] as const) {
       const response = await authAdmin(path, body, support.cookies);
-      expect(response.status, path).toBe(403);
+      expect(response.status, path).toBe(404);
     }
     expect(await roleOf(target.id)).toBe("user");
   });
 
-  it("lets better-auth admin endpoints assign only known roles", async () => {
+  it("assigns only known roles", async () => {
     const { app } = createApp();
     const admin = await signInWithRole(app, "admin");
     await insertInstanceRole("support", []);
     const target = await insertUser();
+    const assign = (role: string) =>
+      admin.api(`/users/${target.id}`, { method: "PATCH", body: { role } });
 
-    for (const [path, body] of [
-      ["/admin/set-role", { userId: target.id, role: "ghost" }],
-      ["/admin/set-role", { userId: target.id, role: ["user", "ghost"] }],
-      ["/admin/update-user", { userId: target.id, data: { role: "ghost" } }],
-    ] as const) {
-      const response = await authAdmin(path, body, admin.cookies);
-      expect(response.status, JSON.stringify(body)).toBe(400);
-      expect(await response.json()).toMatchObject({ code: "UNKNOWN_ROLE" });
+    for (const role of ["ghost", "user,ghost"]) {
+      const response = await assign(role);
+      expect(response.status, role).toBe(400);
+      expect(await readErrorBody(response)).toMatchObject({
+        code: "UNKNOWN_ROLE",
+      });
     }
-    const assigned = await authAdmin(
-      "/admin/set-role",
-      { userId: target.id, role: "support" },
-      admin.cookies,
-    );
-    expect(assigned.status).toBe(200);
+    expect(await roleOf(target.id)).toBe("user");
+    expect((await assign("support")).status).toBe(200);
     expect(await roleOf(target.id)).toBe("support");
   });
 

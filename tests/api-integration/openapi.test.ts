@@ -353,12 +353,17 @@ describe("Baton API OpenAPI spec", () => {
         operation,
       ]),
     );
-    for (const id of ["getSession", "getAsset"]) {
-      expect(byId.get(id)?.responses["429"], id).toEqual({
-        $ref: "#/components/responses/ApiKeyRateLimited",
-      });
-    }
-    for (const id of ["getInstanceStatus", "getUserAvatar", "getConfig"]) {
+    expect(byId.get("getAsset")?.responses["429"]).toEqual({
+      $ref: "#/components/responses/ApiKeyRateLimited",
+    });
+    // get-session refuses a key before it spends quota.
+    expect(byId.get("getSession")?.responses["403"]).toBeDefined();
+    for (const id of [
+      "getSession",
+      "getInstanceStatus",
+      "getUserAvatar",
+      "getConfig",
+    ]) {
       expect(byId.get(id)?.responses["429"], id).toBeUndefined();
     }
   });
