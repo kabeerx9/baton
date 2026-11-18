@@ -1,17 +1,14 @@
-import { type BuiltInRoleName, builtInRoles } from "@baton/permissions";
+import {
+  builtInRoleStatements,
+  type PermissionStatements,
+  permits,
+} from "@baton/permissions";
+
+// Existing callers check API-key grants with this name.
+export { permits as satisfies } from "@baton/permissions";
 import { missingPermissions } from "./missing-permissions";
 
 export type PermissionMap = Record<string, string[]>;
-
-type PermissionStatements = Record<string, readonly string[]>;
-
-function builtInRoleStatements(role: string): PermissionStatements | null {
-  if (role in builtInRoles) {
-    return builtInRoles[role as BuiltInRoleName]
-      .statements as PermissionStatements;
-  }
-  return null;
-}
 
 function parsePermissionStatements(raw: string): PermissionStatements | null {
   let value: unknown;
@@ -25,7 +22,7 @@ function parsePermissionStatements(raw: string): PermissionStatements | null {
   }
 
   // Only keep entries shaped like { [resource: string]: string[] }.
-  // Anything malformed is dropped so `satisfies()` never calls
+  // Anything malformed is dropped so `permits()` never calls
   // `.includes()` on a non-array.
   const result: Record<string, string[]> = {};
   for (const [resource, actions] of Object.entries(
@@ -40,20 +37,6 @@ function parsePermissionStatements(raw: string): PermissionStatements | null {
     }
   }
   return result;
-}
-
-export function satisfies(
-  statements: PermissionStatements,
-  required: PermissionMap,
-): boolean {
-  for (const [resource, actions] of Object.entries(required)) {
-    const granted = statements[resource];
-    if (!granted) return false;
-    for (const action of actions) {
-      if (!granted.includes(action)) return false;
-    }
-  }
-  return true;
 }
 
 function roleStatements(
@@ -72,7 +55,7 @@ export function roleAllows(
   permissions: PermissionMap,
 ) {
   const statements = roleStatements(role, storedPermission);
-  return Boolean(statements && satisfies(statements, permissions));
+  return Boolean(statements && permits(statements, permissions));
 }
 
 export type StoredRolePermission = {
@@ -97,7 +80,7 @@ export function rolesAllow(
   permissions: PermissionMap,
 ) {
   return candidateStatements(roles, stored).some((statements) =>
-    Boolean(statements && satisfies(statements, permissions)),
+    Boolean(statements && permits(statements, permissions)),
   );
 }
 
