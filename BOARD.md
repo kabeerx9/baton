@@ -305,6 +305,10 @@ People join a workspace with a link, not an email invite. Code:
   An exit that fails after its write changes the row only while the person is
   still a member, and their next exit sets it again. A leave by a non-member
   clears nothing.
+- Accepted exception: if a leave and a removal of the same person run at the
+  same instant, the leave can clear the removal's row, so an older link could
+  readmit them. The auth-boundary migration closes this by moving leave and
+  remove under the workspace lock.
 - A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
 - `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`;
   the OpenAPI spec marks both deprecated.
