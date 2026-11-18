@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { createApp } from "../../apps/api/src/index";
 import { SESSION_ENDED_CLOSE_CODE } from "../../apps/api/src/ws";
 import { signIn, signUpWithSession } from "./helpers/auth-session";

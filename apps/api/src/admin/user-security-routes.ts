@@ -140,7 +140,7 @@ export const adminUserSecurityRoutes = apiRouter()
     c.json(
       await listUserSessions(
         c.req.valid("param").userId,
-        c.get("session")?.id ?? null,
+        c.get("sessionId") ?? null,
       ),
       200,
     ),
@@ -149,7 +149,7 @@ export const adminUserSecurityRoutes = apiRouter()
     c.json(
       await revokeUserSession(
         c.req.valid("param"),
-        c.get("session")?.id ?? null,
+        c.get("sessionId") ?? null,
         adminAuditRequest(c),
       ),
       200,
@@ -159,7 +159,7 @@ export const adminUserSecurityRoutes = apiRouter()
     c.json(
       await revokeUserSessions(
         c.req.valid("param").userId,
-        c.get("session")?.id ?? null,
+        c.get("sessionId") ?? null,
         adminAuditRequest(c),
       ),
       200,

@@ -1,9 +1,6 @@
-import { defaultStatements } from "better-auth/plugins/organization/access";
 import { describe, expect, it } from "vite-plus/test";
-import { builtInRoles } from "./provider-roles";
 import {
   BUILT_IN_ROLE_STATEMENTS,
-  type BuiltInRoleName,
   builtInRoleStatements,
   defaultRolePayloads,
 } from "./roles";
@@ -13,25 +10,32 @@ import { statement } from "./statements";
 const PAYLOADS_BEFORE =
   '{"viewer":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["read"],"task":["read"],"label":["read"],"workspace":["read"]},"member":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["create","read"],"task":["create","read","update"],"label":["create","read","update","delete"],"workspace":["read"]},"admin":{"organization":["update"],"invitation":["create","cancel"],"member":["create","update","delete"],"team":["create","update","delete"],"ac":["create","read","update","delete"],"project":["create","read","update","delete","share"],"task":["create","read","update","delete","assign"],"label":["create","read","update","delete"],"workspace":["read","update","manage_settings"]}}';
 
-const ROLE_NAMES = Object.keys(builtInRoles) as BuiltInRoleName[];
+// The provider's compiled role statements (Better Auth organization plugin,
+// 1.7.14), frozen when the plugin left (auth-boundary P3). The plain roles
+// must stay equal to them, key order included.
+const PROVIDER_ROLES_FROZEN =
+  '{"viewer":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["read"],"task":["read"],"label":["read"],"workspace":["read"]},"member":{"organization":[],"member":[],"invitation":[],"team":[],"ac":["read"],"project":["create","read"],"task":["create","read","update"],"label":["create","read","update","delete"],"workspace":["read"]},"admin":{"organization":["update"],"invitation":["create","cancel"],"member":["create","update","delete"],"team":["create","update","delete"],"ac":["create","read","update","delete"],"project":["create","read","update","delete","share"],"task":["create","read","update","delete","assign"],"label":["create","read","update","delete"],"workspace":["read","update","manage_settings"]},"owner":{"organization":["update","delete"],"member":["create","update","delete"],"invitation":["create","cancel"],"team":["create","update","delete"],"ac":["create","read","update","delete"],"project":["create","read","update","delete","share"],"task":["create","read","update","delete","assign"],"label":["create","read","update","delete"],"workspace":["read","update","delete","manage_settings"]}}';
 
-describe("plain roles match the provider roles", () => {
-  it("covers the same role names", () => {
-    expect(Object.keys(BUILT_IN_ROLE_STATEMENTS)).toEqual(ROLE_NAMES);
+// The plugin's own default resources, written out in statements.ts.
+const PROVIDER_DEFAULT_STATEMENTS = {
+  organization: ["update", "delete"],
+  member: ["create", "update", "delete"],
+  invitation: ["create", "cancel"],
+  team: ["create", "update", "delete"],
+  ac: ["create", "read", "update", "delete"],
+};
+
+describe("plain roles match the frozen provider roles", () => {
+  it("is byte-equal to the snapshot", () => {
+    expect(JSON.stringify(BUILT_IN_ROLE_STATEMENTS)).toBe(
+      PROVIDER_ROLES_FROZEN,
+    );
   });
 
-  it.each(ROLE_NAMES)(
-    "%s has the same statements, in the same order",
-    (name) => {
-      const plain = BUILT_IN_ROLE_STATEMENTS[name];
-      const provider = builtInRoles[name].statements;
-      expect(plain).toEqual(provider);
-      expect(JSON.stringify(plain)).toBe(JSON.stringify(provider));
-    },
-  );
-
   it("writes out the provider's default resources unchanged", () => {
-    for (const [resource, actions] of Object.entries(defaultStatements)) {
+    for (const [resource, actions] of Object.entries(
+      PROVIDER_DEFAULT_STATEMENTS,
+    )) {
       expect(statement[resource as keyof typeof statement]).toEqual(actions);
     }
   });

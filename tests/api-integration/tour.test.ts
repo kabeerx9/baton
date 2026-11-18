@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { workspaceJoinLinkTable } from "../../apps/api/src/database/schema";
 import { hashJoinToken } from "../../apps/api/src/join-link/token";
@@ -447,16 +446,6 @@ describe("sharing a demo workspace", () => {
     expect(await db.select().from(workspaceJoinLinkTable)).toEqual([]);
 
     const friend = await signUp("friend@example.com");
-    await expect(
-      auth.api.addMember({
-        body: {
-          userId: friend.userId,
-          organizationId: demoWorkspace.id,
-          role: "member",
-        },
-      }),
-    ).rejects.toMatchObject({ body: { code: "DEMO_WORKSPACE" } });
-
     // A link written behind the API's back still cannot admit anyone.
     const token = "d".repeat(43);
     await db.insert(workspaceJoinLinkTable).values({
@@ -486,53 +475,62 @@ describe("sharing a demo workspace", () => {
         joinedAt: new Date(),
       })
       .returning();
-    const role = await authPost(
-      "/organization/update-member-role",
-      { organizationId: demoWorkspace.id, memberId: member!.id, role: "admin" },
-      owner.cookie,
+    const role = await createApp().app.request(
+      `/api/workspace/${demoWorkspace.id}/members/${member!.userId}/role`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          Cookie: owner.cookie,
+        },
+        body: JSON.stringify({ role: "admin" }),
+      },
     );
     expect(role.status).toBe(403);
     expect(await role.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
   });
 
-  it("keeps the organization list free of the demo and creates team workspaces", async () => {
+  it("keeps the workspace list free of the demo and creates team workspaces", async () => {
     const owner = await signUp("lister@example.com");
-    const created = await authPost(
-      "/organization/create",
-      { name: "Real team", slug: "real-team", kind: "demo" },
-      owner.cookie,
-    );
+    const create = (body: unknown) =>
+      createApp().app.request("/api/workspace", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          Cookie: owner.cookie,
+        },
+        body: JSON.stringify(body),
+      });
+    const created = await create({ name: "Real team", kind: "demo" });
     // kind is not an input: either refused or ignored, never stored.
-    if (created.status === 200) {
-      const organization = (await created.json()) as { id: string };
+    let slug: string;
+    if (created.status === 201) {
+      const workspace = (await created.json()) as { id: string; slug: string };
+      slug = workspace.slug;
       const [row] = await db
         .select({ kind: schema.workspaceTable.kind })
         .from(schema.workspaceTable)
-        .where(eq(schema.workspaceTable.id, organization.id));
+        .where(eq(schema.workspaceTable.id, workspace.id));
       expect(row?.kind).toBe("team");
     } else {
       expect(created.status).toBe(400);
-      const retry = await authPost(
-        "/organization/create",
-        { name: "Real team", slug: "real-team" },
-        owner.cookie,
-      );
-      expect(retry.status).toBe(200);
+      const retry = await create({ name: "Real team" });
+      expect(retry.status).toBe(201);
+      slug = ((await retry.json()) as { slug: string }).slug;
     }
     expect((await tourStart(owner.cookie)).status).toBe(200);
 
-    const listed = await createApp().app.request(
-      "/api/auth/organization/list",
-      {
-        headers: { Origin: origin, Cookie: owner.cookie },
-      },
-    );
+    const listed = await createApp().app.request("/api/workspace", {
+      headers: { Origin: origin, Cookie: owner.cookie },
+    });
     expect(listed.status).toBe(200);
-    const organizations = (await listed.json()) as {
+    const workspaces = (await listed.json()) as {
       slug: string;
       kind?: string;
     }[];
-    expect(organizations.map((o) => o.slug)).toEqual(["real-team"]);
-    expect(organizations[0]?.kind).toBe("team");
+    expect(workspaces.map((w) => w.slug)).toEqual([slug]);
+    expect(workspaces[0]?.kind).toBe("team");
   });
 });

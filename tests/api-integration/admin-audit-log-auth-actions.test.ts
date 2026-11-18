@@ -10,7 +10,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { readAuditLog } from "./helpers/admin/read-audit-log";

@@ -8,7 +8,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { invalidateInstanceSettings } from "../../apps/api/src/instance-settings/get-instance-settings";
@@ -470,11 +470,28 @@ describe("workspace creation", () => {
       body: { workspaceCreationRestricted: true },
     });
     const member = await signInWithRole(app, "user");
-    const create = (cookie: string, slug: string) =>
-      authPost(app, "/organization/create", { name: "Team", slug }, cookie);
+    const create = (cookie: string) =>
+      app.request("/api/workspace", {
+        method: "POST",
+        headers: { ...json, cookie },
+        body: JSON.stringify({ name: "Team" }),
+      });
 
-    expect((await create(member.cookies, "member-team")).status).toBe(403);
-    expect((await create(admin.cookies, "admin-team")).status).toBe(200);
+    const refused = await create(member.cookies);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({
+      code: "WORKSPACE_CREATION_RESTRICTED",
+    });
+    expect((await create(admin.cookies)).status).toBe(201);
+    // The owner's notification lands after the response; let it finish
+    // before the next reset truncates the tables.
+    await vi.waitFor(async () => {
+      const rows = await db
+        .select({ id: schema.notificationTable.id })
+        .from(schema.notificationTable)
+        .where(eq(schema.notificationTable.type, "workspace_created"));
+      expect(rows).toHaveLength(1);
+    });
   });
 });
 

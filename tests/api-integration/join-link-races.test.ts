@@ -15,11 +15,7 @@ import {
 import { resetJoinLinkRateLimits } from "../../apps/api/src/join-link/rate-limit";
 import { resetTestDatabase } from "./helpers/database";
 import { joinLinkFixture, linkRow, memberRows } from "./helpers/join-link";
-import {
-  holdRowLock,
-  releaseWhenQueued,
-  waitForLockWaiters,
-} from "./helpers/row-lock";
+import { holdRowLock, releaseWhenQueued } from "./helpers/row-lock";
 
 // Each race is forced: a separate connection holds a row lock while the
 // contenders start, the test waits until they all queue on a lock, then
@@ -39,9 +35,8 @@ afterEach(() => {
 type Fixture = Awaited<ReturnType<typeof joinLinkFixture>>;
 
 function deleteWorkspace(ctx: Fixture) {
-  return ctx.call("/auth/organization/delete", {
-    method: "POST",
-    body: { organizationId: ctx.workspace.id },
+  return ctx.call(`/workspace/${ctx.workspace.id}`, {
+    method: "DELETE",
     headers: { cookie: ctx.owner.cookies },
   });
 }
@@ -180,99 +175,66 @@ describe("join races with a removal (4)", () => {
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
   });
 
-  it("never readmits a person while Better Auth removes them", async () => {
+  it("refuses a join queued behind a member removal", async () => {
     const ctx = await joinLinkFixture();
-    const joiner = await ctx.person("Racing Person");
-    // An older removal gives the marker row a lock to hold. It predates the
-    // link, so this link admits the person until the new removal.
-    await db.insert(workspaceMemberRemovalTable).values({
-      workspaceId: ctx.workspace.id,
-      userId: joiner.userId,
-      removedAt: new Date(Date.now() - 86_400_000),
-    });
     const { token } = await ctx.createLink();
+    const joiner = await ctx.person("Racing Person");
     expect((await ctx.join(joiner, token)).status).toBe(200);
 
-    // The removal stops where it writes the marker. Written before the
-    // delete, the person is still a member there, so a join is a no-op. An
-    // implementation that wrote it after the delete would let this join in.
-    const lock = await holdRowLock("workspace_member_removal", {
-      workspace_id: ctx.workspace.id,
-      user_id: joiner.userId,
-    });
-    let removal: Promise<Response> | undefined;
-    let duringRemoval: Response;
-    try {
-      removal = ctx.call("/auth/organization/remove-member", {
-        method: "POST",
-        body: {
-          organizationId: ctx.workspace.id,
-          memberIdOrEmail: "racing-person@example.com",
-        },
-        headers: { cookie: ctx.owner.cookies },
-      });
-      await waitForLockWaiters(1);
-      duringRemoval = await ctx.join(joiner, token);
-    } finally {
-      await lock.release();
-      await Promise.allSettled([removal]);
-    }
-    expect((await removal)?.status).toBe(200);
-    expect(duringRemoval.status).toBe(200);
-    expect(await duringRemoval.json()).toMatchObject({
-      outcome: "already_member",
-    });
+    const lock = await holdRowLock("workspace", ctx.workspace.id);
+    const [removed, joined] = await releaseWhenQueued(lock, [
+      {
+        start: () => [
+          ctx.call(`/workspace/${ctx.workspace.id}/members/${joiner.userId}`, {
+            method: "DELETE",
+            headers: { cookie: ctx.owner.cookies },
+          }),
+        ],
+        waiters: 1,
+      },
+      { start: () => [ctx.join(joiner, token)], waiters: 2 },
+    ]);
+
+    expect(removed.status).toBe(200);
+    expect(joined.status).toBe(403);
+    expect(await code(joined)).toBe("REMOVED_FROM_WORKSPACE");
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
-    const after = await ctx.join(joiner, token);
-    expect(after.status).toBe(403);
-    expect(await code(after)).toBe("REMOVED_FROM_WORKSPACE");
   });
 
-  it("keeps a removal that lands while an earlier leave finishes", async () => {
+  it("keeps the marker when a leave is queued behind a removal", async () => {
     const ctx = await joinLinkFixture();
     const { token } = await ctx.createLink();
     const joiner = await ctx.person("Leaving Person");
     expect((await ctx.join(joiner, token)).status).toBe(200);
-    const instanceAdmin = await ctx.person("Instance Admin", "admin");
-    const asAdmin = { cookie: instanceAdmin.cookies };
 
-    // Leave resets the active workspace after its member delete, so holding
-    // the session row stops it between the delete and its return. A leave
-    // that cleared the marker after the delete would erase this removal.
-    await db
-      .update(schema.sessionTable)
-      .set({ activeOrganizationId: ctx.workspace.id })
-      .where(eq(schema.sessionTable.userId, joiner.userId));
-    const lock = await holdRowLock("session", { user_id: joiner.userId });
-    let leave: Promise<Response> | undefined;
-    try {
-      leave = ctx.call("/auth/organization/leave", {
-        method: "POST",
-        body: { organizationId: ctx.workspace.id },
-        headers: { cookie: joiner.cookies },
-      });
-      await waitForLockWaiters(1);
-      expect(await memberRows(ctx.workspace.id, joiner.userId)).toEqual([]);
-      const readded = await ctx.call(
-        `/admin/workspaces/${ctx.workspace.id}/members`,
-        {
-          method: "POST",
-          body: { userId: joiner.userId, role: "member" },
-          headers: asAdmin,
-        },
-      );
-      expect(readded.status).toBe(200);
-      const removed = await ctx.call(
-        `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
-        { method: "DELETE", headers: asAdmin },
-      );
-      expect(removed.status).toBe(200);
-    } finally {
-      await lock.release();
-      await Promise.allSettled([leave]);
-    }
-    expect((await leave)?.status).toBe(200);
+    // Both pass their fast checks while the person is a member, then queue
+    // on the workspace row. The leave finds no membership under the lock,
+    // so it cannot clear the removal's marker.
+    const lock = await holdRowLock("workspace", ctx.workspace.id);
+    const [removed, left] = await releaseWhenQueued(lock, [
+      {
+        start: () => [
+          ctx.call(`/workspace/${ctx.workspace.id}/members/${joiner.userId}`, {
+            method: "DELETE",
+            headers: { cookie: ctx.owner.cookies },
+          }),
+        ],
+        waiters: 1,
+      },
+      {
+        start: () => [
+          ctx.call(`/workspace/${ctx.workspace.id}/leave`, {
+            method: "POST",
+            headers: { cookie: joiner.cookies },
+          }),
+        ],
+        waiters: 2,
+      },
+    ]);
 
+    expect(removed.status).toBe(200);
+    expect(left.status).toBe(403);
+    expect(await code(left)).toBe("MEMBERSHIP_REQUIRED");
     const markers = await db
       .select()
       .from(workspaceMemberRemovalTable)

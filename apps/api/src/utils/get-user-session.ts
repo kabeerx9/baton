@@ -1,7 +1,6 @@
-import { auth } from "../auth";
+import { identity } from "../identity";
 
+/** The person's own session; an API key header never stands in for one. */
 export function getUserSession(headers: Headers) {
-  const sessionHeaders = new Headers(headers);
-  sessionHeaders.delete("x-api-key");
-  return auth.api.getSession({ headers: sessionHeaders });
+  return identity.resolve(headers);
 }

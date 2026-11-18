@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import db from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { decodeAvatarUpload } from "../../apps/api/src/user/avatar";

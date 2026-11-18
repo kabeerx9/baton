@@ -47,6 +47,14 @@ vi.mock("../../../apps/api/src/database", async () => {
     schema,
   };
 });
+// Session existence comes from the identity port; answer it from the rows above.
+vi.mock("../../../apps/api/src/identity", () => ({
+  identity: {
+    sessions: {
+      existing: async () => new Set((await sessionRows()).map((row) => row.id)),
+    },
+  },
+}));
 const publish = vi.fn();
 const listeners: Array<(p: string, c: string, d: string) => void> = [];
 const subscriber = {

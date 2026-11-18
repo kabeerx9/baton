@@ -1,11 +1,12 @@
 import * as Sentry from "@sentry/node";
-import { APIError } from "better-auth/api";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { identity } from "../identity";
+import type { Caller } from "../identity/port";
 import { isMcpToken } from "../mcp/grant/token-secret";
 import { verifyAccessToken } from "../mcp/grant/verify-access-token";
 import { apiKeyRejection } from "./api-key-rejection";
-import { getUserSession } from "./get-user-session";
+import { primeInstanceRole } from "./is-instance-admin";
 import { type ApiKeyRateLimit, rateLimitHeaders } from "./rate-limit-headers";
 import type { AuthMethod } from "./request-channel";
 import { verifyApiKey } from "./verify-api-key";
@@ -17,30 +18,19 @@ function attachUserToScope(userId: string) {
   Sentry.setUser({ id: userId });
 }
 
-function isAuthRejection(error: unknown) {
-  if (!(error instanceof APIError)) {
-    return false;
-  }
-  const status = typeof error.statusCode === "number" ? error.statusCode : 0;
-  return status >= 400 && status < 500;
-}
-
-async function getSession(headers: Headers) {
-  try {
-    return await getUserSession(headers);
-  } catch (error) {
-    if (isAuthRejection(error)) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function getSessionFromBearerOnlyHeaders(c: Context) {
+function resolveBearerOnly(c: Context) {
   const headers = new Headers(c.req.raw.headers);
   headers.delete("cookie");
+  return identity.resolve(headers);
+}
 
-  return getSession(headers);
+function setCallerContext(c: Context, caller: Caller | null) {
+  c.set("identity", caller?.identity ?? null);
+  c.set("sessionId", caller?.sessionId ?? null);
+  c.set("userId", caller?.identity.userId ?? "");
+  c.set("userEmail", caller?.identity.email ?? "");
+  if (caller && caller.instanceRole !== undefined)
+    primeInstanceRole(c.req.raw, caller.instanceRole);
 }
 
 function parseBearerToken(authHeader: string | undefined): {
@@ -79,8 +69,8 @@ function setApiKeyContext(c: Context, { key, rateLimit }: VerifiedApiKey) {
   c.set("authMethod", "api_key" satisfies AuthMethod);
   c.set("userId", key.userId);
   c.set("userEmail", "");
-  c.set("user", null);
-  c.set("session", null);
+  c.set("identity", null);
+  c.set("sessionId", null);
   c.set("apiKey", {
     id: key.id,
     userId: key.userId,
@@ -105,8 +95,8 @@ async function setMcpTokenContext(c: Context, token: string) {
   c.set("authMethod", "mcp" satisfies AuthMethod);
   c.set("userId", grant.userId);
   c.set("userEmail", "");
-  c.set("user", null);
-  c.set("session", null);
+  c.set("identity", null);
+  c.set("sessionId", null);
   attachUserToScope(grant.userId);
 }
 
@@ -140,31 +130,25 @@ export async function authenticateApiRequest(c: Context): Promise<void> {
     if (apiKeyResult) {
       throw apiKeyRejection(apiKeyResult);
     }
-    const sessionResult = await getSessionFromBearerOnlyHeaders(c);
-    if (sessionResult?.user && sessionResult.session) {
+    const caller = await resolveBearerOnly(c);
+    if (caller) {
       c.set("authMethod", "bearer" satisfies AuthMethod);
-      c.set("user", sessionResult.user);
-      c.set("session", sessionResult.session);
-      c.set("userId", sessionResult.user.id);
-      c.set("userEmail", sessionResult.user.email ?? "");
-      attachUserToScope(sessionResult.user.id);
+      setCallerContext(c, caller);
+      attachUserToScope(caller.identity.userId);
       return;
     }
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
-  const sessionResult = await getSession(c.req.raw.headers);
-  c.set("user", sessionResult?.user ?? null);
-  c.set("session", sessionResult?.session ?? null);
-  c.set("userId", sessionResult?.user?.id ?? "");
-  c.set("userEmail", sessionResult?.user?.email ?? "");
+  const caller = await identity.resolve(c.req.raw.headers);
+  setCallerContext(c, caller);
 
-  if (!sessionResult?.user) {
+  if (!caller) {
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
   c.set("authMethod", "cookie" satisfies AuthMethod);
-  attachUserToScope(sessionResult.user.id);
+  attachUserToScope(caller.identity.userId);
 }
 
 export async function resolveAssetBearerOrCookie(c: Context): Promise<{
@@ -204,17 +188,15 @@ export async function resolveAssetBearerOrCookie(c: Context): Promise<{
     if (apiKeyResult) {
       throw apiKeyRejection(apiKeyResult);
     }
-    const sessionResult = await getSessionFromBearerOnlyHeaders(c);
-    if (sessionResult?.user?.id) {
-      return { userId: sessionResult.user.id };
-    }
+    const caller = await resolveBearerOnly(c);
+    if (caller) return { userId: caller.identity.userId };
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
-  const sessionResult = await getSession(c.req.raw.headers);
-  if (!sessionResult?.user) {
+  const caller = await identity.resolve(c.req.raw.headers);
+  if (!caller) {
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
-  return { userId: sessionResult.user.id };
+  return { userId: caller.identity.userId };
 }

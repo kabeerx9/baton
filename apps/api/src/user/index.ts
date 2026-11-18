@@ -166,12 +166,12 @@ const user = apiRouter()
   )
   .openapi(listSessionsRoute, async (c) =>
     c.json(
-      await listActiveSessions(c.get("userId"), c.get("session")?.id ?? null),
+      await listActiveSessions(c.get("userId"), c.get("sessionId") ?? null),
       200,
     ),
   )
   .openapi(revokeSessionRoute, async (c) => {
-    const current = c.get("session")?.id ?? "";
+    const current = c.get("sessionId") ?? "";
     return c.json(
       await revokeOwnSession(
         c.get("userId"),

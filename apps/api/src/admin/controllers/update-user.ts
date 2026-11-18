@@ -2,6 +2,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import db from "../../database";
 import { userTable } from "../../database/schema";
 import { ApiError } from "../../errors/api-error";
+import { identity } from "../../identity";
 import { hasOtherInstanceAdmin } from "../../utils/has-other-instance-admin";
 import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
@@ -83,7 +84,18 @@ async function updateUser(input: UpdateUserInput, audit: AdminAuditRequest) {
     }
 
     if (Object.keys(update).length > 0) {
-      await tx.update(userTable).set(update).where(eq(userTable.id, userId));
+      // Name, email and verification are the provider's; the role is Baton's.
+      await identity.users.update(tx, userId, {
+        name: update.name,
+        email: update.email,
+        emailVerified: update.emailVerified ?? undefined,
+      });
+      if (update.role !== undefined) {
+        await tx
+          .update(userTable)
+          .set({ role: update.role })
+          .where(eq(userTable.id, userId));
+      }
       await recordUserUpdate(target, update, audit, tx);
     }
     return readAdminUser(userId, tx);

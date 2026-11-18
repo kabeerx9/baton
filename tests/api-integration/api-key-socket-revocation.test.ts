@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { serve } from "../../apps/api/node_modules/@hono/node-server";
 import type { NodeWebSocket } from "../../apps/api/node_modules/@hono/node-ws";
-import { auth } from "../../apps/api/src/auth";
+import { auth } from "../../apps/api/src/identity/better-auth/auth";
 import { createApp } from "../../apps/api/src/index";
 import { shutdownWebSocketAdapter } from "../../apps/api/src/ws";
 import { signUpWithSession } from "./helpers/auth-session";

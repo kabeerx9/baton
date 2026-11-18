@@ -11,7 +11,7 @@ import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import * as Sentry from "@sentry/node";
-import type { Session, User } from "better-auth/types";
+import type { Identity } from "./identity/port";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Hono } from "hono";
@@ -21,7 +21,6 @@ import { HTTPException } from "hono/http-exception";
 import activity from "./activity";
 import admin from "./admin";
 import { forwardAuthRequest } from "./utils/forward-auth-request";
-import { organizationRoutes } from "./auth-openapi";
 import column from "./column";
 import comment from "./comment";
 import config from "./config";
@@ -38,7 +37,6 @@ import githubIntegration, {
   handleGithubWebhookRoute,
 } from "./github-integration";
 import getInstanceStatus from "./instance/controllers/get-instance-status";
-import invitation from "./invitation";
 import joinLink from "./join-link";
 import joinLinkPublic from "./join-link/public";
 import { ApiError } from "./errors/api-error";
@@ -68,7 +66,6 @@ import { authenticateApiRequest } from "./utils/authenticate-api-request";
 import { type AuthMethod, channelFor } from "./utils/request-channel";
 import { requireIntegrationProviderEnabled } from "./instance-settings/require-integration-provider-enabled";
 import { authorizeAssetAccess } from "./utils/authorize-asset-access";
-import { getInvitationDetails } from "./utils/check-registration-allowed";
 import { clientIpMiddleware } from "./utils/client-ip";
 import { normalizeApiServerUrl } from "./utils/openapi-spec";
 import { seedDefaultWorkspaceRoles } from "./utils/seed-default-workspace-roles";
@@ -102,8 +99,8 @@ type ApiKey = {
 
 type AppVariables = {
   Variables: {
-    user: User | null;
-    session: Session | null;
+    identity: Identity | null;
+    sessionId: string | null;
     userId: string;
     apiKey?: ApiKey;
   };
@@ -111,8 +108,8 @@ type AppVariables = {
 
 type ApiVariables = {
   Variables: {
-    user: User | null;
-    session: Session | null;
+    identity: Identity | null;
+    sessionId: string | null;
     userId: string;
     userEmail: string;
     apiKey?: ApiKey;
@@ -307,12 +304,6 @@ export function createApp() {
   // Public: anyone holding a link may preview it, before signing in.
   const joinLinkPublicApi = api.route("/join-link", joinLinkPublic);
 
-  const invitationPublicApi = api.get("/invitation/public/:id", async (c) => {
-    const { id } = c.req.param();
-    const result = await getInvitationDetails(id);
-    return c.json(result);
-  });
-
   api.use("/auth/*", async (c, next) => {
     const apiKeyHeader = c.req.header("x-api-key")?.trim();
     if (!apiKeyHeader) return next();
@@ -488,7 +479,6 @@ export function createApp() {
     description: "API key or session token (Bearer)",
   });
   api.openAPIRegistry.register("ApiError", apiErrorSchema);
-  organizationRoutes(api.openAPIRegistry);
 
   api.get("/openapi", (c) => {
     const document = api.getOpenAPI31Document({
@@ -555,17 +545,14 @@ export function createApp() {
     return c.json(document);
   });
 
-  // Join links replaced email invites. Blocked here so Better Auth's own
-  // routes and hooks stay unchanged; /api/invitation reads still work.
-  for (const operation of ["invite-member", "accept-invitation"]) {
-    api.post(`/auth/organization/${operation}`, () => {
-      throw new ApiError(410, {
-        code: "INVITATIONS_REMOVED",
-        message:
-          "Email invitations were replaced by join links. Ask a workspace admin for a link.",
-      });
+  // Baton owns workspaces now (auth-boundary P3): the provider's
+  // organization routes are gone, for every kind of credential.
+  api.all("/auth/organization/*", () => {
+    throw new ApiError(404, {
+      code: "NOT_FOUND",
+      message: "Workspaces are served under /api/workspace.",
     });
-  }
+  });
 
   api.on(
     ["POST", "GET", "PUT", "PATCH", "DELETE"],
@@ -642,7 +629,6 @@ export function createApp() {
   const tourApi = api.route("/tour", tour);
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
-  const invitationApi = api.route("/invitation", invitation);
   const joinLinkApi = api.route("/join-link", joinLink);
   const workspaceApi = api.route("/workspace", workspace);
   const userApi = api.route("/user", user);
@@ -666,7 +652,7 @@ export function createApp() {
       assertWebSocketOrigin(c.req.raw.headers);
 
       const userId = c.get("userId");
-      const sessionId = c.get("session")?.id ?? null;
+      const sessionId = c.get("sessionId") ?? null;
       const apiKeyId = c.get("apiKey")?.id;
       let conn: ReturnType<typeof addUserConnection> | null = null;
 
@@ -721,7 +707,7 @@ export function createApp() {
 
       const windowId = c.req.query("windowId");
       const initiatorId = windowId ? `${userId}:${windowId}` : userId;
-      const sessionId = c.get("session")?.id ?? null;
+      const sessionId = c.get("sessionId") ?? null;
       let conn: ReturnType<typeof addConnection> | null = null;
 
       return {
@@ -761,8 +747,6 @@ export function createApp() {
     externalLinkApi,
     integrationSyncApi,
     githubIntegrationApi,
-    invitationApi,
-    invitationPublicApi,
     joinLinkApi,
     joinLinkPublicApi,
     labelApi,
@@ -875,8 +859,6 @@ const {
   externalLinkApi,
   integrationSyncApi,
   githubIntegrationApi,
-  invitationApi,
-  invitationPublicApi,
   joinLinkApi,
   joinLinkPublicApi,
   labelApi,
@@ -926,12 +908,10 @@ export type AppType =
   | typeof tourApi
   | typeof externalLinkApi
   | typeof workflowRuleApi
-  | typeof invitationApi
   | typeof joinLinkApi
   | typeof joinLinkPublicApi
   | typeof workspaceApi
   | typeof userApi
-  | typeof adminApi
-  | typeof invitationPublicApi;
+  | typeof adminApi;
 
 export default app;

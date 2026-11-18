@@ -1,0 +1,949 @@
+{
+	"source": "Better Auth organization plugin on kabeerx9/auth-p2-identity-port (b35e1f5), captured by permission-matrix-capture.test.ts",
+	"setup": "Each cell: a fresh team workspace with seeded viewer/member/admin roles, custom role 'reviewer' and unused role 'spare'; members owner2 (owner), target (member) and the actor. 'outsider' is signed in and not a member.",
+	"customRole": {
+		"name": "reviewer",
+		"permission": {
+			"workspace": ["read"],
+			"organization": ["update"],
+			"member": ["update"],
+			"ac": ["read", "create"]
+		}
+	},
+	"roles": {
+		"owner": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-of-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-to-owner": {
+				"status": 200,
+				"code": null
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.rename-to-owner": {
+				"status": 400,
+				"code": "ROLE_NAME_IS_ALREADY_TAKEN"
+			},
+			"roles.delete": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-in-use": {
+				"status": 400,
+				"code": "ROLE_IS_ASSIGNED_TO_MEMBERS"
+			}
+		},
+		"admin": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove-owner": {
+				"status": 400,
+				"code": "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+			},
+			"member.role": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.update": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.rename-to-owner": {
+				"status": 400,
+				"code": "ROLE_NAME_IS_ALREADY_TAKEN"
+			},
+			"roles.delete": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-in-use": {
+				"status": 400,
+				"code": "ROLE_IS_ASSIGNED_TO_MEMBERS"
+			}
+		},
+		"member": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION"
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 401,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER"
+			},
+			"member.remove-owner": {
+				"status": 400,
+				"code": "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+			},
+			"member.role": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			}
+		},
+		"viewer": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION"
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 401,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER"
+			},
+			"member.remove-owner": {
+				"status": 400,
+				"code": "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+			},
+			"member.role": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			}
+		},
+		"custom": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 401,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER"
+			},
+			"member.remove-owner": {
+				"status": 400,
+				"code": "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+			},
+			"member.role": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER"
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_A_ROLE"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_UPDATE_A_ROLE"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_ALLOWED_TO_DELETE_A_ROLE"
+			}
+		},
+		"outsider": {
+			"workspace.read": {
+				"status": 403,
+				"code": "MISSING_PERMISSION"
+			},
+			"members.list": {
+				"status": 403,
+				"code": "MISSING_PERMISSION"
+			},
+			"workspace.update": {
+				"status": 400,
+				"code": "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION"
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"member.remove": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"member.remove-owner": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"member.role": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"member.role-of-owner": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"member.role-to-owner": {
+				"status": 400,
+				"code": "MEMBER_NOT_FOUND"
+			},
+			"roles.list": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION"
+			}
+		}
+	},
+	"ownerApiKeys": {
+		"unscoped": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-of-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-to-owner": {
+				"status": 200,
+				"code": null
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.rename-to-owner": {
+				"status": 400,
+				"code": "ROLE_NAME_IS_ALREADY_TAKEN"
+			},
+			"roles.delete": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-in-use": {
+				"status": 400,
+				"code": "ROLE_IS_ASSIGNED_TO_MEMBERS"
+			}
+		},
+		"exact": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-of-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role-to-owner": {
+				"status": 200,
+				"code": null
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-beyond-own": {
+				"status": 200,
+				"code": null
+			},
+			"roles.update-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.rename-to-owner": {
+				"status": 400,
+				"code": "ROLE_NAME_IS_ALREADY_TAKEN"
+			},
+			"roles.delete": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-seeded": {
+				"status": 200,
+				"code": null
+			},
+			"roles.delete-in-use": {
+				"status": 400,
+				"code": "ROLE_IS_ASSIGNED_TO_MEMBERS"
+			}
+		},
+		"workspace:read": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"workspace.leave": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"member.remove": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"member.remove-owner": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"member.role": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.list": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "API_KEY_SCOPE"
+			}
+		}
+	},
+	"creation": {
+		"session": {
+			"status": 200,
+			"code": null
+		},
+		"unscopedKey": {
+			"status": 200,
+			"code": null
+		},
+		"manageSettingsKey": {
+			"status": 200,
+			"code": null
+		},
+		"readKey": {
+			"status": 403,
+			"code": "API_KEY_SCOPE"
+		}
+	},
+	"rules": {
+		"archivedOwner": {
+			"workspace.read": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"members.list": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"workspace.update": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"workspace.delete": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"workspace.leave": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"member.remove": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"member.remove-owner": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"member.role": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.list": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "WORKSPACE_ARCHIVED"
+			}
+		},
+		"demoOwner": {
+			"workspace.read": {
+				"status": 200,
+				"code": null
+			},
+			"members.list": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.update": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.delete": {
+				"status": 200,
+				"code": null
+			},
+			"workspace.leave": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove": {
+				"status": 200,
+				"code": null
+			},
+			"member.remove-owner": {
+				"status": 200,
+				"code": null
+			},
+			"member.role": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"member.role-of-owner": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"member.role-to-owner": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.list": {
+				"status": 200,
+				"code": null
+			},
+			"roles.create": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.create-beyond-own": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.update": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.update-beyond-own": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.update-seeded": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.rename-to-owner": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.delete": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.delete-seeded": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			},
+			"roles.delete-in-use": {
+				"status": 403,
+				"code": "DEMO_WORKSPACE"
+			}
+		},
+		"quarantinedOwnerToken": {
+			"member.remove": {
+				"status": 403,
+				"code": "OWNER_ROLE_REVIEW_REQUIRED"
+			},
+			"member.remove-owner": {
+				"status": 403,
+				"code": "OWNER_ROLE_REVIEW_REQUIRED"
+			}
+		}
+	}
+}

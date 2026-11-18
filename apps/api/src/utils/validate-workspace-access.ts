@@ -6,7 +6,18 @@ import { hasInstanceAdminRole } from "./instance-admin-role";
 
 type ValidateWorkspaceAccessOptions = {
   notFoundMessage?: string;
+  /** The caller's instance-admin answer when the request already has it. */
+  instanceAdmin?: boolean;
 };
+
+async function readInstanceAdmin(userId: string) {
+  const [user] = await db
+    .select({ role: schema.userTable.role })
+    .from(schema.userTable)
+    .where(eq(schema.userTable.id, userId))
+    .limit(1);
+  return hasInstanceAdminRole(user?.role);
+}
 
 export async function validateWorkspaceAccess(
   userId: string,
@@ -42,15 +53,12 @@ export async function validateWorkspaceAccess(
       message: options.notFoundMessage ?? "Workspace not found",
     });
 
-  const [user] = await db
-    .select({ role: schema.userTable.role })
-    .from(schema.userTable)
-    .where(eq(schema.userTable.id, userId))
-    .limit(1);
+  const instanceAdmin =
+    options.instanceAdmin ?? (await readInstanceAdmin(userId));
 
   // Instance administrators reach any team workspace. A demo workspace is
   // its owner's private sandbox: members only, administrators included.
-  const [workspace] = hasInstanceAdminRole(user?.role)
+  const [workspace] = instanceAdmin
     ? await db
         .select({ archivedAt: schema.workspaceTable.archivedAt })
         .from(schema.workspaceTable)

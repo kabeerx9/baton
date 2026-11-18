@@ -46,7 +46,7 @@ export function api(app: App) {
     });
 }
 
-/** An owner with a team workspace made through Better Auth, so role rows exist. */
+/** An owner with a team workspace made through the workspace API, so role rows exist. */
 export async function joinLinkFixture() {
   const { app } = createApp();
   const call = api(app);
@@ -55,12 +55,12 @@ export async function joinLinkFixture() {
     name: "Owner Person",
     role: "user",
   });
-  const created = await call("/auth/organization/create", {
+  const created = await call("/workspace", {
     method: "POST",
-    body: { name: "Join Team", slug: "join-team" },
+    body: { name: "Join Team" },
     headers: { cookie: owner.cookies },
   });
-  expect(created.status).toBe(200);
+  expect(created.status).toBe(201);
   const workspace = (await created.json()) as { id: string; slug: string };
 
   let people = 0;

@@ -5,28 +5,9 @@ import { checkRegistrationAllowed } from "../../apps/api/src/utils/check-registr
 import { resetTestDatabase } from "./helpers/database";
 import { createWorkspaceMember } from "./helpers/fixtures";
 
-async function seedInvitation(
-  email: string,
-  overrides?: Partial<{ status: string; expiresAt: Date }>,
-) {
-  const inviter = await createWorkspaceMember({ role: "owner" });
-
-  const [invitation] = await db
-    .insert(schema.invitationTable)
-    .values({
-      workspaceId: inviter.workspace.id,
-      inviterId: inviter.user.id,
-      email: email.toLowerCase(),
-      role: "member",
-      status: overrides?.status ?? "pending",
-      expiresAt: overrides?.expiresAt ?? new Date(Date.now() + 86_400_000),
-    })
-    .returning();
-
-  return invitation;
-}
-
-describe("API integration: invite-only registration", () => {
+// Email invitations are gone (auth-boundary §9, decision 7): an old pending
+// invitation row no longer opens closed registration.
+describe("API integration: registration without invitations", () => {
   beforeEach(async () => {
     await resetTestDatabase();
     process.env.DISABLE_REGISTRATION = "true";
@@ -36,83 +17,22 @@ describe("API integration: invite-only registration", () => {
     process.env.DISABLE_REGISTRATION = "false";
   });
 
-  it("allows a signup with the invitation link for that email", async () => {
-    const email = `invited-${randomUUID()}@example.com`;
-    const invitation = await seedInvitation(email);
+  it("refuses a signup while closed, even with a pending invitation row", async () => {
+    const inviter = await createWorkspaceMember({ role: "owner" });
+    await db.insert(schema.invitationTable).values({
+      workspaceId: inviter.workspace.id,
+      inviterId: inviter.user.id,
+      email: `invited-${randomUUID()}@example.com`,
+      role: "member",
+      status: "pending",
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
 
-    const result = await checkRegistrationAllowed(email, invitation.id);
-
-    expect(result.allowed).toBe(true);
-    expect(result.invitation?.id).toBe(invitation.id);
-  });
-
-  it("matches the invitation regardless of email casing", async () => {
-    const email = `invited-${randomUUID()}@example.com`;
-    const invitation = await seedInvitation(email);
-
-    const result = await checkRegistrationAllowed(
-      email.toUpperCase(),
-      invitation.id,
-    );
-
-    expect(result.allowed).toBe(true);
-  });
-
-  it("rejects another email using someone else's invitation link", async () => {
-    const invitation = await seedInvitation(
-      `invited-${randomUUID()}@example.com`,
-    );
-
-    const result = await checkRegistrationAllowed(
-      `stranger-${randomUUID()}@example.com`,
-      invitation.id,
-    );
-
-    expect(result.allowed).toBe(false);
-  });
-
-  it.each([
-    ["expired", { expiresAt: new Date(Date.now() - 86_400_000) }],
-    ["already accepted", { status: "accepted" }],
-    ["canceled", { status: "canceled" }],
-  ])(
-    "rejects a signup when the invitation is %s",
-    async (_label, overrides) => {
-      const email = `invited-${randomUUID()}@example.com`;
-      const invitation = await seedInvitation(email, overrides);
-
-      const result = await checkRegistrationAllowed(email, invitation.id);
-
-      expect(result.allowed).toBe(false);
-    },
-  );
-
-  it("requires the invitation link even when the email has a pending invitation", async () => {
-    const email = `invited-${randomUUID()}@example.com`;
-    await seedInvitation(email);
-
-    const result = await checkRegistrationAllowed(email);
-
-    expect(result.allowed).toBe(false);
-    expect(result.reason).toContain("valid invitation link");
-  });
-
-  it("keeps rejecting an unknown invitation id", async () => {
-    const email = `invited-${randomUUID()}@example.com`;
-    await seedInvitation(email);
-
-    const result = await checkRegistrationAllowed(email, "does-not-exist");
-
-    expect(result.allowed).toBe(false);
+    expect((await checkRegistrationAllowed()).allowed).toBe(false);
   });
 
   it("allows any signup once registration is open again", async () => {
     process.env.DISABLE_REGISTRATION = "false";
-
-    const result = await checkRegistrationAllowed(
-      `anyone-${randomUUID()}@example.com`,
-    );
-
-    expect(result.allowed).toBe(true);
+    expect((await checkRegistrationAllowed()).allowed).toBe(true);
   });
 });

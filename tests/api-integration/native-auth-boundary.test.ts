@@ -58,17 +58,6 @@ async function fixture() {
     role: "limited",
     permission: "{}",
   });
-  const [invitation] = await db
-    .insert(schema.invitationTable)
-    .values({
-      workspaceId: workspace.id,
-      inviterId: owner.userId,
-      email: "invitee@example.com",
-      role: "member",
-      status: "pending",
-      expiresAt: new Date(Date.now() + 86_400_000),
-    })
-    .returning();
   const sessions = await db.select().from(schema.sessionTable);
   const ownerToken = sessions.find(
     (session) => session.userId === owner.userId,
@@ -76,7 +65,7 @@ async function fixture() {
   const viewerToken = sessions.find(
     (session) => session.userId === viewer.userId,
   )!.token;
-  return { app, owner, viewer, workspace, invitation, ownerToken, viewerToken };
+  return { app, owner, viewer, workspace, ownerToken, viewerToken };
 }
 
 async function keyFor(
@@ -225,7 +214,7 @@ describe("native auth credential boundary", () => {
     },
   );
 
-  it("checks the actual slug/active workspace and the key owner's current role", async () => {
+  it("checks the named workspace and the key owner's current role", async () => {
     const { app, owner, viewer, workspace, viewerToken } = await fixture();
     const [readable] = await db
       .insert(schema.workspaceTable)
@@ -241,39 +230,75 @@ describe("native auth credential boundary", () => {
       role: "owner",
       joinedAt: new Date(),
     });
-    await db
-      .update(schema.sessionTable)
-      .set({ activeOrganizationId: workspace.id })
-      .where(eq(schema.sessionTable.userId, viewer.userId));
-    for (const operation of ["get-full-organization", "list-members"]) {
-      const response = await app.request(
-        `/api/auth/organization/${operation}?organizationId=${readable.id}&organizationSlug=${workspace.slug}`,
-        {
-          headers: { authorization: `Bearer ${viewerToken}` },
-        },
-      );
-      expect(response.status).toBe(403);
-    }
-    const active = await app.request(
-      `/api/auth/organization/get-active-member?organizationId=${readable.id}`,
-      {
-        headers: { cookie: viewer.cookies },
-      },
-    );
-    expect(active.status).toBe(403);
+    // A readable workspace elsewhere does not open the limited one.
+    const bearer = { authorization: `Bearer ${viewerToken}` };
+    expect(
+      (await app.request(`/api/workspace/${workspace.id}`, { headers: bearer }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await app.request(`/api/workspace/${workspace.id}/members`, {
+          headers: bearer,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await app.request(`/api/workspace/${readable.id}`, { headers: bearer }))
+        .status,
+    ).toBe(200);
+    // A key acts as its owner, never as the cookie sent beside it.
     for (const permissions of [
       null,
       { workspace: ["read"] },
     ] as (Permissions | null)[]) {
       const key = await keyFor(app, viewer.cookies, permissions);
-      const response = await app.request(
-        `/api/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-        {
-          headers: keyHeaders(key.key, true, owner.cookies),
-        },
-      );
-      expect(response.status).toBe(403);
+      const response = await app.request(`/api/workspace/${workspace.id}`, {
+        headers: keyHeaders(key.key, true, owner.cookies),
+      });
+      expect(response.status).toBe(404);
     }
+  });
+
+  it("answers the removed provider organization endpoints with 404", async () => {
+    const { app, owner, workspace } = await fixture();
+    const key = await keyFor(app, owner.cookies, null);
+    for (const headers of [
+      { cookie: owner.cookies },
+      keyHeaders(key.key, true),
+    ]) {
+      for (const [method, path] of [
+        ["GET", "list"],
+        ["GET", `get-full-organization?organizationId=${workspace.id}`],
+        ["GET", `list-members?organizationId=${workspace.id}`],
+        ["GET", "get-active-member"],
+        ["POST", "create"],
+        ["POST", "update"],
+        ["POST", "set-active"],
+      ] as const) {
+        const response = await app.request(`/api/auth/organization/${path}`, {
+          method,
+          headers: { ...headers, "content-type": "application/json" },
+          ...(method === "POST"
+            ? {
+                body: JSON.stringify({
+                  organizationId: workspace.id,
+                  name: "Escaped",
+                  slug: "escaped",
+                  data: { name: "Escaped" },
+                }),
+              }
+            : {}),
+        });
+        expect(response.status, path).toBe(404);
+      }
+    }
+    const [row] = await db
+      .select()
+      .from(schema.workspaceTable)
+      .where(eq(schema.workspaceTable.id, workspace.id));
+    expect(row?.name).toBe("Private workspace");
+    expect(await db.select().from(schema.workspaceTable)).toHaveLength(1);
   });
 
   it("preserves real bearer and cookie credential management and native admin session issuance", async () => {
@@ -312,14 +337,14 @@ describe("native auth credential boundary", () => {
   });
 });
 
-describe("native organization scope and current workspace grants", () => {
-  it("batches list grants without bypassing current workspace roles for instance admins", async () => {
+describe("workspace scope and current workspace grants", () => {
+  it("batches list grants by current workspace roles and keeps admins to their memberships", async () => {
     const { app, viewer, workspace } = await fixture();
     await db
       .update(schema.userTable)
       .set({ role: "admin" })
       .where(eq(schema.userTable.id, viewer.userId));
-    const [fallback, multi, demoted, nonmember] = await db
+    const [fallback, multi, demoted] = await db
       .insert(schema.workspaceTable)
       .values(
         ["Fallback", "Multi", "Demoted", "Nonmember"].map((name) => ({
@@ -359,7 +384,7 @@ describe("native organization scope and current workspace grants", () => {
       { workspaceId: demoted.id, role: "admin", permission: "{}" },
     ]);
     const list = async () => {
-      const response = await app.request("/api/auth/organization/list", {
+      const response = await app.request("/api/workspace", {
         headers: { cookie: viewer.cookies },
       });
       expect(response.status).toBe(200);
@@ -367,19 +392,17 @@ describe("native organization scope and current workspace grants", () => {
         .map((row) => row.id)
         .sort();
     };
+    // An instance admin lists every membership (the list route says so),
+    // and never a workspace without one.
+    expect(await list()).toEqual(
+      [fallback.id, multi.id, demoted.id, workspace.id].sort(),
+    );
+    // A plain user lists only memberships whose current roles grant read.
+    await db
+      .update(schema.userTable)
+      .set({ role: "user" })
+      .where(eq(schema.userTable.id, viewer.userId));
     expect(await list()).toEqual([fallback.id, multi.id].sort());
-    for (const id of [workspace.id, demoted.id, nonmember.id]) {
-      expect(
-        (
-          await app.request(
-            `/api/auth/organization/get-full-organization?organizationId=${id}`,
-            {
-              headers: { cookie: viewer.cookies },
-            },
-          )
-        ).status,
-      ).toBe(403);
-    }
     await db
       .update(schema.workspaceRoleTable)
       .set({ permission: "{}" })
@@ -388,36 +411,24 @@ describe("native organization scope and current workspace grants", () => {
   });
 
   it.each([false, true])(
-    "denies limited roles through IDs, slugs and active workspace (bearer=%s)",
+    "denies limited roles through the workspace routes (bearer=%s)",
     async (bearer) => {
       const { app, viewer, viewerToken, workspace } = await fixture();
       const headers = bearer
         ? { authorization: `Bearer ${viewerToken}` }
         : { cookie: viewer.cookies };
-      await db
-        .update(schema.sessionTable)
-        .set({ activeOrganizationId: workspace.id })
-        .where(eq(schema.sessionTable.userId, viewer.userId));
-      for (const operation of [
-        "get-full-organization",
-        "list-members",
-        "get-active-member",
-      ]) {
-        for (const query of [
-          "",
-          `?organizationId=${workspace.id}`,
-          `?organizationSlug=${workspace.slug}`,
-        ]) {
-          const response = await app.request(
-            `/api/auth/organization/${operation}${query}`,
-            { headers },
-          );
-          expect(response.status, operation + query).toBe(403);
-        }
-      }
-      const list = await app.request("/api/auth/organization/list", {
-        headers,
-      });
+      expect(
+        (await app.request(`/api/workspace/${workspace.id}`, { headers }))
+          .status,
+      ).toBe(404);
+      expect(
+        (
+          await app.request(`/api/workspace/${workspace.id}/members`, {
+            headers,
+          })
+        ).status,
+      ).toBe(403);
+      const list = await app.request("/api/workspace", { headers });
       expect(list.status).toBe(200);
       expect(await list.json()).toEqual([]);
       for (const suffix of ["capabilities", "project-access/me"]) {
@@ -431,74 +442,45 @@ describe("native organization scope and current workspace grants", () => {
         .update(schema.workspaceRoleTable)
         .set({ permission: JSON.stringify({ workspace: ["read"] }) })
         .where(eq(schema.workspaceRoleTable.workspaceId, workspace.id));
-      const allowed = await app.request(
-        `/api/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-        { headers },
-      );
-      expect(allowed.status).toBe(200);
-      expect(await allowed.json()).toMatchObject({
-        id: workspace.id,
-        invitations: [],
+      const allowed = await app.request(`/api/workspace/${workspace.id}`, {
+        headers,
       });
+      expect(allowed.status).toBe(200);
+      expect(await allowed.json()).toMatchObject({ id: workspace.id });
     },
   );
 
   it.each([false, true])(
-    "enforces organization key scopes with a valid cookie present (bearer=%s)",
+    "enforces workspace key scopes with a valid cookie present (bearer=%s)",
     async (bearer) => {
-      const { app, owner, viewer, workspace, invitation } = await fixture();
+      const { app, owner, viewer, workspace } = await fixture();
       const limited = await keyFor(app, owner.cookies, { label: ["read"] });
       const reader = await keyFor(app, owner.cookies, { workspace: ["read"] });
-      const inviter = await keyFor(app, owner.cookies, {
-        invitation: ["create"],
-      });
       const legacy = await keyFor(app, owner.cookies, null);
       for (const cookies of [undefined, viewer.cookies]) {
-        for (const operation of [
-          "get-full-organization",
-          "list-members",
-          "list-invitations",
+        for (const path of [
+          `/api/workspace/${workspace.id}`,
+          `/api/workspace/${workspace.id}/members`,
+          "/api/workspace",
         ]) {
-          const response = await app.request(
-            `/api/auth/organization/${operation}?organizationId=${workspace.id}`,
-            {
-              headers: keyHeaders(limited.key, bearer, cookies),
-            },
-          );
-          expect(response.status).toBe(403);
-          expect(await response.text()).not.toContain(invitation.id);
+          const response = await app.request(path, {
+            headers: keyHeaders(limited.key, bearer, cookies),
+          });
+          expect(response.status, path).toBe(403);
+          expect(await response.json()).toMatchObject({
+            code: "API_KEY_SCOPE",
+          });
         }
-        const full = await app.request(
-          `/api/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-          {
-            headers: keyHeaders(reader.key, bearer, cookies),
-          },
-        );
-        expect(full.status).toBe(200);
-        expect(await full.json()).toMatchObject({
-          id: workspace.id,
-          invitations: [],
-        });
-        const invitations = await app.request(
-          `/api/auth/organization/list-invitations?organizationId=${workspace.id}`,
-          {
-            headers: keyHeaders(inviter.key, bearer, cookies),
-          },
-        );
-        expect(invitations.status).toBe(200);
-        expect(await invitations.json()).toEqual([
-          expect.objectContaining({ id: invitation.id }),
-        ]);
-        const legacyFull = await app.request(
-          `/api/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-          {
-            headers: keyHeaders(legacy.key, bearer, cookies),
-          },
-        );
-        expect(legacyFull.status).toBe(200);
-        expect(await legacyFull.json()).toMatchObject({
-          invitations: [expect.objectContaining({ id: invitation.id })],
-        });
+        for (const key of [reader, legacy]) {
+          const full = await app.request(`/api/workspace/${workspace.id}`, {
+            headers: keyHeaders(key.key, bearer, cookies),
+          });
+          expect(full.status).toBe(200);
+          expect(await full.json()).toMatchObject({
+            id: workspace.id,
+            role: "owner",
+          });
+        }
       }
       const { project } = await createProjectFixture({
         workspaceId: workspace.id,
@@ -530,60 +512,51 @@ describe("native organization scope and current workspace grants", () => {
     },
   );
 
-  it("requires native mutation scopes and retains CLI update operations", async () => {
-    const { app, owner, workspace, invitation } = await fixture();
+  it("requires mutation scopes and keeps CLI workspace operations", async () => {
+    const { app, owner, viewer, workspace } = await fixture();
     const limited = await keyFor(app, owner.cookies, { label: ["read"] });
     const editor = await keyFor(app, owner.cookies, {
       organization: ["update"],
     });
     const operations = [
       {
-        path: "update",
-        body: { organizationId: workspace.id, data: { name: "Updated" } },
+        method: "PATCH",
+        path: `/api/workspace/${workspace.id}`,
+        body: { name: "Updated" },
       },
-      { path: "cancel-invitation", body: { invitationId: invitation.id } },
       {
-        path: "update-member-role",
-        body: {
-          organizationId: workspace.id,
-          memberId: "unknown",
-          role: "admin",
-        },
+        method: "PUT",
+        path: `/api/workspace/${workspace.id}/members/${viewer.userId}/role`,
+        body: { role: "admin" },
       },
-      { path: "create", body: { name: "Escaped", slug: "escaped" } },
+      { method: "POST", path: "/api/workspace", body: { name: "Escaped" } },
     ] as const;
     for (const operation of operations) {
-      const response = await app.request(
-        `/api/auth/organization/${operation.path}`,
-        {
-          method: "POST",
-          headers: keyHeaders(limited.key, false, owner.cookies),
-          body: JSON.stringify(operation.body),
-        },
-      );
-      expect(response.status).toBe(403);
+      const response = await app.request(operation.path, {
+        method: operation.method,
+        headers: keyHeaders(limited.key, false, owner.cookies),
+        body: JSON.stringify(operation.body),
+      });
+      expect(response.status, operation.path).toBe(403);
+      expect(await response.json()).toMatchObject({ code: "API_KEY_SCOPE" });
     }
-    for (const [key, operation] of [[editor, operations[0]]] as const) {
-      const response = await app.request(
-        `/api/auth/organization/${operation.path}`,
-        {
-          method: "POST",
-          headers: keyHeaders(key.key, true, owner.cookies),
-          body: JSON.stringify(operation.body),
-        },
-      );
-      expect(response.status).toBe(200);
-    }
+    const updated = await app.request(operations[0].path, {
+      method: "PATCH",
+      headers: keyHeaders(editor.key, true, owner.cookies),
+      body: JSON.stringify(operations[0].body),
+    });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toMatchObject({ name: "Updated" });
     const legacy = await keyFor(app, owner.cookies, null);
-    const created = await app.request("/api/auth/organization/create", {
+    const created = await app.request("/api/workspace", {
       method: "POST",
       headers: keyHeaders(legacy.key, false),
-      body: JSON.stringify({
-        name: "CLI workspace",
-        slug: "cli-workspace",
-        keepCurrentActiveOrganization: true,
-      }),
+      body: JSON.stringify({ name: "CLI workspace" }),
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({
+      name: "CLI workspace",
+      role: "owner",
+    });
   });
 });

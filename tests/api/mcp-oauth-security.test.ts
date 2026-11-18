@@ -46,9 +46,21 @@ const mocks = vi.hoisted(() => {
   return { getSession, insert, select, update, remove, insertedRows };
 });
 
-vi.mock("../../apps/api/src/auth", () => ({
+vi.mock("../../apps/api/src/identity/better-auth/auth", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
+
+// The database mock has no user rows; the ban guard in `resolve` is not under test.
+vi.mock("../../apps/api/src/identity/baton-hooks", async (original) => {
+  const actual =
+    await original<typeof import("../../apps/api/src/identity/baton-hooks")>();
+  return {
+    batonIdentityHooks: {
+      ...actual.batonIdentityHooks,
+      canSignIn: async () => ({ allowed: true, instanceRole: null }),
+    },
+  };
+});
 
 vi.mock("../../apps/api/src/database", async () => ({
   default: {

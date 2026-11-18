@@ -14,7 +14,6 @@ const m = vi.hoisted(() => ({
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
     query: {
-      accountTable: { findFirst: m.account },
       projectTable: { findFirst: async () => ({ id: "project" }) },
       integrationTable: {
         findFirst: async () => null,
@@ -30,6 +29,10 @@ vi.mock("../../../apps/api/src/database", () => ({
       },
     }),
   },
+}));
+// The linked GitHub account comes from the identity port.
+vi.mock("../../../apps/api/src/identity", () => ({
+  identity: { linkedAccount: m.account },
 }));
 vi.mock("../../../apps/api/src/plugins/github/utils/github-app", () => ({
   getGithubApp: () => ({

@@ -28,6 +28,7 @@ async function getWorkspaceMembers(request: {
       email: userTable.email,
       image: userTable.image,
       role: workspaceUserTable.role,
+      joinedAt: workspaceUserTable.joinedAt,
     })
     .from(workspaceUserTable)
     .innerJoin(userTable, eq(workspaceUserTable.userId, userTable.id))
@@ -38,7 +39,8 @@ async function getWorkspaceMembers(request: {
           ? projectAccessCondition(workspaceUserTable.userId, projectId)
           : undefined,
       ),
-    );
+    )
+    .orderBy(workspaceUserTable.joinedAt, userTable.id);
 
   return members;
 }

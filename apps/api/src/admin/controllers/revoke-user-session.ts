@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { deleteUserSessions } from "../../sessions/delete-user-sessions";
+import { identity } from "../../identity";
 import { revokeSessionConnections } from "../../ws";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
@@ -18,7 +18,9 @@ async function revokeUserSession(
   }
   const revoked = await db.transaction(async (tx) => {
     const user = await findAdminTargetUser(tx, userId);
-    const ids = await deleteUserSessions(tx, userId, { sessionId });
+    const ids = await identity.fence.endSessions(tx, userId, {
+      ids: [sessionId],
+    });
     if (ids.length === 0) {
       throw new HTTPException(404, { message: "Session not found" });
     }

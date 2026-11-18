@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { deleteUserSessions } from "../../sessions/delete-user-sessions";
+import { identity } from "../../identity";
 import { revokeSessionConnections } from "../../ws";
 
 /** Sign out one of the caller's other sessions. */
@@ -15,7 +15,7 @@ async function revokeOwnSession(
     });
   }
   const revoked = await db.transaction((tx) =>
-    deleteUserSessions(tx, userId, { sessionId }),
+    identity.fence.endSessions(tx, userId, { ids: [sessionId] }),
   );
   if (revoked.length === 0) {
     throw new HTTPException(404, { message: "Session not found" });

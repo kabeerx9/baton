@@ -1,10 +1,10 @@
 import type { Context, Next } from "hono";
 import { ApiError } from "../../errors/api-error";
-import {
-  DEMO_WORKSPACE_CODE,
-  DEMO_WORKSPACE_MESSAGE,
-} from "./assert-shareable-workspace";
 import { isDemoWorkspace } from "./is-demo-workspace";
+
+export const DEMO_WORKSPACE_CODE = "DEMO_WORKSPACE";
+export const DEMO_WORKSPACE_MESSAGE =
+  "This is a tour workspace. It belongs to one person and connects to nothing outside Baton.";
 
 export function demoWorkspaceError() {
   return new ApiError(403, {

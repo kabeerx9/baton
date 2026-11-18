@@ -117,7 +117,8 @@ export async function createKey(
   userId: string,
   permissions?: Record<string, string[]>,
 ) {
-  const { auth } = await import("../../../apps/api/src/auth");
+  const { auth } =
+    await import("../../../apps/api/src/identity/better-auth/auth");
   const created = await auth.api.createApiKey({
     body: { userId, name: "Change request test", permissions },
   });

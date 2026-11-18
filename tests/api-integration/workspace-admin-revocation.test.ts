@@ -37,15 +37,12 @@ it("evicts a deleted workspace for an implicit administrator and reconciles offl
     .getSetCookie()
     .map((entry) => entry.split(";")[0])
     .join("; ");
-  const created = await app.request("/api/auth/organization/create", {
+  const created = await app.request("/api/workspace", {
     method: "POST",
     headers: { "content-type": "application/json", cookie },
-    body: JSON.stringify({
-      name: "Deleted workspace",
-      slug: "deleted-workspace",
-    }),
+    body: JSON.stringify({ name: "Deleted workspace" }),
   });
-  expect(created.status).toBe(200);
+  expect(created.status).toBe(201);
   const workspace = (await created.json()) as { id: string };
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
   expect(
@@ -70,10 +67,9 @@ it("evicts a deleted workspace for an implicit administrator and reconciles offl
     workspace.id,
   );
   try {
-    const deleted = await app.request("/api/auth/organization/delete", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ organizationId: workspace.id }),
+    const deleted = await app.request(`/api/workspace/${workspace.id}`, {
+      method: "DELETE",
+      headers: { cookie },
     });
     expect(deleted.status).toBe(200);
     expect(board.close).toHaveBeenCalledWith(1008, "Workspace access revoked");

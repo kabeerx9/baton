@@ -402,7 +402,7 @@ describe("MCP access tokens", () => {
     const owner = await signUp(app);
     const agent = await connectMcpAgent(app, { bearer: owner.token });
     for (const path of [
-      "/api/auth/organization/list",
+      "/api/auth/api-key/list",
       "/api/auth/get-session",
       "/api/auth/list-sessions",
     ]) {

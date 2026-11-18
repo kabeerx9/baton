@@ -7,7 +7,7 @@ import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordWorkspaceMemberAction } from "../audit/record-workspace-member-action";
 import { handleMemberAdded } from "../../workspace-members/handle-member-added";
 import { isAssignableWorkspaceRole } from "../is-assignable-workspace-role";
-import { lockWorkspace } from "../lock-workspace";
+import { lockWorkspace } from "../../workspace/lifecycle/lock-workspace";
 import listWorkspaceMembers from "./list-workspace-members";
 
 async function addWorkspaceMember(
@@ -21,7 +21,9 @@ async function addWorkspaceMember(
   const { workspaceId, userId, role } = request;
 
   await db.transaction(async (tx) => {
-    const members = await lockWorkspace(tx, workspaceId);
+    const { members } = await lockWorkspace(tx, workspaceId, {
+      allowDemo: false,
+    });
     const [user] = await tx
       .select({ id: userTable.id })
       .from(userTable)

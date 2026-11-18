@@ -275,6 +275,38 @@ An MCP token also works on the REST API, because the tools call it, and acts
 with the person's permissions (`activity.channel` is `agent`). It never works
 on `/api/auth/*`, session-only routes or WebSockets.
 
+## Workspaces, members and roles
+
+Baton owns workspaces; the auth provider owns only sign-in. Code:
+`apps/api/src/workspace`, `workspace-members`, `workspace-roles`.
+
+- Every write locks the workspace row, then its member rows by id
+  (`lockWorkspace`), then reads authorization again inside the transaction
+  (`authorizeWorkspaceWrite`): membership, archived state, ban, API key and
+  stored role. The route middleware is only a fast reject.
+- Instance admins get no bypass on these routes (403 `MEMBERSHIP_REQUIRED`);
+  they use `/api/admin/*`, which writes the audit log. MCP tokens get 403
+  `MCP_TOKEN_NOT_ALLOWED` on every write.
+- `owner` is given only by `PUT /owner`, in one transaction that clears the
+  new owner's project limits. The only owner can't leave, be removed or be
+  demoted (409 `ONLY_OWNER`); only an owner acts on an owner.
+- A demo (tour) workspace refuses member, owner and role writes (403
+  `DEMO_WORKSPACE`); its owner may rename and delete it.
+- Roles: at most 25 per workspace. `owner`, `admin`, `member` and `viewer` are
+  reserved names; the seeded three can't be deleted or renamed (400
+  `DEFAULT_ROLE`), and a role members hold can't be deleted or renamed (409
+  `ROLE_IN_USE`). A role grants only what the actor holds.
+
+| Call | Purpose |
+| --- | --- |
+| `POST /api/workspace` | Create, with the default roles. The server makes the slug. |
+| `PATCH`, `DELETE /api/workspace/{workspaceId}` | Rename or delete. |
+| `POST /api/workspace/{workspaceId}/leave` | Leave. |
+| `DELETE /api/workspace/{workspaceId}/members/{userId}` | Remove a member. |
+| `PUT /api/workspace/{workspaceId}/members/{userId}/role` | Change a role. |
+| `PUT /api/workspace/{workspaceId}/owner` | Transfer ownership. |
+| `GET`, `POST /api/workspace/{workspaceId}/roles`, `PATCH`, `DELETE .../roles/{roleId}` | Custom roles. |
+
 ## Join links
 
 People join a workspace with a link, not an email invite. Code:
@@ -294,10 +326,10 @@ People join a workspace with a link, not an email invite. Code:
 - Join locks the workspace row, then the link row: the repo lock order. A
   person who is already a member uses nothing.
 - A link made before a person's removal refuses that person (403
-  `REMOVED_FROM_WORKSPACE`); a newer link admits them. Both removal paths
-  write `workspace_member_removal` before the member row goes (Better Auth's
-  `beforeRemoveMember`, and the admin route inside its transaction), so an
-  old link never readmits them. If that write fails, the removal fails.
+  `REMOVED_FROM_WORKSPACE`); a newer link admits them. The member route and
+  the admin route share one removal controller, which writes
+  `workspace_member_removal` in the delete's transaction, so an old link
+  never readmits them. If that write fails, the removal fails.
 - Invariant: a removal row means the person's last exit from the workspace
   was a removal. Both exits change the row before they delete the member: a
   removal writes it, and a voluntary leave deletes it, so the person can
@@ -305,13 +337,11 @@ People join a workspace with a link, not an email invite. Code:
   An exit that fails after its write changes the row only while the person is
   still a member, and their next exit sets it again. A leave by a non-member
   clears nothing.
-- Accepted exception: if a leave and a removal of the same person run at the
-  same instant, the leave can clear the removal's row, so an older link could
-  readmit them. The auth-boundary migration closes this by moving leave and
-  remove under the workspace lock.
+- Leave and removal both run under the workspace lock, so a leave never
+  clears the row of a removal that runs at the same time.
 - A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
-- `invite-member` and `accept-invitation` answer 410 `INVITATIONS_REMOVED`;
-  the OpenAPI spec marks both deprecated.
+- Email invitations are gone: every `/api/auth/organization/*` path answers
+  404.
 
 | Call | Purpose |
 | --- | --- |
