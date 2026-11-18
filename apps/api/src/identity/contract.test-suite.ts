@@ -345,6 +345,18 @@ export function describeIdentityContract(
 
     describe("hooks", () => {
       it("userCreated promotes the first user and gives later ones the default role", async () => {
+        // A custom default, so the provider's own "user" default cannot pass.
+        const [role] = await db
+          .insert(schema.instanceRoleTable)
+          .values({ name: "contractor", permissions: [] })
+          .returning({ id: schema.instanceRoleTable.id });
+        await db
+          .insert(schema.instanceSettingsTable)
+          .values({ id: "instance", defaultRoleId: role!.id })
+          .onConflictDoUpdate({
+            target: schema.instanceSettingsTable.id,
+            set: { defaultRoleId: role!.id },
+          });
         const first = await driver.signUp("first@example.com");
         const second = await driver.signUp("second@example.com");
         const roles = await db
@@ -352,9 +364,8 @@ export function describeIdentityContract(
           .from(schema.userTable);
         const roleOf = (id: string) => roles.find((row) => row.id === id)?.role;
         expect(roleOf(first.userId)).toBe("admin");
-        expect(roleOf(second.userId)).toBe(
-          (await readStoredSettings()).defaultRole,
-        );
+        expect((await readStoredSettings()).defaultRole).toBe("contractor");
+        expect(roleOf(second.userId)).toBe("contractor");
       });
     });
 

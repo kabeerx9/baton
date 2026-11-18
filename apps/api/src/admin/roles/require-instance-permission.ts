@@ -8,7 +8,15 @@ export function requireInstancePermission(
   ...permissions: InstancePermission[]
 ) {
   return async function requirePermission(c: Context, next: Next) {
-    const access = await getUserAccess(c.get("userId"));
+    const userId = c.get("identity")?.userId;
+    // Only a person's session acts here; a key or MCP token never does.
+    if (!userId) {
+      throw new ApiError(403, {
+        message: "A user session is required",
+        code: "SESSION_REQUIRED",
+      });
+    }
+    const access = await getUserAccess(userId);
     const missingPermissions = permissions.filter(
       (permission) => !access.permissions.includes(permission),
     );
