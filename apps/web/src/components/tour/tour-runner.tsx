@@ -9,6 +9,7 @@ import {
 } from "@/fetchers/tour/types";
 import { deriveDemoSnapshot, isDoneMutation } from "./demo-snapshot";
 import { FinishBreak } from "./finish-break";
+import { useCachedQueryData } from "./use-cached-query-data";
 import { TourOverlay } from "./tour-overlay";
 import {
   type CloseReason,
@@ -105,12 +106,10 @@ export function TourRunner({ env }: { env: TourEnv }) {
   // The task may change on its detail page, where the board is not the
   // view that updates first. Read that cache and the write itself too.
   const apiId = session?.taskIds["api-endpoint"] ?? "";
-  const taskCache = useQuery({
-    queryKey: ["task", apiId],
-    enabled: false,
-  });
-  const taskStatus = (taskCache.data as { status?: string } | undefined)
-    ?.status;
+  const taskStatus = useCachedQueryData<{ status?: string }>([
+    "task",
+    apiId,
+  ])?.status;
   const writes = useMutationState({
     filters: { status: "success" },
     select: (m) => ({ variables: m.state.variables, data: m.state.data }),
