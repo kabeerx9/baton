@@ -26,7 +26,7 @@ export async function signUpDecision(user: {
         "Account registration is disabled. Ask an administrator to create your account.",
     };
   }
-  const result = await checkRegistrationAllowed(user.email);
+  const result = await checkRegistrationAllowed();
   if (!result.allowed) {
     return {
       ok: false,

@@ -204,20 +204,16 @@ describe("join link state", () => {
 });
 
 describe("removed members (4)", () => {
-  it("refuses a link made before a Better Auth removal and admits with a newer link", async () => {
+  it("refuses a link made before a member removal and admits with a newer link", async () => {
     const ctx = await joinLinkFixture();
     const { link, token } = await ctx.createLink();
     const joiner = await ctx.person("Removed Person");
     expect((await ctx.join(joiner, token)).status).toBe(200);
 
-    const removed = await ctx.call("/auth/organization/remove-member", {
-      method: "POST",
-      body: {
-        organizationId: ctx.workspace.id,
-        memberIdOrEmail: "removed-person@example.com",
-      },
-      headers: { cookie: ctx.owner.cookies },
-    });
+    const removed = await ctx.call(
+      `/workspace/${ctx.workspace.id}/members/${joiner.userId}`,
+      { method: "DELETE", headers: { cookie: ctx.owner.cookies } },
+    );
     expect(removed.status).toBe(200);
     const [removal] = await db
       .select()
@@ -279,14 +275,10 @@ describe("removed members (4)", () => {
         ON workspace_member_removal FOR EACH ROW EXECUTE FUNCTION refuse_removal();
     `);
     try {
-      const native = await ctx.call("/auth/organization/remove-member", {
-        method: "POST",
-        body: {
-          organizationId: ctx.workspace.id,
-          memberIdOrEmail: "kept-person@example.com",
-        },
-        headers: { cookie: ctx.owner.cookies },
-      });
+      const native = await ctx.call(
+        `/workspace/${ctx.workspace.id}/members/${joiner.userId}`,
+        { method: "DELETE", headers: { cookie: ctx.owner.cookies } },
+      );
       expect(native.status).toBeGreaterThanOrEqual(400);
       const admin = await ctx.call(
         `/admin/workspaces/${ctx.workspace.id}/members/${joiner.userId}`,
@@ -308,9 +300,8 @@ describe("removed members (4)", () => {
     const joiner = await ctx.person();
     expect((await ctx.join(joiner, token)).status).toBe(200);
 
-    const left = await ctx.call("/auth/organization/leave", {
+    const left = await ctx.call(`/workspace/${ctx.workspace.id}/leave`, {
       method: "POST",
-      body: { organizationId: ctx.workspace.id },
       headers: { cookie: joiner.cookies },
     });
     expect(left.status).toBe(200);
@@ -344,12 +335,8 @@ describe("a removal marker means the last exit was a removal", () => {
     const joiner = await ctx.person("Marked Person");
     expect((await ctx.join(joiner, token)).status).toBe(200);
     const remove = () =>
-      ctx.call("/auth/organization/remove-member", {
-        method: "POST",
-        body: {
-          organizationId: ctx.workspace.id,
-          memberIdOrEmail: "marked-person@example.com",
-        },
+      ctx.call(`/workspace/${ctx.workspace.id}/members/${joiner.userId}`, {
+        method: "DELETE",
         headers: { cookie: ctx.owner.cookies },
       });
     const markers = () =>
@@ -360,7 +347,7 @@ describe("a removal marker means the last exit was a removal", () => {
     return { ctx, token, joiner, remove, markers };
   }
 
-  it("clears a stale marker from a failed removal when the person leaves", async () => {
+  it("writes no marker when the removal fails, so a leave and rejoin work", async () => {
     const { ctx, token, joiner, remove, markers } = await setup();
     const allowDeletes = await refuseMemberDeletes();
     try {
@@ -368,17 +355,15 @@ describe("a removal marker means the last exit was a removal", () => {
     } finally {
       await allowDeletes();
     }
+    // The marker and the delete share one transaction.
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toHaveLength(1);
-    expect(await markers()).toHaveLength(1);
+    expect(await markers()).toEqual([]);
 
-    const left = await ctx.call("/auth/organization/leave", {
+    const left = await ctx.call(`/workspace/${ctx.workspace.id}/leave`, {
       method: "POST",
-      body: { organizationId: ctx.workspace.id },
       headers: { cookie: joiner.cookies },
     });
     expect(left.status).toBe(200);
-    expect(await markers()).toEqual([]);
-
     const rejoined = await ctx.join(joiner, token);
     expect(rejoined.status).toBe(200);
     expect(await rejoined.json()).toMatchObject({ outcome: "joined" });
@@ -398,39 +383,33 @@ describe("a removal marker means the last exit was a removal", () => {
     expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
   });
 
-  it("keeps a later removal after a leave that failed after its clear", async () => {
-    const { ctx, token, joiner, remove, markers } = await setup();
-    const leave = () =>
-      ctx.call("/auth/organization/leave", {
-        method: "POST",
-        body: { organizationId: ctx.workspace.id },
-        headers: { cookie: joiner.cookies },
-      });
+  it("keeps a removal marker when a later leave fails", async () => {
+    const { ctx, joiner, markers } = await setup();
+    // A marker from an earlier removal, then a rejoin by a fresh link.
+    await db.insert(workspaceMemberRemovalTable).values({
+      workspaceId: ctx.workspace.id,
+      userId: joiner.userId,
+    });
     const allowDeletes = await refuseMemberDeletes();
     try {
-      expect((await remove()).status).toBeGreaterThanOrEqual(400);
-      expect(await markers()).toHaveLength(1);
-      expect((await leave()).status).toBeGreaterThanOrEqual(400);
+      const left = await ctx.call(`/workspace/${ctx.workspace.id}/leave`, {
+        method: "POST",
+        headers: { cookie: joiner.cookies },
+      });
+      expect(left.status).toBeGreaterThanOrEqual(400);
     } finally {
       await allowDeletes();
     }
-    // The leave cleared the marker before its delete failed; the person
-    // stays a member, so the missing marker admits no one.
+    // The leave's clear rolled back with its failed delete.
     expect(await memberRows(ctx.workspace.id, joiner.userId)).toHaveLength(1);
-    expect(await markers()).toEqual([]);
-
-    expect((await remove()).status).toBe(200);
-    const refused = await ctx.join(joiner, token);
-    expect(refused.status).toBe(403);
-    expect(await code(refused)).toBe("REMOVED_FROM_WORKSPACE");
+    expect(await markers()).toHaveLength(1);
   });
 
   it("does not let a removed person clear the marker by calling leave", async () => {
     const { ctx, token, joiner, remove, markers } = await setup();
     expect((await remove()).status).toBe(200);
-    const left = await ctx.call("/auth/organization/leave", {
+    const left = await ctx.call(`/workspace/${ctx.workspace.id}/leave`, {
       method: "POST",
-      body: { organizationId: ctx.workspace.id },
       headers: { cookie: joiner.cookies },
     });
     expect(left.status).toBeGreaterThanOrEqual(400);
@@ -824,38 +803,26 @@ describe("create defaults", () => {
 });
 
 describe("email invitations are removed (20)", () => {
-  it("answers invite-member and accept-invitation with 410", async () => {
+  it("answers every provider organization endpoint with 404", async () => {
     const ctx = await joinLinkFixture();
-    for (const [operation, body] of [
-      [
-        "invite-member",
-        {
+    for (const operation of [
+      "invite-member",
+      "accept-invitation",
+      "invite-member/",
+      "create",
+      "remove-member",
+    ]) {
+      const response = await ctx.call(`/auth/organization/${operation}`, {
+        method: "POST",
+        body: {
           organizationId: ctx.workspace.id,
           email: "friend@example.com",
           role: "member",
         },
-      ],
-      ["accept-invitation", { invitationId: "anything" }],
-    ] as const) {
-      const response = await ctx.call(`/auth/organization/${operation}`, {
-        method: "POST",
-        body,
         headers: { cookie: ctx.owner.cookies },
       });
-      expect([operation, response.status]).toEqual([operation, 410]);
-      expect(await code(response)).toBe("INVITATIONS_REMOVED");
+      expect([operation, response.status]).toEqual([operation, 404]);
     }
-    // A trailing slash must not reach Better Auth as a working invite.
-    const slashed = await ctx.call("/auth/organization/invite-member/", {
-      method: "POST",
-      body: {
-        organizationId: ctx.workspace.id,
-        email: "friend@example.com",
-        role: "member",
-      },
-      headers: { cookie: ctx.owner.cookies },
-    });
-    expect(slashed.status).not.toBe(200);
     expect(await db.select().from(schema.invitationTable)).toEqual([]);
   });
 });

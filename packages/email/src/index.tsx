@@ -7,7 +7,6 @@ export {
   sendNotificationEmail,
   sendPasswordResetEmail,
   sendTestEmail,
-  sendWorkspaceInvitationEmail,
 } from "./send-email";
 export { isSmtpConfigured } from "./smtp-config";
 export { getSmtpErrorDetails } from "./smtp-error-details";

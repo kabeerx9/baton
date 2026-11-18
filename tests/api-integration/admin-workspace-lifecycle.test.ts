@@ -445,16 +445,15 @@ describe("deleting a workspace", () => {
     });
   });
 
-  it("preserves the native owner's key authentication and consumes its request quota", async () => {
+  it("lets the owner's API key delete and consumes its request quota", async () => {
     const { owner, workspace } = await workspaceFixture();
     const { key, id } = await auth.api.createApiKey({
       body: { userId: owner.id, name: "Owner deletion" },
     });
     const { app } = createApp();
-    const response = await app.request("/api/auth/organization/delete", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": key },
-      body: JSON.stringify({ organizationId: workspace.id }),
+    const response = await app.request(`/api/workspace/${workspace.id}`, {
+      method: "DELETE",
+      headers: { "x-api-key": key },
     });
     expect(response.status).toBe(200);
     expect(await readWorkspace(workspace.id)).toBeUndefined();
@@ -465,20 +464,19 @@ describe("deleting a workspace", () => {
     expect(stored.requestCount).toBe(1);
   });
 
-  it("retains native deletion permissions", async () => {
+  it("refuses deletion to a key whose owner is not a member", async () => {
     const { owner, workspace } = await workspaceFixture();
     const outsider = await createWorkspaceMember();
     const { app } = createApp();
     const call = (key: string) =>
-      app.request("/api/auth/organization/delete", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": key },
-        body: JSON.stringify({ organizationId: workspace.id }),
+      app.request(`/api/workspace/${workspace.id}`, {
+        method: "DELETE",
+        headers: { "x-api-key": key },
       });
     const denied = await auth.api.createApiKey({
       body: { userId: outsider.user.id },
     });
-    expect((await call(denied.key)).status).toBe(403);
+    expect((await call(denied.key)).status).toBe(404);
     expect(await readWorkspace(workspace.id)).toBeDefined();
     const allowed = await auth.api.createApiKey({ body: { userId: owner.id } });
     expect((await call(allowed.key)).status).toBe(200);
@@ -520,12 +518,12 @@ describe("deleting a workspace", () => {
       .getSetCookie()
       .map((entry) => entry.split(";")[0])
       .join("; ");
-    const created = await app.request("/api/auth/organization/create", {
+    const created = await app.request("/api/workspace", {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ name: "Owned", slug: `owned-${randomUUID()}` }),
+      body: JSON.stringify({ name: "Owned" }),
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
     const workspace = (await created.json()) as { id: string };
     const { project } = await createProjectFixture({
       workspaceId: workspace.id,
@@ -541,10 +539,9 @@ describe("deleting a workspace", () => {
       surface: "description",
     });
 
-    const deleted = await app.request("/api/auth/organization/delete", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ organizationId: workspace.id }),
+    const deleted = await app.request(`/api/workspace/${workspace.id}`, {
+      method: "DELETE",
+      headers: { cookie },
     });
     expect(deleted.status).toBe(200);
     expect(await readWorkspace(workspace.id)).toBeUndefined();

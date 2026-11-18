@@ -7,7 +7,8 @@ import { listWorkspaceObjectKeys } from "./list-workspace-object-keys";
 import { revokeWorkspaceAudience } from "./revoke-workspace-audience";
 import type { AdminAuditRequest } from "../../admin/audit/admin-audit-request";
 import { recordAdminAction } from "../../admin/audit/record-admin-action";
-import { lockWorkspaceRow } from "./lock-workspace-row";
+import type { DbOrTx } from "../../project-access/db-or-tx";
+import { type LockedWorkspace, lockWorkspace } from "./lock-workspace";
 import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 
 /**
@@ -17,12 +18,27 @@ import { deleteResourceNotifications } from "../../notification/delete-resource-
  */
 export async function deleteWorkspaceData(
   workspaceId: string,
-  audit?: AdminAuditRequest,
-  // Only the member's own native delete may remove a demo workspace.
-  { allowDemo = false }: { allowDemo?: boolean } = {},
+  options: {
+    /** Only the member route may remove a demo workspace. */
+    allowDemo?: boolean;
+    audit?: AdminAuditRequest;
+    /**
+     * Decides the member route right after the lock; it throws to refuse
+     * and may return the audit entry to write.
+     */
+    authorize?: (
+      tx: DbOrTx,
+      locked: LockedWorkspace,
+    ) => Promise<AdminAuditRequest | undefined>;
+  } = {},
 ) {
+  const { allowDemo = false } = options;
   const { audience, workspace } = await db.transaction(async (tx) => {
-    const workspace = await lockWorkspaceRow(tx, workspaceId, { allowDemo });
+    const locked = await lockWorkspace(tx, workspaceId, { allowDemo });
+    const { workspace } = locked;
+    const audit = options.authorize
+      ? await options.authorize(tx, locked)
+      : options.audit;
 
     const audience = await listWorkspaceAudience(workspaceId, tx);
     const objectKeys = await listWorkspaceObjectKeys(workspaceId, tx);
@@ -38,10 +54,6 @@ export async function deleteWorkspaceData(
     // Queued in the same transaction, so objects are removed only if the
     // rows that reference them are.
     await queueStorageCleanup(tx, objectKeys);
-    await tx
-      .update(schema.sessionTable)
-      .set({ activeOrganizationId: null, activeTeamId: null })
-      .where(eq(schema.sessionTable.activeOrganizationId, workspaceId));
     // Recorded before the row goes, so the audit sink can still read the
     // workspace's kind and keep a demo's deletion inside Baton.
     if (audit)

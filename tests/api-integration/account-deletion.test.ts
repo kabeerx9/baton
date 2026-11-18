@@ -9,7 +9,7 @@ import {
   removeUserConnection,
   removeConnection,
 } from "../../apps/api/src/ws";
-import db, { getDatabase, schema } from "../../apps/api/src/database";
+import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import deleteAccountData from "../../apps/api/src/user/controllers/delete-account-data";
 import { mockAuthenticatedSession } from "./helpers/auth";
@@ -149,68 +149,9 @@ describe("API integration: account deletion", () => {
     },
   );
 
-  it.each([false, true])(
-    "revokes project sockets after leaving even if the old post-delete lookup fails (%s)",
-    async (failLookup) => {
-      const owner = await createWorkspaceMember({ role: "owner" });
-      const member = await addMember(owner.workspace.id, "member");
-      const token = `leave-${randomUUID()}`;
-      await db.insert(schema.sessionTable).values({
-        id: randomUUID(),
-        userId: member.id,
-        token,
-        expiresAt: new Date(Date.now() + 60_000),
-      });
-      const ws = { send: vi.fn(), close: vi.fn() };
-      const conn = addConnection(
-        "project",
-        ws as unknown as WSContext,
-        member.id,
-        "window",
-        owner.workspace.id,
-      );
-      const select = getDatabase().select.bind(getDatabase());
-      const injected = failLookup
-        ? vi.spyOn(getDatabase(), "select").mockImplementation((fields) => {
-            if (
-              fields &&
-              Object.keys(fields).length === 1 &&
-              fields.id === schema.workspaceUserTable.id
-            )
-              throw new Error("Post-delete membership lookup unavailable");
-            return select(fields);
-          })
-        : undefined;
-      try {
-        const response = await auth.handler(
-          new Request("http://localhost:1337/api/auth/organization/leave", {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ organizationId: owner.workspace.id }),
-          }),
-        );
-        expect(response.status).toBe(200);
-        expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
-      } finally {
-        injected?.mockRestore();
-        removeConnection("project", conn);
-      }
-    },
-  );
-
-  it("revokes other members after deleting a workspace through Better Auth", async () => {
+  it("revokes project sockets after leaving", async () => {
     const owner = await createWorkspaceMember({ role: "owner" });
     const member = await addMember(owner.workspace.id, "member");
-    const token = `delete-${randomUUID()}`;
-    await db.insert(schema.sessionTable).values({
-      id: randomUUID(),
-      userId: owner.user.id,
-      token,
-      expiresAt: new Date(Date.now() + 60_000),
-    });
     const ws = { send: vi.fn(), close: vi.fn() };
     const conn = addConnection(
       "project",
@@ -219,18 +160,41 @@ describe("API integration: account deletion", () => {
       "window",
       owner.workspace.id,
     );
+    mockAuthenticatedSession(member);
     try {
-      const response = await auth.handler(
-        new Request("http://localhost:1337/api/auth/organization/delete", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ organizationId: owner.workspace.id }),
-        }),
+      const response = await createApp().app.request(
+        `/api/workspace/${owner.workspace.id}/leave`,
+        { method: "POST" },
       );
       expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        workspaceId: owner.workspace.id,
+      });
+      expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
+    } finally {
+      removeConnection("project", conn);
+    }
+  });
+
+  it("revokes other members after deleting a workspace", async () => {
+    const owner = await createWorkspaceMember({ role: "owner" });
+    const member = await addMember(owner.workspace.id, "member");
+    const ws = { send: vi.fn(), close: vi.fn() };
+    const conn = addConnection(
+      "project",
+      ws as unknown as WSContext,
+      member.id,
+      "window",
+      owner.workspace.id,
+    );
+    mockAuthenticatedSession(owner.user);
+    try {
+      const response = await createApp().app.request(
+        `/api/workspace/${owner.workspace.id}`,
+        { method: "DELETE" },
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ id: owner.workspace.id });
       expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
       expect(
         await db.query.workspaceTable.findFirst({

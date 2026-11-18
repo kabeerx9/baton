@@ -2,7 +2,7 @@ import { deleteWorkspaceData } from "../../workspace/lifecycle/delete-workspace-
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 
 async function deleteWorkspace(workspaceId: string, audit: AdminAuditRequest) {
-  const workspace = await deleteWorkspaceData(workspaceId, audit);
+  const workspace = await deleteWorkspaceData(workspaceId, { audit });
   return { id: workspace.id };
 }
 

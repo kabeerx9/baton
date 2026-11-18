@@ -4,14 +4,6 @@ import type { SmtpVerification } from "../../../packages/email/src/verify-smtp-c
 
 export { getSmtpErrorDetails } from "../../../packages/email/src/smtp-error-details";
 
-export async function sendWorkspaceInvitationEmail(
-  _to: string,
-  _subject: EmailSubject,
-  _data: unknown,
-): Promise<EmailResult> {
-  return { success: true };
-}
-
 export function isSmtpConfigured(): boolean {
   return false;
 }

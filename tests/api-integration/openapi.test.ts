@@ -80,7 +80,17 @@ describe("Baton API OpenAPI spec", () => {
       "GET /notification",
       "GET /workspace",
       "GET /workspace/{workspaceId}",
-      "POST /auth/organization/create",
+      "POST /workspace",
+      "PATCH /workspace/{workspaceId}",
+      "DELETE /workspace/{workspaceId}",
+      "POST /workspace/{workspaceId}/leave",
+      "DELETE /workspace/{workspaceId}/members/{userId}",
+      "PUT /workspace/{workspaceId}/members/{userId}/role",
+      "PUT /workspace/{workspaceId}/owner",
+      "GET /workspace/{workspaceId}/roles",
+      "POST /workspace/{workspaceId}/roles",
+      "PATCH /workspace/{workspaceId}/roles/{roleId}",
+      "DELETE /workspace/{workspaceId}/roles/{roleId}",
     ]) {
       expect(keys.has(op), `missing operation ${op}`).toBe(true);
     }
@@ -126,17 +136,15 @@ describe("Baton API OpenAPI spec", () => {
       expect(byKey.has(op), `missing operation ${op}`).toBe(true);
     expect(byKey.get("POST /join-link/preview")?.security).toEqual([]);
     expect(byKey.get("POST /join-link/join")?.security).toBeUndefined();
-    for (const op of [
-      "POST /auth/organization/invite-member",
-      "POST /auth/organization/accept-invitation",
-    ]) {
-      const operation = byKey.get(op) as
-        | (Operation & { deprecated?: boolean })
-        | undefined;
-      expect(operation?.deprecated, op).toBe(true);
-      expect(Object.keys(operation?.responses ?? {}), op).toContain("410");
-      expect(operation?.responses["200"], op).toBeUndefined();
-    }
+  });
+
+  it("documents no provider organization or invitation route", () => {
+    const paths = operations(spec).map(([, path]) => path);
+    expect(
+      paths.filter((path) =>
+        /^\/auth\/organization(\/|$)|^\/invitation(\/|$)/.test(path),
+      ),
+    ).toEqual([]);
   });
 
   it("documents change requests and the applied or requested outcome", () => {

@@ -1,64 +1,13 @@
-import { and, eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
-import db from "../../database";
-import { userTable, workspaceUserTable } from "../../database/schema";
-import { isOwnerRole } from "../../project-access/is-owner-role";
+import { removeWorkspaceMember as removeMember } from "../../workspace-members/remove-workspace-member";
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
-import { recordWorkspaceMemberAction } from "../audit/record-workspace-member-action";
-import { recordMemberRemoval } from "../../join-link/record-member-removal";
-import { handleMemberRemoved } from "../../workspace-members/handle-member-removed";
-import { lockWorkspace } from "../lock-workspace";
 import listWorkspaceMembers from "./list-workspace-members";
 
 async function removeWorkspaceMember(
-  request: {
-    workspaceId: string;
-    userId: string;
-  },
+  request: { workspaceId: string; userId: string },
   audit: AdminAuditRequest,
 ) {
-  const { workspaceId, userId } = request;
-
-  await db.transaction(async (tx) => {
-    const members = await lockWorkspace(tx, workspaceId);
-    const member = members.find((candidate) => candidate.userId === userId);
-    if (!member) {
-      throw new HTTPException(404, { message: "Member not found" });
-    }
-    const owners = members.filter((candidate) => isOwnerRole(candidate.role));
-    if (isOwnerRole(member.role) && owners.length === 1) {
-      throw new HTTPException(409, {
-        message:
-          "Transfer ownership to another member before removing the only owner",
-      });
-    }
-
-    // Before the delete, in its transaction: an old join link never
-    // readmits the person, and a failed record rolls the removal back.
-    await recordMemberRemoval(tx, workspaceId, userId);
-    await tx
-      .delete(workspaceUserTable)
-      .where(
-        and(
-          eq(workspaceUserTable.workspaceId, workspaceId),
-          eq(workspaceUserTable.userId, userId),
-        ),
-      );
-    await recordWorkspaceMemberAction(tx, audit, {
-      action: "workspace.member_removed",
-      workspaceId,
-      userId,
-      metadata: { role: member.role },
-    });
-  });
-
-  const [user] = await db
-    .select({ role: userTable.role })
-    .from(userTable)
-    .where(eq(userTable.id, userId))
-    .limit(1);
-  await handleMemberRemoved({ workspaceId, userId, userRole: user?.role });
-  return listWorkspaceMembers(workspaceId);
+  await removeMember({ ...request, actor: { kind: "instance_admin", audit } });
+  return listWorkspaceMembers(request.workspaceId);
 }
 
 export default removeWorkspaceMember;

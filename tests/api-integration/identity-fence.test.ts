@@ -489,14 +489,11 @@ describe("P2 A7 on /api/auth: the provider's routes refuse a banned session", ()
     return { world, call };
   }
 
-  it("refuses an organization read and write, an admin action and get-session", async () => {
+  it("refuses a provider read and write, an admin action and get-session", async () => {
     const { call } = await banned();
     for (const response of [
-      await call("GET", "/organization/list"),
-      await call("POST", "/organization/create", {
-        name: "Banned team",
-        slug: "banned-team",
-      }),
+      await call("GET", "/list-sessions"),
+      await call("POST", "/update-user", { name: "Banned rename" }),
       await call("GET", "/admin/list-users"),
       await call("GET", "/get-session"),
       await call("POST", "/change-password", {
@@ -510,8 +507,8 @@ describe("P2 A7 on /api/auth: the provider's routes refuse a banned session", ()
     expect(
       await db
         .select()
-        .from(schema.workspaceTable)
-        .where(eq(schema.workspaceTable.slug, "banned-team")),
+        .from(schema.userTable)
+        .where(eq(schema.userTable.name, "Banned rename")),
     ).toEqual([]);
   });
 

@@ -14,7 +14,6 @@ import { deleteLockedTask } from "../../apps/api/src/task/controllers/delete-tas
 import { checkDueDateReminders } from "../../apps/api/src/scheduler/due-date-reminders";
 import { DUE_DATE_DURATION_MS } from "../../apps/api/src/scheduler/reminder-timing";
 import { deleteAccountData } from "../../apps/api/src/user/controllers/delete-account-data";
-import { deleteNativeWorkspace } from "../../apps/api/src/workspace/lifecycle/delete-native-workspace";
 import { createInstanceAdmin } from "./helpers/admin/create-instance-admin";
 import { mockAuthenticatedSession } from "./helpers/auth";
 import { resetTestDatabase } from "./helpers/database";
@@ -121,10 +120,8 @@ describe("admin routes treat a demo workspace as not found", () => {
     const demoId = (await startTourAs(admin)).demoWorkspace.id;
     await enableAuditWebhook();
 
-    await deleteNativeWorkspace(demoId, admin.id, {
-      ipAddress: null,
-      userAgent: null,
-    });
+    const deleted = await send("DELETE", `/workspace/${demoId}`);
+    expect(deleted.status).toBe(200);
 
     const audit = await db
       .select({ action: schema.adminAuditLogTable.action })
@@ -360,23 +357,23 @@ describe("role CRUD on a demo workspace", () => {
         .where(eq(schema.workspaceRoleTable.workspaceId, organizationId));
     const before = await roles();
 
-    for (const [path, body] of [
-      [
-        "/organization/create-role",
-        { organizationId, role: "reviewer", permission: { task: ["read"] } },
-      ],
-      [
-        "/organization/update-role",
-        {
-          organizationId,
-          roleName: "member",
-          data: { permission: { task: ["read"] } },
-        },
-      ],
-      ["/organization/delete-role", { organizationId, roleName: "member" }],
+    const member = before.find((row) => row.role === "member")!;
+    const base = `/api/workspace/${organizationId}/roles`;
+    for (const [method, path, body] of [
+      ["POST", base, { role: "reviewer", permission: { task: ["read"] } }],
+      ["PATCH", `${base}/${member.id}`, { permission: { task: ["read"] } }],
+      ["DELETE", `${base}/${member.id}`, undefined],
     ] as const) {
-      const response = await authPost(path, body, cookie);
-      expect([path, response.status]).toEqual([path, 403]);
+      const response = await createApp().app.request(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          Cookie: cookie,
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect([method, response.status]).toEqual([method, 403]);
       expect(await response.json()).toMatchObject({ code: "DEMO_WORKSPACE" });
     }
     expect(await roles()).toEqual(before);

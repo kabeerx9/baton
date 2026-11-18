@@ -1,13 +1,5 @@
 export { permits } from "./permits.js";
 export {
-  ac,
-  admin,
-  builtInRoles,
-  member,
-  owner,
-  viewer,
-} from "./provider-roles.js";
-export {
   BUILT_IN_ROLE_STATEMENTS,
   type BuiltInRoleName,
   builtInRoleStatements,

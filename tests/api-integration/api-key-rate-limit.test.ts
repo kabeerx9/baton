@@ -161,7 +161,7 @@ describe("API key rate limits", () => {
     });
     expect(Number(limitHeaders(limited).retryAfter)).toBeGreaterThanOrEqual(59);
 
-    const bearer = await app.request("/api/auth/organization/list", {
+    const bearer = await app.request("/api/auth/get-session", {
       headers: { Authorization: `Bearer ${key}` },
     });
     expect(bearer.status).toBe(429);
@@ -205,7 +205,7 @@ describe("API key rate limits", () => {
     ],
     [
       "a Bearer key",
-      "/api/auth/organization/list",
+      "/api/auth/get-session",
       (key: string) => ({ Authorization: `Bearer ${key}` }),
     ],
   ])(
@@ -234,7 +234,7 @@ describe("API key rate limits", () => {
     ],
     [
       "a Bearer key",
-      "/api/auth/organization/list",
+      "/api/auth/get-session",
       (key: string) => ({ Authorization: `Bearer ${key}` }),
     ],
   ])(
@@ -266,7 +266,7 @@ describe("API key rate limits", () => {
     ],
     [
       "a Bearer key",
-      "/api/auth/organization/list",
+      "/api/auth/get-session",
       (key: string) => ({ Authorization: `Bearer ${key}` }),
     ],
   ])(

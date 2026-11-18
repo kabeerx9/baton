@@ -157,18 +157,18 @@ describe("API integration: API keys of banned users", () => {
       expect(response.status).toBe(401);
     });
 
-    it("applies the same rule to a bearer key on native organization routes", async () => {
+    it("applies the same rule to a bearer key on the native auth API", async () => {
       const { app, userId, key } = await mintKey();
       const headers = { authorization: `Bearer ${key}` };
 
-      const active = await app.request("/api/auth/organization/list", {
+      const active = await app.request("/api/auth/get-session", {
         headers,
       });
       expect(active.status).toBe(200);
 
       await ban(userId);
 
-      const banned = await app.request("/api/auth/organization/list", {
+      const banned = await app.request("/api/auth/get-session", {
         headers,
       });
       expect(banned.status).toBe(401);

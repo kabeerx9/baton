@@ -37,6 +37,7 @@ export const workspaceMemberSchema = z
       description:
         "The member's workspace role: a built-in role (owner, admin, member, viewer) or the name of a custom role defined in the workspace. Several roles are comma-separated, for example owner,viewer.",
     }),
+    joinedAt: responseTimestamp,
   })
   .openapi("WorkspaceMember");
 
@@ -66,4 +67,27 @@ export const workspaceCapabilitiesSchema = z
   .openapi("WorkspaceCapabilities", {
     description:
       "Whether the caller's roles (and API key scope, if any) allow each named action in the workspace. Mirrors the checks the API enforces.",
+  });
+
+export const workspaceRoleSchema = z
+  .object({
+    id: z.string(),
+    workspaceId: z.string(),
+    role: z.string(),
+    permission: z.record(z.string(), z.array(z.string())),
+    createdAt: responseTimestamp,
+    updatedAt: responseTimestamp,
+  })
+  .openapi("WorkspaceRole");
+
+export const workspaceRoleListSchema = z.array(workspaceRoleSchema);
+
+export const deletedIdSchema = z
+  .object({ id: z.string() })
+  .openapi("DeletedId", { description: "The id of the deleted record." });
+
+export const leftWorkspaceSchema = z
+  .object({ workspaceId: z.string() })
+  .openapi("LeftWorkspace", {
+    description: "The workspace the caller is no longer a member of.",
   });

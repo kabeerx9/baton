@@ -1,7 +1,4 @@
-import * as Sentry from "@sentry/node";
-import { readClientIp } from "../../utils/client-ip";
-import { deleteNativeWorkspace } from "../../workspace/lifecycle/delete-native-workspace";
-import { revokeApiKeyConnections, revokeWorkspaceConnections } from "../../ws";
+import { revokeApiKeyConnections } from "../../ws";
 import { batonIdentityHooks as hooks } from "../baton-hooks";
 import { toProviderError } from "./to-provider-error";
 import { apiKey } from "@better-auth/api-key";
@@ -9,14 +6,7 @@ import {
   isSmtpConfigured,
   setBrandNameResolver,
   sendPasswordResetEmail,
-  sendWorkspaceInvitationEmail,
 } from "@baton/email";
-import {
-  ac,
-  DEFAULT_ROLE_NAMES,
-  defaultRolePayloads,
-  owner,
-} from "@baton/permissions";
 import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
 import {
@@ -25,16 +15,9 @@ import {
   getSessionFromCtx,
   isAPIError,
 } from "better-auth/api";
-import {
-  admin as adminPlugin,
-  bearer,
-  openAPI,
-  organization,
-} from "better-auth/plugins";
-import type { AccessControl } from "better-auth/plugins/access";
+import { admin as adminPlugin, bearer, openAPI } from "better-auth/plugins";
 import { config } from "dotenv-mono";
-import { eq } from "drizzle-orm";
-import db, { schema } from "../../database";
+import { schema } from "../../database";
 import { authDatabaseAdapter } from "./session-locking-adapter";
 import {
   emailVerificationContext,
@@ -42,37 +25,7 @@ import {
 } from "../../instance-settings/email-verification-gate";
 import { getInstanceSettings } from "../../instance-settings/get-instance-settings";
 import { lockedSessionRevocation } from "./locked-session-revocation";
-import { publishEvent } from "../../events";
-import { applyInvitationProjectAccess } from "../../project-access/apply-invitation-project-access";
-import { resolveInvitationProjectAccess } from "../../project-access/resolve-invitation-project-access";
-import { clearMemberProjectAccess } from "../../project-access/clear-member-project-access";
-import { isOwnerRole } from "../../project-access/is-owner-role";
-import { publishMemberProjects } from "../../project-access/publish-member-projects";
-import { handleMemberAdded } from "../../workspace-members/handle-member-added";
-import {
-  clearMemberRemoval,
-  recordMemberRemoval,
-} from "../../join-link/record-member-removal";
-import { handleMemberRemoved } from "../../workspace-members/handle-member-removed";
-import { handleOwnerPromoted } from "../../workspace-members/handle-owner-promoted";
-import { assertInvitationOwnerAllowed } from "../../workspace-members/assert-invitation-owner-allowed";
-import { assertStoredOwnerRoleSafe } from "../../workspace-members/assert-stored-owner-role-safe";
-import { assertNativeOwnerRoleSafe } from "../../workspace-members/assert-native-owner-role-safe";
-import { normalizeInvitationRole } from "../../workspace-members/normalize-invitation-role";
-import { hideInaccessibleInvitationProjects } from "../../project-access/hide-inaccessible-invitation-projects";
-import { hideInvitationsFromNonInviters } from "../../utils/hide-invitations-from-non-inviters";
-import { assertOwnerInvitationResendAllowed } from "../../utils/assert-owner-invitation-resend-allowed";
-import {
-  assertNativeAuthApiKeyAllowed,
-  nativeAuthApiKey,
-} from "../../utils/native-auth-api-key";
-import {
-  assertNativeOrganizationReadAllowed,
-  readableNativeOrganizations,
-} from "../../utils/native-organization-read-access";
-import { assertNativeOrganizationActive } from "../../workspace/archive/assert-native-organization-active";
-import { dropArchivedInvitations } from "../../workspace/archive/drop-archived-invitations";
-import { satisfies } from "../../utils/role-permissions";
+import { assertNativeAuthApiKeyAllowed } from "../../utils/native-auth-api-key";
 import { captureAuthAdminAudit } from "../../admin/audit/capture-auth-admin-audit";
 import { recordAuthAdminAudit } from "../../admin/audit/record-auth-admin-audit";
 import { assertKnownInstanceRoles } from "../../admin/roles/assert-known-instance-roles";
@@ -82,20 +35,9 @@ import deleteAccountData from "../../user/controllers/delete-account-data";
 import prepareAdminUserRemoval from "../../user/controllers/prepare-admin-user-removal";
 import { resolveAuthSecret } from "../../utils/auth-secret";
 import { checkRegistrationAllowed } from "../../utils/check-registration-allowed";
-import { checkWorkspaceName } from "../../utils/check-workspace-name";
 import { getEmailRequestContext } from "../../utils/email-request-context";
 import { getDefaultCookieAttributes } from "../../utils/get-default-cookie-attributes";
-import { getInvitationEmailSubject } from "../../utils/get-invitation-email-subject";
-import {
-  getInvitationRoleLabel,
-  getWorkspaceInvitationEmailCopy,
-} from "../../utils/get-workspace-invitation-email-copy";
 import { getGithubSsoOAuthCredentials } from "../../utils/github-sso-env";
-import { hasInstanceAdminRole } from "../../utils/instance-admin-role";
-import {
-  assertRolesEditable,
-  assertShareableOrganization,
-} from "../../workspace/kind/assert-shareable-workspace";
 import {
   assertNoOAuthSignIn,
   assertOAuthCallbackLinks,
@@ -104,7 +46,6 @@ import {
 import { hasRegisteredUsers } from "../../utils/instance-bootstrap";
 import { revokeUserGrants } from "../../mcp/grant/revoke-grants";
 import { isCloud } from "../../utils/is-cloud";
-import { isDisposableEmail } from "../../utils/is-disposable-email";
 import { trackPasswordResetDelivery } from "../../utils/password-reset-delivery";
 
 config();
@@ -156,12 +97,6 @@ export const auth = betterAuth({
       account: schema.accountTable,
       session: schema.sessionTable,
       verification: schema.verificationTable,
-      workspace: schema.workspaceTable,
-      workspace_member: schema.workspaceUserTable,
-      invitation: schema.invitationTable,
-      workspace_role: schema.workspaceRoleTable,
-      team: schema.teamTable,
-      teamMember: schema.teamMemberTable,
       apikey: schema.apikeyTable,
     },
   }),
@@ -247,257 +182,6 @@ export const auth = betterAuth({
       : {},
   plugins: [
     lockedSessionRevocation,
-    organization({
-      // `ac` is created with a narrow `statement` shape (project/task/label/
-      // workspace + the default org statements), which makes its inferred
-      // `newRole` generic incompatible with better-auth's looser
-      // `AccessControl` type. Widen via an explicit cast so the plugin
-      // accepts our custom statement.
-      ac: ac as unknown as AccessControl,
-      // Only `owner` stays static so its permissions can never be edited away
-      // from the workspace creator. `viewer`, `member`, and `admin` are
-      // seeded into `workspace_role` per workspace and resolved via
-      // dynamic access control, so admins can fully override (replace) their
-      // permissions per workspace. See `seedDefaultWorkspaceRoles` + the
-      // afterCreateOrganization hook.
-      roles: { owner },
-      dynamicAccessControl: {
-        enabled: true,
-        maximumRolesPerOrganization: 25,
-      },
-      teams: {
-        enabled: true,
-        maximumTeams: 10,
-        allowRemovingAllTeams: false,
-      },
-      schema: {
-        organization: {
-          modelName: "workspace",
-          additionalFields: {
-            // in metadata
-            description: {
-              type: "string",
-              input: true,
-              required: false,
-            },
-            // "team" or "demo"; only the tour creates a demo, never a client.
-            kind: {
-              type: "string",
-              input: false,
-              required: false,
-              defaultValue: "team",
-            },
-          },
-        },
-        member: {
-          modelName: "workspace_member",
-          fields: {
-            organizationId: "workspaceId",
-            createdAt: "joinedAt",
-          },
-        },
-        invitation: {
-          modelName: "invitation",
-          fields: {
-            organizationId: "workspaceId",
-          },
-          additionalFields: {
-            projectAccess: {
-              type: "string",
-              input: true,
-              required: false,
-              defaultValue: "all",
-            },
-            projectIds: {
-              type: "string[]",
-              input: true,
-              required: false,
-              defaultValue: [],
-            },
-          },
-        },
-        organizationRole: {
-          modelName: "workspace_role",
-          fields: {
-            organizationId: "workspaceId",
-          },
-        },
-        team: {
-          modelName: "team",
-          fields: {
-            organizationId: "workspaceId",
-          },
-        },
-      },
-      // When workspace creation is restricted (instance setting or
-      // `DISABLE_WORKSPACE_CREATION`), only instance admins
-      // (role list includes "admin") may create workspaces — mirrors the
-      // implicit-exemption shape of `DISABLE_REGISTRATION` above. This
-      // check runs before any workspace membership exists, so only the
-      // instance-wide role is meaningful here; per-workspace roles
-      // (owner/admin/member/viewer) don't apply until after a workspace
-      // is joined.
-      //
-      // Read the current instance role rather than a session's user snapshot,
-      // which can predate first-user promotion or an administrator's changes.
-      allowUserToCreateOrganization: async (user) => {
-        if (!(await getInstanceSettings()).workspaceCreationRestricted)
-          return true;
-        const [freshUser] = await db
-          .select({ role: schema.userTable.role })
-          .from(schema.userTable)
-          .where(eq(schema.userTable.id, user.id));
-        return hasInstanceAdminRole(freshUser?.role);
-      },
-      // Better Auth defaults this to `true`, which blocks any user whose email
-      // is not verified from accepting/rejecting an invitation. Baton does not
-      // always verify emails on signup, so leaving the default on breaks
-      // invitation acceptance for those users. The invitation link id is the actual secret here, so gate on
-      // that rather than on email verification.
-      requireEmailVerificationOnInvitation: false,
-      organizationHooks: {
-        beforeCreateOrganization: async ({ organization }) => {
-          const check = checkWorkspaceName(organization.name ?? "");
-          if (!check.ok) {
-            throw new APIError("BAD_REQUEST", {
-              code: "INVALID_WORKSPACE_NAME",
-              message: check.reason,
-            });
-          }
-        },
-        afterCreateOrganization: async ({ organization, user }) => {
-          // Seed the editable default roles for this workspace. Each
-          // role's permissions are derived from the compiled-in defaults
-          // in `@baton/permissions`; admins can later replace them in the
-          // Roles UI. We skip names that somehow already exist (this hook
-          // is best-effort idempotent; the boot-time backfill is the
-          // belt-and-braces path).
-          try {
-            const existing = await db
-              .select({ role: schema.workspaceRoleTable.role })
-              .from(schema.workspaceRoleTable)
-              .where(
-                eq(schema.workspaceRoleTable.workspaceId, organization.id),
-              );
-            const taken = new Set(existing.map((r) => r.role));
-            const now = new Date();
-            const rows = DEFAULT_ROLE_NAMES.filter(
-              (name) => !taken.has(name),
-            ).map((name) => ({
-              workspaceId: organization.id,
-              role: name,
-              permission: JSON.stringify(defaultRolePayloads[name]),
-              createdAt: now,
-              updatedAt: now,
-            }));
-            if (rows.length > 0) {
-              await db.insert(schema.workspaceRoleTable).values(rows);
-            }
-          } catch (error) {
-            console.error(
-              "Failed to seed default workspace roles for workspace",
-              organization.id,
-              error,
-            );
-          }
-
-          publishEvent("workspace.created", {
-            workspaceId: organization.id,
-            workspaceName: organization.name,
-            ownerEmail: user.name,
-            ownerId: user.id,
-          });
-        },
-        beforeCreateInvitation: async ({ invitation, organization }) => {
-          assertShareableOrganization(organization);
-          const role =
-            normalizeInvitationRole(invitation.role) ?? invitation.role;
-          await assertInvitationOwnerAllowed({ ...invitation, role });
-          const access = await resolveInvitationProjectAccess({
-            ...invitation,
-            role,
-          });
-          return { data: { ...access, role } };
-        },
-        beforeAcceptInvitation: async ({ invitation, user, organization }) => {
-          assertShareableOrganization(organization);
-          assertStoredOwnerRoleSafe(invitation.role);
-          await applyInvitationProjectAccess(invitation, user.id);
-        },
-        afterAcceptInvitation: async ({ member }) => {
-          await publishMemberProjects(
-            member.organizationId,
-            member.userId,
-          ).catch((error) => {
-            console.error("Project member refresh failed:", error);
-          });
-        },
-        beforeAddMember: async ({ organization }) => {
-          assertShareableOrganization(organization);
-        },
-        beforeUpdateMemberRole: async ({ organization }) => {
-          assertShareableOrganization(organization);
-        },
-        afterUpdateMemberRole: async ({ member }) => {
-          if (isOwnerRole(member.role)) {
-            await handleOwnerPromoted(member.organizationId, member.userId);
-          }
-        },
-        afterAddMember: async ({ member }) => {
-          if (member?.organizationId) {
-            await handleMemberAdded(member.organizationId, member.userId);
-          }
-        },
-        beforeRemoveMember: async ({ member }) => {
-          // Before the delete: an old join link never readmits the person.
-          // A failure throws, so Better Auth does not remove the member.
-          await recordMemberRemoval(db, member.organizationId, member.userId);
-        },
-        afterRemoveMember: async ({ member, user }) => {
-          if (member?.organizationId) {
-            await handleMemberRemoved({
-              workspaceId: member.organizationId,
-              userId: member.userId,
-              userRole: user.role,
-            });
-          }
-        },
-      },
-      async sendInvitationEmail(data) {
-        const inviteLink = `${process.env.BATON_CLIENT_URL}/invitation/accept/${data.id}`;
-        const copy = getWorkspaceInvitationEmailCopy();
-
-        const result = await sendWorkspaceInvitationEmail(
-          data.email,
-          (name) =>
-            getInvitationEmailSubject(
-              data.inviter.user.name,
-              data.organization.name,
-              name,
-            ),
-          {
-            inviterEmail: data.inviter.user.email,
-            inviterName: data.inviter.user.name,
-            workspaceName: data.organization.name,
-            invitationLink: inviteLink,
-            to: data.email,
-            role: getInvitationRoleLabel(data.role),
-            expiresAt: data.invitation.expiresAt,
-            copy,
-          },
-        );
-
-        if (
-          result?.success === false &&
-          result.reason === "SMTP_NOT_CONFIGURED"
-        ) {
-          console.warn(
-            "Invitation created but email not sent due to SMTP not being configured",
-          );
-          return;
-        }
-      },
-    }),
     bearer(),
     apiKey({
       enableSessionForAPIKeys: true,
@@ -619,52 +303,11 @@ export const auth = betterAuth({
     before: createAuthMiddleware(
       async (
         ctx,
-      ): Promise<
-        | void
-        | Awaited<ReturnType<typeof deleteNativeWorkspace>>
-        | Awaited<ReturnType<typeof emailVerificationContext>>
-      > => {
+      ): Promise<void | Awaited<
+        ReturnType<typeof emailVerificationContext>
+      >> => {
         // Runs before provider hooks can turn a key into its owner's session.
         await assertNativeAuthApiKeyAllowed(ctx);
-        let organizationViewer: {
-          user: { id: string };
-          session: {
-            id?: string;
-            activeOrganizationId?: unknown;
-            activeTeamId?: unknown;
-          };
-        } | null = null;
-        if (ctx.path.startsWith("/organization/")) {
-          const key = nativeAuthApiKey(ctx);
-          // Resolve real bearer sessions through the provider's bearer hook as
-          // well as cookies. The nested /get-session call does not enter here.
-          organizationViewer = key
-            ? { user: { id: key.userId }, session: {} }
-            : await auth.api.getSession({ headers: new Headers(ctx.headers) });
-          // First, so members of an archived workspace get its stable code.
-          await assertNativeOrganizationActive(ctx, organizationViewer);
-          await assertNativeOrganizationReadAllowed(ctx, organizationViewer);
-          await assertRolesEditable(ctx, organizationViewer);
-        }
-        if (ctx.path === "/organization/delete") {
-          // This short-circuits the provider endpoint; retain its key usage check.
-          if (nativeAuthApiKey(ctx)) {
-            const session = await auth.api.getSession({
-              headers: new Headers(ctx.headers),
-            });
-            if (!session) throw new APIError("UNAUTHORIZED");
-          }
-          return ctx.json(
-            await deleteNativeWorkspace(
-              ctx.body?.organizationId,
-              organizationViewer?.user.id,
-              {
-                ipAddress: readClientIp(new Headers(ctx.headers)),
-                userAgent: ctx.headers?.get("user-agent") ?? null,
-              },
-            ),
-          );
-        }
         await assertKnownInstanceRoles(ctx);
         // Before removal prep deletes account data the entry needs to name.
         await captureAuthAdminAudit(ctx, (headers) =>
@@ -676,56 +319,6 @@ export const auth = betterAuth({
           });
         }
 
-        if (
-          ctx.path === "/organization/invite-member" ||
-          ctx.path === "/organization/remove-member"
-        ) {
-          const workspaceId =
-            ctx.body?.organizationId ||
-            organizationViewer?.session.activeOrganizationId;
-          if (organizationViewer && typeof workspaceId === "string") {
-            await assertNativeOwnerRoleSafe(
-              organizationViewer.user.id,
-              workspaceId,
-            );
-          }
-        }
-
-        if (ctx.path === "/organization/invite-member") {
-          // This hook runs before validation. Normalize only valid role shapes,
-          // including arrays; the provider still validates role names and auth.
-          // Resends bypass beforeCreateInvitation and must pass this check too.
-          const role = normalizeInvitationRole(ctx.body?.role);
-          if (role !== undefined && ctx.body) {
-            ctx.body.role = role;
-          }
-          if (ctx.body?.resend === true && typeof ctx.body.email === "string") {
-            const viewer = organizationViewer;
-            const workspaceId =
-              ctx.body.organizationId || viewer?.session.activeOrganizationId;
-            if (viewer && typeof workspaceId === "string") {
-              await assertOwnerInvitationResendAllowed(
-                viewer.user.id,
-                workspaceId,
-                ctx.body.email,
-              );
-            }
-          }
-          // Better Auth swallows email failures in runInBackgroundOrAwait.
-          // Invitation callers need the delivery result, including on resend.
-          ctx.context.runInBackgroundOrAwait = async (promise) => {
-            try {
-              await promise;
-            } catch {
-              throw new APIError("BAD_GATEWAY", {
-                code: "INVITATION_EMAIL_FAILED",
-                message:
-                  "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
-              });
-            }
-          };
-        }
-
         if (ctx.path === "/sign-in/social") {
           throw oauthSignInRefused();
         }
@@ -735,40 +328,6 @@ export const auth = betterAuth({
           throw new APIError("FORBIDDEN", {
             code: "EMAIL_DELIVERY_NOT_CONFIGURED",
             message: "Password reset requires email delivery to be configured.",
-          });
-        }
-
-        // Block invite-member calls on cloud to disposable-email addresses. The 2026-05-28 incident saw ~14k phishing
-        // invites sent from throwaway disposable-email signups; gating here
-        // shuts that path off; local dev and tests leave BATON_CLOUD off.
-        if (ctx.path === "/organization/invite-member" && isCloud()) {
-          const inviteeEmail = (ctx.body?.email as string | undefined) ?? "";
-          if (inviteeEmail && isDisposableEmail(inviteeEmail)) {
-            throw new APIError("BAD_REQUEST", {
-              code: "DISPOSABLE_EMAIL_NOT_ALLOWED",
-              message:
-                "Invitations to disposable-email addresses are not allowed.",
-            });
-          }
-        }
-
-        if (
-          ctx.path === "/organization/leave" &&
-          organizationViewer &&
-          typeof ctx.body?.organizationId === "string"
-        ) {
-          // Last, right before Better Auth deletes the member: a leave ends
-          // any earlier removal, and clearing first means a removal that
-          // starts later keeps its row (join-link/record-member-removal.ts).
-          // A failed clear must not block the leave; it only keeps old links
-          // refusing this person.
-          await clearMemberRemoval(
-            db,
-            ctx.body.organizationId,
-            organizationViewer.user.id,
-          ).catch((error) => {
-            console.error("Clearing a workspace removal failed:", error);
-            Sentry.captureException(error);
           });
         }
 
@@ -792,7 +351,7 @@ export const auth = betterAuth({
           return verification;
         }
 
-        const result = await checkRegistrationAllowed(ctx.body?.email);
+        const result = await checkRegistrationAllowed();
         if (!result.allowed) {
           throw new APIError("FORBIDDEN", {
             code: "REGISTRATION_NOT_ALLOWED",
@@ -819,138 +378,6 @@ export const auth = betterAuth({
         const viewer = await getSessionFromCtx(ctx);
         if (viewer && typeof keyId === "string")
           await revokeApiKeyConnections(viewer.user.id, [keyId]);
-      }
-      if (
-        ctx.path === "/organization/list-user-invitations" &&
-        Array.isArray(ctx.context.returned)
-      ) {
-        await dropArchivedInvitations(
-          ctx.context.returned as { organizationId?: unknown }[],
-        );
-      }
-      if (
-        (ctx.path === "/organization/list" ||
-          ctx.path === "/organization/list-user-teams") &&
-        Array.isArray(ctx.context.returned)
-      ) {
-        const viewer = await getSessionFromCtx(ctx);
-        if (viewer) {
-          const organizations = ctx.context.returned as {
-            id: string;
-            organizationId?: string;
-          }[];
-          const visible = await readableNativeOrganizations(
-            viewer.user.id,
-            organizations.map(
-              (workspace) => workspace.organizationId ?? workspace.id,
-            ),
-            { listing: true },
-          );
-          organizations.splice(
-            0,
-            organizations.length,
-            ...organizations.filter((workspace) =>
-              visible.has(workspace.organizationId ?? workspace.id),
-            ),
-          );
-        }
-      }
-      if (
-        ctx.path === "/organization/list-invitations" ||
-        ctx.path === "/organization/get-full-organization" ||
-        ctx.path === "/organization/invite-member"
-      ) {
-        const single = ctx.path === "/organization/invite-member";
-        const viewer = await getSessionFromCtx(ctx);
-        const returned = ctx.context.returned as
-          | { invitations?: unknown }
-          | unknown[]
-          | null;
-        const created = returned as {
-          id?: unknown;
-          organizationId?: unknown;
-          role?: unknown;
-        } | null;
-        const invitations = single
-          ? typeof created?.id === "string" &&
-            typeof created.organizationId === "string" &&
-            typeof created.role === "string"
-            ? [created]
-            : undefined
-          : Array.isArray(returned)
-            ? returned
-            : returned?.invitations;
-        if (viewer) {
-          const scope = nativeAuthApiKey(ctx)?.permissions;
-          if (
-            scope &&
-            !satisfies(scope, { invitation: ["create"] }) &&
-            Array.isArray(invitations)
-          ) {
-            invitations.splice(0, invitations.length);
-          }
-          await hideInvitationsFromNonInviters(viewer.user, invitations);
-          // Resending returns the existing invitation's role, which may
-          // differ from the role Better Auth authorized in the request.
-          if (
-            single &&
-            Array.isArray(invitations) &&
-            invitations.length === 0
-          ) {
-            throw new APIError("FORBIDDEN", {
-              code: "YOU_ARE_NOT_ALLOWED_TO_INVITE_USER_WITH_THIS_ROLE",
-              message: "You are not allowed to invite a user with this role",
-            });
-          }
-          await hideInaccessibleInvitationProjects(viewer.user.id, invitations);
-        }
-      }
-
-      if (ctx.path === "/organization/leave") {
-        // The successful endpoint returns the removed member. No post-delete
-        // query may prevent revocation after membership has already committed.
-        const removed = ctx.context.returned as
-          | { userId?: string; organizationId?: string }
-          | undefined;
-        if (
-          typeof removed?.userId === "string" &&
-          typeof removed.organizationId === "string" &&
-          removed.organizationId === ctx.body?.organizationId
-        ) {
-          await clearMemberProjectAccess(
-            removed.organizationId,
-            removed.userId,
-          ).catch((error) => {
-            console.error("Project access cleanup failed:", error);
-          });
-          await revokeWorkspaceConnections(
-            removed.userId,
-            removed.organizationId,
-            {
-              role: ctx.context.session?.user.role ?? null,
-            },
-          );
-        }
-      }
-
-      if (ctx.path.startsWith("/sign-up") || ctx.path.startsWith("/sign-in")) {
-        const newSession = ctx.context.newSession;
-        if (newSession) {
-          const workspaceMember = await db
-            .select({ workspaceId: schema.workspaceUserTable.workspaceId })
-            .from(schema.workspaceUserTable)
-            .where(eq(schema.workspaceUserTable.userId, newSession.user.id))
-            .limit(1);
-
-          const activeWorkspaceId = workspaceMember[0]?.workspaceId || null;
-
-          if (activeWorkspaceId) {
-            await db
-              .update(schema.sessionTable)
-              .set({ activeOrganizationId: activeWorkspaceId })
-              .where(eq(schema.sessionTable.id, newSession.session.id));
-          }
-        }
       }
     }),
   },

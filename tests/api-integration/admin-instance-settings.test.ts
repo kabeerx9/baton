@@ -470,11 +470,19 @@ describe("workspace creation", () => {
       body: { workspaceCreationRestricted: true },
     });
     const member = await signInWithRole(app, "user");
-    const create = (cookie: string, slug: string) =>
-      authPost(app, "/organization/create", { name: "Team", slug }, cookie);
+    const create = (cookie: string) =>
+      app.request("/api/workspace", {
+        method: "POST",
+        headers: { ...json, cookie },
+        body: JSON.stringify({ name: "Team" }),
+      });
 
-    expect((await create(member.cookies, "member-team")).status).toBe(403);
-    expect((await create(admin.cookies, "admin-team")).status).toBe(200);
+    const refused = await create(member.cookies);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({
+      code: "WORKSPACE_CREATION_RESTRICTED",
+    });
+    expect((await create(admin.cookies)).status).toBe(201);
   });
 });
 

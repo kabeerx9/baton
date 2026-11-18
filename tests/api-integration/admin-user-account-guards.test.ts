@@ -13,7 +13,7 @@ import * as adminAudit from "../../apps/api/src/admin/audit/record-admin-action"
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import * as accountCleanup from "../../apps/api/src/user/controllers/delete-account-data";
-import { deleteNativeWorkspace } from "../../apps/api/src/workspace/lifecycle/delete-native-workspace";
+import deleteWorkspace from "../../apps/api/src/workspace/controllers/delete-workspace";
 import * as workspaceLock from "../../apps/api/src/workspace/lifecycle/lock-workspace-row";
 import { signInWithRole } from "./helpers/admin/instance-roles";
 import { readAuditLog } from "./helpers/admin/read-audit-log";
@@ -73,11 +73,16 @@ describe("admin account guards", () => {
         return cleanup(...args);
       });
 
-      const workspaceDeletion = deleteNativeWorkspace(
-        target.workspace.id,
-        target.user.id,
-        { ipAddress: null, userAgent: null },
-      );
+      const workspaceDeletion = deleteWorkspace({
+        workspaceId: target.workspace.id,
+        actor: {
+          kind: "member",
+          userId: target.user.id,
+          authMethod: "cookie",
+          apiKeyId: null,
+        },
+        request: { ipAddress: null, userAgent: null },
+      });
       await workspacePaused.promise;
       // Both operations have passed authorization. The workspace audit needs a
       // foreign-key lock on its actor, the account being deleted concurrently.

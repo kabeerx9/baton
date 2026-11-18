@@ -250,26 +250,21 @@ describe("an archived workspace's integrations", () => {
   });
 });
 
-describe("an archived workspace through Better Auth organization endpoints", () => {
-  async function organizationFixture() {
+describe("an archived workspace through the workspace write routes", () => {
+  async function writeFixture() {
     const { app } = createApp();
     const member = await signUpWithSession(app, {
       email: "member@example.com",
       name: "Member",
     });
+    const colleague = await signUpWithSession(app, {
+      email: "colleague@example.com",
+      name: "Colleague",
+    });
     const outsider = await signUpWithSession(app, {
       email: "outsider@example.com",
       name: "Outsider",
     });
-    const invitee = await signUpWithSession(app, {
-      email: "invitee@example.com",
-      name: "Invitee",
-    });
-    // Listing one's own invitations requires a verified email.
-    await db
-      .update(schema.userTable)
-      .set({ emailVerified: true })
-      .where(eq(schema.userTable.id, invitee.userId));
     const [workspace] = await db
       .insert(schema.workspaceTable)
       .values({
@@ -278,30 +273,33 @@ describe("an archived workspace through Better Auth organization endpoints", () 
         createdAt: new Date(),
       })
       .returning();
-    await db.insert(schema.workspaceUserTable).values({
-      workspaceId: workspace.id,
-      userId: member.userId,
-      role: "owner",
-      joinedAt: new Date(),
-    });
-    const [invitation] = await db
-      .insert(schema.invitationTable)
-      .values({
+    await db.insert(schema.workspaceUserTable).values([
+      {
         workspaceId: workspace.id,
-        inviterId: member.userId,
-        email: "invitee@example.com",
+        userId: member.userId,
+        role: "owner",
+        joinedAt: new Date(),
+      },
+      {
+        workspaceId: workspace.id,
+        userId: colleague.userId,
         role: "member",
-        status: "pending",
-        expiresAt: new Date(Date.now() + 86_400_000),
-      })
-      .returning();
+        joinedAt: new Date(),
+      },
+    ]);
+    await db.insert(schema.workspaceRoleTable).values({
+      workspaceId: workspace.id,
+      role: "member",
+      permission: JSON.stringify({ workspace: ["read"] }),
+    });
     const call = (
       cookies: string,
+      method: string,
       path: string,
       body?: Record<string, unknown>,
     ) =>
       app.request(`/api${path}`, {
-        method: body ? "POST" : "GET",
+        method,
         headers: {
           cookie: cookies,
           origin: "http://localhost:5173",
@@ -309,99 +307,31 @@ describe("an archived workspace through Better Auth organization endpoints", () 
         },
         body: body ? JSON.stringify(body) : undefined,
       });
-    return { member, outsider, invitee, workspace, invitation, call };
+    return { member, colleague, outsider, workspace, call };
   }
 
-  it("hides it from lists and blocks reads, activation, and invitations", async () => {
-    const { member, outsider, invitee, workspace, invitation, call } =
-      await organizationFixture();
-    const listed = async () =>
-      (
-        (await (
-          await call(member.cookies, "/auth/organization/list")
-        ).json()) as { id: string }[]
-      ).map((entry) => entry.id);
-    const invitationIds = async () =>
-      (
-        (await (
-          await call(
-            invitee.cookies,
-            "/auth/organization/list-user-invitations",
-          )
-        ).json()) as { id: string }[]
-      ).map((entry) => entry.id);
-    const pending = async () =>
-      (
-        (await (await call(invitee.cookies, "/invitation/pending")).json()) as {
-          id: string;
-        }[]
-      ).map((entry) => entry.id);
-
-    expect(await listed()).toEqual([workspace.id]);
-    expect(await invitationIds()).toEqual([invitation.id]);
-    expect(await pending()).toEqual([invitation.id]);
-
+  it("refuses every write with WORKSPACE_ARCHIVED and changes nothing", async () => {
+    const { member, colleague, workspace, call } = await writeFixture();
     await setArchived(workspace.id, true);
-
-    expect(await listed()).toEqual([]);
-    expect(await invitationIds()).toEqual([]);
-    expect(await pending()).toEqual([]);
-    const details = await call(
-      invitee.cookies,
-      `/invitation/public/${invitation.id}`,
-    );
-    expect(((await details.json()) as { valid: boolean }).valid).toBe(false);
-
-    for (const response of [
-      await call(
-        invitee.cookies,
-        `/auth/organization/get-invitation?id=${invitation.id}`,
-      ),
-      await call(
-        member.cookies,
-        `/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-      ),
-      await call(
-        member.cookies,
-        `/auth/organization/get-full-organization?organizationSlug=${workspace.slug}`,
-      ),
-      await call(member.cookies, "/auth/organization/set-active", {
-        organizationId: workspace.id,
-      }),
-      await call(member.cookies, "/auth/organization/update", {
-        organizationId: workspace.id,
-        data: { name: "Renamed" },
-      }),
-    ]) {
-      expect(response.status).toBe(403);
+    const base = `/workspace/${workspace.id}`;
+    const writes: [string, string, Record<string, unknown>?][] = [
+      ["PATCH", base, { name: "Renamed" }],
+      ["DELETE", base],
+      ["POST", `${base}/leave`],
+      ["DELETE", `${base}/members/${colleague.userId}`],
+      ["PUT", `${base}/members/${colleague.userId}/role`, { role: "admin" }],
+      ["PUT", `${base}/owner`, { userId: colleague.userId }],
+      ["POST", `${base}/roles`, { role: "reviewer", permission: {} }],
+    ];
+    for (const [method, path, body] of writes) {
+      const response = await call(member.cookies, method, path, body);
+      expect([method, path, response.status]).toEqual([method, path, 403]);
       expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");
     }
-
-    const alternate = await createWorkspaceMember();
-    const mixed = await call(
-      member.cookies,
-      `/auth/organization/get-full-organization?organizationId=${alternate.workspace.id}&organizationSlug=${workspace.slug}`,
-    );
-    expect(mixed.status).toBe(403);
-    expect(await codeOf(mixed)).toBe("WORKSPACE_ARCHIVED");
-
-    // Outsiders cannot tell an archived workspace from one they cannot read.
-    const probe = await call(
-      outsider.cookies,
-      `/auth/organization/get-full-organization?organizationSlug=${workspace.slug}`,
-    );
-    expect(probe.status).toBe(403);
-    expect(await codeOf(probe)).toBe("MISSING_PERMISSION");
-
-    // Leaving the archived workspace as the active one still works.
-    const cleared = await call(
-      member.cookies,
-      "/auth/organization/set-active",
-      {
-        organizationId: null,
-      },
-    );
-    expect(cleared.status).toBe(200);
+    // The colleague can't leave an archived workspace either.
+    const left = await call(colleague.cookies, "POST", `${base}/leave`);
+    expect(left.status).toBe(403);
+    expect(await codeOf(left)).toBe("WORKSPACE_ARCHIVED");
 
     const [stored] = await db
       .select({ name: schema.workspaceTable.name })
@@ -409,105 +339,73 @@ describe("an archived workspace through Better Auth organization endpoints", () 
       .where(eq(schema.workspaceTable.id, workspace.id));
     expect(stored?.name).toBe("Archived org");
     const members = await db
-      .select()
+      .select({
+        userId: schema.workspaceUserTable.userId,
+        role: schema.workspaceUserTable.role,
+      })
       .from(schema.workspaceUserTable)
       .where(eq(schema.workspaceUserTable.workspaceId, workspace.id));
-    expect(members).toHaveLength(1);
+    expect(members).toHaveLength(2);
+    expect(members.find((row) => row.userId === colleague.userId)?.role).toBe(
+      "member",
+    );
+    expect(
+      await db
+        .select()
+        .from(schema.workspaceRoleTable)
+        .where(eq(schema.workspaceRoleTable.role, "reviewer")),
+    ).toEqual([]);
   });
 
-  it("blocks the archived workspace when it is the session's active one", async () => {
-    const { member, workspace, call } = await organizationFixture();
-    expect(
-      (
-        await call(member.cookies, "/auth/organization/set-active", {
-          organizationId: workspace.id,
-        })
-      ).status,
-    ).toBe(200);
-
+  it("does not tell an outsider the workspace is archived", async () => {
+    const { outsider, workspace, call } = await writeFixture();
     await setArchived(workspace.id, true);
     const response = await call(
-      member.cookies,
-      "/auth/organization/get-full-organization",
+      outsider.cookies,
+      "PATCH",
+      `/workspace/${workspace.id}`,
+      { name: "Renamed" },
     );
-    expect(response.status).toBe(403);
-    expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");
-
-    await setArchived(workspace.id, false);
-    expect(
-      (await call(member.cookies, "/auth/organization/get-full-organization"))
-        .status,
-    ).toBe(200);
+    expect(response.status).toBeGreaterThanOrEqual(403);
+    expect(await codeOf(response)).not.toBe("WORKSPACE_ARCHIVED");
   });
 
-  it("ignores unrelated fields when resolving an archived organization target", async () => {
-    const { member, invitee, workspace, invitation, call } =
-      await organizationFixture();
-    const [active] = await db
-      .insert(schema.workspaceTable)
-      .values({ name: "Active org", slug: randomUUID(), createdAt: new Date() })
-      .returning();
-    const [otherInvitation] = await db
-      .insert(schema.invitationTable)
-      .values({
-        workspaceId: active.id,
-        inviterId: member.userId,
-        email: "invitee@example.com",
-        role: "member",
-        status: "pending",
-        expiresAt: new Date(Date.now() + 86_400_000),
-      })
-      .returning();
-    expect(
-      (
-        await call(member.cookies, "/auth/organization/set-active", {
-          organizationId: workspace.id,
-        })
-      ).status,
-    ).toBe(200);
+  it("accepts writes again after restore", async () => {
+    const { member, workspace, call } = await writeFixture();
     await setArchived(workspace.id, true);
+    await setArchived(workspace.id, false);
+    const response = await call(
+      member.cookies,
+      "PATCH",
+      `/workspace/${workspace.id}`,
+      { name: "Renamed" },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ name: "Renamed" });
+  });
 
-    const unrelated = {
-      invitationId: otherInvitation.id,
-      organizationSlug: active.slug,
-      teamId: "missing-team",
-    };
-    const query = new URLSearchParams({
-      ...unrelated,
-      organizationId: active.id,
-    });
-    for (const response of [
-      await call(member.cookies, `/auth/organization/update?${query}`, {
-        organizationId: workspace.id,
-        data: { name: "Should not change" },
-      }),
-      await call(member.cookies, "/auth/organization/update", {
-        ...unrelated,
-        data: { name: "Should not change" },
-      }),
-      await call(
-        member.cookies,
-        `/auth/organization/get-full-organization?organizationId=${workspace.id}&invitationId=missing`,
-      ),
-      await call(
-        invitee.cookies,
-        `/auth/organization/get-invitation?id=${invitation.id}&invitationId=${otherInvitation.id}`,
-      ),
-      await call(
-        member.cookies,
-        "/auth/organization/delete?invitationId=missing",
-        {
-          organizationId: workspace.id,
-        },
-      ),
-    ]) {
-      expect(response.status).toBe(403);
-      expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");
+  it("answers the removed provider organization endpoints with 404", async () => {
+    const { member, workspace, call } = await writeFixture();
+    await setArchived(workspace.id, true);
+    for (const [method, path, body] of [
+      ["GET", "/auth/organization/list"],
+      [
+        "GET",
+        `/auth/organization/get-full-organization?organizationId=${workspace.id}`,
+      ],
+      [
+        "POST",
+        "/auth/organization/set-active",
+        { organizationId: workspace.id },
+      ],
+      [
+        "POST",
+        "/auth/organization/update",
+        { organizationId: workspace.id, data: { name: "Renamed" } },
+      ],
+    ] as [string, string, Record<string, unknown>?][]) {
+      const response = await call(member.cookies, method, path, body);
+      expect([path, response.status]).toEqual([path, 404]);
     }
-    const [stored] = await db
-      .select({ name: schema.workspaceTable.name })
-      .from(schema.workspaceTable)
-      .where(eq(schema.workspaceTable.id, workspace.id));
-    expect(stored?.name).toBe(workspace.name);
   });
 });

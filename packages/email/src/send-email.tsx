@@ -20,9 +20,6 @@ import TestEmail, { type TestEmailProps } from "./templates/test-email";
 import PasswordResetEmail, {
   type PasswordResetEmailProps,
 } from "./templates/password-reset";
-import WorkspaceInvitationEmail, {
-  type WorkspaceInvitationEmailProps,
-} from "./templates/workspace-invitation";
 
 config();
 
@@ -71,32 +68,6 @@ export const sendPasswordResetEmail = async (
 export type EmailResult = {
   success: boolean;
   reason?: "SMTP_NOT_CONFIGURED";
-};
-
-export const sendWorkspaceInvitationEmail = async (
-  to: string,
-  subject: EmailSubject,
-  data: WorkspaceInvitationEmailProps,
-): Promise<EmailResult> => {
-  if (!isSmtpConfigured()) {
-    return { success: false, reason: "SMTP_NOT_CONFIGURED" };
-  }
-
-  try {
-    const email = await render(
-      WorkspaceInvitationEmail({ instance: instanceHost(), ...data, to }),
-      subject,
-    );
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("Error sending workspace invitation email", error);
-    throw error;
-  }
 };
 
 export const sendNotificationEmail = async (

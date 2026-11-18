@@ -47,22 +47,13 @@ const API_PROVIDER_IMPORTS_UNTIL: Record<string, "P3" | "P4"> = {
   "admin/audit/capture-auth-admin-audit.ts": "P4",
   "admin/audit/record-auth-admin-audit.ts": "P4",
   "admin/roles/assert-known-instance-roles.ts": "P4",
-  "project-access/resolve-invitation-project-access.ts": "P3",
   "user/controllers/prepare-admin-user-removal.ts": "P4",
-  "utils/assert-owner-invitation-resend-allowed.ts": "P3",
-  "utils/native-auth-api-key.ts": "P3",
-  "utils/native-organization-read-access.ts": "P3",
-  "workspace-members/assert-invitation-owner-allowed.ts": "P3",
-  "workspace-members/assert-stored-owner-role-safe.ts": "P3",
-  "workspace/archive/assert-native-organization-active.ts": "P3",
-  "workspace/kind/assert-shareable-workspace.ts": "P3",
-  "workspace/lifecycle/delete-native-workspace.ts": "P3",
+  // Shrunk to the get-session rule in P3; deleted with the key plugin.
+  "utils/native-auth-api-key.ts": "P4",
 };
 
 const API_PROVIDER_TABLES_UNTIL: Record<string, "P3" | "P4"> = {
   "admin/audit/capture-auth-admin-audit.ts": "P4",
-  "tour/demo/delete-demo-workspace.ts": "P3",
-  "workspace/lifecycle/delete-workspace-data.ts": "P3",
 };
 
 const WEB_PROVIDER_IMPORTS_UNTIL: Record<string, "P3" | "P4"> = {

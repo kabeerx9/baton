@@ -32,7 +32,7 @@ async function signup(email: string) {
   return { id: body.user.id as string, cookie };
 }
 beforeEach(() => resetTestDatabase());
-it("revokes provider administrative permissions after the owner saves an empty role", async () => {
+it("revokes administrative permissions after the owner saves an empty role", async () => {
   const owner = await signup("owner@example.com");
   const admin = await signup("admin@example.com");
   const [workspace] = await db
@@ -58,46 +58,39 @@ it("revokes provider administrative permissions after the owner saves an empty r
       joinedAt: new Date(),
     },
   ]);
-  await db.insert(schema.workspaceRoleTable).values({
-    workspaceId: workspace.id,
-    role: "admin",
-    permission: JSON.stringify(defaultRolePayloads.admin),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  const canManage = () =>
-    post(
-      "/organization/has-permission",
-      {
-        organizationId: workspace.id,
-        permissions: {
-          ac: ["update"],
-          member: ["update"],
-          invitation: ["create"],
-        },
-      },
-      admin.cookie,
+  const [adminRole] = await db
+    .insert(schema.workspaceRoleTable)
+    .values({
+      workspaceId: workspace.id,
+      role: "admin",
+      permission: JSON.stringify(defaultRolePayloads.admin),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning();
+  const canManage = async () => {
+    const response = await app.request(
+      `/api/workspace/${workspace.id}/capabilities`,
+      { headers: { Origin: origin, Cookie: admin.cookie } },
     );
-  expect(await (await canManage()).json()).toMatchObject({ success: true });
-  const demote = await post(
-    "/organization/update-role",
-    {
-      organizationId: workspace.id,
-      roleName: "admin",
-      data: { permission: {} },
-    },
-    owner.cookie,
-  );
+    expect(response.status).toBe(200);
+    const capabilities = (await response.json()) as Record<string, boolean>;
+    return capabilities.updateMembers && capabilities.inviteUsers;
+  };
+  const patchRole = (permission: unknown, cookie: string) =>
+    app.request(`/api/workspace/${workspace.id}/roles/${adminRole!.id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        Origin: origin,
+        Cookie: cookie,
+      },
+      body: JSON.stringify({ permission }),
+    });
+  expect(await canManage()).toBe(true);
+  const demote = await patchRole({}, owner.cookie);
   expect(demote.status).toBe(200);
-  expect(await (await canManage()).json()).toMatchObject({ success: false });
-  const restore = await post(
-    "/organization/update-role",
-    {
-      organizationId: workspace.id,
-      roleName: "admin",
-      data: { permission: defaultRolePayloads.admin },
-    },
-    admin.cookie,
-  );
+  expect(await canManage()).toBe(false);
+  const restore = await patchRole(defaultRolePayloads.admin, admin.cookie);
   expect(restore.status).toBe(403);
 });

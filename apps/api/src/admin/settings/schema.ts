@@ -14,7 +14,7 @@ export const updateInstanceSettingsBody = z
     }),
     registrationEnabled: z.boolean().optional().openapi({
       description:
-        "When false, only people with a valid invitation can create an account. Locked when `DISABLE_REGISTRATION=true`.",
+        "When false, nobody can sign up; administrators create accounts, and join links admit people who have one. Locked when `DISABLE_REGISTRATION=true`.",
     }),
     passwordRegistrationEnabled: z.boolean().optional().openapi({
       description:

@@ -12,6 +12,34 @@ import {
   workspacePermissionChecker,
 } from "../utils/require-workspace-permission";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { readClientIp } from "../utils/client-ip";
+import { changeWorkspaceMemberRole } from "../workspace-members/change-workspace-member-role";
+import { removeWorkspaceMember } from "../workspace-members/remove-workspace-member";
+import { transferWorkspaceOwnership } from "../workspace-members/transfer-workspace-ownership";
+import createWorkspaceRoleCtrl from "../workspace-roles/controllers/create-workspace-role";
+import deleteWorkspaceRoleCtrl from "../workspace-roles/controllers/delete-workspace-role";
+import listWorkspaceRolesCtrl from "../workspace-roles/controllers/list-workspace-roles";
+import updateWorkspaceRoleCtrl from "../workspace-roles/controllers/update-workspace-role";
+import {
+  createWorkspaceRoleRoute,
+  deleteWorkspaceRoleRoute,
+  listWorkspaceRolesRoute,
+  updateWorkspaceRoleRoute,
+} from "../workspace-roles/routes";
+import createWorkspaceCtrl from "./controllers/create-workspace";
+import deleteWorkspaceCtrl from "./controllers/delete-workspace";
+import leaveWorkspaceCtrl from "./controllers/leave-workspace";
+import updateWorkspaceCtrl from "./controllers/update-workspace";
+import {
+  createWorkspaceRoute,
+  deleteWorkspaceRoute,
+  leaveWorkspaceRoute,
+  removeWorkspaceMemberRoute,
+  transferWorkspaceOwnershipRoute,
+  updateWorkspaceMemberRoleRoute,
+  updateWorkspaceRoute,
+} from "./write-routes";
+import { memberActor } from "./write/member-actor";
 import getMyCapabilitiesCtrl from "./controllers/get-my-capabilities";
 import getMyProjectAccessCtrl from "./controllers/get-my-project-access";
 import getWorkspaceCtrl from "./controllers/get-workspace";
@@ -182,9 +210,113 @@ const updateMemberProjectAccessRoute = createRoute({
   },
 });
 
+const memberList = (workspaceId: string, userId: string) =>
+  getWorkspaceMembersCtrl({ workspaceId, userId });
+
 const workspace = apiRouter<BaseVariables & { workspaceId: string }>()
   .openapi(listWorkspacesRoute, async (c) =>
     c.json(await listWorkspacesCtrl(c.get("userId")), 200),
+  )
+  .openapi(createWorkspaceRoute, async (c) => {
+    const body = c.req.valid("json");
+    return c.json(
+      await createWorkspaceCtrl({ userId: c.get("userId"), ...body }),
+      201,
+    );
+  })
+  .openapi(updateWorkspaceRoute, async (c) =>
+    c.json(
+      await updateWorkspaceCtrl({
+        workspaceId: c.get("workspaceId"),
+        actor: memberActor(c),
+        patch: c.req.valid("json"),
+      }),
+      200,
+    ),
+  )
+  .openapi(deleteWorkspaceRoute, async (c) =>
+    c.json(
+      await deleteWorkspaceCtrl({
+        workspaceId: c.get("workspaceId"),
+        actor: memberActor(c),
+        request: {
+          ipAddress: readClientIp(c.req.raw.headers),
+          userAgent: c.req.header("user-agent") ?? null,
+        },
+      }),
+      200,
+    ),
+  )
+  .openapi(leaveWorkspaceRoute, async (c) =>
+    c.json(
+      await leaveWorkspaceCtrl({
+        workspaceId: c.get("workspaceId"),
+        actor: memberActor(c),
+      }),
+      200,
+    ),
+  )
+  .openapi(removeWorkspaceMemberRoute, async (c) => {
+    const workspaceId = c.get("workspaceId");
+    await removeWorkspaceMember({
+      workspaceId,
+      userId: c.req.valid("param").userId,
+      actor: memberActor(c),
+    });
+    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+  })
+  .openapi(updateWorkspaceMemberRoleRoute, async (c) => {
+    const workspaceId = c.get("workspaceId");
+    await changeWorkspaceMemberRole({
+      workspaceId,
+      userId: c.req.valid("param").userId,
+      role: c.req.valid("json").role,
+      actor: memberActor(c),
+    });
+    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+  })
+  .openapi(transferWorkspaceOwnershipRoute, async (c) => {
+    const workspaceId = c.get("workspaceId");
+    await transferWorkspaceOwnership({
+      workspaceId,
+      userId: c.req.valid("json").userId,
+      actor: memberActor(c),
+    });
+    return c.json(await memberList(workspaceId, c.get("userId")), 200);
+  })
+  .openapi(listWorkspaceRolesRoute, async (c) =>
+    c.json(await listWorkspaceRolesCtrl(c.get("workspaceId")), 200),
+  )
+  .openapi(createWorkspaceRoleRoute, async (c) =>
+    c.json(
+      await createWorkspaceRoleCtrl({
+        workspaceId: c.get("workspaceId"),
+        actor: memberActor(c),
+        ...c.req.valid("json"),
+      }),
+      201,
+    ),
+  )
+  .openapi(updateWorkspaceRoleRoute, async (c) =>
+    c.json(
+      await updateWorkspaceRoleCtrl({
+        workspaceId: c.get("workspaceId"),
+        roleId: c.req.valid("param").roleId,
+        actor: memberActor(c),
+        patch: c.req.valid("json"),
+      }),
+      200,
+    ),
+  )
+  .openapi(deleteWorkspaceRoleRoute, async (c) =>
+    c.json(
+      await deleteWorkspaceRoleCtrl({
+        workspaceId: c.get("workspaceId"),
+        roleId: c.req.valid("param").roleId,
+        actor: memberActor(c),
+      }),
+      200,
+    ),
   )
   .openapi(getWorkspaceRoute, async (c) =>
     c.json(

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { sessionTable, workspaceTable } from "../../database/schema";
+import { workspaceTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
 import type { OutboxTransaction } from "../../events/outbox/consumer";
@@ -40,10 +40,6 @@ export async function deleteDemoWorkspace(
   await deleteResourceNotifications(tx, { workspaceIds: [demo.id] });
   // Uploads made during the tour are removed only if the rows go too.
   await queueStorageCleanup(tx, await listWorkspaceObjectKeys(demo.id, tx));
-  await tx
-    .update(sessionTable)
-    .set({ activeOrganizationId: null, activeTeamId: null })
-    .where(eq(sessionTable.activeOrganizationId, demo.id));
   // Kind and owner too: this helper never deletes a team workspace.
   await tx
     .delete(workspaceTable)
