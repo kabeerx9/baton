@@ -5,7 +5,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import {
   migrationsFolder,
@@ -17,26 +16,14 @@ import {
   pluginKeyRow,
   replayPluginKeyRequests,
 } from "./helpers/plugin-api-keys";
+import {
+  createScratchDatabase,
+  type ScratchDatabase,
+} from "./helpers/scratch-database";
 
 const DROPS = "0005_auth_boundary_drops";
 const suiteUrl = process.env.DATABASE_URL!;
-const scratchName = "baton_auth_boundary_migration_test";
-
-function urlFor(database: string) {
-  const url = new URL(suiteUrl);
-  url.pathname = `/${database}`;
-  return url.toString();
-}
-
-async function admin(statement: string) {
-  const client = new Client({ connectionString: urlFor("postgres") });
-  await client.connect();
-  try {
-    await client.query(statement);
-  } finally {
-    await client.end();
-  }
-}
+let scratch: ScratchDatabase | undefined;
 
 const beforeDrops = migrationsThrough("0004_user_time_zone");
 type Database = typeof import("../../apps/api/src/database");
@@ -94,9 +81,8 @@ const KEPT = ["workspace", "workspace_member", "workspace_role", "user"];
 let before: Record<string, string[]>;
 
 beforeAll(async () => {
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}" WITH (FORCE)`);
-  await admin(`CREATE DATABASE "${scratchName}"`);
-  process.env.DATABASE_URL = urlFor(scratchName);
+  scratch = await createScratchDatabase("auth_boundary_migration", suiteUrl);
+  process.env.DATABASE_URL = scratch.url;
   database = await import("../../apps/api/src/database");
   await migrate(database.default, { migrationsFolder: beforeDrops.folder });
   await seed();
@@ -110,7 +96,7 @@ afterAll(async () => {
   await database?.getDatabasePool().end();
   process.env.DATABASE_URL = suiteUrl;
   beforeDrops.remove();
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}" WITH (FORCE)`);
+  await scratch?.drop();
 });
 
 describe("the auth-boundary drops migration (A8)", () => {

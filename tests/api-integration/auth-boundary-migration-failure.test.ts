@@ -8,38 +8,25 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Client, Pool } from "pg";
+import { Pool } from "pg";
 import { afterAll, beforeAll, expect, it } from "vite-plus/test";
 import { migrationsThrough } from "./helpers/baseline-only-migrations";
+import {
+  createScratchDatabase,
+  type ScratchDatabase,
+} from "./helpers/scratch-database";
 
-const scratchName = "baton_auth_boundary_failure_test";
 const repoRoot = resolve(import.meta.dirname, "../..");
-
-function urlFor(database: string) {
-  const url = new URL(process.env.DATABASE_URL!);
-  url.pathname = `/${database}`;
-  return url.toString();
-}
-
-async function admin(statement: string) {
-  const client = new Client({ connectionString: urlFor("postgres") });
-  await client.connect();
-  try {
-    await client.query(statement);
-  } finally {
-    await client.end();
-  }
-}
 
 const beforeDrops = migrationsThrough("0004_user_time_zone");
 // The child runs outside the repo so it cannot load the root `.env`.
 const childCwd = mkdtempSync(join(tmpdir(), "baton-startup-"));
 let pool: Pool;
+let scratch: ScratchDatabase | undefined;
 
 beforeAll(async () => {
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}" WITH (FORCE)`);
-  await admin(`CREATE DATABASE "${scratchName}"`);
-  pool = new Pool({ connectionString: urlFor(scratchName) });
+  scratch = await createScratchDatabase("auth_boundary_failure");
+  pool = new Pool({ connectionString: scratch.url });
   await migrate(drizzle(pool), { migrationsFolder: beforeDrops.folder });
 });
 
@@ -47,7 +34,7 @@ afterAll(async () => {
   await pool?.end();
   beforeDrops.remove();
   rmSync(childCwd, { recursive: true, force: true });
-  await admin(`DROP DATABASE IF EXISTS "${scratchName}" WITH (FORCE)`);
+  await scratch?.drop();
 });
 
 function startApi() {
@@ -60,7 +47,7 @@ function startApi() {
         PATH: process.env.PATH,
         HOME: process.env.HOME,
         NODE_ENV: "test",
-        DATABASE_URL: urlFor(scratchName),
+        DATABASE_URL: scratch!.url,
         AUTH_SECRET: "test-secret-with-at-least-32-chars",
         BATON_API_URL: "http://localhost:1337",
         BATON_CLIENT_URL: "http://localhost:5173",
