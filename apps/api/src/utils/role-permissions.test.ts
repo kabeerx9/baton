@@ -21,6 +21,19 @@ describe("roleAllows", () => {
     expect(roleAllows("member", stored, { task: ["read"] })).toBe(true);
   });
 
+  it("grants each built-in role exactly its plain statements", () => {
+    expect(roleAllows("owner", null, { workspace: ["delete"] })).toBe(true);
+    expect(roleAllows("admin", null, { workspace: ["delete"] })).toBe(false);
+    expect(roleAllows("admin", null, { organization: ["update"] })).toBe(true);
+    expect(roleAllows("member", null, { task: ["update"] })).toBe(true);
+    expect(roleAllows("member", null, { task: ["delete"] })).toBe(false);
+  });
+
+  it("treats an inherited object key as an unknown role", () => {
+    expect(roleAllows("constructor", null, {})).toBe(false);
+    expect(roleAllows("toString", null, {})).toBe(false);
+  });
+
   it("reads a custom role from its stored permission only", () => {
     expect(roleAllows("custom", null, workspaceRead)).toBe(false);
     expect(
