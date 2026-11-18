@@ -42,7 +42,8 @@ function RouteComponent() {
   const { workspaceId } = Route.useParams();
   const userId = useAuth().user?.id;
   const { data, error } = useQuery(workspaceQueryOptions(workspaceId));
-  const opened = data !== undefined && !error;
+  // Never remember an archived workspace or one the user is not a member of.
+  const opened = data !== undefined && data.role !== null && !error;
 
   // Remember on render, not in `beforeLoad`: a hover preload runs that too.
   useEffect(() => {

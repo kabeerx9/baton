@@ -6,9 +6,15 @@ const failWith = (error: unknown) => () => Promise.reject(error);
 
 describe("enterWorkspaceRoute", () => {
   it("is ready when the workspace reads", async () => {
-    expect(await enterWorkspaceRoute(() => Promise.resolve({}))).toEqual({
-      status: "ready",
-    });
+    expect(
+      await enterWorkspaceRoute(() => Promise.resolve({ role: "member" })),
+    ).toEqual({ status: "ready" });
+  });
+
+  it("refuses an instance admin who reads the workspace but is not a member", async () => {
+    expect(
+      await enterWorkspaceRoute(() => Promise.resolve({ role: null })),
+    ).toEqual({ status: "refused" });
   });
 
   it("keeps an archived workspace on its own screen", async () => {

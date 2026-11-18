@@ -65,7 +65,8 @@ function useActiveWorkspace() {
     state,
     data: state.status === "ready" ? state.workspace : undefined,
     error: state.status === "error" ? (state.error as Error) : null,
-    isLoading: state.status === "loading",
+    // A stale pick is about to be replaced, so it reads as loading.
+    isLoading: state.status === "loading" || stale !== null,
     isError: state.status === "error",
   };
 }

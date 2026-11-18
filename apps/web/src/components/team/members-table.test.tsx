@@ -255,3 +255,46 @@ describe("MembersTable removal", () => {
     expect(screen.getByText("Oscar Other")).toBeVisible();
   });
 });
+
+describe("MembersTable role change", () => {
+  async function pickRole(name: string) {
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "team:membersTable.roleSelectAria",
+      }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name }));
+  }
+
+  it("changes a role by user id and confirms it", async () => {
+    updateRole.mockResolvedValue({});
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+    await pickRole("team:roles.admin");
+    await waitFor(() =>
+      expect(updateRole).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        userId: "other-user",
+        role: "admin",
+      }),
+    );
+    expect(success).toHaveBeenCalledWith("team:membersTable.roleUpdateSuccess");
+  });
+
+  it("shows the API's error when the change is refused", async () => {
+    updateRole.mockRejectedValue(new Error("Role not found"));
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        users={[makeMember("other-user", "member", "Oscar Other")]}
+      />,
+    );
+    await pickRole("team:roles.viewer");
+    await waitFor(() => expect(error).toHaveBeenCalledWith("Role not found"));
+    expect(success).not.toHaveBeenCalled();
+  });
+});

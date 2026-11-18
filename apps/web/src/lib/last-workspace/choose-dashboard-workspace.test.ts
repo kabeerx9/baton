@@ -4,7 +4,7 @@ import { chooseDashboardWorkspace } from "./choose-dashboard-workspace";
 
 const a = { id: "a", kind: "team" };
 const b = { id: "b", kind: "team" };
-const ok = () => Promise.resolve({});
+const ok = () => Promise.resolve({ role: "member" });
 
 describe("chooseDashboardWorkspace", () => {
   it("opens the remembered workspace when it still reads", async () => {

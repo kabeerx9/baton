@@ -3,10 +3,7 @@ import {
   type CreateWorkspaceBody,
   createWorkspace,
 } from "@/fetchers/workspace/create-workspace";
-import {
-  WORKSPACES_QUERY_KEY,
-  workspaceQueryKey,
-} from "./workspace-query-keys";
+import { WORKSPACES_QUERY_KEY } from "./workspace-query-keys";
 
 /** The caller opens the new workspace by navigating to its route. */
 function useCreateWorkspace() {
@@ -17,10 +14,10 @@ function useCreateWorkspace() {
         name: name.trim(),
         description: description?.trim() || undefined,
       }),
-    onSuccess: async (workspace) => {
-      queryClient.setQueryData(workspaceQueryKey(workspace.id), workspace);
-      await queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEY });
-    },
+    // The route reads the new workspace itself; the 201 body is not
+    // trusted to carry the caller's role.
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEY }),
   });
 }
 

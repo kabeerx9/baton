@@ -36,7 +36,7 @@ beforeEach(() => {
 
 describe("workspace route entry", () => {
   it("reads the URL workspace itself before anything renders", async () => {
-    mocks.getWorkspace.mockResolvedValue({ id: "B" });
+    mocks.getWorkspace.mockResolvedValue({ id: "B", role: "member" });
     await enter();
     expect(mocks.getWorkspace).toHaveBeenCalledWith("B");
   });
@@ -62,6 +62,13 @@ describe("workspace route entry", () => {
     });
     expect(sessionStorage.getItem(KEY)).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("sends a non-member instance admin to /dashboard", async () => {
+    mocks.getWorkspace.mockResolvedValue({ id: "B", role: null });
+    await expect(enter()).rejects.toMatchObject({
+      options: { to: "/dashboard" },
+    });
   });
 
   it("writes no storage during a hover preload", async () => {

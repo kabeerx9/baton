@@ -10,7 +10,7 @@ export type DashboardChoice = {
 type Input = {
   remembered: string | null;
   workspaces: readonly { id: string; kind?: string | null }[];
-  readWorkspace: (id: string) => Promise<unknown>;
+  readWorkspace: (id: string) => Promise<{ role: string | null }>;
 };
 
 /**
