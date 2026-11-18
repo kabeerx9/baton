@@ -265,6 +265,30 @@ describe("TourRunner", () => {
       );
     });
 
+    it("reads the task cache without becoming one of its observers", async () => {
+      // A query observer with no queryFn logs "No queryFn" on each render
+      // and overwrites the task page's options for the shared query.
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { queryClient } = setup({ pathname: DETAIL });
+      await walkTo("nav-board");
+      next();
+      await heading("move-task");
+      act(() =>
+        queryClient.setQueryData(["task", TASK_IDS["api-endpoint"]], {
+          status: "done",
+        }),
+      );
+      expect(await heading("unblocked")).toBeInTheDocument();
+      const taskQuery = queryClient
+        .getQueryCache()
+        .find({ queryKey: ["task", TASK_IDS["api-endpoint"]] });
+      expect(taskQuery?.getObserversCount()).toBe(0);
+      expect(
+        errors.mock.calls.some((call) => String(call[0]).includes("queryFn")),
+      ).toBe(false);
+      errors.mockRestore();
+    });
+
     it("advances from the detail bar's write too", async () => {
       const { queryClient } = setup({ pathname: DETAIL });
       await walkTo("nav-board");

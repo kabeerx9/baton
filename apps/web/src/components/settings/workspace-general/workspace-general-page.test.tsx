@@ -21,6 +21,7 @@ const m = vi.hoisted(() => ({
   error: vi.fn(),
   isOwner: true,
   canDelete: true,
+  kind: "team" as "team" | "demo",
   members: [] as Array<{
     id: string;
     role: string;
@@ -43,7 +44,13 @@ vi.mock("@/components/providers/auth-provider/hooks/use-auth", () => ({
 }));
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
   default: () => ({
-    data: { id: "w1", name: "Studio", description: "", metadata: null },
+    data: {
+      id: "w1",
+      name: "Studio",
+      description: "",
+      metadata: null,
+      kind: m.kind,
+    },
   }),
 }));
 vi.mock("@/hooks/queries/workspace-users/use-get-workspace-users", () => ({
@@ -60,6 +67,9 @@ vi.mock("@/hooks/mutations/workspace/use-update-workspace", () => ({
   default: () => ({ mutateAsync: m.update }),
 }));
 vi.mock("@/hooks/mutations/workspace/use-delete-workspace", () => ({
+  default: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("@/hooks/mutations/workspace/use-leave-workspace", () => ({
   default: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("@/hooks/mutations/workspace/use-transfer-workspace-ownership", () => ({
@@ -85,6 +95,7 @@ describe("WorkspaceGeneralPage", () => {
     m.update.mockResolvedValue(undefined);
     m.isOwner = true;
     m.canDelete = true;
+    m.kind = "team";
     m.members = [owner];
   });
 
@@ -104,7 +115,7 @@ describe("WorkspaceGeneralPage", () => {
     ).toBeDisabled();
   });
 
-  it("hides ownership and the danger zone from people without access", () => {
+  it("gives a member only the leave row: no ownership, no delete", () => {
     m.isOwner = false;
     m.canDelete = false;
     render(<WorkspaceGeneralPage />);
@@ -112,6 +123,37 @@ describe("WorkspaceGeneralPage", () => {
     expect(
       screen.queryByText("settings:workspaceGeneral.ownershipTitle"),
     ).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "settings:workspaceGeneral.deleteWorkspace",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: "settings:workspaceGeneral.leave.button",
+      }),
+    ).toBeEnabled();
+  });
+
+  it("shows the owner why they cannot leave", () => {
+    render(<WorkspaceGeneralPage />);
+
+    expect(
+      screen.getByText("settings:workspaceGeneral.leave.ownerDescription"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "settings:workspaceGeneral.leave.button",
+      }),
+    ).toBeDisabled();
+  });
+
+  it("offers no leave on the tour's demo workspace", () => {
+    m.kind = "demo";
+    m.isOwner = false;
+    m.canDelete = false;
+    render(<WorkspaceGeneralPage />);
+
     expect(
       screen.queryByText("settings:workspaceGeneral.dangerZone"),
     ).toBeNull();

@@ -96,6 +96,46 @@ describe("workspace role permission editing", () => {
       }),
     );
   });
+  it("offers delete for a custom role only; a built-in role explains why", () => {
+    const role = {
+      id: "role",
+      workspaceId: "workspace",
+      permission: { task: ["read"] },
+      createdAt: "2026-11-18T00:00:00.000Z",
+      updatedAt: "2026-11-18T00:00:00.000Z",
+    };
+    const onDelete = vi.fn();
+    const view = render(
+      <CustomRoleEditor
+        workspaceId="workspace"
+        role={{ ...role, role: "member" }}
+        isDefault
+        onDelete={onDelete}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", {
+        name: "settings:workspaceRoles.deleteRole",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("settings:workspaceRoles.defaultRoleHelp"),
+    ).toBeInTheDocument();
+
+    view.rerender(
+      <CustomRoleEditor
+        workspaceId="workspace"
+        role={{ ...role, role: "qa" }}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings:workspaceRoles.deleteRole",
+      }),
+    );
+    expect(onDelete).toHaveBeenCalledOnce();
+  });
   it("also exposes unknown stored permission entries instead of silently retaining them", () => {
     render(
       <PermissionList
