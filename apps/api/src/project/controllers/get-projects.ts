@@ -96,9 +96,6 @@ async function getProjects(
   return projects.map((project) => ({
     ...project,
     statistics: statisticsByProject.get(project.id) ?? EMPTY_STATISTICS,
-    archivedTasks: [],
-    plannedTasks: [],
-    columns: [],
   }));
 }
 

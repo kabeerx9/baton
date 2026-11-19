@@ -42,10 +42,8 @@ import getInstanceStatus from "./instance/controllers/get-instance-status";
 import joinLink from "./join-link";
 import joinLinkPublic from "./join-link/public";
 import apiKey from "./api-key";
-import { ApiError } from "./errors/api-error";
 import label from "./label";
 import mcpRoutes, { mcpWellKnownRoutes } from "./mcp";
-import { migrateColumns } from "./migrations/column-migration";
 import notification from "./notification";
 import notificationPreferences from "./notification-preferences";
 import { createRoute, errorResponse, jsonResponse, z } from "./openapi";
@@ -70,7 +68,6 @@ import { requireIntegrationProviderEnabled } from "./instance-settings/require-i
 import { authorizeAssetAccess } from "./utils/authorize-asset-access";
 import { clientIpMiddleware } from "./utils/client-ip";
 import { normalizeApiServerUrl } from "./utils/openapi-spec";
-import { seedDefaultWorkspaceRoles } from "./utils/seed-default-workspace-roles";
 import { validateWorkspaceAccess } from "./utils/validate-workspace-access";
 import { requireWorkspacePermission } from "./utils/require-workspace-permission";
 import { PROJECT_READ_PERMISSIONS } from "./ws/project-read-permissions";
@@ -524,15 +521,6 @@ export function createApp() {
     return c.json(document);
   });
 
-  // Baton owns workspaces now (auth-boundary P3): the provider's
-  // organization routes are gone, for every kind of credential.
-  api.all("/auth/organization/*", () => {
-    throw new ApiError(404, {
-      code: "NOT_FOUND",
-      message: "Workspaces are served under /api/workspace.",
-    });
-  });
-
   api.on(
     ["POST", "GET", "PUT", "PATCH", "DELETE"],
     "/auth/*",
@@ -766,9 +754,6 @@ export async function runStartupTasks() {
       logger.info("✅ Database migrated successfully!");
     },
   });
-
-  await migrateColumns();
-  await seedDefaultWorkspaceRoles();
 
   initializePlugins();
   initializeScheduler();

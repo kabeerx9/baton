@@ -1707,10 +1707,10 @@ it("broadcasts only changed links and avoids task scans for unconfigured integra
   publish.mockClear();
   await reconcileProjectSync(f.project.id);
   expect(publish).not.toHaveBeenCalled();
-  const { syncRules: _, ...legacy } = f.config;
+  const { syncRules: _, ...withoutRules } = f.config;
   await db
     .update(schema.integrationTable)
-    .set({ config: JSON.stringify(legacy) })
+    .set({ config: JSON.stringify(withoutRules) })
     .where(eq(schema.integrationTable.id, f.integration.id));
   const query = vi.spyOn(getDatabasePool(), "query");
   await reconcileProjectSync(f.project.id);

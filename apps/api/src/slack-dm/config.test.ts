@@ -21,14 +21,12 @@ describe("slack digest config", () => {
     vi.stubEnv("SLACK_BOT_TOKEN", "xoxb-test");
     vi.stubEnv("SLACK_DIGEST_TIME", "9:30");
     vi.stubEnv("SLACK_DIGEST_TZ", "IST");
-    vi.stubEnv("SLACK_DIGEST_CRON", "0 10 * * 1-5");
     expect(slackConfig()).toMatchObject({
       digestTime: { hour: 10, minute: 0 },
       digestTimezone: "Asia/Kolkata",
     });
     const warnings = digestConfigWarnings();
-    expect(warnings).toHaveLength(3);
-    expect(warnings.join("\n")).toMatch(/SLACK_DIGEST_CRON is ignored/);
+    expect(warnings).toHaveLength(2);
     expect(warnings.join("\n")).toMatch(/SLACK_DIGEST_TIME "9:30"/);
     expect(warnings.join("\n")).toMatch(/SLACK_DIGEST_TZ "IST"/);
   });

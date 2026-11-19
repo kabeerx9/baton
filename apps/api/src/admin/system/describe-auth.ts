@@ -27,9 +27,6 @@ function githubStatus(): ServiceStatus {
     "GITHUB_OAUTH_CLIENT_ID",
     "GITHUB_OAUTH_CLIENT_SECRET",
     "GITHUB_OAUTH_CLIENT_SECRET_FILE",
-    "GITHUB_CLIENT_ID",
-    "GITHUB_CLIENT_SECRET",
-    "GITHUB_CLIENT_SECRET_FILE",
   ].some((name) => env(name))
     ? "warning"
     : "not_configured";

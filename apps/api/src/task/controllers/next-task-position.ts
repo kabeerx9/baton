@@ -37,8 +37,8 @@ export async function nextTaskPosition(
   const maximum = Math.max(0, range?.maximum ?? 0);
   if (maximum < MAX_TASK_POSITION) return maximum + 1;
 
-  // Repair legacy poisoned positions in SQL, preserving relative order. Merely
-  // rejecting future bad values would leave existing projects unable to append.
+  // A client may place a task at MAX_TASK_POSITION. Then compact the column in
+  // SQL, preserving relative order, so an append still finds room.
   const total = range?.total ?? 0;
   if (total >= MAX_TASK_POSITION) {
     throw new HTTPException(409, {

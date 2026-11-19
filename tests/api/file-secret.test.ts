@@ -9,7 +9,6 @@ const keys = [
   "GITHUB_OAUTH_CLIENT_ID",
   "GITHUB_OAUTH_CLIENT_SECRET",
   "GITHUB_OAUTH_CLIENT_SECRET_FILE",
-  "GITHUB_CLIENT_ID",
 ] as const;
 
 describe("file-backed secrets", () => {

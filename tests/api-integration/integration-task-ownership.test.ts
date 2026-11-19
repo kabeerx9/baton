@@ -203,7 +203,7 @@ describe("integration task ownership", () => {
       }),
     ).toEqual([manual]);
   });
-  it("moving a project removes legacy links owned by another project", async () => {
+  it("moving a project removes links owned by another project", async () => {
     const f = await setup();
     await db
       .update(schema.taskTable)
@@ -298,7 +298,7 @@ it("reports a concurrent move as a conflict without deleting links", async () =>
   expect(await db.query.externalLinkTable.findMany()).toHaveLength(1);
 });
 
-it("preserves legacy links belonging to the destination integration when moving back", async () => {
+it("preserves links belonging to the destination integration when moving back", async () => {
   const f = await setup();
   const [destinationIntegration] = await db
     .insert(schema.integrationTable)
@@ -310,8 +310,8 @@ it("preserves legacy links belonging to the destination integration when moving 
       taskId: f.task.id,
       integrationId: destinationIntegration.id,
       resourceType: "issue",
-      externalId: "legacy",
-      url: "https://github.com/legacy",
+      externalId: "earlier",
+      url: "https://github.com/earlier",
     })
     .returning();
   await moveTask({

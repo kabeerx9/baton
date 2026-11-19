@@ -9,7 +9,7 @@ export function getInitialTaskColumn<T extends WorkflowColumn>(
   for (const column of columns ?? []) {
     counts.set(column.slug, (counts.get(column.slug) ?? 0) + 1);
   }
-  // Creation accepts slugs, so an ambiguous legacy slug cannot pick a column.
+  // Creation accepts slugs, so a slug two columns share cannot pick a column.
   return columns?.find(
     (column) => !column.isFinal && counts.get(column.slug) === 1,
   );

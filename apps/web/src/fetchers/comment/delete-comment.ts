@@ -1,23 +1,18 @@
 import { client } from "@baton/libs";
-import type { InferRequestType } from "hono/client";
 import { HttpError } from "@/lib/http-error";
 
-export type DeleteCommentRequest = InferRequestType<
-  (typeof client)["activity"]["comment"]["$delete"]
->["json"];
+export type DeleteCommentRequest = { activityId: string };
 
 async function deleteComment({ activityId }: DeleteCommentRequest) {
-  const response = await client.activity.comment.$delete({
-    json: { activityId },
+  const response = await client.comment[":id"].$delete({
+    param: { id: activityId },
   });
 
   if (!response.ok) {
     throw await HttpError.fromResponse(response);
   }
 
-  const data = await response.json();
-
-  return data;
+  return response.json();
 }
 
 export default deleteComment;

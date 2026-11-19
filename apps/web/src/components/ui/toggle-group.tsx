@@ -40,8 +40,6 @@ type ToggleGroupProps = Omit<
   VariantProps<typeof toggleVariants> & {
     className?: string;
     children?: React.ReactNode;
-    /** Base UI's name for `loop`, kept so existing call sites still work. */
-    loopFocus?: boolean;
   };
 
 function ToggleGroup({
@@ -50,7 +48,6 @@ function ToggleGroup({
   size = "default",
   orientation = "horizontal",
   loop,
-  loopFocus,
   disabled = false,
   children,
   ...props
@@ -67,7 +64,7 @@ function ToggleGroup({
         : "*:not-first:not-data-[slot=separator]:before:-top-[0.5px] *:not-last:not-data-[slot=separator]:before:-bottom-[0.5px] flex-col *:not-first:rounded-t-none *:not-last:rounded-b-none *:not-first:border-t-0 *:not-last:border-b-0 *:not-first:before:rounded-t-none *:not-last:before:rounded-b-none *:data-[slot=toggle]:not-last:before:hidden dark:*:last:before:hidden dark:*:first:before:block",
     className,
   );
-  const resolvedLoop = loop ?? loopFocus ?? true;
+  const resolvedLoop = loop ?? true;
 
   return (
     <ToggleGroupPrimitive

@@ -385,29 +385,4 @@ describe("an archived workspace through the workspace write routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ name: "Renamed" });
   });
-
-  it("answers the removed provider organization endpoints with 404", async () => {
-    const { member, workspace, call } = await writeFixture();
-    await setArchived(workspace.id, true);
-    for (const [method, path, body] of [
-      ["GET", "/auth/organization/list"],
-      [
-        "GET",
-        `/auth/organization/get-full-organization?organizationId=${workspace.id}`,
-      ],
-      [
-        "POST",
-        "/auth/organization/set-active",
-        { organizationId: workspace.id },
-      ],
-      [
-        "POST",
-        "/auth/organization/update",
-        { organizationId: workspace.id, data: { name: "Renamed" } },
-      ],
-    ] as [string, string, Record<string, unknown>?][]) {
-      const response = await call(member.cookies, method, path, body);
-      expect([path, response.status]).toEqual([path, 404]);
-    }
-  });
 });

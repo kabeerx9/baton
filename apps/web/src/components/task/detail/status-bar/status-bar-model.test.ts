@@ -36,15 +36,6 @@ describe("deriveStatusBar", () => {
     }
   });
 
-  it("accepts a stored column id", () => {
-    const s = deriveStatusBar({
-      ...base,
-      columns: cols,
-      status: "id-in-progress",
-    });
-    expect(s.kind === "ready" && s.current).toBe("in-progress");
-  });
-
   it("treats a status no column knows as unknown, with nothing active", () => {
     const s = deriveStatusBar({ ...base, columns: cols, status: "archived" });
     expect(s.kind).toBe("unknown");

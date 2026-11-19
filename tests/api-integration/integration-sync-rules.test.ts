@@ -169,7 +169,7 @@ async function setup(role = "owner") {
 }
 
 describe("integration label policies", () => {
-  it("keeps legacy sync unrestricted and rejects malformed policies", () => {
+  it("keeps sync without rules unrestricted and rejects malformed policies", () => {
     expect(readSyncRules("{}")).toEqual(defaultSyncRules);
     expect(
       readSyncRules('{"syncRules":{"outgoing":{"mode":"labels","labels":[]}}}'),

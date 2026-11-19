@@ -1,1 +1,0 @@
-CREATE INDEX "notification_resource_idx" ON "notification" USING btree ("resource_type","resource_id");

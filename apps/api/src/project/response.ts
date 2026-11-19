@@ -1,6 +1,5 @@
 import { HTTPException } from "hono/http-exception";
 import { nullableResponseTimestamp, responseTimestamp, z } from "../openapi";
-import { boardColumnSchema, boardTaskSchema } from "../task/response";
 
 export const projectSchema = z
   .object({
@@ -44,16 +43,6 @@ export const projectStatisticsSchema = z
 export const projectListItemSchema = projectSchema
   .extend({
     statistics: projectStatisticsSchema,
-    // Legacy, always empty. Fetch the board via GET /task/tasks/{id}.
-    archivedTasks: z
-      .array(boardTaskSchema)
-      .openapi({ description: "Always empty." }),
-    plannedTasks: z
-      .array(boardTaskSchema)
-      .openapi({ description: "Always empty." }),
-    columns: z
-      .array(boardColumnSchema)
-      .openapi({ description: "Always empty." }),
   })
   .openapi("ProjectListItem");
 

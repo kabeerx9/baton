@@ -24,11 +24,11 @@ async function notifyDeletion(label: Label, userId: string) {
     .where(
       and(
         eq(taskTable.id, label.taskId),
-        eq(projectTable.workspaceId, label.workspaceId ?? ""),
+        eq(projectTable.workspaceId, label.workspaceId),
       ),
     )
     .limit(1);
-  // Legacy inconsistent rows may be cleaned up, but never emit foreign events.
+  // A label never emits events for a task outside its own workspace.
   if (!task) return;
   for (const remove of [removeLabelFromGitHub]) {
     try {

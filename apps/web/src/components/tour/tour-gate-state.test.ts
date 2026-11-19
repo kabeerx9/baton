@@ -18,10 +18,6 @@ describe("shouldHostTour", () => {
     ["there is no real workspace yet", { hasRealWorkspace: false }],
     ["onboarding is open", { pathname: "/onboarding" }],
     ["a join page is open", { pathname: "/join/abc" }],
-    [
-      "the legacy invitation page is open",
-      { pathname: "/invitation/accept/x" },
-    ],
   ])("waits when %s", (_name, override) => {
     expect(shouldHostTour({ ...base, ...override })).toBe(false);
   });

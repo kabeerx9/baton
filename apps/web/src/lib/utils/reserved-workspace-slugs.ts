@@ -8,8 +8,6 @@ const RESERVED_WORKSPACE_SLUGS = new Set([
   "dashboard",
   "device",
   "images",
-  "invitation",
-  "invitations",
   "join",
   "mcp",
   "onboarding",

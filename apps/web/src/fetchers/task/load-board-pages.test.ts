@@ -31,6 +31,7 @@ function board(id: string): ProjectWithTasks {
     icon: null,
     description: null,
     workspaceId: "workspace",
+    backgroundVersion: null,
     columns: [
       {
         id: "to-do",

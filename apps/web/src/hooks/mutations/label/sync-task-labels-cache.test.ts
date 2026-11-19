@@ -19,6 +19,7 @@ describe("updateTaskLabelsInProject", () => {
       createdAt: "2026-04-16T00:00:00.000Z",
       updatedAt: "2026-04-16T00:00:00.000Z",
       workspaceId: "workspace-1",
+      backgroundVersion: null,
       columns: [
         {
           id: "todo",
@@ -108,6 +109,7 @@ describe("updateTaskLabelsInProject", () => {
       createdAt: "2026-04-16T00:00:00.000Z",
       updatedAt: "2026-04-16T00:00:00.000Z",
       workspaceId: "workspace-1",
+      backgroundVersion: null,
       columns: [],
       plannedTasks: [
         {

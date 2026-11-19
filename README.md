@@ -43,7 +43,7 @@ The API listens on http://localhost:1337 and applies migrations at startup. [ENV
 | `BATON_API_URL` | The API origin. The hosted image derives it from `BATON_CLIENT_URL`. |
 | `DATABASE_URL` | PostgreSQL connection string. `POSTGRES_*` is the alternative. |
 | `AUTH_SECRET` | Protects sign-in sessions. Keep it stable. |
-| `SMTP_*` | Email for invitations, verification and password resets. |
+| `SMTP_*` | Email for verification, password resets and notifications. |
 | `SLACK_BOT_TOKEN` | Optional. Turns on Slack direct messages for hand-offs. |
 | `REDIS_URL` | Optional. Only needed for more than one API instance. |
 | `BATON_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS` | Optional. Allows notification destinations on private networks. |

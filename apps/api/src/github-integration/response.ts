@@ -23,7 +23,6 @@ export const githubIntegrationSchema = z
       description:
         "The GitHub App installation that grants access to the repository.",
     }),
-    requiresVerification: z.boolean(),
     importProgress: importResultSchema.optional(),
     branchPattern: z.string().optional().openapi({
       description: "Template used to name branches created for a task.",

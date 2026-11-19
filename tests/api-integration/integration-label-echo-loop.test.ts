@@ -83,7 +83,7 @@ beforeEach(async () => {
   mocks.onRead = undefined;
 });
 
-// Links record the field labels they start with; `{}` is a link from before.
+// Links record the field labels they start with.
 async function setup(
   provider: "github",
   metadata: Record<string, unknown> = { syncFieldLabels: [...mocks.labels] },
@@ -371,30 +371,21 @@ it("github defers a provider read that outlives the delivery budget", async () =
   expect((await f.metadataOf()).syncLabelFieldsDeferred).toBeNull();
 }, 20_000);
 
-it("github applies only the event's label on links without a record", async () => {
-  mocks.labels = new Set(["status:to-do", "priority:low"]);
-  const f = await setup("github", {});
-  // An imported closed issue: done in Baton, status:to-do on GitHub.
-  await db
-    .update(schema.taskTable)
-    .set({ status: "done", priority: "low" })
-    .where(eq(schema.taskTable.id, f.task.id));
+it("github changes nothing on a link without a field-label record", async () => {
+  const f = await setup("github", { syncLabelFieldsDeferred: "queued" });
+  const before = await f.current();
+  change("labeled", "status:in-review");
   change("labeled", "priority:high");
   await f.receive(mocks.deliveries.shift()!);
+  await replayDeferredLabelFields();
+  await f.receive(mocks.deliveries.shift()!);
   expect(await f.current()).toMatchObject({
-    status: "done",
-    priority: "high",
+    status: before.status,
+    priority: before.priority,
   });
-});
-
-it("github waits for the addition when a link without a record sees a removal first", async () => {
-  const f = await setup("github", {});
-  change("unlabeled", "status:to-do");
-  change("labeled", "status:in-review");
-  await f.receive(mocks.deliveries.shift()!);
-  expect((await f.metadataOf()).syncFieldLabels).toBeUndefined();
-  await f.receive(mocks.deliveries.shift()!);
-  expect(await f.status()).toBe("in-review");
+  const metadata = await f.metadataOf();
+  expect(metadata.syncFieldLabels).toBeUndefined();
+  expect(metadata.syncLabelFieldsDeferred).toBeNull();
 });
 
 it("replay moves past a link that keeps failing at its deadline", async () => {
@@ -432,33 +423,6 @@ it("replay moves past a link that keeps failing at its deadline", async () => {
   }
 });
 
-it("github replays the event's label for a deferred link without a record", async () => {
-  const f = await setup("github", {});
-  const lease = `sync-field-labels:${f.link.id}`;
-  await db.insert(schema.jobLeaseTable).values({
-    name: lease,
-    owner: "slow-reader",
-    expiresAt: new Date(Date.now() + 60_000),
-  });
-  change("labeled", "status:in-review");
-  await f.receive(mocks.deliveries.shift()!);
-  expect(await f.metadataOf()).toMatchObject({
-    syncLabelFieldsAdded: ["status:in-review"],
-  });
-
-  await db
-    .delete(schema.jobLeaseTable)
-    .where(eq(schema.jobLeaseTable.name, lease));
-  await replayDeferredLabelFields();
-  expect(await f.status()).toBe("in-review");
-  // Only the event's label applied; the leftover old label is recorded.
-  expect(await f.metadataOf()).toMatchObject({
-    syncFieldLabels: ["status:to-do", "status:in-review"],
-    syncLabelFieldsAdded: null,
-    syncLabelFieldsDeferred: null,
-  });
-}, 15_000);
-
 it("github shares one delivery budget across integrations", async () => {
   const first = await setup("github");
   const second = await setup("github");
@@ -480,7 +444,7 @@ it("github shares one delivery budget across integrations", async () => {
 }, 25_000);
 
 it("github keeps an addition deferred while another read is running", async () => {
-  const f = await setup("github", {});
+  const f = await setup("github");
   change("labeled", "status:in-review");
   change("labeled", "priority:high");
   const [status, priority] = mocks.deliveries.splice(0);
@@ -497,11 +461,11 @@ it("github keeps an addition deferred while another read is running", async () =
       }),
     ).toBeDefined(),
   );
-  // The priority event defers behind it and queues its label.
+  // The priority event defers behind it, so replay reads its label.
   await f.receive(priority!);
-  expect((await f.metadataOf()).syncLabelFieldsAdded).toEqual([
-    "priority:high",
-  ]);
+  expect((await f.metadataOf()).syncLabelFieldsDeferred).toEqual(
+    expect.any(String),
+  );
   release();
   await stalled;
   await replayDeferredLabelFields();

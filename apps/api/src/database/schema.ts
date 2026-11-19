@@ -36,9 +36,7 @@ export const userTable = pgTable("user", {
     .primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified")
-    .$defaultFn(() => false)
-    .notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at", { mode: "date" })
     .default(utcNow)
@@ -1000,10 +998,12 @@ export const labelTable = pgTable(
       onDelete: "cascade",
       onUpdate: "cascade",
     }),
-    workspaceId: text("workspace_id").references(() => workspaceTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
   },
   (table) => [
     index("label_task_id_idx").on(table.taskId),
@@ -1208,30 +1208,6 @@ export const userNotificationWorkspaceProjectTable = pgTable(
   ],
 );
 
-// Legacy table: the GitHub plugin migration drops it at startup on existing
-// installs, so SQL migrations must not touch it.
-export const githubIntegrationTable = pgTable("github_integration", {
-  id: text("id")
-    .$defaultFn(() => createId())
-    .primaryKey(),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => projectTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    })
-    .unique(),
-  repositoryOwner: text("repository_owner").notNull(),
-  repositoryName: text("repository_name").notNull(),
-  installationId: integer("installation_id"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
 export const integrationTable = pgTable(
   "integration",
   {
@@ -1324,39 +1300,6 @@ export const externalLinkTable = pgTable(
   ],
 );
 
-export const commentTable = pgTable(
-  "comment",
-  {
-    id: text("id")
-      .$defaultFn(() => createId())
-      .primaryKey(),
-    taskId: text("task_id")
-      .notNull()
-      .references(() => taskTable.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => userTable.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    content: text("content").notNull(),
-    createdAt: timestamp("created_at", { mode: "date" })
-      .default(utcNow)
-      .notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date" })
-      .default(utcNow)
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    index("comment_task_idx").on(table.taskId),
-    index("comment_user_idx").on(table.userId),
-  ],
-);
-
 export const taskRelationTable = pgTable(
   "task_relation",
   {
@@ -1400,9 +1343,6 @@ export const apikeyTable = pgTable(
       .references(() => userTable.id, { onDelete: "cascade" }),
     prefix: text("prefix"),
     key: text("key").notNull(),
-    userId: text("user_id").references(() => userTable.id, {
-      onDelete: "cascade",
-    }),
     refillInterval: integer("refill_interval"),
     refillAmount: integer("refill_amount"),
     lastRefillAt: timestamp("last_refill_at", { mode: "date" }),
@@ -1423,7 +1363,6 @@ export const apikeyTable = pgTable(
     index("apikey_configId_idx").on(table.configId),
     index("apikey_key_idx").on(table.key),
     index("apikey_referenceId_idx").on(table.referenceId),
-    index("apikey_userId_idx").on(table.userId),
   ],
 );
 
@@ -1514,7 +1453,6 @@ export const account = accountTable;
 export const verification = verificationTable;
 export const workspace = workspaceTable;
 export const workspace_member = workspaceUserTable;
-export const organizationRole = workspaceRoleTable;
 export const apikey = apikeyTable;
 // Auth-schema compatible relation exports in schema.ts
 export const userRelations = relations(user, ({ many }) => ({
@@ -1555,28 +1493,11 @@ export const workspace_memberRelations = relations(
   }),
 );
 
-export const organizationRoleRelations = relations(
-  organizationRole,
-  ({ one }) => ({
-    workspace: one(workspace, {
-      fields: [organizationRole.workspaceId],
-      references: [workspace.id],
-    }),
-  }),
-);
-
 // These records outlive their original owner so failed object deletion can retry.
 export const storageCleanupTable = pgTable("storage_cleanup", {
   objectKey: text("object_key").primaryKey(),
   lastAttemptAt: timestamp("last_attempt_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" })
-    .default(utcNow)
-    .notNull(),
-});
-
-export const dataMigrationTable = pgTable("data_migration", {
-  id: text("id").primaryKey(),
-  completedAt: timestamp("completed_at", { mode: "date" })
     .default(utcNow)
     .notNull(),
 });

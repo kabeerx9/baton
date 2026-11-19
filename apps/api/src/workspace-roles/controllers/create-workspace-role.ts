@@ -16,7 +16,7 @@ async function createWorkspaceRole(input: {
   const { workspaceId, actor, permission } = input;
   return db.transaction(async (tx) => {
     const { member } = await lockForRoleWrite(tx, workspaceId, actor, {
-      ac: ["create"],
+      role: ["create"],
     });
     const name = await assertNewRoleName(tx, workspaceId, input.role);
     const [existing] = await tx

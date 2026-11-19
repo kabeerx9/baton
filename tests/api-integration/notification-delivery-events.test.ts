@@ -9,7 +9,7 @@ import {
   vi,
 } from "vite-plus/test";
 import "../../apps/api/src/notification";
-import createComment from "../../apps/api/src/activity/controllers/create-comment";
+import createComment from "../../apps/api/src/comment/controllers/create-comment";
 import db, { schema } from "../../apps/api/src/database";
 import { encryptSecret } from "../../apps/api/src/notification-preferences/secrets";
 import updateTaskStatus from "../../apps/api/src/task/controllers/update-task-status";

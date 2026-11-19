@@ -273,11 +273,11 @@ export function TaskDetailPage({
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 sm:px-6">
       {/*
-        The page draws relations across the whole workspace: a "waits on" link
-        from another project changes this page's lanes and blocked counts. Keep
-        a socket per project the board draws from, as the board page does, so a
-        link added or removed by another client reaches this page. The layout
-        already keeps the current project's socket.
+        The page draws tasks from the whole workspace: a status change to a
+        blocker in another project changes this page's lanes and blocked
+        counts, and the API sends that change only to the blocker's project.
+        Keep a socket per project the board draws from, as the board page does.
+        The layout already keeps the current project's socket.
       */}
       <LaneSockets
         projectIds={(board?.projects ?? [])

@@ -33,11 +33,9 @@ describe("github-sso-env", () => {
     }
   });
 
-  it("prefers GITHUB_OAUTH_* when both are set", () => {
+  it("reads GITHUB_OAUTH_*", () => {
     process.env.GITHUB_OAUTH_CLIENT_ID = "oauth-id";
     process.env.GITHUB_OAUTH_CLIENT_SECRET = "oauth-secret";
-    process.env.GITHUB_CLIENT_ID = "legacy-id";
-    process.env.GITHUB_CLIENT_SECRET = "legacy-secret";
     expect(getGithubSsoOAuthCredentials()).toEqual({
       clientId: "oauth-id",
       clientSecret: "oauth-secret",
@@ -45,17 +43,9 @@ describe("github-sso-env", () => {
     expect(isGithubSsoConfigured()).toBe(true);
   });
 
-  it("falls back to legacy GITHUB_CLIENT_* when OAuth vars are unset", () => {
-    process.env.GITHUB_CLIENT_ID = "legacy-id";
-    process.env.GITHUB_CLIENT_SECRET = "legacy-secret";
-    expect(getGithubSsoOAuthCredentials()).toEqual({
-      clientId: "legacy-id",
-      clientSecret: "legacy-secret",
-    });
-    expect(isGithubSsoConfigured()).toBe(true);
-  });
-
-  it("returns empty credentials when nothing is configured", () => {
+  it("ignores GITHUB_CLIENT_*", () => {
+    process.env.GITHUB_CLIENT_ID = "other-id";
+    process.env.GITHUB_CLIENT_SECRET = "other-secret";
     expect(getGithubSsoOAuthCredentials()).toEqual({
       clientId: "",
       clientSecret: "",
@@ -63,13 +53,12 @@ describe("github-sso-env", () => {
     expect(isGithubSsoConfigured()).toBe(false);
   });
 
-  it("treats partial OAuth pair as absent and falls back to legacy", () => {
+  it("treats a partial pair as absent", () => {
     process.env.GITHUB_OAUTH_CLIENT_ID = "only-id";
-    process.env.GITHUB_CLIENT_ID = "legacy-id";
-    process.env.GITHUB_CLIENT_SECRET = "legacy-secret";
     expect(getGithubSsoOAuthCredentials()).toEqual({
-      clientId: "legacy-id",
-      clientSecret: "legacy-secret",
+      clientId: "",
+      clientSecret: "",
     });
+    expect(isGithubSsoConfigured()).toBe(false);
   });
 });

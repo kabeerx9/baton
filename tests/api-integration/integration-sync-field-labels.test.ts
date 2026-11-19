@@ -124,6 +124,9 @@ it.each(
         externalId: "1",
         url: "https://git.example/team/repo/issues/1",
         metadata: JSON.stringify({
+          syncFieldLabels: initializing
+            ? []
+            : ["status:planned", "priority:low"],
           syncResumeLabelBaseline: [...mocks.labels],
           ...(initializing
             ? {
@@ -304,3 +307,74 @@ it.each(
     );
   },
 );
+
+it("github writes no field labels for a link without a field-label record", async () => {
+  const { workspace, user } = await createWorkspaceMember();
+  const { project } = await createProjectFixture({ workspaceId: workspace.id });
+  const [task] = await db
+    .insert(schema.taskTable)
+    .values({ projectId: project.id, number: 1, title: "Task" })
+    .returning();
+  const config = {
+    baseUrl: "https://git.example",
+    accessToken: "fake-test-token",
+    repositoryOwner: "team",
+    repositoryName: "repo",
+    projectPath: "team/repo",
+    installationId: 1,
+    repositoryId: 2,
+    verifiedGithubAccountId: "3",
+    verifiedByUserId: user.id,
+    commentTaskLinkOnGitHubIssue: false,
+  };
+  const [integration] = await db
+    .insert(schema.integrationTable)
+    .values({
+      projectId: project.id,
+      type: "github",
+      isActive: true,
+      config: JSON.stringify(config),
+    })
+    .returning();
+  const [link] = await db
+    .insert(schema.externalLinkTable)
+    .values({
+      taskId: task!.id,
+      integrationId: integration!.id,
+      resourceType: "issue",
+      externalId: "1",
+      url: "https://git.example/team/repo/issues/1",
+      metadata: JSON.stringify({ state: "open" }),
+    })
+    .returning();
+  const log = vi.spyOn(logger, "error").mockImplementation(() => {});
+  try {
+    await githubPlugin.onTaskStatusChanged!(
+      {
+        taskId: task!.id,
+        projectId: project.id,
+        userId: user.id,
+        title: task!.title,
+        oldStatus: "planned",
+        newStatus: "in-progress",
+      },
+      { integrationId: integration!.id, projectId: project.id, config },
+    );
+    expect(log).toHaveBeenCalledWith("Issue link has no field-label record", {
+      integrationId: integration!.id,
+      linkId: link!.id,
+    });
+  } finally {
+    log.mockRestore();
+  }
+  expect(mocks.write).not.toHaveBeenCalled();
+  expect([...mocks.labels].sort()).toEqual([
+    "keep",
+    "priority:low",
+    "status:planned",
+  ]);
+  const saved = await db.query.externalLinkTable.findFirst({
+    where: eq(schema.externalLinkTable.id, link!.id),
+  });
+  expect(JSON.parse(saved!.metadata!)).toEqual({ state: "open" });
+});

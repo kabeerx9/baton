@@ -69,12 +69,7 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload) {
     // Other label events skip the provider read; status and priority come
     // only from the issue's current labels, never from this snapshot.
     if (fieldEvent)
-      await syncLabelFieldsFromIssue(
-        integration,
-        existingLink,
-        payload.action === "labeled" ? addedLabel?.name : null,
-        deadline,
-      );
+      await syncLabelFieldsFromIssue(integration, existingLink, deadline);
 
     await withIntegrationLink(
       existingLink,

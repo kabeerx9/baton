@@ -159,7 +159,7 @@ it("rejects a second drag from a stale column snapshot without duplicating posit
   expect(publish).not.toHaveBeenCalled();
 });
 
-it("rejects a legacy full update superseded by an atomic reorder", async () => {
+it("rejects a full update superseded by an atomic reorder", async () => {
   const { default: updateTask } =
     await import("../../apps/api/src/task/controllers/update-task");
   const { user, workspace } = await createWorkspaceMember();

@@ -300,11 +300,11 @@ describe("bounded resumable GitHub import", () => {
     });
   });
 
-  it.each(["new", "legacy-new", "legacy-existing"])(
+  it.each(["new", "existing"])(
     "preserves %s issue history across import requests",
     async (history) => {
       const { member, project, integration, config } = await setup();
-      const existing = history === "legacy-existing";
+      const existing = history === "existing";
       if (existing) {
         const [task] = await db
           .insert(schema.taskTable)
@@ -397,14 +397,6 @@ describe("bounded resumable GitHub import", () => {
           .syncFilterPaused === true,
       ).toBe(!existing);
       const initialComments = (await db.query.activityTable.findMany()).length;
-      if (history !== "new") {
-        const persisted = (await saved())!;
-        delete persisted.state.currentIssue!.isNewTask;
-        await db
-          .update(schema.githubImportTable)
-          .set({ state: persisted.state })
-          .where(eq(schema.githubImportTable.integrationId, integration.id));
-      }
       if (existing)
         await db
           .update(schema.integrationTable)

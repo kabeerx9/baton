@@ -207,30 +207,6 @@ describe("API integration: project creation", () => {
     expect((await update(project.id, "Design", "DSN")).status).toBe(200);
   });
 
-  it("ignores a legacy isPublic field and never returns one", async () => {
-    const member = await createWorkspaceMember({ role: "admin" });
-    const { project } = await createProjectFixture({
-      workspaceId: member.workspace.id,
-    });
-    mockAuthenticatedSession(member.user);
-    const { app } = createApp();
-    const response = await app.request(`/api/project/${project.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: "Renamed",
-        icon: "Folder",
-        slug: project.slug,
-        description: "",
-        isPublic: true,
-      }),
-    });
-    expect(response.status).toBe(200);
-    expect(await response.json()).not.toHaveProperty("isPublic");
-    const read = await app.request(`/api/project/${project.id}`);
-    expect(await read.json()).not.toHaveProperty("isPublic");
-  });
-
   it("rejects unarchiving a project whose key another project uses", async () => {
     const member = await createWorkspaceMember({ role: "admin" });
     await createProjectFixture({

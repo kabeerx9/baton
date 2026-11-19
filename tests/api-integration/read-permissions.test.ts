@@ -177,15 +177,15 @@ describe("workspace read permissions", () => {
       }
     });
 
-    it(`${authentication} cannot edit or delete its own comment without task:update through activity aliases`, async () => {
+    it(`${authentication} cannot edit or delete its own comment without task:update`, async () => {
       const { app, headers, comment } = await fixture(authentication, {
         task: ["read"],
       });
       for (const method of ["PUT", "DELETE"]) {
-        const response = await app.request("/api/activity/comment", {
+        const response = await app.request(`/api/comment/${comment.id}`, {
           method,
           headers: { ...headers, "content-type": "application/json" },
-          body: JSON.stringify({ activityId: comment.id, comment: "Changed" }),
+          body: JSON.stringify({ content: "Changed" }),
         });
         expect(response.status).toBe(403);
       }

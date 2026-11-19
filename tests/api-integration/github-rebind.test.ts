@@ -121,22 +121,6 @@ describe("GitHub repository changes preserve link ownership", () => {
     expect(await db.query.externalLinkTable.findFirst()).toMatchObject(link);
     expect(await db.query.githubImportTable.findFirst()).toBeDefined();
   });
-  it("allows administrator reverification of a matching legacy name, but requires disconnect for a different name", async () => {
-    const { config, integration, connect } = await setup();
-    const legacy = {
-      repositoryOwner: "OWNER",
-      repositoryName: "REPO",
-      installationId: 1,
-    };
-    await db
-      .update(schema.integrationTable)
-      .set({ config: JSON.stringify(legacy) })
-      .where(eq(schema.integrationTable.id, integration.id));
-    verify.mockResolvedValue({ ...config, repositoryName: "another" });
-    await expect(connect()).rejects.toMatchObject({ status: 409 });
-    verify.mockResolvedValue(config);
-    await expect(connect()).resolves.toMatchObject({ id: integration.id });
-  });
   it("requires an explicit disconnect when an existing configuration cannot establish repository identity", async () => {
     const { integration, connect } = await setup();
     await db

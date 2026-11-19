@@ -37,10 +37,10 @@ describe("API integration: task comments", () => {
 
     const formattedComment =
       "First paragraph\n\n\n\n- List item\n\n\n\nAfter list";
-    const uiResponse = await app.request("/api/activity/comment", {
+    const uiResponse = await app.request(`/api/comment/${task.id}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ taskId: task.id, comment: formattedComment }),
+      body: JSON.stringify({ content: formattedComment }),
     });
     expect(uiResponse.status).toBe(200);
 
@@ -89,12 +89,6 @@ describe("API integration: task comments", () => {
         ),
       );
     expect(storedComments).toHaveLength(2);
-
-    const legacyComments = await db
-      .select()
-      .from(schema.commentTable)
-      .where(eq(schema.commentTable.taskId, task.id));
-    expect(legacyComments).toHaveLength(0);
   });
 
   it.each([
@@ -124,10 +118,10 @@ describe("API integration: task comments", () => {
       const { app } = createApp();
 
       const comment = "x".repeat(length);
-      const response = await app.request("/api/activity/comment", {
+      const response = await app.request(`/api/comment/${task.id}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, comment }),
+        body: JSON.stringify({ content: comment }),
       });
 
       expect(response.status).toBe(status);
@@ -158,22 +152,19 @@ describe("API integration: task comments", () => {
         .returning();
       mockAuthenticatedSession(member.user);
       const { app } = createApp();
-      const createResponse = await app.request("/api/activity/comment", {
+      const createResponse = await app.request(`/api/comment/${task.id}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, comment: "Short comment" }),
+        body: JSON.stringify({ content: "Short comment" }),
       });
       expect(createResponse.status).toBe(200);
       const createdComment = (await createResponse.json()) as { id: string };
       const comment = "x".repeat(length);
 
-      const response = await app.request("/api/activity/comment", {
+      const response = await app.request(`/api/comment/${createdComment.id}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          activityId: createdComment.id,
-          comment,
-        }),
+        body: JSON.stringify({ content: comment }),
       });
 
       expect(response.status).toBe(status);

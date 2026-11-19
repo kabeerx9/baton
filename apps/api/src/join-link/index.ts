@@ -31,12 +31,12 @@ const manageLink = [
   workspaceAccess.fromParam("workspaceId"),
   refuseDemoWorkspace,
   requireUserSession,
-  requireWorkspacePermission({ invitation: ["create"] }),
+  requireWorkspacePermission({ join_link: ["create"] }),
 ];
 
 const manageErrors = {
   403: errorResponse(
-    "A user session is required (SESSION_REQUIRED), the caller lacks invitation:create (MISSING_PERMISSION), the workspace is a demo (DEMO_WORKSPACE) or archived (WORKSPACE_ARCHIVED)",
+    "A user session is required (SESSION_REQUIRED), the caller lacks join_link:create (MISSING_PERMISSION), the workspace is a demo (DEMO_WORKSPACE) or archived (WORKSPACE_ARCHIVED)",
   ),
   404: errorResponse("Workspace not found"),
 };

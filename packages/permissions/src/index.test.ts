@@ -32,9 +32,9 @@ describe("@baton/permissions statement surface", () => {
       "delete",
       "manage_settings",
     ]);
-    // The former provider resources stay: stored roles and keys name them.
-    expect(statement.organization).toBeDefined();
-    expect(statement.member).toBeDefined();
+    expect(statement.member).toEqual(["update", "delete"]);
+    expect(statement.join_link).toEqual(["create"]);
+    expect(statement.role).toEqual(["create", "read", "update", "delete"]);
   });
 });
 

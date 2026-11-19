@@ -64,7 +64,6 @@ export async function getProjectReadAccess(
       .select({
         id: schema.apikeyTable.id,
         referenceId: schema.apikeyTable.referenceId,
-        userId: schema.apikeyTable.userId,
         permissions: schema.apikeyTable.permissions,
       })
       .from(schema.apikeyTable)
@@ -80,12 +79,8 @@ export async function getProjectReadAccess(
       );
     for (const key of keys) {
       const permissions = parsePermissions(key.permissions);
-      const owner = key.referenceId ?? key.userId;
-      if (
-        owner &&
-        (!permissions || satisfies(permissions, PROJECT_READ_PERMISSIONS))
-      ) {
-        apiKeys.set(key.id, owner);
+      if (!permissions || satisfies(permissions, PROJECT_READ_PERMISSIONS)) {
+        apiKeys.set(key.id, key.referenceId);
       }
     }
   }

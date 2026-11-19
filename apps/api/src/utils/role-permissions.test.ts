@@ -27,7 +27,7 @@ describe("roleAllows", () => {
   it("grants each built-in role exactly its plain statements", () => {
     expect(roleAllows("owner", null, { workspace: ["delete"] })).toBe(true);
     expect(roleAllows("admin", null, { workspace: ["delete"] })).toBe(false);
-    expect(roleAllows("admin", null, { organization: ["update"] })).toBe(true);
+    expect(roleAllows("admin", null, { workspace: ["update"] })).toBe(true);
     expect(roleAllows("member", null, { task: ["update"] })).toBe(true);
     expect(roleAllows("member", null, { task: ["delete"] })).toBe(false);
   });

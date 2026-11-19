@@ -38,12 +38,6 @@ function resolveSmtpPassword(env: SmtpEnv): string | undefined {
 export function getSmtpTransportOptions(
   env: SmtpEnv = process.env,
 ): SMTPTransport.Options {
-  if (env.SMTP_IGNORE_TLS === "true") {
-    throw new Error(
-      "SMTP_IGNORE_TLS=true is no longer supported: it disables STARTTLS, not certificate validation. Remove it and trust your SMTP CA using NODE_EXTRA_CA_CERTS. For an intentionally unencrypted local relay, set SMTP_SECURE=false and SMTP_REQUIRE_TLS=false explicitly.",
-    );
-  }
-
   const options: SMTPTransport.Options = {
     host: env.SMTP_HOST,
     secure: env.SMTP_SECURE !== "false",

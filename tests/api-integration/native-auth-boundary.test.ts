@@ -104,7 +104,7 @@ function keyHeaders(key: string, bearer: boolean, cookies?: string) {
 
 describe("native auth credential boundary", () => {
   it.each([null, { label: ["read"] }] as (Permissions | null)[])(
-    "keeps scoped and legacy keys out of account, session and admin management (%j)",
+    "keeps scoped and unscoped keys out of account, session and admin management (%j)",
     async (permissions) => {
       const { app, owner, viewer, ownerToken } = await fixture();
       await db
@@ -273,47 +273,6 @@ describe("native auth credential boundary", () => {
     }
   });
 
-  it("answers the removed provider organization endpoints with 404", async () => {
-    const { app, owner, workspace } = await fixture();
-    const key = await keyFor(app, owner.cookies, null);
-    for (const headers of [
-      { cookie: owner.cookies },
-      keyHeaders(key.key, true),
-    ]) {
-      for (const [method, path] of [
-        ["GET", "list"],
-        ["GET", `get-full-organization?organizationId=${workspace.id}`],
-        ["GET", `list-members?organizationId=${workspace.id}`],
-        ["GET", "get-active-member"],
-        ["POST", "create"],
-        ["POST", "update"],
-        ["POST", "set-active"],
-      ] as const) {
-        const response = await app.request(`/api/auth/organization/${path}`, {
-          method,
-          headers: { ...headers, "content-type": "application/json" },
-          ...(method === "POST"
-            ? {
-                body: JSON.stringify({
-                  organizationId: workspace.id,
-                  name: "Escaped",
-                  slug: "escaped",
-                  data: { name: "Escaped" },
-                }),
-              }
-            : {}),
-        });
-        expect(response.status, path).toBe(404);
-      }
-    }
-    const [row] = await db
-      .select()
-      .from(schema.workspaceTable)
-      .where(eq(schema.workspaceTable.id, workspace.id));
-    expect(row?.name).toBe("Private workspace");
-    expect(await db.select().from(schema.workspaceTable)).toHaveLength(1);
-  });
-
   it("keeps real bearer and cookie credential management; impersonation is gone", async () => {
     const { app, owner, viewer, ownerToken } = await fixture();
     await db
@@ -468,7 +427,7 @@ describe("workspace scope and current workspace grants", () => {
       const { app, owner, viewer, workspace } = await fixture();
       const limited = await keyFor(app, owner.cookies, { label: ["read"] });
       const reader = await keyFor(app, owner.cookies, { workspace: ["read"] });
-      const legacy = await keyFor(app, owner.cookies, null);
+      const unscoped = await keyFor(app, owner.cookies, null);
       for (const cookies of [undefined, viewer.cookies]) {
         for (const path of [
           `/api/workspace/${workspace.id}`,
@@ -483,7 +442,7 @@ describe("workspace scope and current workspace grants", () => {
             code: "API_KEY_SCOPE",
           });
         }
-        for (const key of [reader, legacy]) {
+        for (const key of [reader, unscoped]) {
           const full = await app.request(`/api/workspace/${workspace.id}`, {
             headers: keyHeaders(key.key, bearer, cookies),
           });
@@ -528,7 +487,7 @@ describe("workspace scope and current workspace grants", () => {
     const { app, owner, viewer, workspace } = await fixture();
     const limited = await keyFor(app, owner.cookies, { label: ["read"] });
     const editor = await keyFor(app, owner.cookies, {
-      organization: ["update"],
+      workspace: ["update"],
     });
     const operations = [
       {
@@ -559,10 +518,10 @@ describe("workspace scope and current workspace grants", () => {
     });
     expect(updated.status).toBe(200);
     expect(await updated.json()).toMatchObject({ name: "Updated" });
-    const legacy = await keyFor(app, owner.cookies, null);
+    const unscoped = await keyFor(app, owner.cookies, null);
     const created = await app.request("/api/workspace", {
       method: "POST",
-      headers: keyHeaders(legacy.key, false),
+      headers: keyHeaders(unscoped.key, false),
       body: JSON.stringify({ name: "CLI workspace" }),
     });
     expect(created.status).toBe(201);

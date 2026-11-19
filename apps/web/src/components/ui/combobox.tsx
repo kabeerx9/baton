@@ -31,20 +31,6 @@ import { i18n } from "@/lib/i18n";
 import { containPopupEvents } from "./popup-containment";
 import { POPUP_RESET } from "./popup-reset";
 
-/** Base UI's names for props UI SDK renamed (record section 4, rule 3). */
-type LegacyNames<Value> = {
-  /** UI SDK name: `itemToLabel`. */
-  itemToStringLabel?: (value: Value) => string;
-  /** UI SDK name: `itemToValue`. */
-  itemToStringValue?: (value: Value) => string;
-  /** UI SDK name: `onQueryChange`. */
-  onInputValueChange?: (value: string, details: { reason: string }) => void;
-  /** UI SDK name: `query`. */
-  inputValue?: string;
-  /** UI SDK name: `defaultQuery`. */
-  defaultInputValue?: string;
-};
-
 type Selection<Value, Multiple> = [Multiple] extends [true]
   ? Value[]
   : Value | null;
@@ -54,35 +40,32 @@ type ComboboxProps<Value, Multiple extends boolean | undefined = false> = Omit<
   // inferring the callback parameters at call sites.
   ComboboxRootProps<Value, boolean>,
   "items" | "filter" | "multiple" | "value" | "defaultValue" | "onValueChange"
-> &
-  LegacyNames<Value> & {
-    /** Raw values, as Base UI took them. A list function child renders each. */
-    items?: readonly Value[];
-    /**
-     * Base UI's contract: `null` keeps every item, a function gets the raw item,
-     * the query and a label function. UI SDK spells "keep all" `false` and hands
-     * its own `{ value, label }` entry, so the wrapper adapts both.
-     */
-    filter?:
-      | "contains"
-      | "startsWith"
-      | false
-      | null
-      | ((
-          item: Value,
-          query: string,
-          itemToString: (value: Value) => string,
-        ) => boolean);
-    /** UI SDK name: `loop`. */
-    loopFocus?: boolean;
-    multiple?: Multiple;
-    value?: Selection<Value, Multiple>;
-    defaultValue?: Selection<Value, Multiple>;
-    onValueChange?: (
-      value: Selection<Value, Multiple>,
-      details: ChangeDetails<ComboboxValueChangeReason>,
-    ) => void;
-  };
+> & {
+  /** Raw values, as Base UI took them. A list function child renders each. */
+  items?: readonly Value[];
+  /**
+   * Base UI's contract: `null` keeps every item, a function gets the raw item,
+   * the query and a label function. UI SDK spells "keep all" `false` and hands
+   * its own `{ value, label }` entry, so the wrapper adapts both.
+   */
+  filter?:
+    | "contains"
+    | "startsWith"
+    | false
+    | null
+    | ((
+        item: Value,
+        query: string,
+        itemToString: (value: Value) => string,
+      ) => boolean);
+  multiple?: Multiple;
+  value?: Selection<Value, Multiple>;
+  defaultValue?: Selection<Value, Multiple>;
+  onValueChange?: (
+    value: Selection<Value, Multiple>,
+    details: ChangeDetails<ComboboxValueChangeReason>,
+  ) => void;
+};
 
 /**
  * The raw `items`, for a list function child. They are not handed to UI SDK:
@@ -103,21 +86,10 @@ const LooseRoot = ComboboxRoot as unknown as React.ComponentType<
 function Combobox<
   Value = string,
   Multiple extends boolean | undefined = false,
->({
-  items,
-  filter,
-  loopFocus,
-  itemToStringLabel,
-  itemToStringValue,
-  onInputValueChange,
-  inputValue,
-  defaultInputValue,
-  ...props
-}: ComboboxProps<Value, Multiple>) {
-  const toLabel = itemToStringLabel ?? ((value: Value) => String(value));
+>({ items, filter, ...props }: ComboboxProps<Value, Multiple>) {
+  const toLabel = props.itemToLabel ?? ((value: Value) => String(value));
   const mapped = {
     ...props,
-    ...(loopFocus === undefined ? null : { loop: loopFocus }),
     ...(filter === undefined
       ? null
       : {
@@ -127,13 +99,6 @@ function Combobox<
                   filter(entry.value as Value, query, toLabel)
               : (filter ?? false),
         }),
-    ...(itemToStringLabel ? { itemToLabel: itemToStringLabel } : null),
-    ...(itemToStringValue ? { itemToValue: itemToStringValue } : null),
-    ...(onInputValueChange ? { onQueryChange: onInputValueChange } : null),
-    ...(inputValue === undefined ? null : { query: inputValue }),
-    ...(defaultInputValue === undefined
-      ? null
-      : { defaultQuery: defaultInputValue }),
   };
 
   return (

@@ -31,10 +31,9 @@ export type Actor = (typeof ACTORS)[number];
 export const CUSTOM_ROLE = {
   name: "reviewer",
   permission: {
-    workspace: ["read"],
-    organization: ["update"],
+    workspace: ["read", "update"],
     member: ["update"],
-    ac: ["read", "create"],
+    role: ["read", "create"],
   },
 };
 
@@ -119,7 +118,7 @@ export const ACTIONS: Record<string, (s: Seeded) => Request> = {
   "roles.create-beyond-own": (s) => ({
     method: "POST",
     path: `/workspace/${s.workspaceId}/roles`,
-    body: { role: "extra", permission: { organization: ["delete"] } },
+    body: { role: "extra", permission: { workspace: ["delete"] } },
   }),
   "roles.update": (s) => ({
     method: "PATCH",
@@ -129,7 +128,7 @@ export const ACTIONS: Record<string, (s: Seeded) => Request> = {
   "roles.update-beyond-own": (s) => ({
     method: "PATCH",
     path: `/workspace/${s.workspaceId}/roles/${s.roleIds.spare}`,
-    body: { permission: { organization: ["delete"] } },
+    body: { permission: { workspace: ["delete"] } },
   }),
   "roles.update-seeded": (s) => ({
     method: "PATCH",

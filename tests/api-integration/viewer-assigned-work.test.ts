@@ -101,11 +101,6 @@ function workCalls(
     },
     comment: () =>
       send(`/api/comment/${taskId}`, json("POST", { content: "On it" })),
-    activityComment: () =>
-      send(
-        "/api/activity/comment",
-        json("POST", { taskId, comment: "Also on it" }),
-      ),
     label: () => send(`/api/label/${f.label.id}/task`, json("PUT", { taskId })),
   };
 }

@@ -68,7 +68,7 @@ describe("TaskStatusBar", () => {
   });
 
   it("checks nothing for a status no column knows, and says so", () => {
-    render(<TaskStatusBar task={task("legacy-status")} blocked={false} />);
+    render(<TaskStatusBar task={task("unknown-status")} blocked={false} />);
     expect(checked()).toHaveLength(0);
     expect(screen.getByRole("status").textContent).toBe(
       "tasks:hero.status.unknown",

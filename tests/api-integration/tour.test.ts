@@ -222,8 +222,9 @@ describe("tour routes", () => {
       body: JSON.stringify({ status: "done" }),
     });
     expect(moved.status).toBe(200);
-    await db.insert(schema.commentTable).values({
+    await db.insert(schema.activityTable).values({
       taskId: taskIds[0]!,
+      type: "comment",
       userId: user.id,
       content: "Looks good",
     });
@@ -276,7 +277,6 @@ describe("tour routes", () => {
     );
     expect(await count("task_relation", "source_task_id", taskIds)).toBe(0);
     expect(await count("activity", "task_id", taskIds)).toBe(0);
-    expect(await count("comment", "task_id", taskIds)).toBe(0);
     expect(
       await count("notification", "resource_id", [...taskIds, workspaceId]),
     ).toBe(0);

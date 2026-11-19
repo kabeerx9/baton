@@ -55,8 +55,7 @@ export function deriveStatusBar({
       locked: blocked && c.isFinal,
     }));
   const stored = status ?? "";
-  // The API stores the slug; an older row may hold the column id.
-  const matched = columns.find((c) => c.slug === stored || c.id === stored);
+  const matched = columns.find((c) => c.slug === stored);
   if (!matched) return { kind: "unknown", steps, stored };
   const index = steps.findIndex((s) => s.slug === matched.slug);
   return { kind: "ready", steps, current: matched.slug, index };

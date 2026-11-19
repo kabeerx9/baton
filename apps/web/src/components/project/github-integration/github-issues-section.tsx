@@ -19,10 +19,7 @@ export function GithubIssuesSection({
   const { canCreateTasks, canUpdateTasks } = useWorkspacePermission();
   const { mutateAsync: importIssues, isPending } = useImportGithubIssues();
   const hasImportPermission = canCreateTasks() && canUpdateTasks();
-  const canImport =
-    hasImportPermission &&
-    Boolean(integration.isActive) &&
-    !integration.requiresVerification;
+  const canImport = hasImportPermission && Boolean(integration.isActive);
   const progress = integration.importProgress;
 
   const handleImport = async () => {

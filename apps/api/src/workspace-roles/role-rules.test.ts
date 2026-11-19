@@ -22,14 +22,14 @@ describe("role rules", () => {
     expect(
       unknownPermissions({ task: ["read", "fly"], spaceship: ["launch"] }),
     ).toEqual(["task:fly", "spaceship:*"]);
-    expect(unknownPermissions({ task: ["read"], ac: ["read"] })).toEqual([]);
+    expect(unknownPermissions({ task: ["read"], role: ["read"] })).toEqual([]);
     expect(unknownPermissions({ constructor: ["x"] })).toEqual([
       "constructor:*",
     ]);
   });
 
   it("splits a permission map into single permissions", () => {
-    expect(eachPermission({ task: ["read", "update"], ac: [] })).toEqual([
+    expect(eachPermission({ task: ["read", "update"], role: [] })).toEqual([
       { task: ["read"] },
       { task: ["update"] },
     ]);

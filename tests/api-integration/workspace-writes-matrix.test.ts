@@ -94,24 +94,24 @@ describe("API key scopes against the provider matrix (A2)", () => {
   const SCOPES: Record<string, Record<string, string[]>> = {
     "workspace.read": { workspace: ["read"] },
     "members.list": { workspace: ["read"] },
-    "workspace.update": { organization: ["update"] },
-    "workspace.delete": { organization: ["delete"] },
+    "workspace.update": { workspace: ["update"] },
+    "workspace.delete": { workspace: ["delete"] },
     "workspace.leave": { workspace: ["manage_settings"] },
     "member.remove": { member: ["delete"] },
     "member.remove-owner": { member: ["delete"] },
     "member.role": { member: ["update"] },
     "member.role-of-owner": { member: ["update"] },
     "member.role-to-owner": { member: ["update"] },
-    "roles.list": { ac: ["read"] },
-    "roles.create": { ac: ["create"] },
-    "roles.create-beyond-own": { ac: ["create"] },
-    "roles.update": { ac: ["update"] },
-    "roles.update-beyond-own": { ac: ["update"] },
-    "roles.update-seeded": { ac: ["update"] },
-    "roles.rename-to-owner": { ac: ["update"] },
-    "roles.delete": { ac: ["delete"] },
-    "roles.delete-seeded": { ac: ["delete"] },
-    "roles.delete-in-use": { ac: ["delete"] },
+    "roles.list": { role: ["read"] },
+    "roles.create": { role: ["create"] },
+    "roles.create-beyond-own": { role: ["create"] },
+    "roles.update": { role: ["update"] },
+    "roles.update-beyond-own": { role: ["update"] },
+    "roles.update-seeded": { role: ["update"] },
+    "roles.rename-to-owner": { role: ["update"] },
+    "roles.delete": { role: ["delete"] },
+    "roles.delete-seeded": { role: ["delete"] },
+    "roles.delete-in-use": { role: ["delete"] },
   };
 
   it(
@@ -211,13 +211,4 @@ describe("rules against the provider matrix (A2)", () => {
       }
     },
   );
-
-  it("refuses a quarantined owner grant on removal", async () => {
-    for (const action of ["member.remove", "member.remove-owner"] as const) {
-      const seeded = await ctx.seed("admin", { role: "admin, owner" });
-      expect(
-        await ctx.cell(ACTIONS[action]!(seeded), ctx.as.cookie("admin")),
-      ).toEqual(matrix.rules.quarantinedOwnerToken[action]);
-    }
-  });
 });

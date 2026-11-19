@@ -27,7 +27,7 @@ async function updateWorkspace(input: {
   return db.transaction(async (tx) => {
     const locked = await lockWorkspace(tx, workspaceId, { allowDemo: true });
     const member = await authorizeWorkspaceWrite(tx, locked, actor, {
-      permissions: { organization: ["update"] },
+      permissions: { workspace: ["update"] },
     });
     const set = {
       ...(name !== undefined ? { name } : {}),

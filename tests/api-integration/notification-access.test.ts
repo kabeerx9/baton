@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from "vite-plus/test";
-import createComment from "../../apps/api/src/activity/controllers/create-comment";
+import createComment from "../../apps/api/src/comment/controllers/create-comment";
 import db, { schema } from "../../apps/api/src/database";
 import { taskReminderSentTable } from "../../apps/api/src/database/schema";
 import clearNotifications from "../../apps/api/src/notification/controllers/clear-notifications";

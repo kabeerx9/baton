@@ -13,7 +13,6 @@ import {
   onlyOwnerError,
   ownerRequiredError,
 } from "../workspace/write/write-errors";
-import { assertStoredOwnerRoleSafe } from "./assert-stored-owner-role-safe";
 import { handleMemberRemoved } from "./handle-member-removed";
 
 /**
@@ -34,8 +33,6 @@ export async function removeWorkspaceMember(input: {
       permissions: { member: ["delete"] },
       refuseDemo: true,
     });
-    // A legacy padded owner token never acts as ownership (auth.ts:669-682).
-    if (actorMember) assertStoredOwnerRoleSafe(actorMember.role);
     const target = locked.members.find((row) => row.userId === userId);
     if (!target) throw memberNotFoundError();
     if (isOwnerRole(target.role)) {

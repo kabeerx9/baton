@@ -52,13 +52,7 @@ async function createGithubIntegration({
     }
     const parsed = v.safeParse(githubConfigSchema, previous);
     const sameRepository =
-      parsed.success &&
-      (parsed.output.repositoryId !== undefined
-        ? parsed.output.repositoryId === binding.repositoryId
-        : parsed.output.repositoryOwner.toLowerCase() ===
-            binding.repositoryOwner.toLowerCase() &&
-          parsed.output.repositoryName.toLowerCase() ===
-            binding.repositoryName.toLowerCase());
+      parsed.success && parsed.output.repositoryId === binding.repositoryId;
     if (!sameRepository) {
       // External issue/PR numbers are scoped to a repository. Reusing this
       // integration ID would reinterpret its existing links in another repo.
@@ -98,7 +92,6 @@ async function createGithubIntegration({
       repositoryOwner: binding.repositoryOwner,
       repositoryName: binding.repositoryName,
       installationId,
-      requiresVerification: false,
       isActive: updatedIntegration?.isActive,
       createdAt: updatedIntegration?.createdAt,
       updatedAt: updatedIntegration?.updatedAt,
@@ -121,7 +114,6 @@ async function createGithubIntegration({
     repositoryOwner: binding.repositoryOwner,
     repositoryName: binding.repositoryName,
     installationId,
-    requiresVerification: false,
     isActive: newIntegration?.isActive,
     createdAt: newIntegration?.createdAt,
     updatedAt: newIntegration?.updatedAt,

@@ -37,12 +37,12 @@ const FAMILIES: Record<string, Family[]> = {
   "workspace update and delete": [
     {
       actor: "admin",
-      scope: { organization: ["update"] },
+      scope: { workspace: ["update"] },
       action: "workspace.update",
     },
     {
       actor: "owner",
-      scope: { organization: ["delete"] },
+      scope: { workspace: ["delete"] },
       action: "workspace.delete",
     },
   ],
@@ -58,9 +58,9 @@ const FAMILIES: Record<string, Family[]> = {
     },
   ],
   "role create, update and delete": [
-    { actor: "admin", scope: { ac: ["create"] }, action: "roles.create" },
-    { actor: "admin", scope: { ac: ["update"] }, action: "roles.update" },
-    { actor: "admin", scope: { ac: ["delete"] }, action: "roles.delete" },
+    { actor: "admin", scope: { role: ["create"] }, action: "roles.create" },
+    { actor: "admin", scope: { role: ["update"] }, action: "roles.update" },
+    { actor: "admin", scope: { role: ["delete"] }, action: "roles.delete" },
   ],
   leave: [
     {

@@ -14,19 +14,15 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   Dialog,
-  DialogBackdrop,
   DialogClose,
   DialogContent,
   DialogCreateHandle,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
   DialogPanel,
-  DialogPortal,
   DialogTitle,
   DialogTrigger,
-  DialogViewport,
 } from "./dialog";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./menu";
 import { expectPopupContainment } from "./popup-containment-test-utils";
@@ -545,26 +541,6 @@ describe("Dialog handle", () => {
     await expectOpen();
     act(() => handle.close());
     await expectClosed();
-  });
-});
-
-describe("Dialog exports kept for callers", () => {
-  it("keeps DialogPortal, DialogViewport and DialogOverlay as usable parts", async () => {
-    expect(DialogOverlay).toBe(DialogBackdrop);
-    render(
-      <Dialog defaultOpen>
-        <DialogPortal>
-          <DialogOverlay />
-          <DialogViewport>
-            <DialogContent showCloseButton={false}>
-              <DialogTitle>Parts</DialogTitle>
-            </DialogContent>
-          </DialogViewport>
-        </DialogPortal>
-      </Dialog>,
-    );
-    await expectOpen();
-    expect(screen.getByRole("dialog", { name: "Parts" })).toBeInTheDocument();
   });
 });
 

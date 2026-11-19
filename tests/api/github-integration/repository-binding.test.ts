@@ -161,7 +161,7 @@ describe("GitHub webhook binding", () => {
         config: JSON.stringify({ ...binding, repositoryId: 21 }),
       },
       {
-        id: "legacy-name-only",
+        id: "name-only",
         config: JSON.stringify({
           repositoryOwner: "Victim",
           repositoryName: "Private",

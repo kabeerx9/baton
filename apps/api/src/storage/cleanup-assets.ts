@@ -1,11 +1,6 @@
 import { and, eq, inArray, like } from "drizzle-orm";
 import db from "../database";
-import {
-  activityTable,
-  assetTable,
-  commentTable,
-  taskTable,
-} from "../database/schema";
+import { activityTable, assetTable, taskTable } from "../database/schema";
 import { deleteS3Object } from "./s3";
 import { logger } from "../observability/logger";
 
@@ -42,7 +37,7 @@ export interface AssetCleanupScope {
 
 /**
  * Check whether an asset ID is still referenced in any content belonging to
- * the same task (description, comments, or activity comments).
+ * the same task (description or comments).
  */
 async function isAssetReferencedElsewhere(
   assetId: string,
@@ -57,17 +52,6 @@ async function isAssetReferencedElsewhere(
     .limit(1);
 
   if (contentReferencesAsset(taskRef?.description, assetId)) return true;
-
-  const commentRefs = await db
-    .select({ content: commentTable.content })
-    .from(commentTable)
-    .where(
-      and(eq(commentTable.taskId, taskId), like(commentTable.content, pattern)),
-    );
-
-  if (commentRefs.some((ref) => contentReferencesAsset(ref.content, assetId))) {
-    return true;
-  }
 
   const activityRefs = await db
     .select({ content: activityTable.content })

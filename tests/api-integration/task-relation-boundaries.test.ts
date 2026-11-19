@@ -71,7 +71,7 @@ describe("task relation tenant boundaries", () => {
   });
 
   it.each([false, true])(
-    "hides legacy cross-workspace relations from reads in either direction (reverse=%s)",
+    "hides cross-workspace relations from reads in either direction (reverse=%s)",
     async (reverse) => {
       const own = await context();
       const foreign = await context();
@@ -88,7 +88,7 @@ describe("task relation tenant boundaries", () => {
     },
   );
 
-  it("rejects deletion of a legacy foreign-target row without mutation or event", async () => {
+  it("rejects deletion of a foreign-target row without mutation or event", async () => {
     const own = await context();
     const foreign = await context();
     const relation = await seedRelation(own.task.id, foreign.task.id);

@@ -45,7 +45,7 @@ describe("GitHub outgoing repository binding", () => {
       "identity changed",
     );
   });
-  it("rejects a legacy binding without contacting GitHub", async () => {
+  it("rejects an unverified binding without contacting GitHub", async () => {
     await expect(
       getVerifiedInstallationOctokit({
         repositoryOwner: "owner",

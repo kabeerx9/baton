@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1794827450251,
+      "when": 1795091545589,
       "tag": "0000_baseline",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1794848484879,
-      "tag": "0001_demo_workspace_and_tour",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1794852520175,
-      "tag": "0002_notification_resource_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1794984686276,
-      "tag": "0003_join_links",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1794992241163,
-      "tag": "0004_user_time_zone",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1795007526329,
-      "tag": "0005_auth_boundary_drops",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1795070598390,
-      "tag": "0006_viewer_works_on_assigned",
       "breakpoints": true
     }
   ]
