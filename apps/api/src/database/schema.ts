@@ -1453,7 +1453,6 @@ export const account = accountTable;
 export const verification = verificationTable;
 export const workspace = workspaceTable;
 export const workspace_member = workspaceUserTable;
-export const organizationRole = workspaceRoleTable;
 export const apikey = apikeyTable;
 // Auth-schema compatible relation exports in schema.ts
 export const userRelations = relations(user, ({ many }) => ({
@@ -1490,16 +1489,6 @@ export const workspace_memberRelations = relations(
     user: one(user, {
       fields: [workspace_member.userId],
       references: [user.id],
-    }),
-  }),
-);
-
-export const organizationRoleRelations = relations(
-  organizationRole,
-  ({ one }) => ({
-    workspace: one(workspace, {
-      fields: [organizationRole.workspaceId],
-      references: [workspace.id],
     }),
   }),
 );
