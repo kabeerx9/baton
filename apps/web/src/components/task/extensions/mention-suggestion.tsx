@@ -68,7 +68,7 @@ export const MentionSuggestion = Extension.create<MentionSuggestionOptions>({
               editor: props.editor,
             });
             popup = document.createElement("div");
-            popup.className = "baton-mention-popup";
+            popup.className = "baton-mention-popup motion-caret-popup";
             popup.appendChild(component.element);
             document.body.appendChild(popup);
             place(props.clientRect);
