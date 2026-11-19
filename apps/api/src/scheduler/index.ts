@@ -26,7 +26,7 @@ type JobOutcome = { degraded?: boolean };
 // up the monitor without aborting the rest of the work. Unexpected throws are
 // captured as exception events and swallowed so one bad tick can't take down
 // the scheduler via an unhandled rejection.
-function withCheckIn<T>(name: string, fn: () => Promise<T>) {
+export function withCheckIn<T>(name: string, fn: () => Promise<T>) {
   // Each run gets its own empty context, so its breadcrumbs stay with its
   // errors and no request's user or workspace leaks in.
   return () => runDetached(() => runJob(name, fn));

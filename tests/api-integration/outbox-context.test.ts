@@ -12,7 +12,11 @@ import { activityOutboxConsumer } from "../../apps/api/src/activity/outbox-consu
 import { eventContext } from "../../apps/api/src/events/context";
 import { enqueueEvent } from "../../apps/api/src/events/outbox/enqueue";
 import { nudgeOutbox } from "../../apps/api/src/events/outbox/nudge";
-import { startOutboxRelay } from "../../apps/api/src/events/outbox/start-relay";
+import {
+  startLoop,
+  startOutboxRelay,
+} from "../../apps/api/src/events/outbox/start-relay";
+import { withCheckIn } from "../../apps/api/src/scheduler";
 import {
   currentRequestContext,
   runWithRequestContext,
@@ -109,4 +113,77 @@ it("delivers another workspace's row, nudged from a request, as that workspace",
   expect(events[0]?.user).toBeUndefined();
   expect(JSON.stringify(events[0])).not.toContain(a.workspace.id);
   expect(JSON.stringify(events[0])).not.toContain(a.user.id);
+});
+
+// The two entry points below detach on their own: each test would fail if
+// its runDetached call were removed, even with deliverOutboxRow intact.
+
+const REQUEST_A = {
+  requestId: "request-a-0002",
+  workspaceId: "workspace-a",
+  userId: "user-a",
+};
+
+/** Runs `fn` as request A would: request context, initiator, Sentry user and tags. */
+function asRequestA<T>(fn: () => T): T {
+  return Sentry.withIsolationScope((scope) => {
+    scope.setUser({ id: REQUEST_A.userId });
+    scope.setTag("workspace_id", REQUEST_A.workspaceId);
+    scope.setTag("request_id", REQUEST_A.requestId);
+    Sentry.getCurrentScope().setTag("route", "/api/task/:id");
+    return runWithRequestContext(REQUEST_A, () =>
+      eventContext.run({ initiatorId: REQUEST_A.userId }, fn),
+    );
+  });
+}
+
+/** What background work sees: the stores, and the event Sentry would send. */
+function probe(seen: Seen[]) {
+  seen.push({
+    context: currentRequestContext(),
+    initiatorId: eventContext.getStore()?.initiatorId,
+  });
+  Sentry.captureMessage("probe");
+}
+
+function expectEmptyContext(seen: Seen[]) {
+  expect(seen).toHaveLength(1);
+  expect(seen[0]?.context).toBeUndefined();
+  expect(seen[0]?.initiatorId).toBeUndefined();
+  expect(events).toHaveLength(1);
+  expect(events[0]?.user).toBeUndefined();
+  expect(events[0]?.tags ?? {}).toEqual({});
+  for (const value of Object.values(REQUEST_A))
+    expect(JSON.stringify(events[0])).not.toContain(value);
+}
+
+it("starts a nudged drain with no request context or Sentry user and tags", async () => {
+  const seen: Seen[] = [];
+  let runs = 0;
+  const stop = startLoop(
+    async () => {
+      // The first run is the loop's own start, outside any request.
+      if (runs++ > 0) probe(seen);
+    },
+    { pollMs: 60_000, label: "test" },
+  );
+  try {
+    await vi.waitFor(() => expect(runs).toBe(1));
+    await new Promise((done) => setTimeout(done, 10));
+    asRequestA(() => nudgeOutbox());
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    await Sentry.flush(1000);
+  } finally {
+    await stop();
+  }
+  expectEmptyContext(seen);
+});
+
+it("runs a cron job with no request context or Sentry user and tags", async () => {
+  const seen: Seen[] = [];
+  const job = withCheckIn("context-probe", async () => probe(seen));
+  // A job started from inside a request still runs detached.
+  await asRequestA(() => job());
+  await Sentry.flush(1000);
+  expectEmptyContext(seen);
 });
