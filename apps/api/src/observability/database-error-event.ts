@@ -91,7 +91,8 @@ export function redactDatabaseErrors(
           };
     return {
       type: error.name,
-      value: redactedMessage(error),
+      // Every node of a database chain, siblings included, is redacted.
+      value: redactedMessage(error, true),
       ...(parsed.length > 0 && { stacktrace: { frames: parsed } }),
       mechanism,
     };

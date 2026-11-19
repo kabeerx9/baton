@@ -1,7 +1,11 @@
-import { isSensitiveChain, serializeRedactedError } from "./database-error";
+import {
+  isSensitiveChain,
+  knownDatabaseValues,
+  serializeRedactedError,
+} from "./database-error";
 import type { LogLevel } from "./log-level";
 import type { RequestContext } from "./request-context";
-import { scrubDeep, scrubText } from "./scrub";
+import { FILTERED, scrubDeep, scrubText } from "./scrub";
 
 export type LogAttributes = Record<string, unknown>;
 
@@ -26,23 +30,43 @@ function readSafely(read: () => unknown): unknown {
   }
 }
 
+/** A chain whose root is or holds a database error, and its known values. */
+type DatabaseChain = { avoid: readonly string[] };
+
 function errorToLoggable(
   value: Error,
   depth: number,
   seen: WeakSet<object>,
+  chain: DatabaseChain | undefined,
 ): Record<string, unknown> {
   const cause = readSafely(() => value.cause);
-  if (isSensitiveChain(value)) {
-    // A database error, anything wrapping one, or a chain too deep or odd
-    // to check: never the raw message, params or pg detail (row values).
-    const out: Record<string, unknown> = { ...serializeRedactedError(value) };
+  // Decided once at the root and passed down: a sibling or cause inside a
+  // database chain is redacted even when its own branch holds no DB error.
+  const inChain =
+    chain ??
+    (isSensitiveChain(value)
+      ? { avoid: knownDatabaseValues(value) }
+      : undefined);
+  if (inChain) {
+    // Never a raw message, params or pg detail (row values).
+    const out: Record<string, unknown> = {
+      ...serializeRedactedError(value, inChain.avoid),
+    };
     if (depth < MAX_DEPTH) {
-      if (cause !== undefined) out.cause = toLoggable(cause, depth + 1, seen);
+      if (cause !== undefined)
+        out.cause =
+          cause instanceof Error
+            ? toLoggable(cause, depth + 1, seen, inChain)
+            : FILTERED;
       const errors = readSafely(() =>
         value instanceof AggregateError ? Array.from(value.errors) : undefined,
       );
       if (Array.isArray(errors))
-        out.errors = errors.map((e) => toLoggable(e, depth + 1, seen));
+        out.errors = errors.map((e) =>
+          e instanceof Error
+            ? toLoggable(e, depth + 1, seen, inChain)
+            : FILTERED,
+        );
     }
     return out;
   }
@@ -63,11 +87,12 @@ export function toLoggable(
   value: unknown,
   depth = 0,
   seen = new WeakSet<object>(),
+  chain?: DatabaseChain,
 ): unknown {
   if (value instanceof Error) {
     // An error whose own getters throw is logged by its kind only.
     try {
-      return errorToLoggable(value, depth, seen);
+      return errorToLoggable(value, depth, seen, chain);
     } catch {
       return { name: "Error", message: UNREADABLE };
     }

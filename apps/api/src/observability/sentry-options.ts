@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import type { NodeOptions } from "@sentry/node";
 import { redactDatabaseErrors } from "./database-error-event";
-import { redactDatabaseSpan } from "./database-span";
+import { redactDatabaseSpan, redactSpanStatus } from "./database-span";
 import {
   FILTERED,
   failClosed,
@@ -75,7 +75,7 @@ export const privacyOptions = {
   // Sentry cannot drop a span: a failure keeps only its timing and ids.
   beforeSendSpan: (span) => {
     try {
-      return scrubSpan(redactDatabaseSpan(span));
+      return scrubSpan(redactDatabaseSpan(redactSpanStatus(span)));
     } catch {
       return { ...span, name: FILTERED, attributes: {} };
     }

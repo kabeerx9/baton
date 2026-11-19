@@ -25,7 +25,6 @@ const SDK_ATTRIBUTES = new Set([
   "sentry.kind",
   "sentry.trace_lifecycle",
   "sentry.segment.id",
-  "sentry.segment.name",
   "sentry.sdk.name",
   "sentry.sdk.version",
   "sentry.environment",
@@ -33,7 +32,34 @@ const SDK_ATTRIBUTES = new Set([
   "sentry.is_localhost",
 ]);
 const STATUS_MESSAGE = "sentry.status.message";
+const SEGMENT_NAME = "sentry.segment.name";
 export const DATABASE_STATUS_MESSAGE = "database error";
+// The SDK copies the parent span's name here, which a manual span may set
+// to anything; a database span gets this fixed name instead.
+export const DATABASE_SEGMENT_NAME = "database";
+
+// Sentry's standard span statuses. Any other status message is free text
+// (an error message) and is replaced.
+const STANDARD_STATUSES = new Set([
+  "ok",
+  "cancelled",
+  "unknown_error",
+  "invalid_argument",
+  "deadline_exceeded",
+  "not_found",
+  "already_exists",
+  "permission_denied",
+  "resource_exhausted",
+  "failed_precondition",
+  "aborted",
+  "out_of_range",
+  "unimplemented",
+  "internal_error",
+  "unavailable",
+  "data_loss",
+  "unauthenticated",
+]);
+export const FALLBACK_STATUS_MESSAGE = "internal_error";
 
 type Spanish = { attributes?: Record<string, unknown> };
 
@@ -66,5 +92,22 @@ export function redactDatabaseSpan<S extends Spanish>(span: S): S {
       attributes[key] = value;
   if (STATUS_MESSAGE in span.attributes)
     attributes[STATUS_MESSAGE] = DATABASE_STATUS_MESSAGE;
+  if (SEGMENT_NAME in span.attributes)
+    attributes[SEGMENT_NAME] = DATABASE_SEGMENT_NAME;
   return { ...span, attributes };
+}
+
+/** Any span: a status message that is not a standard status is replaced. */
+export function redactSpanStatus<S extends Spanish>(span: S): S {
+  if (!span.attributes || !(STATUS_MESSAGE in span.attributes)) return span;
+  if (STANDARD_STATUSES.has(stringAttribute(span, STATUS_MESSAGE))) return span;
+  const raw = span.attributes[STATUS_MESSAGE];
+  const fixed =
+    raw !== null && typeof raw === "object" && "value" in raw
+      ? { ...(raw as object), value: FALLBACK_STATUS_MESSAGE }
+      : FALLBACK_STATUS_MESSAGE;
+  return {
+    ...span,
+    attributes: { ...span.attributes, [STATUS_MESSAGE]: fixed },
+  };
 }

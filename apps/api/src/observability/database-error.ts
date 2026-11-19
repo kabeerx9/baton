@@ -229,7 +229,12 @@ export function stackFrames(
 }
 
 /** The message to log or send: fixed for a database error and its wrappers. */
-export function redactedMessage(error: Error): string {
+/**
+ * The message to log or send. Sensitivity belongs to the whole chain from
+ * its root: inside a database chain, even a sibling with no database error
+ * of its own gets a fixed message, since it may copy one's text.
+ */
+export function redactedMessage(error: Error, inDatabaseChain = false): string {
   if (isDatabaseError(error)) return safeDatabaseMessage(error);
   switch (chainSensitivity(error)) {
     case "database":
@@ -237,7 +242,9 @@ export function redactedMessage(error: Error): string {
     case "unknown":
       return `${error.name} (may wrap a database error)`;
     case "none":
-      return error.message;
+      return inDatabaseChain
+        ? `${error.name} (part of a database error)`
+        : error.message;
   }
 }
 
@@ -252,10 +259,13 @@ export type RedactedError = {
  * The loggable form of an error that is or holds a database error: schema
  * facts and SQL, never values or the raw message.
  */
-export function serializeRedactedError(error: Error): RedactedError {
-  const message = redactedMessage(error);
+export function serializeRedactedError(
+  error: Error,
+  avoid: readonly string[] = knownDatabaseValues(error),
+): RedactedError {
+  const message = redactedMessage(error, true);
   const out: RedactedError = { name: error.name, message };
-  const frames = stackFrames(error, knownDatabaseValues(error));
+  const frames = stackFrames(error, avoid);
   if (frames !== undefined) out.stack = `${error.name}: ${message}${frames}`;
   if (isDrizzleQueryError(error)) {
     // Drizzle sends values as $n parameters, so the SQL holds none.

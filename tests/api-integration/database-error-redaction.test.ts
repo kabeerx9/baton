@@ -356,3 +356,25 @@ it("keeps only allowlisted contexts and request breadcrumbs", async () => {
     ["http", undefined, { method: "GET", status_code: 500, url: "/api/task" }],
   ]);
 });
+
+// Round 5: sensitivity belongs to the whole chain, from its root.
+
+it("redacts a sibling that copies a database message inside a group", async () => {
+  const error = await failedTitleInsert();
+  const sibling = new Error(`write failed: ${error.message}`);
+  const group = new AggregateError([error, sibling], "batch failed");
+  const record = logRecord(group);
+  expectNoLeak(record);
+  expect(record.error).toMatchObject({
+    message: "AggregateError (wraps a database error)",
+    errors: [
+      { message: `Failed query ${NOT_NULL}` },
+      { name: "Error", message: "Error (part of a database error)" },
+    ],
+  });
+  const event = await captured(group);
+  expectNoLeak(event);
+  expect(event.exception?.values?.map((v) => v.value)).toContain(
+    "Error (part of a database error)",
+  );
+});
