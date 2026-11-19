@@ -22,19 +22,11 @@ async function rows<T>(query: ReturnType<typeof sql>) {
   return (await db.execute(query)).rows as T[];
 }
 
-it("ships the baseline first, then later migrations", () => {
+it("ships one baseline migration", () => {
   const journal = JSON.parse(
     readFileSync(resolve(migrationsFolder, "meta/_journal.json"), "utf8"),
   ) as { entries: Array<{ tag: string }> };
-  expect(journal.entries.map((entry) => entry.tag)).toEqual([
-    "0000_baseline",
-    "0001_demo_workspace_and_tour",
-    "0002_notification_resource_index",
-    "0003_join_links",
-    "0004_user_time_zone",
-    "0005_auth_boundary_drops",
-    "0006_viewer_works_on_assigned",
-  ]);
+  expect(journal.entries.map((entry) => entry.tag)).toEqual(["0000_baseline"]);
 });
 
 it("records every migration in a freshly migrated database", async () => {
@@ -91,7 +83,7 @@ it("creates the outbox with its claim budget and due index", async () => {
   expect(await rows(sql`SELECT id FROM outbox`)).toEqual([]);
 });
 
-it("carries the hand-written triggers and stricter columns of the old chain", async () => {
+it("creates the hand-written triggers and the column defaults schema.ts declares", async () => {
   expect(
     await rows(
       sql`SELECT tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY tgname`,

@@ -55,7 +55,6 @@ CREATE TABLE "apikey" (
 	"reference_id" text NOT NULL,
 	"prefix" text,
 	"key" text NOT NULL,
-	"user_id" text,
 	"refill_interval" integer,
 	"refill_amount" integer,
 	"last_refill_at" timestamp,
@@ -112,11 +111,6 @@ CREATE TABLE "comment" (
 	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "data_migration" (
-	"id" text PRIMARY KEY NOT NULL,
-	"completed_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "external_link" (
 	"id" text PRIMARY KEY NOT NULL,
 	"task_id" text NOT NULL,
@@ -135,18 +129,6 @@ CREATE TABLE "github_import" (
 	"run_id" text NOT NULL,
 	"state" jsonb NOT NULL,
 	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "github_integration" (
-	"id" text PRIMARY KEY NOT NULL,
-	"project_id" text NOT NULL,
-	"repository_owner" text NOT NULL,
-	"repository_name" text NOT NULL,
-	"installation_id" integer,
-	"is_active" boolean DEFAULT true,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "github_integration_project_id_unique" UNIQUE("project_id")
 );
 --> statement-breakpoint
 CREATE TABLE "instance_role" (
@@ -203,20 +185,6 @@ CREATE TABLE "integration" (
 	CONSTRAINT "integration_project_type_unique" UNIQUE("project_id","type")
 );
 --> statement-breakpoint
-CREATE TABLE "invitation" (
-	"id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"email" text NOT NULL,
-	"role" text,
-	"team_id" text,
-	"status" text DEFAULT 'pending' NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"created_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
-	"inviter_id" text NOT NULL,
-	"project_access" text DEFAULT 'all' NOT NULL,
-	"project_ids" text[] DEFAULT '{}'::text[] NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "job_lease" (
 	"name" text PRIMARY KEY NOT NULL,
 	"owner" text NOT NULL,
@@ -231,7 +199,7 @@ CREATE TABLE "label" (
 	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
 	"deletion_started_at" timestamp,
 	"task_id" text,
-	"workspace_id" text,
+	"workspace_id" text NOT NULL,
 	CONSTRAINT "label_task_name_unique" UNIQUE("task_id","name")
 );
 --> statement-breakpoint
@@ -335,9 +303,6 @@ CREATE TABLE "session" (
 	"ip_address" text,
 	"user_agent" text,
 	"user_id" text NOT NULL,
-	"active_organization_id" text,
-	"active_team_id" text,
-	"impersonated_by" text,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
@@ -416,29 +381,11 @@ CREATE TABLE "task" (
 	CONSTRAINT "task_project_number_unique" UNIQUE("project_id","number")
 );
 --> statement-breakpoint
-CREATE TABLE "team" (
-	"id" text PRIMARY KEY NOT NULL,
-	"name" text NOT NULL,
-	"member_count" integer DEFAULT 0 NOT NULL,
-	"workspace_id" text NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp
-);
---> statement-breakpoint
-CREATE TABLE "team_member" (
-	"id" text PRIMARY KEY NOT NULL,
-	"team_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"membership_key" text,
-	"created_at" timestamp,
-	CONSTRAINT "team_member_membership_key_unique" UNIQUE("membership_key")
-);
---> statement-breakpoint
 CREATE TABLE "user" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
-	"email_verified" boolean NOT NULL,
+	"email_verified" boolean DEFAULT false NOT NULL,
 	"image" text,
 	"created_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
 	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
@@ -447,6 +394,8 @@ CREATE TABLE "user" (
 	"ban_reason" text,
 	"ban_expires" timestamp,
 	"email_verification_required" boolean DEFAULT false NOT NULL,
+	"tour_completed_at" timestamp,
+	"time_zone" text,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
@@ -540,7 +489,29 @@ CREATE TABLE "workspace" (
 	"created_at" timestamp NOT NULL,
 	"archived_at" timestamp,
 	"archived_by" text,
-	CONSTRAINT "workspace_slug_unique" UNIQUE("slug")
+	"kind" text DEFAULT 'team' NOT NULL,
+	"demo_owner_user_id" text,
+	CONSTRAINT "workspace_slug_unique" UNIQUE("slug"),
+	CONSTRAINT "workspace_kind_check" CHECK ("workspace"."kind" in ('team', 'demo')),
+	CONSTRAINT "workspace_demo_owner_check" CHECK (("workspace"."kind" = 'demo') = ("workspace"."demo_owner_user_id" is not null))
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_join_link" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"token_ciphertext" text,
+	"role" text DEFAULT 'member' NOT NULL,
+	"max_uses" integer,
+	"use_count" integer DEFAULT 0 NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"created_by" text,
+	"created_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
+	"revoked_at" timestamp,
+	"revoked_by" text,
+	CONSTRAINT "workspace_join_link_role_check" CHECK ("workspace_join_link"."role" = 'member'),
+	CONSTRAINT "workspace_join_link_max_uses_check" CHECK ("workspace_join_link"."max_uses" is null or "workspace_join_link"."max_uses" >= 1),
+	CONSTRAINT "workspace_join_link_use_count_check" CHECK ("workspace_join_link"."use_count" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "workspace_member_access" (
@@ -562,6 +533,13 @@ CREATE TABLE "workspace_member_project" (
 	CONSTRAINT "workspace_member_project_workspace_user_project_unique" UNIQUE("workspace_id","user_id","project_id")
 );
 --> statement-breakpoint
+CREATE TABLE "workspace_member_removal" (
+	"workspace_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"removed_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
+	CONSTRAINT "workspace_member_removal_workspace_id_user_id_pk" PRIMARY KEY("workspace_id","user_id")
+);
+--> statement-breakpoint
 CREATE TABLE "workspace_member" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -575,7 +553,6 @@ ALTER TABLE "activity" ADD CONSTRAINT "activity_task_id_task_id_fk" FOREIGN KEY 
 ALTER TABLE "activity" ADD CONSTRAINT "activity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "admin_audit_log" ADD CONSTRAINT "admin_audit_log_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "apikey" ADD CONSTRAINT "apikey_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "asset" ADD CONSTRAINT "asset_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "asset" ADD CONSTRAINT "asset_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "asset" ADD CONSTRAINT "asset_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
@@ -587,12 +564,9 @@ ALTER TABLE "comment" ADD CONSTRAINT "comment_user_id_user_id_fk" FOREIGN KEY ("
 ALTER TABLE "external_link" ADD CONSTRAINT "external_link_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "external_link" ADD CONSTRAINT "external_link_integration_id_integration_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integration"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "github_import" ADD CONSTRAINT "github_import_integration_id_integration_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integration"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "github_integration" ADD CONSTRAINT "github_integration_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "instance_settings" ADD CONSTRAINT "instance_settings_default_role_id_instance_role_id_fk" FOREIGN KEY ("default_role_id") REFERENCES "public"."instance_role"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "instance_webhook_delivery" ADD CONSTRAINT "instance_webhook_delivery_webhook_id_instance_webhook_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."instance_webhook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "invitation" ADD CONSTRAINT "invitation_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invitation" ADD CONSTRAINT "invitation_inviter_id_user_id_fk" FOREIGN KEY ("inviter_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "label" ADD CONSTRAINT "label_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "label" ADD CONSTRAINT "label_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "mcp_grant" ADD CONSTRAINT "mcp_grant_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -617,9 +591,6 @@ ALTER TABLE "task" ADD CONSTRAINT "task_project_id_project_id_fk" FOREIGN KEY ("
 ALTER TABLE "task" ADD CONSTRAINT "task_assignee_id_user_id_fk" FOREIGN KEY ("assignee_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_column_id_column_id_fk" FOREIGN KEY ("column_id") REFERENCES "public"."column"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "team" ADD CONSTRAINT "team_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_member" ADD CONSTRAINT "team_member_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_member" ADD CONSTRAINT "team_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_avatar" ADD CONSTRAINT "user_avatar_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "user_notification_preference" ADD CONSTRAINT "user_notification_preference_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "user_notification_workspace_project" ADD CONSTRAINT "user_notification_workspace_project_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
@@ -630,10 +601,16 @@ ALTER TABLE "user_notification_workspace_rule" ADD CONSTRAINT "user_notification
 ALTER TABLE "workflow_rule" ADD CONSTRAINT "workflow_rule_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "workflow_rule" ADD CONSTRAINT "workflow_rule_column_id_column_id_fk" FOREIGN KEY ("column_id") REFERENCES "public"."column"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "workspace" ADD CONSTRAINT "workspace_archived_by_user_id_fk" FOREIGN KEY ("archived_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace" ADD CONSTRAINT "workspace_demo_owner_user_id_user_id_fk" FOREIGN KEY ("demo_owner_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_join_link" ADD CONSTRAINT "workspace_join_link_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_join_link" ADD CONSTRAINT "workspace_join_link_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_join_link" ADD CONSTRAINT "workspace_join_link_revoked_by_user_id_fk" FOREIGN KEY ("revoked_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member_access" ADD CONSTRAINT "workspace_member_access_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member_access" ADD CONSTRAINT "workspace_member_access_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member_project" ADD CONSTRAINT "workspace_member_project_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member_project" ADD CONSTRAINT "workspace_member_project_workspace_id_project_id_project_workspace_id_id_fk" FOREIGN KEY ("workspace_id","project_id") REFERENCES "public"."project"("workspace_id","id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "workspace_member_removal" ADD CONSTRAINT "workspace_member_removal_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_member_removal" ADD CONSTRAINT "workspace_member_removal_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
@@ -646,7 +623,6 @@ CREATE INDEX "admin_audit_log_target_idx" ON "admin_audit_log" USING btree ("tar
 CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
-CREATE INDEX "apikey_userId_idx" ON "apikey" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "asset_workspaceId_idx" ON "asset" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "asset_projectId_idx" ON "asset" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "asset_taskId_idx" ON "asset" USING btree ("task_id");--> statement-breakpoint
@@ -665,9 +641,6 @@ CREATE INDEX "instance_webhook_delivery_due_idx" ON "instance_webhook_delivery" 
 CREATE INDEX "instance_webhook_delivery_history_idx" ON "instance_webhook_delivery" USING btree ("webhook_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_projectId_idx" ON "integration" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "integration_type_idx" ON "integration" USING btree ("type");--> statement-breakpoint
-CREATE INDEX "invitation_workspaceId_idx" ON "invitation" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "invitation_email_idx" ON "invitation" USING btree ("email");--> statement-breakpoint
-CREATE INDEX "invitation_inviterId_idx" ON "invitation" USING btree ("inviter_id");--> statement-breakpoint
 CREATE INDEX "label_task_id_idx" ON "label" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "label_workspace_id_idx" ON "label" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "label_workspace_cascade_idx" ON "label" USING btree ("workspace_id","name","created_at","id") WHERE "label"."task_id" is not null;--> statement-breakpoint
@@ -678,6 +651,7 @@ CREATE INDEX "mcp_oauth_state_expiresAt_idx" ON "mcp_oauth_state" USING btree ("
 CREATE UNIQUE INDEX "mcp_token_tokenHash_uidx" ON "mcp_token" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "mcp_token_grantId_expiresAt_idx" ON "mcp_token" USING btree ("grant_id","expires_at");--> statement-breakpoint
 CREATE INDEX "notification_userId_idx" ON "notification" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "notification_resource_idx" ON "notification" USING btree ("resource_type","resource_id");--> statement-breakpoint
 CREATE INDEX "workspace_role_workspaceId_idx" ON "workspace_role" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "workspace_role_role_idx" ON "workspace_role" USING btree ("role");--> statement-breakpoint
 CREATE INDEX "outbox_due_idx" ON "outbox" USING btree ("next_attempt_at","id") WHERE "outbox"."state" = 'pending';--> statement-breakpoint
@@ -700,9 +674,6 @@ CREATE INDEX "task_project_scheduled_id_idx" ON "task" USING btree ("project_id"
 CREATE INDEX "task_dueDate_idx" ON "task" USING btree ("due_date");--> statement-breakpoint
 CREATE INDEX "task_assigneeId_idx" ON "task" USING btree ("assignee_id");--> statement-breakpoint
 CREATE INDEX "task_columnId_idx" ON "task" USING btree ("column_id");--> statement-breakpoint
-CREATE INDEX "team_workspaceId_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "teamMember_teamId_idx" ON "team_member" USING btree ("team_id");--> statement-breakpoint
-CREATE INDEX "teamMember_userId_idx" ON "team_member" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "user_avatar_userId_idx" ON "user_avatar" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "user_notification_workspace_project_ruleId_idx" ON "user_notification_workspace_project" USING btree ("workspace_rule_id");--> statement-breakpoint
 CREATE INDEX "user_notification_workspace_project_projectId_idx" ON "user_notification_workspace_project" USING btree ("project_id");--> statement-breakpoint
@@ -713,15 +684,18 @@ CREATE INDEX "user_notification_workspace_rule_workspaceId_idx" ON "user_notific
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");--> statement-breakpoint
 CREATE INDEX "workflow_rule_projectId_idx" ON "workflow_rule" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "workflow_rule_columnId_idx" ON "workflow_rule" USING btree ("column_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_one_demo_per_user_idx" ON "workspace" USING btree ("demo_owner_user_id") WHERE "workspace"."kind" = 'demo';--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_join_link_tokenHash_uidx" ON "workspace_join_link" USING btree ("token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_join_link_one_open_uidx" ON "workspace_join_link" USING btree ("workspace_id") WHERE "workspace_join_link"."revoked_at" is null;--> statement-breakpoint
+CREATE INDEX "workspace_join_link_workspaceId_createdAt_idx" ON "workspace_join_link" USING btree ("workspace_id","created_at");--> statement-breakpoint
+CREATE INDEX "workspace_join_link_createdBy_idx" ON "workspace_join_link" USING btree ("created_by");--> statement-breakpoint
+CREATE INDEX "workspace_join_link_revokedBy_idx" ON "workspace_join_link" USING btree ("revoked_by");--> statement-breakpoint
 CREATE INDEX "workspace_member_access_userId_idx" ON "workspace_member_access" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_project_projectId_idx" ON "workspace_member_project" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "workspace_member_removal_userId_idx" ON "workspace_member_removal" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_workspaceId_idx" ON "workspace_member" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_userId_idx" ON "workspace_member" USING btree ("user_id");--> statement-breakpoint
--- Hand-written: not expressible in schema.ts, carried over from the squashed
--- upstream chain so a fresh install matches databases that ran it.
--- The old chain left these two columns stricter than schema.ts declares.
-ALTER TABLE "user" ALTER COLUMN "email_verified" SET DEFAULT false;--> statement-breakpoint
-ALTER TABLE "label" ALTER COLUMN "workspace_id" SET NOT NULL;--> statement-breakpoint
+-- Hand-written: triggers and functions schema.ts cannot express.
 -- Capture keys for every cascade, including workspace deletion. The outbox has
 -- no owner FK, so its records survive the deletion transaction.
 CREATE FUNCTION queue_deleted_storage_object() RETURNS trigger AS $$

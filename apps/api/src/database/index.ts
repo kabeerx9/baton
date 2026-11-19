@@ -9,7 +9,6 @@ import {
   columnTableRelations,
   commentTableRelations,
   externalLinkTableRelations,
-  githubIntegrationTableRelations,
   integrationTableRelations,
   labelTableRelations,
   mcpGrantTableRelations,
@@ -32,7 +31,6 @@ import {
 } from "./relations";
 import { resolveDatabaseConfig } from "./resolve-database-url";
 import {
-  dataMigrationTable,
   storageCleanupTable,
   accountTable,
   activityTable,
@@ -47,7 +45,6 @@ import {
   commentTable,
   externalLinkTable,
   githubImportTable,
-  githubIntegrationTable,
   integrationTable,
   jobLeaseTable,
   labelTable,
@@ -79,7 +76,6 @@ import {
 config();
 
 export const schema = {
-  dataMigrationTable,
   storageCleanupTable,
   accountTable,
   adminAuditLogTable,
@@ -93,7 +89,6 @@ export const schema = {
   columnTable,
   commentTable,
   externalLinkTable,
-  githubIntegrationTable,
   githubImportTable,
   integrationTable,
   jobLeaseTable,
@@ -128,7 +123,6 @@ export const schema = {
   columnTableRelations,
   commentTableRelations,
   externalLinkTableRelations,
-  githubIntegrationTableRelations,
   integrationTableRelations,
   labelTableRelations,
   mcpGrantTableRelations,

@@ -36,9 +36,7 @@ export const userTable = pgTable("user", {
     .primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified")
-    .$defaultFn(() => false)
-    .notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at", { mode: "date" })
     .default(utcNow)
@@ -1000,10 +998,12 @@ export const labelTable = pgTable(
       onDelete: "cascade",
       onUpdate: "cascade",
     }),
-    workspaceId: text("workspace_id").references(() => workspaceTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
   },
   (table) => [
     index("label_task_id_idx").on(table.taskId),
@@ -1208,30 +1208,6 @@ export const userNotificationWorkspaceProjectTable = pgTable(
   ],
 );
 
-// Legacy table: the GitHub plugin migration drops it at startup on existing
-// installs, so SQL migrations must not touch it.
-export const githubIntegrationTable = pgTable("github_integration", {
-  id: text("id")
-    .$defaultFn(() => createId())
-    .primaryKey(),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => projectTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    })
-    .unique(),
-  repositoryOwner: text("repository_owner").notNull(),
-  repositoryName: text("repository_name").notNull(),
-  installationId: integer("installation_id"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
 export const integrationTable = pgTable(
   "integration",
   {
@@ -1400,9 +1376,6 @@ export const apikeyTable = pgTable(
       .references(() => userTable.id, { onDelete: "cascade" }),
     prefix: text("prefix"),
     key: text("key").notNull(),
-    userId: text("user_id").references(() => userTable.id, {
-      onDelete: "cascade",
-    }),
     refillInterval: integer("refill_interval"),
     refillAmount: integer("refill_amount"),
     lastRefillAt: timestamp("last_refill_at", { mode: "date" }),
@@ -1423,7 +1396,6 @@ export const apikeyTable = pgTable(
     index("apikey_configId_idx").on(table.configId),
     index("apikey_key_idx").on(table.key),
     index("apikey_referenceId_idx").on(table.referenceId),
-    index("apikey_userId_idx").on(table.userId),
   ],
 );
 
@@ -1570,13 +1542,6 @@ export const storageCleanupTable = pgTable("storage_cleanup", {
   objectKey: text("object_key").primaryKey(),
   lastAttemptAt: timestamp("last_attempt_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" })
-    .default(utcNow)
-    .notNull(),
-});
-
-export const dataMigrationTable = pgTable("data_migration", {
-  id: text("id").primaryKey(),
-  completedAt: timestamp("completed_at", { mode: "date" })
     .default(utcNow)
     .notNull(),
 });

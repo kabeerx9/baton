@@ -58,38 +58,16 @@ Redeploy a previous deployment from the dashboard, or set the image tag to an ol
 sha and deploy. This does not work across a migration that drops tables or columns: an
 older image reads what is gone. For those, restore the dump taken before the deploy (below).
 
-## The auth-boundary deploy (once)
+## The baseline reset (once)
 
-The image that holds all four auth-boundary phases runs `0005_auth_boundary_drops`. It
-drops `invitation`, `team`, `team_member` and three `session` columns
-(`active_organization_id`, `active_team_id`, `impersonated_by`). Users, passwords,
-workspaces, members, roles, API keys, MCP grants and tasks stay. The full plan is
-`records/auth-boundary.md` §6.
+`apps/api/drizzle` holds one migration, `0000_baseline`, built from `schema.ts`. It replaced
+an older chain, so a database that ran the older chain does not match it: the migrator would
+try to create tables that exist. Reset such a database before the first deploy of the
+baseline image. Every row is lost.
 
-1. Stop using the app, the MCP and any API-key script. Pause agents with MCP grants.
-2. Remove `SLACK_BOT_TOKEN` from the app (this redeploys the current image). A restore would
-   send Slack messages again otherwise. If these are configured by then, also:
-   - Email: remove `SMTP_HOST`. A restore would send emails again.
-   - S3: no switch stops cleanup alone. Copy the bucket with the dump (step 4): cleanup
-     deletes objects that a restore cannot bring back.
-   - GitHub App: remove `GITHUB_WEBHOOK_SECRET` (the webhook route then refuses). GitHub
-     does not redeliver by itself; redeliver the failed deliveries from the App's page in
-     step 7.
-3. Run `select count(*) from instance_webhook where enabled;`. If it is not 0, disable those
-   webhooks in the admin settings.
-4. Take the only recovery point: `pg_dump -Fc "$DATABASE_URL" > baton-before-auth-boundary.dump`
-   (Supabase free has no backups). As a record, run
-   `select workspace_id, count(*) from team group by 1 having count(*) > 1;`.
-5. Deploy. Expect errors for up to the 180-second health-check delay while the old container
-   still answers.
-6. Check: sign in, open each workspace, check members and roles, call REST with an existing
-   API key, connect the MCP. If sessions misbehave, `DELETE FROM session` is safe.
-7. Put `SLACK_BOT_TOKEN` back and re-enable the webhooks. Put back `SMTP_HOST` and
-   `GITHUB_WEBHOOK_SECRET` if you removed them, then redeliver the failed GitHub deliveries.
-
-**Rollback:** keep the freeze, restore the dump with `pg_restore --clean --if-exists`,
-deploy the previous image, then end the freeze. Every write after the dump is lost; that is
-accepted while nobody uses the app.
+1. Stop using the app, the MCP and any API-key script.
+2. Run `drop schema public cascade; drop schema if exists drizzle cascade; create schema public;`.
+3. Deploy. The API applies the baseline at startup.
 
 ## Not set up
 

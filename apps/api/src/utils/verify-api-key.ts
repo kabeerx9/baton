@@ -1,4 +1,4 @@
-import { and, eq, exists, gt, isNull, or, sql } from "drizzle-orm";
+import { and, eq, exists, gt, isNull, or } from "drizzle-orm";
 import { hashApiKey } from "../api-key/hash-api-key";
 import db, { schema } from "../database";
 import { evaluateApiKeyUsage } from "./api-key-usage";
@@ -36,17 +36,14 @@ function activeApiKey(hashedKey: string) {
   return and(
     eq(schema.apikeyTable.key, hashedKey),
     eq(schema.apikeyTable.enabled, true),
-    // Fail closed even before legacy databases finish the repair migration.
+    // A banned owner's keys stop working at once, without revoking them.
     exists(
       db
         .select({ id: schema.userTable.id })
         .from(schema.userTable)
         .where(
           and(
-            eq(
-              schema.userTable.id,
-              sql`coalesce(${schema.apikeyTable.referenceId}, ${schema.apikeyTable.userId})`,
-            ),
+            eq(schema.userTable.id, schema.apikeyTable.referenceId),
             notBannedCondition(),
           ),
         ),
@@ -73,7 +70,7 @@ async function checkApiKey(hashedKey: string) {
     rateLimit: usage.rateLimit,
     key: {
       ...apiKey,
-      userId: apiKey.referenceId ?? apiKey.userId ?? "",
+      userId: apiKey.referenceId,
       enabled: apiKey.enabled ?? false,
       permissions: parsePermissions(apiKey.permissions),
       metadata: null,
@@ -125,7 +122,7 @@ export async function verifyApiKey(
       rateLimit,
       key: {
         id: apiKey.id,
-        userId: apiKey.referenceId ?? apiKey.userId ?? "",
+        userId: apiKey.referenceId,
         name: apiKey.name,
         prefix: apiKey.prefix,
         start: apiKey.start,

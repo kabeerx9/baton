@@ -150,14 +150,14 @@ treated as final.
 - A subtask is a `task_relation` of type `subtask`: source = the task, target = the subtask.
 - A subtask with no repo is stored in the board project. The UI labels it "No repo".
 - "Waits on" is a `task_relation` of type `blocks`: source = the blocker.
-- `task.created_by` is the creator. Migration 0077 filled it from each task's
-  earliest `created` activity; tasks without one have no creator.
+- `task.created_by` is the creator. It is null for a task no person created
+  (a GitHub import).
 - `task.status_generation` goes up by one on every status change. A request
   stores the status and generation it saw, so accept can detect a change.
 - `task_change_request` keeps every request. It copies the task key and title,
   so it keeps its history after the task is deleted.
 - `activity.channel` is `web` (cookie session) or `agent` (bearer token, API
-  key, MCP). Null for system writes and older rows.
+  key, MCP). Null for system writes.
 
 ## API
 
@@ -345,7 +345,7 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
   the workspace; `member` creates and updates tasks and projects; `viewer`
   reads everything and works only on tasks assigned to them
   (`task:update_assigned`). They live in `packages/permissions/src/roles.ts`;
-  migration 0006 rewrote every stored `viewer` row to the current payload.
+  creating a workspace seeds `viewer`, `member` and `admin` rows from them.
 - Roles: at most 25 per workspace. `owner`, `admin`, `member` and `viewer` are
   reserved names; the seeded three can't be deleted or renamed (400
   `DEFAULT_ROLE`), and a role members hold can't be deleted or renamed (409
