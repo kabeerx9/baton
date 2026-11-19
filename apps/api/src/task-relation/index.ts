@@ -29,6 +29,7 @@ import {
   taskIdParam,
   taskRelationParam,
 } from "./schema";
+import { setWorkspaceContext } from "../observability/workspace-context";
 
 async function scopeOfTask(taskId: string) {
   const [task] = await db
@@ -74,7 +75,7 @@ async function scopeToSourceTask(c: Context, next: Next) {
     notFoundMessage: "Source task not found",
   });
   await assertProjectAccess(userId, scope.projectId);
-  c.set("workspaceId", scope.workspaceId);
+  setWorkspaceContext(c, scope.workspaceId);
   return next();
 }
 
@@ -100,7 +101,7 @@ async function scopeToRelation(c: Context, next: Next) {
     notFoundMessage: "Task relation not found",
   });
   await assertProjectAccess(userId, scope.projectId);
-  c.set("workspaceId", scope.workspaceId);
+  setWorkspaceContext(c, scope.workspaceId);
   return next();
 }
 

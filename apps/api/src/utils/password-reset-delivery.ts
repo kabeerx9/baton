@@ -1,9 +1,10 @@
+import { logger } from "../observability/logger";
 const pendingDeliveries = new Set<Promise<void>>();
 
 export function trackPasswordResetDelivery(delivery: Promise<void>) {
   const settled = delivery
     .catch(() => {
-      console.error("Password reset email preparation failed");
+      logger.error("Password reset email preparation failed");
     })
     .finally(() => pendingDeliveries.delete(settled));
   pendingDeliveries.add(settled);
@@ -23,7 +24,7 @@ export async function drainPasswordResetDeliveries(timeoutMs = 10_000) {
       })(),
       new Promise<void>((resolve) => {
         timeout = setTimeout(() => {
-          console.warn("Timed out waiting for password reset email delivery");
+          logger.warn("Timed out waiting for password reset email delivery");
           resolve();
         }, timeoutMs);
       }),

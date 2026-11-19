@@ -5,6 +5,7 @@ import { labelTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { syncLabelToGitHub } from "../../plugins/github/utils/sync-label-to-github";
 import { assertProjectAccess } from "../../project-access/assert-project-access";
+import { logger } from "../../observability/logger";
 
 async function createLabel(
   name: string,
@@ -69,7 +70,7 @@ async function createLabel(
 
     if (inserted) {
       syncLabelToGitHub(taskId, name, color).catch((error) => {
-        console.error("Failed to sync label to GitHub:", error);
+        logger.error("Failed to sync label to GitHub", { error });
       });
 
       await publishEvent("task.label_created", {

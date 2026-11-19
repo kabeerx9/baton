@@ -1,4 +1,5 @@
 import Redis, { type Cluster } from "ioredis";
+import { logger } from "../observability/logger";
 
 export type RedisClient = Redis | Cluster;
 
@@ -155,7 +156,7 @@ export function getRedisPub(): RedisClient {
   if (!_redisPub) {
     _redisPub = createRedisClient();
     (_redisPub as Redis).on("error", (err: Error) =>
-      console.error("Redis pub client error:", err),
+      logger.error("Redis pub client error", { error: err }),
     );
   }
   return _redisPub;
@@ -165,7 +166,7 @@ export function getRedisSub(): RedisClient {
   if (!_redisSub) {
     _redisSub = createRedisClient();
     (_redisSub as Redis).on("error", (err: Error) =>
-      console.error("Redis sub client error:", err),
+      logger.error("Redis sub client error", { error: err }),
     );
   }
   return _redisSub;

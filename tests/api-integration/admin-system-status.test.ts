@@ -11,6 +11,7 @@ import { readAuditLog } from "./helpers/admin/read-audit-log";
 import { resetTestDatabase } from "./helpers/database";
 import { createRestrictedWorkspace } from "./helpers/project-access/create-restricted-workspace";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const smtp = vi.hoisted(() => ({
   configured: vi.fn(() => false),
@@ -383,7 +384,7 @@ describe("admin test email", () => {
     vi.spyOn(adminAudit, "recordAdminAction").mockRejectedValue(
       new Error("query parameters contain private-audit-value"),
     );
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     const response = await projectAccessApi()("/admin/system/test-email", {
       method: "POST",
@@ -393,7 +394,7 @@ describe("admin test email", () => {
     expect(await response.json()).toEqual({ sent: true, to: admin.email });
     expect(smtp.send).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith(
-      "Admin audit entry could not be recorded:",
+      "Admin audit entry could not be recorded",
       {
         action: "email.test_sent",
         code: "UNKNOWN",
@@ -412,7 +413,7 @@ describe("admin test email", () => {
         { code: "EAUTH", responseCode: 535 },
       ),
     );
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     const admin = await createInstanceAdmin();
     mockAuthenticatedSession(admin);
 
@@ -424,9 +425,7 @@ describe("admin test email", () => {
     const text = await response.text();
     expect(text).toContain("EAUTH 535");
     expect(text).not.toContain("smtp-password-value");
-    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
-      "smtp-password-value",
-    );
+    expect(JSON.stringify(log.mock.calls)).not.toContain("smtp-password-value");
     expect(await readAuditLog()).toEqual([]);
   });
 

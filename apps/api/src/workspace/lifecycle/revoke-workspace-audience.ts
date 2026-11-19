@@ -1,4 +1,5 @@
 import { revokeWorkspaceConnections } from "../../ws";
+import { logger } from "../../observability/logger";
 
 /** Closes the workspace's realtime connections for every listed user. */
 export async function revokeWorkspaceAudience(
@@ -12,7 +13,7 @@ export async function revokeWorkspaceAudience(
         force: true,
         reason,
       }).catch((error) => {
-        console.error("Failed to revoke workspace realtime access:", error);
+        logger.error("Failed to revoke workspace realtime access", { error });
       }),
     ),
   );

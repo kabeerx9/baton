@@ -23,6 +23,7 @@ import {
   type WorkspaceKind,
 } from "../workspace/kind/workspace-kind";
 import { decryptSecret } from "./secrets";
+import { logger } from "../observability/logger";
 
 type ResolvedNotificationContext = {
   workspaceId: string;
@@ -380,7 +381,7 @@ export async function deliverNotification(
 
   const context = await resolveNotificationContext(notification);
   if (!context) {
-    console.info("Notification delivery skipped: unresolved context", {
+    logger.info("Notification delivery skipped: unresolved context", {
       notificationId,
       notificationTableId: notification.id,
       resourceType: notification.resourceType,
@@ -566,7 +567,7 @@ export async function deliverNotification(
   const results = await Promise.allSettled(deliveries);
   for (const result of results) {
     if (result.status === "rejected") {
-      console.error("Notification delivery failed", {
+      logger.error("Notification delivery failed", {
         notificationId,
         error: safeOutboundError(result.reason),
       });

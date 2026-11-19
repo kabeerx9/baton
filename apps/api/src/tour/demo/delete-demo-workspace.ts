@@ -6,6 +6,7 @@ import type { OutboxTransaction } from "../../events/outbox/consumer";
 import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { listWorkspaceObjectKeys } from "../../workspace/lifecycle/list-workspace-object-keys";
 import { revokeWorkspaceAudience } from "../../workspace/lifecycle/revoke-workspace-audience";
+import { logger } from "../../observability/logger";
 
 export type DeletedDemo = { workspaceId: string; ownerId: string };
 
@@ -64,6 +65,6 @@ export async function afterDemoDeleted(deleted: DeletedDemo | null) {
   await publishEvent("workspace.deleted", {
     workspaceId: deleted.workspaceId,
   }).catch((error) => {
-    console.error("Failed to publish workspace deleted event:", error);
+    logger.error("Failed to publish workspace deleted event", { error });
   });
 }

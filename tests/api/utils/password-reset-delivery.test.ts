@@ -3,6 +3,7 @@ import {
   drainPasswordResetDeliveries,
   trackPasswordResetDelivery,
 } from "../../../apps/api/src/utils/password-reset-delivery";
+import { logger } from "../../../apps/api/src/observability/logger";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
@@ -40,7 +41,7 @@ it("also drains deliveries registered while waiting", async () => {
 it("bounds shutdown when the mail server does not respond", async () => {
   const delivery = Promise.withResolvers<void>();
   trackPasswordResetDelivery(delivery.promise);
-  const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const warning = vi.spyOn(logger, "warn").mockImplementation(() => {});
   const drain = drainPasswordResetDeliveries(100);
   await vi.advanceTimersByTimeAsync(100);
   await drain;
@@ -52,7 +53,7 @@ it("bounds shutdown when the mail server does not respond", async () => {
 });
 
 it("handles rejected preparation without leaking private error details", async () => {
-  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const log = vi.spyOn(logger, "error").mockImplementation(() => {});
   trackPasswordResetDelivery(Promise.reject(new Error("private-reset-token")));
   await drainPasswordResetDeliveries();
   expect(log).toHaveBeenCalledExactlyOnceWith(

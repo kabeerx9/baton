@@ -15,6 +15,8 @@ import { isPending } from "./lifecycle";
 import { lockWorkspacesShared } from "./lock-workspaces";
 import { appliesOnTimeout } from "./request-change";
 import { publishExecution } from "./decide-change-request";
+import { recordDomainEvent } from "../observability/domain-event";
+import { logger } from "../observability/logger";
 
 export const TIMEOUT_BATCH = 100;
 const SYSTEM: Decider = { userId: null, channel: null };
@@ -135,10 +137,18 @@ export async function runChangeRequestTimeouts(limit = TIMEOUT_BATCH) {
   let degraded = false;
   for (const id of await dueRequestIds(limit)) {
     try {
-      counts[await timeOutRequest(id)]++;
+      const outcome = await timeOutRequest(id);
+      counts[outcome]++;
+      recordDomainEvent("change_request", "Change request timed out", {
+        change_request_id: id,
+        outcome,
+      });
     } catch (error) {
       degraded = true;
-      console.error(`[change-request] timeout failed for ${id}`, error);
+      logger.error("[change-request] timeout failed", {
+        change_request_id: id,
+        error,
+      });
     }
   }
   return { ...counts, degraded };

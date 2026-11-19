@@ -7,6 +7,7 @@ import {
   getGithubApp,
   getVerifiedInstallationOctokit,
 } from "../utils/github-app";
+import { logger } from "../../../observability/logger";
 
 export async function handleTaskCommentCreated(
   event: TaskCommentCreatedEvent,
@@ -55,6 +56,6 @@ export async function handleTaskCommentCreated(
       }),
     );
   } catch (error) {
-    console.error("Failed to create GitHub comment:", error);
+    logger.error("Failed to create GitHub comment", { error });
   }
 }

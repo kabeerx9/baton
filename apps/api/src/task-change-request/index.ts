@@ -20,6 +20,7 @@ import { actorFromContext } from "./actor";
 import { decideChangeRequest, type Decision } from "./decide-change-request";
 import { canReadRequest, listChangeRequests } from "./list-change-requests";
 import { changeRequestSchema, toChangeRequestResponse } from "./response";
+import { setWorkspaceContext } from "../observability/workspace-context";
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -60,7 +61,7 @@ async function requestWorkspaceAccess(c: Context, next: Next) {
       notFoundMessage: "Request not found",
     },
   );
-  c.set("workspaceId", row.workspaceId);
+  setWorkspaceContext(c, row.workspaceId);
   return next();
 }
 

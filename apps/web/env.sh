@@ -18,6 +18,8 @@ if [ -z "${BATON_API_URL:-}" ]; then
   echo "WARNING: BATON_API_URL is not set. API calls may fail." >&2
 fi
 
+LC_ALL=C awk -v mode=check -f "$BATON_ENV_RENDERER" >&2
+
 # Runs after nginx's template hook, so rendered templates are checked too.
 # Server configs from older images serve the unconfigured build from there.
 if grep -qsF /usr/share/nginx/html /var/lib/baton/nginx/conf.d/*.conf; then

@@ -101,10 +101,28 @@ services:
         scope: RUN_TIME
         value: "America/New_York"
 
-      # --- Error tracking ---
+      # --- Error tracking and logs ---
+      # Sentry stays off until SENTRY_DSN (API) and BATON_SENTRY_DSN (browser)
+      # are set; see ENVIRONMENT_SETUP.md, "Sentry and logs". The release is
+      # the commit SHA baked into the image by CI: do not set SENTRY_RELEASE.
       - key: SENTRY_ENVIRONMENT
         scope: RUN_TIME
         value: "production"
+      # Browser Sentry environment; rendered into the web assets at startup.
+      - key: BATON_SENTRY_ENVIRONMENT
+        scope: RUN_TIME
+        value: "production"
+      # Share of API requests traced, and share of traces profiled.
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        scope: RUN_TIME
+        value: "0.1"
+      - key: SENTRY_PROFILES_SAMPLE_RATE
+        scope: RUN_TIME
+        value: "0"
+      # stdout log threshold: debug, info, warn or error.
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: "info"
 
       # Optional and not set on the live app. An empty value makes the
       # dashboard's App Spec update fail, so add these only with real values.
@@ -116,5 +134,7 @@ services:
       #   GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET (secret),
       #   GITHUB_APP_ID, GITHUB_APP_NAME, GITHUB_WEBHOOK_SECRET (secret),
       #   GITHUB_PRIVATE_KEY_BASE64 (secret)
-      #   SENTRY_DSN (secret), SENTRY_RELEASE
+      #   SENTRY_DSN (secret; the baton-api project DSN)
+      #   BATON_SENTRY_DSN (the baton-web project DSN; public, rendered into
+      #   browser assets at startup, so plain is fine)
       #   REDIS_URL (secret), only when instance_count is above 1

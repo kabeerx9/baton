@@ -18,6 +18,8 @@ import { ErrorBoundary } from "./components/ui/error-boundary";
 import { ShortcutListener } from "./lib/shortcuts/shortcut-listener";
 import { takeBootSplashShown } from "./lib/boot-splash";
 import { preloadRouteComponents } from "./lib/preload-route-components";
+import { connectSentryRouter } from "./lib/observability/connect-sentry-router";
+import { useSentryUser } from "./lib/observability/use-sentry-user";
 import { i18n } from "./lib/i18n";
 import { routeTree } from "./routeTree.gen";
 
@@ -61,10 +63,12 @@ const router = createRouter({
   },
 });
 
+connectSentryRouter(router);
 preloadRouteComponents(router, window.location.pathname);
 
 function App() {
   const { user } = useAuth();
+  useSentryUser(user?.id);
   // Runs once, before the router mounts and starts its first load.
   useState(() => {
     if (!takeBootSplashShown()) return;

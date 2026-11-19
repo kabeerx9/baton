@@ -3,14 +3,12 @@ import { startOutboxRelay } from "./events/outbox/start-relay";
 import integrationSync from "./integration-sync";
 import { syncWorkspaceAccess } from "./ws/workspace-access";
 import { drainPasswordResetDeliveries } from "./utils/password-reset-delivery";
-import "./instrument";
 
 import { dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import * as Sentry from "@sentry/node";
 import type { Identity } from "./identity/port";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -28,6 +26,10 @@ import db, { getDatabase, schema } from "./database";
 import { apiErrorSchema } from "./errors/api-error-schema";
 import { httpExceptionResponse } from "./errors/http-exception-response";
 import { notFoundResponse } from "./errors/not-found-response";
+import { logger } from "./observability/logger";
+import { reportRequestError } from "./observability/report-error";
+import { requestContext } from "./observability/request-context-middleware";
+import { setWorkspaceContext } from "./observability/workspace-context";
 import { validationHook } from "./errors/validation-error";
 import { prepareDatabaseStartup } from "./database/prepare-database-startup";
 import { waitForDatabase } from "./database/wait-for-database";
@@ -155,18 +157,12 @@ function buildContentDisposition(filename: string, inline: boolean) {
 
 export function createApp() {
   const app = new Hono<AppVariables>();
+  app.use("*", requestContext());
   app.use("*", clientIpMiddleware());
 
   app.onError((err) => {
-    if (err instanceof HTTPException) {
-      // expected errors (401/404/...) are not reported; real failures are
-      if (err.status >= 500) {
-        Sentry.captureException(err);
-      }
-      return httpExceptionResponse(err);
-    }
-
-    Sentry.captureException(err);
+    reportRequestError(err);
+    if (err instanceof HTTPException) return httpExceptionResponse(err);
     return httpExceptionResponse(
       new HTTPException(500, { message: "Internal Server Error" }),
     );
@@ -199,7 +195,7 @@ export function createApp() {
   const reflectUnconfiguredOrigins = process.env.NODE_ENV !== "production";
 
   if (!corsOrigins && !reflectUnconfiguredOrigins) {
-    console.warn(
+    logger.warn(
       "[cors] Neither CORS_ORIGINS nor BATON_CLIENT_URL is set, so cross-origin requests are refused. Same-origin deployments (the bundled image) are unaffected; set BATON_CLIENT_URL if the web app is served from another origin.",
     );
   }
@@ -400,7 +396,7 @@ export function createApp() {
           },
         });
       } catch (error) {
-        console.error("Failed to stream asset:", error);
+        logger.error("Failed to stream asset", { error });
         throw new HTTPException(404, { message: "Asset object not found" });
       }
     },
@@ -550,27 +546,26 @@ export function createApp() {
     if (path.startsWith("/api/mcp") || path.startsWith("/api/.well-known/")) {
       return next();
     }
-    return Sentry.withIsolationScope(async () => {
-      Sentry.setUser(null);
-      try {
-        await authenticateApiRequest(c);
-        const windowId = c.req.header("X-Baton-Window-Id");
-        const userId = c.get("userId");
-        const initiatorId = windowId ? `${userId}:${windowId}` : userId;
-        return await eventContext.run(
-          { initiatorId, channel: channelFor(c.get("authMethod")) },
-          next,
-        );
-      } catch (error) {
-        if (!(error instanceof HTTPException)) {
-          console.error("API authentication failed:", error);
-          throw new HTTPException(500, { message: "Internal Server Error" });
-        }
-        throw error;
-      } finally {
-        Sentry.setUser(null);
+    // requestContext() already gave this request its own Sentry scope.
+    try {
+      await authenticateApiRequest(c);
+    } catch (error) {
+      if (!(error instanceof HTTPException)) {
+        logger.error("API authentication failed", { error });
+        throw new HTTPException(500, {
+          message: "Internal Server Error",
+          cause: error,
+        });
       }
-    });
+      throw error;
+    }
+    const windowId = c.req.header("X-Baton-Window-Id");
+    const userId = c.get("userId");
+    const initiatorId = windowId ? `${userId}:${windowId}` : userId;
+    return eventContext.run(
+      { initiatorId, channel: channelFor(c.get("authMethod")) },
+      next,
+    );
   });
 
   const projectApi = api.route("/project", project);
@@ -682,7 +677,7 @@ export function createApp() {
         });
         await assertProjectAccess(userId, projectId);
         workspaceId = project.workspaceId;
-        c.set("workspaceId", workspaceId);
+        setWorkspaceContext(c, workspaceId);
         await requireWorkspacePermission(PROJECT_READ_PERMISSIONS)(
           c,
           async () => {},
@@ -764,11 +759,11 @@ export async function runStartupTasks() {
       });
     },
     runStartupMigrations: async () => {
-      console.log("🔄 Migrating database...");
+      logger.info("🔄 Migrating database...");
       await migrate(getDatabase(), {
         migrationsFolder: `${currentDir}/../drizzle`,
       });
-      console.log("✅ Database migrated successfully!");
+      logger.info("✅ Database migrated successfully!");
     },
   });
 
@@ -787,7 +782,7 @@ export async function startServer(
   try {
     await runStartupTasks();
   } catch (error) {
-    console.error("❌ Database migration failed!", error);
+    logger.error("❌ Database migration failed!", { error });
     process.exit(1);
   }
 
@@ -799,7 +794,7 @@ export async function startServer(
       port,
     },
     () => {
-      console.log(
+      logger.info(
         `⚡ API is running at ${process.env.BATON_API_URL || "http://localhost:1337"}`,
       );
     },
@@ -813,7 +808,7 @@ export async function startServer(
     if (shuttingDown) return;
     shuttingDown = true;
 
-    console.log("🛑 Shutting down gracefully...");
+    logger.info("🛑 Shutting down gracefully...");
     shutdownScheduler();
     await stopWebhookWorker();
     // Waits for in-flight deliveries; unfinished rows run after their lease.

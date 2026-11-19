@@ -1,6 +1,7 @@
 import { and, eq, gt, lte, ne, sql } from "drizzle-orm";
 import db from "../../database";
 import { outboxTable } from "../../database/schema";
+import { logger } from "../../observability/logger";
 
 const WINDOW = sql`(now() AT TIME ZONE 'utc') - interval '5 minutes'`;
 
@@ -20,7 +21,7 @@ export async function checkOutboxHealth() {
   const newDead = Number(counts?.newDead ?? 0);
   const degraded = stuck > 0 || newDead > 0;
   if (degraded)
-    console.error("Outbox is degraded", {
+    logger.error("Outbox is degraded", {
       stuck,
       newDead,
       // Never reset attempts: it is the fence (see requeue.ts).

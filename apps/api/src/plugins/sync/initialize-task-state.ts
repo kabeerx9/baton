@@ -4,6 +4,7 @@ import { isTaskInFinalState } from "../github/services/task-service";
 import { parseLinkMetadata } from "../github/utils/parse-link-metadata";
 import type { SyncStamp } from "../github/utils/sync-echo";
 import type { PluginContext, TaskCreatedEvent } from "../types";
+import { logger } from "../../observability/logger";
 
 export async function initializeTaskState(
   event: TaskCreatedEvent,
@@ -41,7 +42,7 @@ export async function initializeTaskState(
       );
       if (!synchronized) throw new Error("Issue state needs retry");
     } catch {
-      console.error("Issue state initialization failed", {
+      logger.error("Issue state initialization failed", {
         projectId: event.projectId,
         taskId: event.taskId,
         integrationId: context.integrationId,

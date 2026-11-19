@@ -11,6 +11,12 @@ import type { ConsumerResult, LocalConsumer } from "./consumer";
 import { errorCode } from "./error-code";
 import { type Step, preflight, readDelivery, transition } from "./lifecycle";
 import { findConsumer } from "./registry";
+import {
+  addDomainBreadcrumb,
+  recordDomainEvent,
+} from "../../observability/domain-event";
+import { runForWorkspace } from "../../observability/background-context";
+import { logger } from "../../observability/logger";
 
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
 
@@ -160,7 +166,7 @@ async function applyStep(row: OutboxRow, step: Step, error: string) {
     reason: step.reason,
     error,
   };
-  console.error("Outbox delivery is dead", facts);
+  logger.error("Outbox delivery is dead", facts);
   Sentry.captureMessage("Outbox delivery is dead", {
     level: "error",
     tags: { area: "outbox", consumer: row.consumer, type: row.type },
@@ -173,7 +179,24 @@ async function applyStep(row: OutboxRow, step: Step, error: string) {
  * Runs one claimed row and records its outcome. Never throws for a handler
  * failure; a database error while recording leaves the row to its lease.
  */
-export async function deliverOutboxRow(
+export function deliverOutboxRow(
+  claimed: ClaimedRow,
+  options: { timeoutMs: number },
+): Promise<DeliveryResult> {
+  // Each delivery gets its own context and scope for the row's workspace,
+  // so its logs, breadcrumbs and errors carry that tenant and no other.
+  return runForWorkspace(claimed.row.workspaceId, async () => {
+    const result = await deliverRow(claimed, options);
+    const facts = { consumer: claimed.row.consumer, outcome: result };
+    // Successful deliveries are frequent: a breadcrumb only, no Sentry log.
+    if (result === "delivered" || result === "skipped")
+      addDomainBreadcrumb("outbox", "Outbox delivery finished", facts);
+    else recordDomainEvent("outbox", "Outbox delivery finished", facts);
+    return result;
+  });
+}
+
+async function deliverRow(
   claimed: ClaimedRow,
   { timeoutMs }: { timeoutMs: number },
 ): Promise<DeliveryResult> {

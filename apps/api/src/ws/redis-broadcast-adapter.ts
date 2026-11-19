@@ -6,6 +6,7 @@ import type {
   BroadcastMessage,
   UserBroadcast,
 } from "./broadcast-adapter";
+import { logger } from "../observability/logger";
 
 const CHANNEL_PREFIX = "baton:ws:";
 const CHANNEL_SUFFIX = ":broadcast";
@@ -86,14 +87,14 @@ export class RedisBroadcastAdapter implements BroadcastAdapter {
       try {
         const parsed = v.safeParse(broadcastMessageSchema, JSON.parse(data));
         if (!parsed.success) {
-          console.error("Invalid broadcast message:", parsed.issues);
+          logger.error("Invalid broadcast message", { issues: parsed.issues });
           return;
         }
         void Promise.resolve(handler(parsed.output)).catch((error) => {
-          console.error("Failed to deliver project broadcast:", error);
+          logger.error("Failed to deliver project broadcast", { error });
         });
       } catch (err) {
-        console.error("Failed to parse broadcast message:", err);
+        logger.error("Failed to parse broadcast message", { error: err });
       }
     };
     (getRedisSub() as Redis).on("pmessage", this._pmessageHandler);
@@ -116,20 +117,22 @@ export class RedisBroadcastAdapter implements BroadcastAdapter {
       try {
         const parsed = v.safeParse(userBroadcastSchema, JSON.parse(data));
         if (!parsed.success) {
-          console.error("Invalid user broadcast message:", parsed.issues);
+          logger.error("Invalid user broadcast message", {
+            issues: parsed.issues,
+          });
           return;
         }
         if (channel !== this.channelForUser(parsed.output.userId)) {
-          console.error("User broadcast channel and payload disagree");
+          logger.error("User broadcast channel and payload disagree");
           return;
         }
         void Promise.resolve(handler(parsed.output as UserBroadcast)).catch(
           (error) => {
-            console.error("Failed to deliver user broadcast:", error);
+            logger.error("Failed to deliver user broadcast", { error });
           },
         );
       } catch (err) {
-        console.error("Failed to parse user broadcast message:", err);
+        logger.error("Failed to parse user broadcast message", { error: err });
       }
     };
     (getRedisSub() as Redis).on("pmessage", this._userPmessageHandler);
@@ -144,10 +147,9 @@ export class RedisBroadcastAdapter implements BroadcastAdapter {
             if (this.userSubscribed) await onRecovery();
           })
           .catch((error) => {
-            console.error(
-              "Failed to recover user broadcast subscription:",
+            logger.error("Failed to recover user broadcast subscription", {
               error,
-            );
+            });
           });
       };
       getRedisSub().on("ready", this.recoveryHandler);

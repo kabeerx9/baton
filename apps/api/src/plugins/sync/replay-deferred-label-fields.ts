@@ -6,6 +6,7 @@ import { withJobLease } from "../../scheduler/leader-lock";
 import { updateExternalLink } from "../github/services/link-manager";
 import { canSyncTask } from "./eligibility";
 import { syncLabelFieldsFromIssue } from "./sync-label-fields-from-issue";
+import { logger } from "../../observability/logger";
 
 const BATCH = 20;
 let cursor: string | undefined;
@@ -60,7 +61,7 @@ async function replayClaimedLabelFields() {
       await syncLabelFieldsFromIssue(integration, link);
     } catch {
       degraded = true;
-      console.error("Deferred issue label replay failed", { linkId: link.id });
+      logger.error("Deferred issue label replay failed", { linkId: link.id });
     }
   }
   // Only a completed final batch starts the next run from the first link.

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db from "../database";
 import { slackUserLinkTable, userTable } from "../database/schema";
 import { lookupSlackUserByEmail } from "./slack-api";
+import { logger } from "../observability/logger";
 
 // A person not found in Slack is looked up again after a day, in case they
 // joined or changed their email.
@@ -42,7 +43,7 @@ export async function resolveSlackUser(
   // A failed call says nothing about the person. Do not save it; try again
   // on the next message.
   if (result.kind === "error") {
-    console.error(`[slack-dm] lookup failed: ${result.error}`);
+    logger.error("[slack-dm] lookup failed", { slack_error: result.error });
     return null;
   }
   const slackUserId = result.kind === "found" ? result.slackUserId : null;

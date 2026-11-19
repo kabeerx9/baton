@@ -22,6 +22,7 @@ import {
   getVerifiedInstallationOctokit,
 } from "../utils/github-app";
 import { addLabelsToIssue, removeLabel } from "../utils/labels";
+import { logger } from "../../../observability/logger";
 
 async function createTaskIssue(
   event: TaskCreatedEvent,
@@ -190,7 +191,7 @@ async function createTaskIssue(
         : {}),
     });
   } catch (error) {
-    console.error("Failed to create GitHub issue:", error);
+    logger.error("Failed to create GitHub issue", { error });
   }
 }
 

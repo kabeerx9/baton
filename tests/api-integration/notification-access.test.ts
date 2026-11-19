@@ -39,6 +39,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const { publish, sendEmail } = vi.hoisted(() => ({
   publish: vi.fn(),
@@ -506,7 +507,7 @@ describe("notification recipient boundaries", () => {
         new Error("gotify-secret ntfy-secret webhook-secret private-url"),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     await deliverNotification(notification.id);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     for (const [, options] of fetchMock.mock.calls) {
@@ -552,7 +553,7 @@ describe("notification recipient boundaries", () => {
     vi.stubEnv("BATON_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS", "true");
     const fetchMock = vi.fn().mockResolvedValue(new Response(null));
     vi.stubGlobal("fetch", fetchMock);
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     await deliverNotification(notification.id);
     expect(log).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);

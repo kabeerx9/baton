@@ -5,6 +5,7 @@ import db, { schema } from "../database";
 import { assertProjectAccess } from "../project-access/assert-project-access";
 import { isInstanceAdmin } from "./is-instance-admin";
 import { validateWorkspaceAccess } from "./validate-workspace-access";
+import { setWorkspaceContext } from "../observability/workspace-context";
 
 type LookupResource =
   | "project"
@@ -157,7 +158,7 @@ export function workspaceAccessMiddleware(
     });
     await assertProjectAccess(userId, projectIds);
 
-    c.set("workspaceId", workspaceId);
+    setWorkspaceContext(c, workspaceId);
 
     return next();
   };

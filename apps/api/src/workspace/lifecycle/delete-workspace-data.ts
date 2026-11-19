@@ -10,6 +10,7 @@ import { recordAdminAction } from "../../admin/audit/record-admin-action";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 import { type LockedWorkspace, lockWorkspace } from "./lock-workspace";
 import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
+import { logger } from "../../observability/logger";
 
 /**
  * Deletes a workspace the way the owner's "Delete workspace" does: the same
@@ -82,7 +83,7 @@ export async function deleteWorkspaceData(
 
   await revokeWorkspaceAudience(audience, workspaceId);
   await publishEvent("workspace.deleted", { workspaceId }).catch((error) => {
-    console.error("Failed to publish workspace deleted event:", error);
+    logger.error("Failed to publish workspace deleted event", { error });
   });
 
   return workspace;

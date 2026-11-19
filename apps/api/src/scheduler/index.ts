@@ -5,6 +5,9 @@ import { replayDeferredIssueEdits } from "../plugins/github/services/deferred-is
 import { replayDeferredLabelFields } from "../plugins/sync/replay-deferred-label-fields";
 import * as Sentry from "@sentry/node";
 import { Cron } from "croner";
+import { runDetached } from "../observability/background-context";
+import { addDomainBreadcrumb } from "../observability/domain-event";
+import { logger } from "../observability/logger";
 import { checkDueDateReminders } from "./due-date-reminders";
 import { digestConfigWarnings, slackConfig } from "../slack-dm/config";
 import { sendDueDigests } from "../slack-dm/digest";
@@ -23,32 +26,48 @@ type JobOutcome = { degraded?: boolean };
 // up the monitor without aborting the rest of the work. Unexpected throws are
 // captured as exception events and swallowed so one bad tick can't take down
 // the scheduler via an unhandled rejection.
-function withCheckIn<T>(name: string, fn: () => Promise<T>) {
-  return async (): Promise<void> => {
-    const checkInId = Sentry.captureCheckIn({
+export function withCheckIn<T>(name: string, fn: () => Promise<T>) {
+  // Each run gets its own empty context, so its breadcrumbs stay with its
+  // errors and no request's user or workspace leaks in.
+  return () => runDetached(() => runJob(name, fn));
+}
+
+async function runJob<T>(name: string, fn: () => Promise<T>): Promise<void> {
+  const started = performance.now();
+  addDomainBreadcrumb("cron", "Cron job started", { job: name });
+  const checkInId = Sentry.captureCheckIn({
+    monitorSlug: name,
+    status: "in_progress",
+  });
+  try {
+    const result = await fn();
+    const degraded = Boolean(
+      (result as JobOutcome | null | undefined)?.degraded,
+    );
+    Sentry.captureCheckIn({
+      checkInId,
       monitorSlug: name,
-      status: "in_progress",
+      status: degraded ? "error" : "ok",
     });
-    try {
-      const result = await fn();
-      const degraded = Boolean(
-        (result as JobOutcome | null | undefined)?.degraded,
-      );
-      Sentry.captureCheckIn({
-        checkInId,
-        monitorSlug: name,
-        status: degraded ? "error" : "ok",
-      });
-    } catch (error) {
-      Sentry.captureException(error, { tags: { area: "cron", job: name } });
-      Sentry.captureCheckIn({
-        checkInId,
-        monitorSlug: name,
-        status: "error",
-      });
-      console.error(`Cron job ${name} failed`, error);
-    }
-  };
+    const facts = {
+      job: name,
+      outcome: degraded ? "degraded" : "ok",
+      duration_ms: Math.round(performance.now() - started),
+    };
+    addDomainBreadcrumb("cron", "Cron job finished", facts);
+    // Healthy runs stay on stdout; check-ins already show them in Sentry.
+    if (degraded) logger.warn("Cron job finished degraded", facts);
+    else logger.info("Cron job finished", facts);
+  } catch (error) {
+    Sentry.captureException(error, { tags: { area: "cron", job: name } });
+    Sentry.captureCheckIn({
+      checkInId,
+      monitorSlug: name,
+      status: "error",
+    });
+    // Sentry marks the captured error, so this line adds no second event.
+    logger.error("Cron job failed", { job: name, error });
+  }
 }
 
 export function initializeScheduler(): void {
@@ -122,7 +141,7 @@ export function initializeScheduler(): void {
   // tick; sendDueDigests decides who is due in their own zone.
   if (slackConfig()) {
     for (const warning of digestConfigWarnings()) {
-      console.warn(`[slack-dm] ${warning}`);
+      logger.warn(`[slack-dm] ${warning}`);
     }
     jobs.push(
       new Cron(
@@ -132,7 +151,7 @@ export function initializeScheduler(): void {
       ),
     );
   }
-  console.log(
+  logger.info(
     "⏰ Scheduler started (deferred integration edits every minute, reminders every 5 minutes)",
   );
 }

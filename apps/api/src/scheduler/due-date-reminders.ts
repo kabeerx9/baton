@@ -19,6 +19,7 @@ import {
   DUE_DATE_DURATION_MS,
   REMINDER_WINDOW_MINUTES,
 } from "./reminder-timing";
+import { logger } from "../observability/logger";
 
 type ReminderType = "configured_before" | "overdue";
 
@@ -188,7 +189,7 @@ export async function checkDueDateReminders(): Promise<{ degraded: boolean }> {
           await processReminder(task, window.type, window.notificationType);
         } catch (error) {
           degraded = true;
-          console.error("Failed to process due date reminder", {
+          logger.error("Failed to process due date reminder", {
             taskId: task.id,
             reminderType: window.type,
             error,
@@ -197,7 +198,7 @@ export async function checkDueDateReminders(): Promise<{ degraded: boolean }> {
       }
     } catch (error) {
       degraded = true;
-      console.error("Failed to query tasks for due date reminders", {
+      logger.error("Failed to query tasks for due date reminders", {
         reminderType: window.type,
         error,
       });

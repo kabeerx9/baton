@@ -7,6 +7,7 @@ import { revokeWorkspaceAudience } from "../../workspace/lifecycle/revoke-worksp
 import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
 import { lockWorkspaceRow } from "../../workspace/lifecycle/lock-workspace-row";
+import { logger } from "../../observability/logger";
 
 async function archiveWorkspace(workspaceId: string, audit: AdminAuditRequest) {
   const archivedAt = new Date();
@@ -41,7 +42,7 @@ async function archiveWorkspace(workspaceId: string, audit: AdminAuditRequest) {
   await revokeWorkspaceAudience(userIds, workspaceId, "archived");
 
   await publishEvent("workspace.archived", { workspaceId }).catch((error) => {
-    console.error("Failed to publish workspace archived event:", error);
+    logger.error("Failed to publish workspace archived event", { error });
   });
   return { id: workspaceId, archivedAt: archivedAt.toISOString() };
 }

@@ -46,6 +46,7 @@ import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
 import { checkStatusChange } from "../../task-change-request/status-change";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 import { deleteResourceNotifications } from "../../notification/delete-resource-notifications";
+import { logger } from "../../observability/logger";
 
 export type BulkItemResult =
   | { taskId: string; outcome: "applied" }
@@ -618,7 +619,7 @@ async function bulkUpdateTasks({
 
         removeLabelFromGitHub(deletedLabel.taskId, deletedLabel.name).catch(
           (error) => {
-            console.error("Failed to remove label from GitHub:", error);
+            logger.error("Failed to remove label from GitHub", { error });
           },
         );
 

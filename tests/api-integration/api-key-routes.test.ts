@@ -242,6 +242,11 @@ describe("GET /api/api-key (A3)", () => {
       vi.spyOn(console, method).mockImplementation((...args) => {
         logged.push(args);
       });
+    // The structured logger writes JSON lines straight to stdout.
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      logged.push(String(chunk));
+      return true;
+    });
     const emitted: unknown[] = [];
     const emit = EventEmitter.prototype.emit;
     vi.spyOn(EventEmitter.prototype, "emit").mockImplementation(function (

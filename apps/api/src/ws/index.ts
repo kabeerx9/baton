@@ -38,6 +38,7 @@ import type {
 import { InMemoryBroadcastAdapter } from "./in-memory-broadcast-adapter";
 import { RedisBroadcastAdapter } from "./redis-broadcast-adapter";
 import { getProjectReadAccess } from "./project-read-access";
+import { logger } from "../observability/logger";
 
 const INSTANCE_ID = randomUUID();
 let revocationDelivery: ReturnType<typeof createRevocationDelivery> | undefined;
@@ -107,7 +108,7 @@ export function broadcastToUser(userId: string, message: UserBroadcastMessage) {
   void adapter
     .publishToUser({ userId, message, origin: INSTANCE_ID })
     .catch((err) => {
-      console.error("Failed to publish a user broadcast:", err);
+      logger.error("Failed to publish a user broadcast", { error: err });
     });
 }
 
@@ -353,10 +354,9 @@ export async function initializeWebSocketAdapter({
             )
               return;
           } catch (error) {
-            console.error(
-              "Failed to verify received workspace revocation:",
+            logger.error("Failed to verify received workspace revocation", {
               error,
-            );
+            });
             await retryReceived.send(msg);
             return;
           }
@@ -392,7 +392,7 @@ export async function initializeWebSocketAdapter({
     });
   }, sessionRecheckMs);
   sessionRecheck.unref?.();
-  console.log(`📡 WebSockets Initialized using: "${adapter.constructor.name}"`);
+  logger.info(`📡 WebSockets Initialized using: "${adapter.constructor.name}"`);
 }
 
 export async function shutdownWebSocketAdapter() {
@@ -456,7 +456,7 @@ export async function closeProjectConnections(projectId: string) {
   } catch (error) {
     // Delivery also checks the workspace, so missed Redis notifications cannot
     // leave old connections receiving future project updates.
-    console.error("Failed to publish project move:", error);
+    logger.error("Failed to publish project move", { error });
   }
 }
 
@@ -502,7 +502,7 @@ async function revokeLocalProjectConnections(
       ),
     );
   } catch (error) {
-    console.error("Failed to verify project access:", error);
+    logger.error("Failed to verify project access", { error });
     return revokedWorkspaceIds;
   }
   for (const { projectId, conn } of owned) {
@@ -564,7 +564,7 @@ async function recheckLocalSessions() {
         existing.add(id);
     }
   } catch (error) {
-    console.error("Failed to verify realtime sessions:", error);
+    logger.error("Failed to verify realtime sessions", { error });
     return;
   }
   for (const [userId, sessionIds] of sessionsByUser) {
@@ -594,7 +594,7 @@ async function recheckLocalApiKeys() {
       .where(inArray(apikeyTable.id, ids));
     existing = new Set(rows.map((row) => row.id));
   } catch (error) {
-    console.error("Failed to verify realtime API keys:", error);
+    logger.error("Failed to verify realtime API keys", { error });
     return;
   }
   for (const [userId, keyIds] of keysByUser) {
@@ -656,7 +656,7 @@ export async function revokeWorkspaceConnections(
               .where(eq(userTable.id, userId));
       if (hasInstanceAdminRole(user?.role)) return;
     } catch (error) {
-      console.error("Failed to read role after membership removal:", error);
+      logger.error("Failed to read role after membership removal", { error });
     }
   }
   const reason = options.reason ? { reason: options.reason } : {};
@@ -762,7 +762,7 @@ function currentBroadcastAccess(
       try {
         ({ workspaceId, archived } = await currentProjectWorkspace(projectId));
       } catch (error) {
-        console.error("Failed to validate project broadcast access:", error);
+        logger.error("Failed to validate project broadcast access", { error });
         return null;
       }
       let members = new Set<string>();
@@ -811,7 +811,7 @@ function currentBroadcastAccess(
             for (const admin of admins) members.add(admin.userId);
           }
         } catch (error) {
-          console.error("Failed to validate broadcast membership:", error);
+          logger.error("Failed to validate broadcast membership", { error });
           return null;
         }
       }
@@ -918,7 +918,7 @@ export function broadcastToProject(
   excludeInitiatorId?: string,
 ) {
   if (!adapter) {
-    console.warn("broadcastToProject called before adapter initialization");
+    logger.warn("broadcastToProject called before adapter initialization");
     return;
   }
 
@@ -960,10 +960,10 @@ export function broadcastToProject(
           authorizationBatch,
         })
         .catch((err) => {
-          console.error(
-            `Failed to publish broadcast for project ${projectId}:`,
-            err,
-          );
+          logger.error("Failed to publish a project broadcast", {
+            projectId,
+            error: err,
+          });
         });
     }
   }, 100);
@@ -1155,7 +1155,7 @@ async function broadcastWorkspaceMembersUpdated({
     for (const userId of await listWorkspaceAudience(workspaceId))
       broadcastToUser(userId, message);
   } catch (error) {
-    console.error("Workspace member broadcast failed:", error);
+    logger.error("Workspace member broadcast failed", { error });
   }
 }
 subscribeToEvent("workspace.member_joined", broadcastWorkspaceMembersUpdated);

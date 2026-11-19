@@ -8,6 +8,7 @@ import {
   taskTable,
   workflowRuleTable,
 } from "../database/schema";
+import { logger } from "../observability/logger";
 
 const DEFAULT_COLUMNS = [
   { name: "To Do", slug: "to-do", position: 0, isFinal: false },
@@ -110,7 +111,7 @@ async function migrateProject(projectId: string, pending: Set<string>) {
         )
           throw new Error("Invalid legacy status transitions");
       } catch {
-        console.error(
+        logger.error(
           `Skipping invalid legacy integration config ${integration.id}`,
         );
         await tx

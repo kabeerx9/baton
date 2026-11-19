@@ -12,6 +12,7 @@ import type { IssueWrite } from "./issue-write";
 import { taskIssueLabels } from "./issue-labels";
 import { withSyncLease } from "./lease";
 import { providerIssue } from "./provider-issue";
+import { logger } from "../../observability/logger";
 
 export async function syncTaskFieldLabels(
   taskId: string,
@@ -128,7 +129,7 @@ export async function syncTaskFieldLabels(
       if (currentValue === value) return value;
     }
   }).catch(() => {
-    console.error("Issue field label synchronization failed", {
+    logger.error("Issue field label synchronization failed", {
       integrationId: context.integrationId,
       linkId: link.id,
       field,

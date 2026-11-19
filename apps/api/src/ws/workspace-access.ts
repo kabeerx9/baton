@@ -7,6 +7,7 @@ import {
   workspaceUserTable,
 } from "../database/schema";
 import { hasInstanceAdminRole } from "../utils/instance-admin-role";
+import { logger } from "../observability/logger";
 
 export async function syncWorkspaceAccess(userId: string, ws: WSContext) {
   try {
@@ -43,7 +44,7 @@ export async function syncWorkspaceAccess(userId: string, ws: WSContext) {
       }),
     );
   } catch (error) {
-    console.error("Failed to synchronize workspace access:", error);
+    logger.error("Failed to synchronize workspace access", { error });
     ws.close(1011, "Workspace access synchronization failed");
   }
 }

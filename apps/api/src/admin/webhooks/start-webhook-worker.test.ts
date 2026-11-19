@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { sendWebhookDelivery } from "./send-webhook-delivery";
 import { startWebhookWorker } from "./start-webhook-worker";
+import { logger } from "../../observability/logger";
 
 vi.mock("./send-webhook-delivery", () => ({ sendWebhookDelivery: vi.fn() }));
 
@@ -12,7 +13,7 @@ afterEach(() => {
 describe("startWebhookWorker", () => {
   it("contains job failures without leaking their details and keeps processing", async () => {
     vi.useFakeTimers();
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     vi.mocked(sendWebhookDelivery)
       .mockResolvedValue(false)
       .mockRejectedValueOnce(new Error("sensitive database parameters"));

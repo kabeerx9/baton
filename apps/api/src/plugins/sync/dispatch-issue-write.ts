@@ -7,6 +7,7 @@ import { canSyncTask } from "./eligibility";
 import { readSyncRules } from "./rules";
 import { sameConfig } from "./same-config";
 import { isStateSyncPaused } from "./state-sync-paused";
+import { logger } from "../../observability/logger";
 
 export async function dispatchIssueWrite<T>(
   link: { id: string; taskId: string; integrationId: string | null },
@@ -77,7 +78,7 @@ export async function dispatchIssueWrite<T>(
     if (!request) throw error;
     // The eligible dispatch path only reads/locks rows. A failed commit cannot
     // undo its provider request; settle it so the caller records its outcome.
-    console.error("Issue write scope transaction failed after dispatch", {
+    logger.error("Issue write scope transaction failed after dispatch", {
       integrationId: integration.id,
       linkId: link.id,
     });

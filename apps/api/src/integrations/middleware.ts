@@ -5,6 +5,7 @@ import db from "../database";
 import { projectTable } from "../database/schema";
 import { assertProjectAccess } from "../project-access/assert-project-access";
 import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
+import { setWorkspaceContext } from "../observability/workspace-context";
 
 // Route middleware runs before the validators, so c.req.valid() is unavailable.
 export async function scopeToProjectFromBody(c: Context, next: Next) {
@@ -38,7 +39,7 @@ export async function scopeToProjectFromBody(c: Context, next: Next) {
     { notFoundMessage: "Project not found" },
   );
   await assertProjectAccess(userId, projectId);
-  c.set("workspaceId", project.workspaceId);
+  setWorkspaceContext(c, project.workspaceId);
 
   return next();
 }

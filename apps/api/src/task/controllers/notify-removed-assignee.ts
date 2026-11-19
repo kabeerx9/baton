@@ -1,4 +1,5 @@
 import createNotification from "../../notification/controllers/create-notification";
+import { logger } from "../../observability/logger";
 
 /**
  * The person a task was taken from hears about it; the new assignee already
@@ -22,6 +23,6 @@ export async function notifyRemovedAssignee(
       resourceType: "task",
     });
   } catch (error) {
-    console.error("Failed to notify the previous assignee", error);
+    logger.error("Failed to notify the previous assignee", { error });
   }
 }

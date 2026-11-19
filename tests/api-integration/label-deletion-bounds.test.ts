@@ -16,6 +16,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const { github } = vi.hoisted(() => ({
   github: vi.fn(async (_id: string, _name: string) => {}),
@@ -296,7 +297,7 @@ describe("bounded, resumable label deletion", () => {
 
   it("does not lose local progress or the next event when a provider fails", async () => {
     const { member, root } = await fixture(3);
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     github.mockRejectedValueOnce(new Error("provider unavailable"));
     try {
       await deleteLabel(root.id, member.user.id);

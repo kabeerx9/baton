@@ -17,6 +17,7 @@ import type { PersonActor } from "../../task-change-request/actor";
 import { lockEditableTask } from "../../task-change-request/assert-may-edit";
 import { NOT_ASSIGNED_MESSAGE } from "../../task-change-request/consent";
 import { ApiError } from "../../errors/api-error";
+import { logger } from "../../observability/logger";
 
 type LabelRow = typeof labelTableType.$inferSelect;
 
@@ -184,7 +185,7 @@ async function assignLabelToTask(
         taskId: previousTaskId,
       });
     removeLabelFromGitHub(previousTaskId, previousName).catch((error) => {
-      console.error("Failed to remove label from GitHub:", error);
+      logger.error("Failed to remove label from GitHub", { error });
     });
   }
 
@@ -193,7 +194,7 @@ async function assignLabelToTask(
   }
 
   syncLabelToGitHub(taskId, taskLabel.name, taskLabel.color).catch((error) => {
-    console.error("Failed to sync label to GitHub:", error);
+    logger.error("Failed to sync label to GitHub", { error });
   });
 
   await publishEvent("task.label_assigned", {

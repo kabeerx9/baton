@@ -1,6 +1,7 @@
 import { DEFAULT_ROLE_NAMES, defaultRolePayloads } from "@baton/permissions";
 import { and, inArray, sql } from "drizzle-orm";
 import db, { schema } from "../database";
+import { logger } from "../observability/logger";
 
 /**
  * Backfill the editable default roles (viewer/member/admin) for every
@@ -30,7 +31,7 @@ export async function seedDefaultWorkspaceRoles() {
       tableExists.rows[0]?.exists === true ||
       tableExists.rows[0]?.exists === "t";
     if (!exists) {
-      console.log(
+      logger.info(
         "🛈 workspace_role table does not exist; skipping default-role seed.",
       );
       return;
@@ -94,11 +95,11 @@ export async function seedDefaultWorkspaceRoles() {
         .insert(schema.workspaceRoleTable)
         .values(rows.slice(i, i + BATCH_SIZE));
     }
-    console.log(
+    logger.info(
       `✅ Seeded ${rows.length} default workspace role row(s) across ${workspaceIds.length} workspace(s).`,
     );
   } catch (error) {
-    console.error("❌ Failed to seed default workspace roles:", error);
+    logger.error("❌ Failed to seed default workspace roles", { error });
     throw error;
   }
 }

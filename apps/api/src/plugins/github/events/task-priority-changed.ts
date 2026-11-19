@@ -8,6 +8,7 @@ import {
   getVerifiedInstallationOctokit,
 } from "../utils/github-app";
 import { addLabelsToIssue, removeLabel } from "../utils/labels";
+import { logger } from "../../../observability/logger";
 
 export async function handleTaskPriorityChanged(
   event: TaskPriorityChangedEvent,
@@ -75,6 +76,6 @@ export async function handleTaskPriorityChanged(
       },
     );
   } catch (error) {
-    console.error("Failed to update GitHub issue priority:", error);
+    logger.error("Failed to update GitHub issue priority", { error });
   }
 }

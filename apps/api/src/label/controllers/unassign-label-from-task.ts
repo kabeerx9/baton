@@ -6,6 +6,7 @@ import { publishEvent } from "../../events";
 import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
 import type { PersonActor } from "../../task-change-request/actor";
 import { lockEditableTask } from "../../task-change-request/assert-may-edit";
+import { logger } from "../../observability/logger";
 
 /** `ownTaskOnly`: see `assignLabelToTask`. */
 async function unassignLabelFromTask(
@@ -71,7 +72,7 @@ async function unassignLabelFromTask(
   if (deletedLabel.taskId) {
     removeLabelFromGitHub(deletedLabel.taskId, deletedLabel.name).catch(
       (error) => {
-        console.error("Failed to remove label from GitHub:", error);
+        logger.error("Failed to remove label from GitHub", { error });
       },
     );
   }

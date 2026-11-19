@@ -7,6 +7,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const mocks = vi.hoisted(() => ({
   labels: new Set<string>(),
@@ -179,7 +180,7 @@ it.each(
         context,
       );
     if (initializationFailure) {
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const log = vi.spyOn(logger, "error").mockImplementation(() => {});
       (overlap === "initialization-list-error"
         ? mocks.list
         : mocks.remove
@@ -228,7 +229,7 @@ it.each(
         await gate;
       });
     if (overlap === "read-error") {
-      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
       const privateError = Object.assign(
         new Error("fake-private-provider-body"),
         {

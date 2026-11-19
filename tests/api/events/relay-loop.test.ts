@@ -6,6 +6,7 @@ import {
   drainLane,
   startLoop,
 } from "../../../apps/api/src/events/outbox/start-relay";
+import { logger } from "../../../apps/api/src/observability/logger";
 
 const claimed = (id: string) =>
   ({
@@ -50,7 +51,7 @@ describe("drainLane", () => {
 
   it("keeps going when recording one outcome fails", async () => {
     const batches = [[claimed("a"), claimed("b")], []];
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     const deliver = vi
       .fn()
       .mockRejectedValueOnce(new Error("db"))
@@ -100,7 +101,7 @@ describe("startLoop", () => {
   });
 
   it("survives a failing run (database down) and runs again", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     const run = vi
       .fn()
       .mockRejectedValueOnce(
@@ -110,10 +111,9 @@ describe("startLoop", () => {
     const stop = startLoop(run, { pollMs: 10, label: "test" });
     await vi.waitFor(() => expect(run.mock.calls.length).toBeGreaterThan(1));
     await stop();
-    expect(log).toHaveBeenCalledWith(
-      "Outbox test relay failed",
-      "ECONNREFUSED",
-    );
+    expect(log).toHaveBeenCalledWith("Outbox test relay failed", {
+      error_code: "ECONNREFUSED",
+    });
     expect(JSON.stringify(log.mock.calls)).not.toContain("payload text");
     log.mockRestore();
   });

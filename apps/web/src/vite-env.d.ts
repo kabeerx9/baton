@@ -2,10 +2,13 @@
 /// <reference types="vite/types/importMeta.d.ts" />
 
 declare const __APP_VERSION__: string;
+/** The Sentry release: the commit SHA in CI builds, else the app version. */
+declare const __SENTRY_RELEASE__: string;
 
 type ImportMetaEnv = {
   readonly BATON_API_URL: string;
   readonly VITE_SENTRY_DSN?: string;
+  readonly VITE_SENTRY_ENVIRONMENT?: string;
 };
 
 type ImportMeta = {

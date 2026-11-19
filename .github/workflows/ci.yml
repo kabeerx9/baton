@@ -82,3 +82,13 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/kabeerx9/baton
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # One release name for the API and the web source maps.
+          build-args: |
+            SENTRY_RELEASE=${{ github.sha }}
+          # BuildKit secret mounts, so the token never enters an image layer.
+          # Only pushes to main upload source maps; pull requests (and any
+          # build without these secrets) build without uploading.
+          secrets: |
+            sentry_auth_token=${{ github.event_name == 'push' && secrets.SENTRY_AUTH_TOKEN || '' }}
+            sentry_org=${{ github.event_name == 'push' && secrets.SENTRY_ORG || '' }}
+            sentry_project=${{ github.event_name == 'push' && secrets.SENTRY_PROJECT || '' }}

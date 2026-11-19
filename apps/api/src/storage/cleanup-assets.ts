@@ -7,6 +7,7 @@ import {
   taskTable,
 } from "../database/schema";
 import { deleteS3Object } from "./s3";
+import { logger } from "../observability/logger";
 
 const ASSET_URL_PATTERN = /\/api\/asset\/([a-z0-9]+)/gi;
 
@@ -162,13 +163,12 @@ export async function deleteS3Keys(
     );
 
   if (failedDeletions.length > 0) {
-    console.error(
-      "Failed to delete S3 objects",
-      failedDeletions.map(({ key, result }) => ({
+    logger.error("Failed to delete S3 objects", {
+      detail: failedDeletions.map(({ key, result }) => ({
         key,
         reason: result.reason,
       })),
-    );
+    });
   }
 
   return deleteResults;

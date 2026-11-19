@@ -34,6 +34,7 @@ import {
   integrationTaskRevision,
 } from "./integration-task-scope";
 import { withIntegrationLink } from "./with-integration-link";
+import { logger } from "../../../observability/logger";
 
 type Integration = {
   id: string;
@@ -444,7 +445,7 @@ async function replayClaimedIssueEdits() {
       } catch (error) {
         if (error instanceof PendingEcho) continue;
         degraded = true;
-        console.error("Deferred issue edit failed", {
+        logger.error("Deferred issue edit failed", {
           externalLinkId: link.id,
         });
       }

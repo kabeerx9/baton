@@ -39,6 +39,7 @@ import {
   protectedResourceMetadata,
   publicApiUrl,
 } from "./urls";
+import { setRequestUser } from "../observability/workspace-context";
 
 const mcp = apiRouter();
 for (const path of [
@@ -239,6 +240,7 @@ mcp.all("/mcp", async (c) => {
       401,
     );
   }
+  setRequestUser(principal.userId);
 
   if (c.req.method !== "POST") {
     return c.json({ error: "Method not allowed" }, 405);

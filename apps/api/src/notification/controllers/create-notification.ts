@@ -7,6 +7,7 @@ import { deliverNotification } from "../../notification-preferences/delivery";
 import { safeOutboundError } from "../../utils/outbound-request";
 import { lockNotificationResource } from "../lock-notification-resource";
 import { canReceiveResourceNotification } from "../resource-access";
+import { logger } from "../../observability/logger";
 
 type NotificationInput = {
   userId: string;
@@ -100,7 +101,7 @@ export async function dispatchNotification(
     userId: notification.userId,
   });
   void deliverNotification(notification.id).catch((error) => {
-    console.error("Failed to deliver notification", {
+    logger.error("Failed to deliver notification", {
       notificationId: notification.id,
       error: safeOutboundError(error),
     });

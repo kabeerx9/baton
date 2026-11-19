@@ -3,6 +3,8 @@ import { type DeliveryResult, deliverOutboxRow } from "./deliver";
 import { errorCode } from "./error-code";
 import { onOutboxNudge } from "./nudge";
 import { type Lane, consumersInLane } from "./routes";
+import { runDetached } from "../../observability/background-context";
+import { logger } from "../../observability/logger";
 
 export type LaneConfig = {
   /** Rows per claim. A batch, run in its mode, ends within the 60 s lease. */
@@ -49,7 +51,7 @@ export async function drainLane(
     const run = (claimed: ClaimedRow) =>
       deps.deliver(claimed, { timeoutMs: config.timeoutMs }).catch(() => {
         // The row keeps its lease and runs again after it ends.
-        console.error("Outbox delivery could not record its outcome", {
+        logger.error("Outbox delivery could not record its outcome", {
           id: claimed.row.id,
           consumer: claimed.row.consumer,
         });
@@ -78,17 +80,21 @@ export function startLoop(
       again = true;
       return;
     }
-    running = (async () => {
+    // A nudge runs inside the publishing request: detach, or the drain
+    // would log and report other workspaces' rows as that request.
+    running = runDetached(async () => {
       do {
         again = false;
         try {
           await run(() => stopped);
         } catch (error) {
           // A database outage: no claim committed, so no attempt is spent.
-          console.error(`Outbox ${label} relay failed`, errorCode(error));
+          logger.error(`Outbox ${label} relay failed`, {
+            error_code: errorCode(error),
+          });
         }
       } while (again && !stopped);
-    })().finally(() => {
+    }).finally(() => {
       running = null;
     });
   };

@@ -12,6 +12,7 @@ import { findExternalLink, updateExternalLink } from "../services/link-manager";
 import { findAllIntegrationsByRepo } from "../services/task-service";
 import { formatTaskDescriptionFromIssue } from "../utils/format";
 import { parseLinkMetadata } from "../utils/parse-link-metadata";
+import { logger } from "../../../observability/logger";
 
 // What this handler reads back out of the row. Every field is optional,
 // because the row may predate any of them.
@@ -54,7 +55,7 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
   const { issue, changes } = payload;
 
   if (!changes?.title && !changes?.body) {
-    console.log(
+    logger.debug(
       `Issue #${issue.number} edited but no title/body changes detected`,
     );
     return;
@@ -99,7 +100,7 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
             });
 
             if (!task) {
-              console.error(`Task ${externalLink.taskId} not found`);
+              logger.error(`Task ${externalLink.taskId} not found`);
               return;
             }
             const metadata = parseLinkMetadata<IssueEditedMetadata>(
@@ -137,7 +138,7 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
                     },
                   )
                 ) {
-                  console.log(
+                  logger.debug(
                     "Skipping title update - already synced from Baton",
                   );
                   shouldUpdateTitle = false;
@@ -152,8 +153,8 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
                   "github",
                   issue.updated_at,
                 );
-                console.log(
-                  `Updating task title from GitHub: "${changes.title.from}" → "${issue.title}"`,
+                logger.info(
+                  `Updating task title from GitHub issue #${issue.number}`,
                 );
               }
             }
@@ -187,7 +188,7 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
                     },
                   )
                 ) {
-                  console.log(
+                  logger.debug(
                     "Skipping description update - already synced from Baton",
                   );
                   shouldUpdateDescription = false;
@@ -202,7 +203,7 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
                   "github",
                   issue.updated_at,
                 );
-                console.log("Updating task description from GitHub");
+                logger.info("Updating task description from GitHub");
               }
             }
 
@@ -230,11 +231,11 @@ export async function handleIssueEdited(payload: IssueEditedPayload) {
                 }),
               );
 
-              console.log(
+              logger.info(
                 `Synced ${Object.keys(updateData).join(", ")} from GitHub issue #${issue.number} to task ${task.id}`,
               );
             } else {
-              console.log(
+              logger.info(
                 `No updates needed for task ${task.id} from issue #${issue.number}`,
               );
             }

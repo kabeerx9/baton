@@ -10,6 +10,7 @@ import { lockWorkspace } from "../lifecycle/lock-workspace";
 import { authorizeWorkspaceWrite } from "../write/authorize-workspace-write";
 import type { WorkspaceActor } from "../write/workspace-actor";
 import { onlyOwnerError } from "../write/write-errors";
+import { logger } from "../../observability/logger";
 
 /**
  * The caller leaves. Under the workspace lock, so a leave and a removal of
@@ -61,7 +62,7 @@ async function leaveWorkspace(input: {
     });
   } catch (error) {
     // The leave is committed; the socket recheck (every 60 s) closes it.
-    console.error("Socket revocation failed after leave:", error);
+    logger.error("Socket revocation failed after leave", { error });
   }
   return { workspaceId };
 }

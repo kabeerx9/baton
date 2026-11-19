@@ -10,6 +10,8 @@ const EVENTS = new EventEmitter();
 EVENTS.setMaxListeners(100);
 export { currentChannel, eventContext } from "./context";
 import { eventContext } from "./context";
+import { addDomainBreadcrumb } from "../observability/domain-event";
+import { logger } from "../observability/logger";
 
 export type EventPayload<T = unknown> = {
   type: string;
@@ -46,7 +48,7 @@ async function bridgeEnqueue(eventType: string, data: unknown) {
     await enqueueEvent(db, eventType, data);
   } catch (error) {
     const errorClass = errorCode(error);
-    console.error("Outbox bridge enqueue failed", {
+    logger.error("Outbox bridge enqueue failed", {
       type: eventType,
       error: errorClass,
     });
@@ -79,6 +81,7 @@ export async function publishLive(
     timestamp: new Date().toISOString(),
   };
 
+  addDomainBreadcrumb("event", "Event published", { type: eventType });
   try {
     if (options?.waitForHandlers) {
       // EventEmitter.emit discards promises. Bounded producers must await the
@@ -89,7 +92,7 @@ export async function publishLive(
       EVENTS.emit(eventType, payload);
     }
   } catch (error) {
-    console.error("Failed to publish event:", error);
+    logger.error("Failed to publish event", { error });
     throw error;
   } finally {
     // Only a durable event can have left a row for the relay.
@@ -106,15 +109,17 @@ export async function subscribeToEvent<T>(
       try {
         await handler(payload.data);
       } catch (error) {
-        console.error(`Error processing event ${eventType}:`, error);
+        logger.error("Event handler failed", { type: eventType, error });
       }
     });
   } catch (error) {
-    console.error("Failed to subscribe to event:", error);
+    logger.error("Failed to subscribe to event", { error });
     throw error;
   }
 }
 
 process.on("SIGTERM", () => {
-  shutdownEventBus().catch(console.error);
+  shutdownEventBus().catch((error) =>
+    logger.error("Event bus shutdown failed", { error }),
+  );
 });

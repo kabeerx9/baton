@@ -24,6 +24,7 @@ import { formatTaskDescriptionFromIssue } from "../utils/format";
 import { getGithubApp } from "../utils/github-app";
 import { addLabelsToIssue } from "../utils/labels";
 import { resolveTargetStatus } from "../utils/resolve-column";
+import { logger } from "../../../observability/logger";
 
 type IssueOpenedPayload = {
   action: string;
@@ -58,7 +59,7 @@ export async function handleIssueOpened(
 
   const appName = process.env.GITHUB_APP_NAME;
   if (appName && issue.user?.login === `${appName}[bot]`) {
-    console.log(
+    logger.info(
       `Issue #${issue.number} was created by the configured GitHub App, skipping task creation`,
     );
     return;
@@ -187,7 +188,7 @@ export async function handleIssueOpened(
     });
 
     if (!project) {
-      console.error("Project not found for task linking comment");
+      logger.error("Project not found for task linking comment");
       continue;
     }
 
@@ -246,7 +247,7 @@ export async function handleIssueOpened(
         );
       }
     } catch {
-      console.error("GitHub imported issue linking write failed", {
+      logger.error("GitHub imported issue linking write failed", {
         projectId,
         taskId: createdTask.id,
         integrationId: integration.id,
