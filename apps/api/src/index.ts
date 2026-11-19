@@ -552,7 +552,10 @@ export function createApp() {
     } catch (error) {
       if (!(error instanceof HTTPException)) {
         logger.error("API authentication failed", { error });
-        throw new HTTPException(500, { message: "Internal Server Error" });
+        throw new HTTPException(500, {
+          message: "Internal Server Error",
+          cause: error,
+        });
       }
       throw error;
     }

@@ -74,10 +74,11 @@ it("reports 5xx once, skips 4xx, and keeps user and workspace per request", asyn
         if (kind === 'missing') throw new HTTPException(404, { message: 'missing-' + n });
         if (kind === 'unavailable') throw new HTTPException(503, { message: 'unavailable-' + n });
         if (kind === 'logged') { logger.error('logged-' + n, { error: new Error('logged-error-' + n) }); throw new Error('after-log-' + n); }
+        if (kind === 'wrapped') { const cause = new Error('wrapped-cause-' + n); logger.error('wrapped-' + n, { error: cause }); throw new HTTPException(500, { message: 'wrapper-' + n, cause }); }
         throw new Error('crash-' + n);
       });
-      const kinds = ['crash', 'missing', 'unavailable', 'logged'];
-      await Promise.all(Array.from({ length: 16 }, (_, n) => app.request('/api/' + kinds[n % 4] + '/' + n)));
+      const kinds = ['crash', 'missing', 'unavailable', 'logged', 'wrapped'];
+      await Promise.all(Array.from({ length: 20 }, (_, n) => app.request('/api/' + kinds[n % 5] + '/' + n)));
       await Sentry.close(5000);
     `,
       ],
@@ -109,20 +110,26 @@ it("reports 5xx once, skips 4xx, and keeps user and workspace per request", asyn
     // 4xx HTTPExceptions are expected refusals: never reported.
     expect(messages.filter((m) => m.startsWith("missing-"))).toEqual([]);
     // Each 5xx and each crash is reported exactly once.
-    for (let n = 0; n < 16; n++) {
-      const kind = ["crash", "missing", "unavailable", "logged"][n % 4];
+    // A 500 wrapping an already-logged cause reports the cause once, not the wrapper.
+    for (let n = 0; n < 20; n++) {
+      const kind = ["crash", "missing", "unavailable", "logged", "wrapped"][
+        n % 5
+      ];
       if (kind === "missing") continue;
       const expected =
         kind === "logged"
           ? [`logged-error-${n}`, `after-log-${n}`]
-          : [`${kind}-${n}`];
+          : kind === "wrapped"
+            ? [`wrapped-cause-${n}`]
+            : [`${kind}-${n}`];
       for (const message of expected)
         expect(
           messages.filter((m) => m === message),
           message,
         ).toHaveLength(1);
     }
-    expect(events).toHaveLength(16);
+    expect(messages.filter((m) => m.startsWith("wrapper-"))).toEqual([]);
+    expect(events).toHaveLength(20);
 
     // Scope belongs to the request that raised the error: no bleed.
     for (const [index, event] of events.entries()) {
