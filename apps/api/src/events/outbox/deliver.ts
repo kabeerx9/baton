@@ -15,6 +15,7 @@ import {
   addDomainBreadcrumb,
   recordDomainEvent,
 } from "../../observability/domain-event";
+import { runForWorkspace } from "../../observability/background-context";
 import { logger } from "../../observability/logger";
 
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
@@ -182,8 +183,9 @@ export function deliverOutboxRow(
   claimed: ClaimedRow,
   options: { timeoutMs: number },
 ): Promise<DeliveryResult> {
-  // Each delivery gets its own scope, so its breadcrumbs stay with its errors.
-  return Sentry.withIsolationScope(async () => {
+  // Each delivery gets its own context and scope for the row's workspace,
+  // so its logs, breadcrumbs and errors carry that tenant and no other.
+  return runForWorkspace(claimed.row.workspaceId, async () => {
     const result = await deliverRow(claimed, options);
     const facts = { consumer: claimed.row.consumer, outcome: result };
     // Successful deliveries are frequent: a breadcrumb only, no Sentry log.

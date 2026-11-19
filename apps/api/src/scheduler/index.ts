@@ -5,6 +5,7 @@ import { replayDeferredIssueEdits } from "../plugins/github/services/deferred-is
 import { replayDeferredLabelFields } from "../plugins/sync/replay-deferred-label-fields";
 import * as Sentry from "@sentry/node";
 import { Cron } from "croner";
+import { runDetached } from "../observability/background-context";
 import { addDomainBreadcrumb } from "../observability/domain-event";
 import { logger } from "../observability/logger";
 import { checkDueDateReminders } from "./due-date-reminders";
@@ -26,8 +27,9 @@ type JobOutcome = { degraded?: boolean };
 // captured as exception events and swallowed so one bad tick can't take down
 // the scheduler via an unhandled rejection.
 function withCheckIn<T>(name: string, fn: () => Promise<T>) {
-  // Each run gets its own scope, so its breadcrumbs stay with its errors.
-  return () => Sentry.withIsolationScope(() => runJob(name, fn));
+  // Each run gets its own empty context, so its breadcrumbs stay with its
+  // errors and no request's user or workspace leaks in.
+  return () => runDetached(() => runJob(name, fn));
 }
 
 async function runJob<T>(name: string, fn: () => Promise<T>): Promise<void> {

@@ -3,6 +3,7 @@ import { type DeliveryResult, deliverOutboxRow } from "./deliver";
 import { errorCode } from "./error-code";
 import { onOutboxNudge } from "./nudge";
 import { type Lane, consumersInLane } from "./routes";
+import { runDetached } from "../../observability/background-context";
 import { logger } from "../../observability/logger";
 
 export type LaneConfig = {
@@ -79,7 +80,9 @@ export function startLoop(
       again = true;
       return;
     }
-    running = (async () => {
+    // A nudge runs inside the publishing request: detach, or the drain
+    // would log and report other workspaces' rows as that request.
+    running = runDetached(async () => {
       do {
         again = false;
         try {
@@ -91,7 +94,7 @@ export function startLoop(
           });
         }
       } while (again && !stopped);
-    })().finally(() => {
+    }).finally(() => {
       running = null;
     });
   };

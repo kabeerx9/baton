@@ -19,3 +19,8 @@ export function runWithRequestContext<T>(
 export function currentRequestContext(): RequestContext | undefined {
   return storage.getStore();
 }
+
+/** Runs `fn` with no request context, for work that outlives a request. */
+export function exitRequestContext<T>(fn: () => T): T {
+  return storage.exit(fn);
+}
