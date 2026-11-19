@@ -17,7 +17,7 @@ import {
   removedFromWorkspace,
 } from "../errors";
 import { deriveLinkState } from "../lifecycle";
-import { hashJoinToken, isJoinToken } from "../token";
+import { hashJoinToken, parseJoinToken } from "../token";
 
 // Parity with Better Auth's invitation accept.
 export const WORKSPACE_MEMBER_LIMIT = 100;
@@ -48,8 +48,9 @@ async function lockTeamWorkspace(
  * unique (workspace, user), so the workspace lock is what makes "add if
  * missing" safe against a second join, an admin add or a delete.
  */
-async function joinWorkspace(token: string, userId: string) {
-  if (!isJoinToken(token)) throw joinLinkNotFound();
+async function joinWorkspace(pasted: string, userId: string) {
+  const token = parseJoinToken(pasted);
+  if (!token) throw joinLinkNotFound();
 
   const result = await db.transaction(async (tx): Promise<JoinResult> => {
     // 1. Find the link without a lock.

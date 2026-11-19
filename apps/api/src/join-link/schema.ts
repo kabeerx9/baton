@@ -30,7 +30,8 @@ export const createJoinLinkBody = z
 
 // Any string: the controller answers a malformed token like an unknown one.
 const tokenField = z.string().openapi({
-  description: "The token from the join URL.",
+  description:
+    "The token from the join URL, or the whole join URL (`/join/<token>` or `?t=<token>`). Surrounding spaces are ignored. Anything else reads as not found.",
 });
 
 export const previewJoinLinkBody = z

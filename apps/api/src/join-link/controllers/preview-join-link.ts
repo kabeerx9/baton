@@ -8,7 +8,7 @@ import {
 import { toWorkspaceKind } from "../../workspace/kind/workspace-kind";
 import { deriveLinkState } from "../lifecycle";
 import type { JoinLinkPreview } from "../schema";
-import { hashJoinToken, isJoinToken } from "../token";
+import { hashJoinToken, parseJoinToken } from "../token";
 
 const NOT_FOUND: JoinLinkPreview = {
   status: "unavailable",
@@ -20,8 +20,9 @@ const NOT_FOUND: JoinLinkPreview = {
  * name and the expiry, only while the link is active. Never ids, slug,
  * emails, counts. Archived, demo and unknown all read as not found.
  */
-async function previewJoinLink(token: string): Promise<JoinLinkPreview> {
-  if (!isJoinToken(token)) return NOT_FOUND;
+async function previewJoinLink(pasted: string): Promise<JoinLinkPreview> {
+  const token = parseJoinToken(pasted);
+  if (!token) return NOT_FOUND;
   const [found] = await db
     .select({
       link: workspaceJoinLinkTable,

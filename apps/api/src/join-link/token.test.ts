@@ -4,6 +4,7 @@ import {
   hashJoinToken,
   isJoinToken,
   joinLinkUrl,
+  parseJoinToken,
 } from "./token";
 
 afterEach(() => {
@@ -37,5 +38,39 @@ describe("join tokens", () => {
   it("builds the web URL from the client base", () => {
     vi.stubEnv("BATON_CLIENT_URL", "https://baton.example.com/");
     expect(joinLinkUrl("abc")).toBe("https://baton.example.com/join/abc");
+  });
+});
+
+describe("parseJoinToken", () => {
+  const token = generateJoinToken();
+
+  it("reads the token from what people paste", () => {
+    for (const pasted of [
+      token,
+      `  ${token}\n`,
+      `https://baton.example/join/${token}`,
+      ` http://localhost:5173/join/${token}/ `,
+      `baton.example/join/${token}`,
+      `/join/${token}`,
+      `https://baton.example/join?t=${token}`,
+    ]) {
+      expect(parseJoinToken(pasted), pasted).toBe(token);
+    }
+  });
+
+  it("returns null for anything else", () => {
+    for (const pasted of [
+      "",
+      "   ",
+      "garbage",
+      `${token}x`,
+      `${token} ${token}`,
+      `https://baton.example/join/${token}/more`,
+      `https://baton.example/elsewhere/${token}`,
+      `https://baton.example/join?t=${token}x`,
+      "https://",
+    ]) {
+      expect(parseJoinToken(pasted), pasted).toBeNull();
+    }
   });
 });
