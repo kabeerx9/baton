@@ -60,7 +60,10 @@ function RouteComponent() {
     <>
       <PageTitle title={t("workspace:home.pageTitle")} />
       <WorkspaceLayout title={t("workspace:home.pageTitle")}>
-        <div className="h-full overflow-y-auto">
+        <div
+          data-scroll-restoration-id="home-main"
+          className="h-full overflow-y-auto"
+        >
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-9 px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
             <header className="flex items-end justify-between gap-4">
               <div className="flex flex-col gap-1.5">

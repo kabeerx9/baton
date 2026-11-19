@@ -387,47 +387,13 @@ describe("feature status area", () => {
     }) as never as BoardResponse;
   const pulse = () =>
     screen.queryByRole("list", { name: "tasks:hero.feature.pulse.barLabel" });
-  const lanes = () =>
-    screen.queryByRole("region", { name: "tasks:hero.feature.lanes.title" });
 
-  it("shows Pulse alone for a feature with no links", () => {
+  it("shows Pulse for a feature", () => {
     m.board = live([open("s1"), open("s2", { status: "in-progress" })]);
     m.task = task("f", { status: "to-do" });
     page("f");
     expect(pulse()).not.toBeNull();
-    expect(lanes()).toBeNull();
     expect(screen.queryByText(/bar:/)).toBeNull();
-  });
-
-  it("adds Lanes when a task waits on another", () => {
-    m.board = live([
-      open("s1", { status: "in-progress" }),
-      open("s2", {
-        waitsOn: [
-          { id: "s1", key: "S1", title: "Task s1", assigneeName: null },
-        ],
-      }),
-    ]);
-    m.task = task("f", { status: "to-do" });
-    page("f");
-    expect(pulse()).not.toBeNull();
-    expect(lanes()).not.toBeNull();
-  });
-
-  it("adds Lanes when the feature itself waits on another feature", () => {
-    m.board = live([open("s1")]);
-    m.task = task("f", { status: "to-do" });
-    m.relations = [
-      {
-        relationType: "blocks",
-        sourceTaskId: "g",
-        targetTaskId: "f",
-        sourceTask: related("g", { status: "to-do", open: true }),
-        targetTask: related("f"),
-      },
-    ];
-    page("f");
-    expect(lanes()).not.toBeNull();
   });
 
   it("keeps a plain task's hero: the status bar and no feature area", () => {
@@ -439,7 +405,6 @@ describe("feature status area", () => {
     page("p");
     expect(screen.getByText("bar: open")).toBeVisible();
     expect(pulse()).toBeNull();
-    expect(lanes()).toBeNull();
   });
 
   it("moves the bar when the board changes, with no reload", () => {

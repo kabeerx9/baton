@@ -2747,13 +2747,6 @@
 				},
 				"links": {
 					"holdsUp": "Holds up"
-				},
-				"lanes": {
-					"title": "How the tasks connect",
-					"column": "{{status}}: {{count}}",
-					"heldUpBy": "Held up by tasks in other features",
-					"holdsUp": "Holds up tasks in other features",
-					"elsewhere": "{{key}} {{title}}, in another feature"
 				}
 			},
 			"propertiesLabel": "Task details",

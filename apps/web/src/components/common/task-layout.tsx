@@ -116,7 +116,10 @@ export default function TaskLayout({
               workspaceId={workspaceId}
             />
           ) : (
-            <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain">
+            <div
+              data-scroll-restoration-id="task-main"
+              className="h-full min-h-0 overflow-y-auto overscroll-y-contain"
+            >
               {children}
             </div>
           )}

@@ -54,6 +54,8 @@ export function BoardColumn({
         onFocus={(event) =>
           event.target.closest("article")?.scrollIntoView({ block: "nearest" })
         }
+        // This list is the board's scroll container on wide screens.
+        data-scroll-restoration-id={`board-column-${status}`}
         className="relative -mx-1 flex min-h-0 flex-col gap-3 px-1 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
       >
         {items.length === 0 ? (

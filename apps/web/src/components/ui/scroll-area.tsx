@@ -17,6 +17,7 @@ function ScrollArea({
   children,
   scrollFade = false,
   scrollbarGutter = false,
+  viewportProps,
   ...props
 }: Omit<
   React.ComponentProps<typeof ScrollAreaPrimitive>,
@@ -26,6 +27,10 @@ function ScrollArea({
   children?: React.ReactNode;
   scrollFade?: boolean;
   scrollbarGutter?: boolean;
+  /** Attributes for the scrolling viewport, such as a scroll-restoration id. */
+  viewportProps?: React.ComponentProps<typeof ScrollAreaViewport> & {
+    [key: `data-${string}`]: string | undefined;
+  };
 }) {
   return (
     <ScrollAreaPrimitive
@@ -37,11 +42,13 @@ function ScrollArea({
     >
       {/* Intentional: UI SDK drops the viewport's tab stop when it holds focusable content. */}
       <ScrollAreaViewport
+        {...viewportProps}
         className={cn(
           "h-full overscroll-y-contain rounded-[inherit] outline-none transition-shadows focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-overflow-x:overscroll-x-contain",
           scrollFade &&
             "mask-t-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-start)))] mask-b-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-end)))] mask-l-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-start)))] mask-r-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-end)))] [--fade-size:1.5rem] [--scroll-area-overflow-x-end:inherit] [--scroll-area-overflow-x-start:inherit] [--scroll-area-overflow-y-end:inherit] [--scroll-area-overflow-y-start:inherit]",
           scrollbarGutter && "data-overflow-y:pe-2.5 data-overflow-x:pb-2.5",
+          viewportProps?.className,
         )}
       >
         <ScrollAreaContent>{children}</ScrollAreaContent>

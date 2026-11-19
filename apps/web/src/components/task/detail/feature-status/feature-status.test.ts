@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { LinkedTask } from "@/components/board/task-flow/linked";
 import { columnOf, summarizeFeature } from "./feature-status";
 import { blockerOf, feature, person, request, task } from "./test-fixtures";
 
@@ -11,15 +10,6 @@ const none = {
   boardTasks: [],
   memberName: () => null,
 };
-
-const linked = (key: string, status: LinkedTask["status"]): LinkedTask => ({
-  id: key,
-  projectId: "board",
-  key,
-  title: key,
-  status,
-  owner: null,
-});
 
 describe("summarizeFeature counts and status", () => {
   it("counts tasks by column and reads moving", () => {
@@ -38,7 +28,6 @@ describe("summarizeFeature counts and status", () => {
       "Aisha",
       null,
     ]);
-    expect(s.connected).toBe(false);
   });
 
   it("reads done, not started and empty", () => {
@@ -141,30 +130,11 @@ describe("blocked and needs attention", () => {
   });
 });
 
-describe("connected: the rule that shows the lanes map", () => {
+describe("dependents: tasks elsewhere that wait on ours", () => {
   const a = task({ key: "A-1", status: "doing" });
   const b = task({ key: "A-2" });
 
-  it("is false with no links", () => {
-    expect(summarizeFeature(feature("T-1", [a, b]), none).connected).toBe(
-      false,
-    );
-  });
-
-  it("is true when a task waits on a task inside", () => {
-    const c = task({ key: "A-3", waitsOn: [blockerOf(a)] });
-    expect(summarizeFeature(feature("T-1", [a, c]), none).connected).toBe(true);
-  });
-
-  it("is true when a task waits on a task outside", () => {
-    const c = task({
-      key: "A-3",
-      waitsOn: [{ id: "o", key: "Z-1", title: "z", assigneeName: null }],
-    });
-    expect(summarizeFeature(feature("T-1", [a, c]), none).connected).toBe(true);
-  });
-
-  it("is true when a task elsewhere waits on one of ours", () => {
+  it("lists a task elsewhere that waits on one of ours", () => {
     const other = feature("T-9", [
       task({ key: "Z-1", waitsOn: [blockerOf(a)] }),
     ]);
@@ -172,13 +142,12 @@ describe("connected: the rule that shows the lanes map", () => {
       ...none,
       boardTasks: [other],
     });
-    expect(s.connected).toBe(true);
     expect(s.dependents.map((d) => [d.from, d.to.key])).toEqual([
       ["A-1", "Z-1"],
     ]);
   });
 
-  it("ignores a done task elsewhere and links inside the same feature twice", () => {
+  it("ignores a done task elsewhere and links inside the same feature", () => {
     const other = feature("T-9", [
       task({ key: "Z-1", status: "done", waitsOn: [blockerOf(a)] }),
     ]);
@@ -187,29 +156,5 @@ describe("connected: the rule that shows the lanes map", () => {
       boardTasks: [other],
     });
     expect(s.dependents).toEqual([]);
-    expect(s.connected).toBe(false);
-  });
-
-  it("is true when the feature itself waits on or holds up another", () => {
-    const waits = summarizeFeature(feature("T-1", [a, b]), {
-      ...none,
-      waitsOn: [linked("T-41", "doing")],
-    });
-    expect(waits.connected).toBe(true);
-    const holds = summarizeFeature(feature("T-1", [a, b]), {
-      ...none,
-      blocks: [linked("T-42", "todo")],
-    });
-    expect(holds.connected).toBe(true);
-  });
-
-  it("is false when the only linked features are done", () => {
-    const s = summarizeFeature(feature("T-1", [a, b]), {
-      ...none,
-      waitsOn: [linked("T-41", "done")],
-      blocks: [linked("T-42", "done")],
-    });
-    expect(s.waitsOn).toEqual([]);
-    expect(s.connected).toBe(false);
   });
 });

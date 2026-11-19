@@ -62,11 +62,6 @@ export type FeatureSummary = {
   blocks: LinkedTask[];
   /** Tasks elsewhere that wait on a task of this feature. */
   dependents: Dependent[];
-  /**
-   * True when some dependency link touches this feature's tasks, or the
-   * feature itself. This alone decides if the lanes map shows.
-   */
-  connected: boolean;
 };
 
 /** The column words, in the order the board shows them. */
@@ -222,10 +217,5 @@ export function summarizeFeature(
     waitsOn,
     blocks,
     dependents,
-    connected:
-      held.some((h) => h.kind === "blocked") ||
-      dependents.length > 0 ||
-      waitsOn.length > 0 ||
-      blocks.length > 0,
   };
 }
