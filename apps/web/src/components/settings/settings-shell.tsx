@@ -38,7 +38,10 @@ export function SettingsShell({ children }: SettingsShellProps) {
         <SettingsSidebar nav={nav} onLeave={leave} />
         <SidebarInset className="m-2 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-sm/5">
           <SettingsHeader breadcrumb={getSettingsBreadcrumb(nav, pathname)} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            data-scroll-restoration-id="settings-main"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             <InShell>{children}</InShell>
           </div>
         </SidebarInset>

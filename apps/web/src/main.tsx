@@ -53,6 +53,20 @@ const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
+  // The app scrolls inside its own panes, not the window: name the route-level
+  // panes below, and reset them on a fresh path while restoring a known one.
+  scrollRestoration: true,
+  getScrollRestorationKey: (location) => location.pathname,
+  scrollToTopSelectors: [
+    '[data-scroll-restoration-id="app-main"]',
+    '[data-scroll-restoration-id="task-main"]',
+    '[data-scroll-restoration-id="my-tasks-main"]',
+    '[data-scroll-restoration-id="settings-main"]',
+    '[data-scroll-restoration-id="board-column-todo"]',
+    '[data-scroll-restoration-id="board-column-doing"]',
+    '[data-scroll-restoration-id="board-column-review"]',
+    '[data-scroll-restoration-id="board-column-done"]',
+  ],
   // Show the splash after 300ms of waiting, and keep it at least 500ms.
   defaultPendingComponent: PendingSplash,
   defaultPendingMs: PENDING_MS,

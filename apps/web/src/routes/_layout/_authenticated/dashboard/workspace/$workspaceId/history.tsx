@@ -64,7 +64,10 @@ function RouteComponent() {
           </div>
         }
       >
-        <div className="h-full overflow-auto">
+        <div
+          data-scroll-restoration-id="history-main"
+          className="h-full overflow-auto"
+        >
           <div className="mx-auto w-full max-w-4xl px-4 py-4 sm:px-6 sm:py-6">
             <p className="mb-4 text-muted-foreground text-sm sm:mb-6">
               {history.data

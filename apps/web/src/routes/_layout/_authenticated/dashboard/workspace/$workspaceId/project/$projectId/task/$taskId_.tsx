@@ -14,6 +14,9 @@ import useGetActivitiesByTaskId from "@/hooks/queries/activity/use-get-activitie
 import useGetProject from "@/hooks/queries/project/use-get-project";
 import useGetTask from "@/hooks/queries/task/use-get-task";
 
+/** The highlighter is a session-wide singleton; wait for it only once. */
+let shikiReady = false;
+
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/workspace/$workspaceId/project/$projectId/task/$taskId_",
 )({
@@ -40,14 +43,19 @@ function RouteComponent() {
     workspaceId,
   });
   const { isLoading: isActivitiesLoading } = useGetActivitiesByTaskId(taskId);
-  const [isShikiReady, setIsShikiReady] = useState(false);
+  // Shiki loads once per session. Waiting again on a later task page shows a
+  // needless skeleton, which also shortens the page while scroll restoration
+  // runs, so a return to a long task would land at the top.
+  const [isShikiReady, setIsShikiReady] = useState(shikiReady);
   const [deleteHandle] = useState(() => AlertDialogCreateHandle());
   useEffect(() => {
+    if (shikiReady) return;
     let mounted = true;
 
     void import("@/lib/shiki-highlighter")
       .then(({ getSharedShikiHighlighter }) => getSharedShikiHighlighter())
       .then(() => {
+        shikiReady = true;
         if (!mounted) return;
         setIsShikiReady(true);
       })
@@ -55,7 +63,8 @@ function RouteComponent() {
         console.error("Failed to initialize Shiki highlighter:", err);
         if (!mounted) return;
         // Render the task view without syntax highlighting rather than
-        // leaving the page stuck in a permanent loading state.
+        // leaving the page stuck in a permanent loading state. A later page
+        // tries the import again.
         setIsShikiReady(true);
       });
 

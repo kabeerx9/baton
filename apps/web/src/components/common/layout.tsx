@@ -76,6 +76,7 @@ function Layout({ children, className }: LayoutProps) {
       >
         <AppSidebar />
         <SidebarInset
+          data-scroll-restoration-id="app-main"
           className={cn(
             "m-2 flex flex-1 flex-col overflow-auto rounded-xl border border-border/80 bg-background shadow-sm/5",
             {

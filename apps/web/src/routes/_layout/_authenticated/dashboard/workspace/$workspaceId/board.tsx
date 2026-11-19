@@ -53,7 +53,10 @@ function RouteComponent() {
             <DelayedSpinner pending />
           </div>
         ) : (
-          <div className="h-full overflow-auto lg:overflow-hidden">
+          <div
+            data-scroll-restoration-id="board-main"
+            className="h-full overflow-auto lg:overflow-hidden"
+          >
             <LaneSockets projectIds={data.projects.map((p) => p.id)} />
             <TaskBoard
               boardTasks={board.boardTasks}
