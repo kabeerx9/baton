@@ -1,12 +1,16 @@
-import type { defaultStackParser, ErrorEvent, EventHint } from "@sentry/node";
+import type {
+  Breadcrumb,
+  defaultStackParser,
+  ErrorEvent,
+  EventHint,
+} from "@sentry/node";
 import {
   errorChain,
-  holdsDatabaseError,
+  isSensitiveChain,
   knownDatabaseValues,
   redactedMessage,
   stackFrames,
 } from "./database-error";
-import { FILTERED } from "./scrub";
 
 type StackParser = typeof defaultStackParser;
 type ExceptionValue = NonNullable<
@@ -14,11 +18,44 @@ type ExceptionValue = NonNullable<
 >[number];
 type Mechanism = NonNullable<ExceptionValue["mechanism"]>;
 
+// As many linked errors as Sentry shows; the rest add nothing to triage.
+const MAX_VALUES = 10;
+
+// Contexts the SDK fills from the host, never from an error.
+const SAFE_CONTEXTS = new Set([
+  "os",
+  "runtime",
+  "app",
+  "device",
+  "culture",
+  "trace",
+  "cloud_resource",
+]);
+// Request breadcrumbs: their URLs are scrubbed, and nothing else is kept.
+const SAFE_CRUMB_CATEGORIES = new Set(["navigation", "http", "fetch", "xhr"]);
+const SAFE_CRUMB_DATA = ["method", "status_code", "url"] as const;
+
+function safeBreadcrumb(crumb: Breadcrumb): Breadcrumb | null {
+  if (!crumb.category || !SAFE_CRUMB_CATEGORIES.has(crumb.category))
+    return null;
+  const data: Record<string, unknown> = {};
+  for (const key of SAFE_CRUMB_DATA)
+    if (crumb.data?.[key] !== undefined) data[key] = crumb.data[key];
+  return {
+    category: crumb.category,
+    ...(crumb.type !== undefined && { type: crumb.type }),
+    ...(crumb.level !== undefined && { level: crumb.level }),
+    ...(crumb.timestamp !== undefined && { timestamp: crumb.timestamp }),
+    data,
+  };
+}
+
 /**
- * Rewrites an event whose error is, wraps or groups a database error. The
- * SDK's exception values are thrown away and rebuilt from the error chain
- * itself: fixed messages, and frames parsed from stacks that pass the exact
- * header rule. SDK text is never matched back to errors.
+ * Rewrites an event whose error is, wraps or groups a database error, or
+ * whose chain could not be fully checked. The SDK's exception values are
+ * replaced with values built from the chain (fixed messages, frames parsed
+ * from stacks that pass the exact header rule), and every other free-text
+ * part keeps only allowlisted fields. Nothing is matched back to text.
  */
 export function redactDatabaseErrors(
   event: ErrorEvent,
@@ -26,9 +63,9 @@ export function redactDatabaseErrors(
   parser: StackParser | undefined,
 ): ErrorEvent {
   const root = hint?.originalException;
-  if (!(root instanceof Error) || !holdsDatabaseError(root)) return event;
+  if (!(root instanceof Error) || !isSensitiveChain(root)) return event;
 
-  const links = errorChain(root);
+  const links = errorChain(root).links.slice(0, MAX_VALUES);
   const avoid = knownDatabaseValues(root);
   const rootMechanism = event.exception?.values?.at(-1)?.mechanism;
   const grouped = links.length > 1;
@@ -60,32 +97,26 @@ export function redactDatabaseErrors(
     };
   });
 
-  // Raw text of every error that is or holds a database error: any other
-  // part of the event that repeats it is dropped.
-  const raw = links
-    .filter(({ error }) => holdsDatabaseError(error))
-    .map(({ error }) => error.message)
-    .concat(avoid)
-    .filter((text) => text.length > 0);
-  const repeats = (value: unknown) => {
-    if (value === undefined) return false;
-    const text = typeof value === "string" ? value : JSON.stringify(value);
-    return raw.some((r) => text.includes(r));
-  };
+  const contexts = Object.fromEntries(
+    Object.entries(event.contexts ?? {}).filter(([key]) =>
+      SAFE_CONTEXTS.has(key),
+    ),
+  );
+  const breadcrumbs = (event.breadcrumbs ?? [])
+    .map(safeBreadcrumb)
+    .filter((crumb): crumb is Breadcrumb => crumb !== null);
 
-  // Extra error data copies an error's fields under its name.
-  const contexts = event.contexts && { ...event.contexts };
-  if (contexts) for (const { error } of links) delete contexts[error.name];
-
-  const out: ErrorEvent = {
-    ...event,
-    // The SDK's own values come last; ours keep its order: root last.
+  const {
+    extra: _extra,
+    message: _message,
+    logentry: _logentry,
+    ...rest
+  } = event;
+  return {
+    ...rest,
+    // The SDK lists the root last; so do these values.
     exception: { ...event.exception, values: values.reverse() },
-    ...(contexts && { contexts }),
+    contexts,
+    breadcrumbs,
   };
-  if (repeats(out.message)) out.message = FILTERED;
-  if (repeats(out.logentry)) delete out.logentry;
-  if (out.breadcrumbs)
-    out.breadcrumbs = out.breadcrumbs.filter((crumb) => !repeats(crumb));
-  return out;
 }

@@ -278,3 +278,81 @@ it("redacts an AggregateError that groups a database error", async () => {
     mechanism: { is_exception_group: true },
   });
 });
+
+// Round 4: no walk limit or text comparison decides what is safe.
+
+it("redacts a database error ten wrappers deep", async () => {
+  const error = await failedTitleInsert();
+  let top: Error = error;
+  for (let i = 0; i < 10; i++)
+    top = new Error(`level ${i}: ${error.message}`, { cause: top });
+  const record = logRecord(top);
+  expectNoLeak(record);
+  expect(record.error).toMatchObject({
+    message: "Error (wraps a database error)",
+  });
+  expectNoLeak(await captured(top));
+});
+
+it("redacts a database error behind many AggregateError siblings", async () => {
+  const error = await failedTitleInsert();
+  const siblings = Array.from({ length: 12 }, (_, i) => new Error(`ok ${i}`));
+  const group = new AggregateError(
+    [...siblings, error],
+    `batch: ${error.message}`,
+  );
+  expectNoLeak(logRecord(group));
+  expectNoLeak(await captured(group));
+});
+
+it("treats a chain it cannot walk as sensitive", async () => {
+  const error = new Error(`write failed: ${TITLE}`);
+  Object.defineProperty(error, "cause", {
+    get() {
+      throw new Error("no cause for you");
+    },
+  });
+  const record = logRecord(error);
+  expectNoLeak(record);
+  expect(record.error).toMatchObject({
+    message: "Error (may wrap a database error)",
+  });
+  // The SDK's own cause walk throws too, so it may send nothing at all:
+  // either way, nothing it sends holds the value.
+  Sentry.captureException(error);
+  await Sentry.flush(1000);
+  expectNoLeak(events);
+});
+
+it("keeps only allowlisted contexts and request breadcrumbs", async () => {
+  const error = await failedTitleInsert();
+  const event = await captured(error, (scope) => {
+    // A console breadcrumb holds the raw message, quotes and newlines too.
+    scope.addBreadcrumb({ category: "console", message: error.message });
+    scope.addBreadcrumb({
+      category: "http",
+      message: `GET ${TITLE}`,
+      data: { method: "GET", status_code: 500, url: "/api/task", body: TITLE },
+    });
+    scope.setContext("task", { title: TITLE });
+    scope.setExtra("note", TITLE);
+  });
+  expectNoLeak(event);
+  expect(event.extra).toBeUndefined();
+  expect(event.message).toBeUndefined();
+  for (const key of Object.keys(event.contexts ?? {}))
+    expect([
+      "os",
+      "runtime",
+      "app",
+      "device",
+      "culture",
+      "trace",
+      "cloud_resource",
+    ]).toContain(key);
+  expect(
+    event.breadcrumbs?.map((c) => [c.category, c.message, c.data]),
+  ).toEqual([
+    ["http", undefined, { method: "GET", status_code: 500, url: "/api/task" }],
+  ]);
+});

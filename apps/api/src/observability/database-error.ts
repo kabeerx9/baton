@@ -2,8 +2,9 @@
 // pg's message, `detail`, `where` and `hint` (for example `invalid input
 // syntax for type uuid: "<value>"`). These helpers keep only fields the
 // server fills from the schema, and never look inside the text.
-import { DrizzleQueryError } from "drizzle-orm/errors";
-import { DatabaseError } from "pg";
+//
+// Detection is by shape, never `instanceof`: importing pg here would load it
+// before instrument.ts calls Sentry.init, and pg would then send no spans.
 
 const CONDITIONS: Record<string, string> = {
   "08000": "connection_exception",
@@ -39,9 +40,8 @@ type PgFields = {
   routine?: string;
 };
 
-/** A pg server error, by class or, for another copy of pg, by its shape. */
+/** A pg server error (pg's DatabaseError), by its shape. */
 export function isPgError(value: unknown): value is Error & PgFields {
-  if (value instanceof DatabaseError) return true;
   if (!(value instanceof Error)) return false;
   const v = value as Error & { code?: unknown; severity?: unknown };
   return (
@@ -52,10 +52,23 @@ export function isPgError(value: unknown): value is Error & PgFields {
   );
 }
 
+/** The parts of drizzle-orm's DrizzleQueryError that this module reads. */
+export type DrizzleQueryErrorShape = Error & {
+  query: string;
+  params: unknown[];
+};
+
+/** A drizzle-orm DrizzleQueryError, by its shape. */
 export function isDrizzleQueryError(
   value: unknown,
-): value is DrizzleQueryError {
-  return value instanceof DrizzleQueryError;
+): value is DrizzleQueryErrorShape {
+  if (!(value instanceof Error)) return false;
+  const v = value as Error & { query?: unknown; params?: unknown };
+  return (
+    typeof v.query === "string" &&
+    Array.isArray(v.params) &&
+    v.message.startsWith("Failed query: ")
+  );
 }
 
 export function isDatabaseError(value: unknown): boolean {
@@ -96,7 +109,8 @@ export function safeDatabaseMessage(error: Error): string {
   return `Database error${describe(isPgError(error) ? pgFields(error) : {})}`;
 }
 
-const MAX_CHAIN = 10;
+// Far beyond any real chain; a walk that reaches it cannot be trusted.
+const MAX_WALK = 1_000;
 
 /** One error in a chain: how it was reached and from which parent. */
 export type ChainLink = {
@@ -106,34 +120,61 @@ export type ChainLink = {
 };
 
 /**
- * The error, its causes and an AggregateError's errors, breadth first, as
- * Sentry's linked errors walks them. The root comes first.
+ * The walk over an error, its causes and an AggregateError's errors,
+ * breadth first, root first. `complete` is false when the walk hit its
+ * cap, met an error twice (a cycle) or a property getter threw: what it
+ * did not see may be a database error.
  */
-export function errorChain(root: Error): ChainLink[] {
-  const out: ChainLink[] = [];
+export type ErrorChain = { links: ChainLink[]; complete: boolean };
+
+export function errorChain(root: Error): ErrorChain {
+  const links: ChainLink[] = [];
   const seen = new Set<Error>();
   const queue: Array<{
     value: unknown;
     source: string;
     parent: number | null;
   }> = [{ value: root, source: "", parent: null }];
-  while (queue.length && out.length < MAX_CHAIN) {
-    const { value, source, parent } = queue.shift()!;
-    if (!(value instanceof Error) || seen.has(value)) continue;
-    seen.add(value);
-    const index = out.push({ error: value, source, parent }) - 1;
-    queue.push({ value: value.cause, source: "cause", parent: index });
-    if (value instanceof AggregateError)
-      value.errors.forEach((child, i) =>
-        queue.push({ value: child, source: `errors[${i}]`, parent: index }),
-      );
+  try {
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      const { value, source, parent } = next;
+      if (!(value instanceof Error)) continue;
+      if (seen.has(value) || links.length >= MAX_WALK)
+        return { links, complete: false };
+      seen.add(value);
+      const index = links.push({ error: value, source, parent }) - 1;
+      queue.push({ value: value.cause, source: "cause", parent: index });
+      if (value instanceof AggregateError) {
+        const children: unknown[] = Array.from(value.errors);
+        children.forEach((child, i) =>
+          queue.push({ value: child, source: `errors[${i}]`, parent: index }),
+        );
+      }
+    }
+  } catch {
+    return { links, complete: false };
   }
-  return out;
+  return { links, complete: true };
 }
 
-/** True when the error is, wraps or groups a database error. */
-export function holdsDatabaseError(error: Error): boolean {
-  return errorChain(error).some((link) => isDatabaseError(link.error));
+/**
+ * Whether an error's chain may carry row values. "unknown" (a walk that
+ * could not finish) is handled exactly like "database".
+ */
+export type ChainSensitivity = "none" | "database" | "unknown";
+
+export function chainSensitivity(error: Error): ChainSensitivity {
+  const { links, complete } = errorChain(error);
+  try {
+    if (links.some((link) => isDatabaseError(link.error))) return "database";
+  } catch {
+    return "unknown";
+  }
+  return complete ? "none" : "unknown";
+}
+
+export function isSensitiveChain(error: Error): boolean {
+  return chainSensitivity(error) !== "none";
 }
 
 // Pieces shorter than this are too common to tell a value from code.
@@ -145,7 +186,7 @@ const MIN_VALUE_PIECE = 6;
  */
 export function knownDatabaseValues(error: Error): string[] {
   const out: string[] = [];
-  for (const { error: link } of errorChain(error)) {
+  for (const { error: link } of errorChain(error).links) {
     if (!isDatabaseError(link)) continue;
     const texts: unknown[] = [];
     if (isDrizzleQueryError(link) && Array.isArray(link.params))
@@ -190,9 +231,14 @@ export function stackFrames(
 /** The message to log or send: fixed for a database error and its wrappers. */
 export function redactedMessage(error: Error): string {
   if (isDatabaseError(error)) return safeDatabaseMessage(error);
-  if (holdsDatabaseError(error))
-    return `${error.name} (wraps a database error)`;
-  return error.message;
+  switch (chainSensitivity(error)) {
+    case "database":
+      return `${error.name} (wraps a database error)`;
+    case "unknown":
+      return `${error.name} (may wrap a database error)`;
+    case "none":
+      return error.message;
+  }
 }
 
 export type RedactedError = {

@@ -1,7 +1,9 @@
 import * as Sentry from "@sentry/node";
 import type { NodeOptions } from "@sentry/node";
 import { redactDatabaseErrors } from "./database-error-event";
+import { redactDatabaseSpan } from "./database-span";
 import {
+  FILTERED,
   failClosed,
   scrubBreadcrumb,
   scrubEvent,
@@ -70,6 +72,13 @@ export const privacyOptions = {
     }
   },
   // v11 streams spans by default; beforeSendTransaction would never run.
-  beforeSendSpan: scrubSpan,
+  // Sentry cannot drop a span: a failure keeps only its timing and ids.
+  beforeSendSpan: (span) => {
+    try {
+      return scrubSpan(redactDatabaseSpan(span));
+    } catch {
+      return { ...span, name: FILTERED, attributes: {} };
+    }
+  },
   beforeSendLog: failClosed(scrubLog),
 } satisfies Partial<NodeOptions>;

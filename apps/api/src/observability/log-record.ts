@@ -1,4 +1,4 @@
-import { holdsDatabaseError, serializeRedactedError } from "./database-error";
+import { isSensitiveChain, serializeRedactedError } from "./database-error";
 import type { LogLevel } from "./log-level";
 import type { RequestContext } from "./request-context";
 import { scrubDeep, scrubText } from "./scrub";
@@ -15,6 +15,48 @@ export type LogRecord = {
 } & LogAttributes;
 
 const MAX_DEPTH = 6;
+const UNREADABLE = "[Unreadable error]";
+
+/** A property read that a throwing getter cannot break. */
+function readSafely(read: () => unknown): unknown {
+  try {
+    return read();
+  } catch {
+    return undefined;
+  }
+}
+
+function errorToLoggable(
+  value: Error,
+  depth: number,
+  seen: WeakSet<object>,
+): Record<string, unknown> {
+  const cause = readSafely(() => value.cause);
+  if (isSensitiveChain(value)) {
+    // A database error, anything wrapping one, or a chain too deep or odd
+    // to check: never the raw message, params or pg detail (row values).
+    const out: Record<string, unknown> = { ...serializeRedactedError(value) };
+    if (depth < MAX_DEPTH) {
+      if (cause !== undefined) out.cause = toLoggable(cause, depth + 1, seen);
+      const errors = readSafely(() =>
+        value instanceof AggregateError ? Array.from(value.errors) : undefined,
+      );
+      if (Array.isArray(errors))
+        out.errors = errors.map((e) => toLoggable(e, depth + 1, seen));
+    }
+    return out;
+  }
+  const out: Record<string, unknown> = {
+    name: value.name,
+    message: value.message,
+    stack: value.stack,
+  };
+  const code = (value as { code?: unknown }).code;
+  if (typeof code === "string" || typeof code === "number") out.code = code;
+  if (cause !== undefined && depth < MAX_DEPTH)
+    out.cause = toLoggable(cause, depth + 1, seen);
+  return out;
+}
 
 /** Turns any value into plain JSON data: Errors keep name, message and stack. */
 export function toLoggable(
@@ -22,29 +64,13 @@ export function toLoggable(
   depth = 0,
   seen = new WeakSet<object>(),
 ): unknown {
-  if (value instanceof Error && holdsDatabaseError(value)) {
-    // A database error or anything wrapping one: never the raw message,
-    // params or pg detail, which hold row values.
-    const out: Record<string, unknown> = { ...serializeRedactedError(value) };
-    if (depth < MAX_DEPTH) {
-      if (value.cause !== undefined)
-        out.cause = toLoggable(value.cause, depth + 1, seen);
-      if (value instanceof AggregateError)
-        out.errors = value.errors.map((e) => toLoggable(e, depth + 1, seen));
-    }
-    return out;
-  }
   if (value instanceof Error) {
-    const out: Record<string, unknown> = {
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-    };
-    const code = (value as { code?: unknown }).code;
-    if (typeof code === "string" || typeof code === "number") out.code = code;
-    if (value.cause !== undefined && depth < MAX_DEPTH)
-      out.cause = toLoggable(value.cause, depth + 1, seen);
-    return out;
+    // An error whose own getters throw is logged by its kind only.
+    try {
+      return errorToLoggable(value, depth, seen);
+    } catch {
+      return { name: "Error", message: UNREADABLE };
+    }
   }
   if (typeof value === "bigint") return value.toString();
   if (typeof value === "function" || typeof value === "symbol")
