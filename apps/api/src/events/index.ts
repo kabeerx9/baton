@@ -109,7 +109,7 @@ export async function subscribeToEvent<T>(
       try {
         await handler(payload.data);
       } catch (error) {
-        logger.error(`Error processing event ${eventType}`, { error });
+        logger.error("Event handler failed", { type: eventType, error });
       }
     });
   } catch (error) {

@@ -960,7 +960,8 @@ export function broadcastToProject(
           authorizationBatch,
         })
         .catch((err) => {
-          logger.error(`Failed to publish broadcast for project ${projectId}`, {
+          logger.error("Failed to publish a project broadcast", {
+            projectId,
             error: err,
           });
         });

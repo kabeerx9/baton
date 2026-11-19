@@ -47,7 +47,7 @@ export async function ensureLabelsExist(
         );
       } catch (createError) {
         if (requireSuccess) throw createError;
-        logger.error(`Failed to create label "${labelName}"`, {
+        logger.error("Failed to create a GitHub label", {
           error: createError,
         });
       }
@@ -115,7 +115,7 @@ export async function removeLabel(
       return;
     }
 
-    logger.error(`Failed to remove label "${labelName}" from issue`, { error });
+    logger.error("Failed to remove a label from a GitHub issue", { error });
     throw error;
   }
 }

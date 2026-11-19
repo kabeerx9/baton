@@ -49,7 +49,7 @@ export async function sendDm(
     if (!slackUserId) return "no_slack_user";
     const result = await postSlackDm(config.token, slackUserId, text);
     if (result.kind === "error") {
-      logger.error(`[slack-dm] send failed: ${result.error}`);
+      logger.error("[slack-dm] send failed", { slack_error: result.error });
       return "failed";
     }
     return "sent";

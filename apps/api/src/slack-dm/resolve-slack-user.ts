@@ -43,7 +43,7 @@ export async function resolveSlackUser(
   // A failed call says nothing about the person. Do not save it; try again
   // on the next message.
   if (result.kind === "error") {
-    logger.error(`[slack-dm] lookup failed: ${result.error}`);
+    logger.error("[slack-dm] lookup failed", { slack_error: result.error });
     return null;
   }
   const slackUserId = result.kind === "found" ? result.slackUserId : null;

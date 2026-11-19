@@ -1,3 +1,9 @@
+// The logger's contract: the message is a fixed string literal, and every
+// detail (ids, counts, the error) goes in the attributes. Attributes are
+// redacted by structure (log-record.ts, database-error.ts); a message built
+// from an error or its values could copy database values past that.
+// logger-contract.test.ts fails on a call that builds its message while
+// passing an error, or builds it from one.
 import * as Sentry from "@sentry/node";
 import { isEnabled, type LogLevel, parseLogLevel } from "./log-level";
 import {

@@ -126,7 +126,7 @@ export async function syncLabelToGitHub(
       );
       if (!created) return;
     } catch (createError) {
-      logger.error(`Failed to create label "${labelName}" in GitHub`, {
+      logger.error("Failed to create a GitHub label", {
         error: createError,
       });
       return;
@@ -143,7 +143,7 @@ export async function syncLabelToGitHub(
       }),
     );
   } catch (error) {
-    logger.error(`Failed to add label "${labelName}" to GitHub issue`, {
+    logger.error("Failed to add a label to a GitHub issue", {
       error,
     });
   }
@@ -165,7 +165,7 @@ export async function removeLabelFromGitHub(taskId: string, labelName: string) {
       }),
     );
   } catch (error) {
-    logger.error(`Failed to remove label "${labelName}" from GitHub issue`, {
+    logger.error("Failed to remove a label from a GitHub issue", {
       error,
     });
   }

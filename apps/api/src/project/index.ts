@@ -673,7 +673,7 @@ const project = apiRouter<BaseVariables & { workspaceId: string }>()
       currentProject.backgroundObjectKey !== normalizedKey
     ) {
       deleteS3Object(currentProject.backgroundObjectKey).catch((error) => {
-        logger.warn(`S3 cleanup error: ${error}`);
+        logger.warn("Project background cleanup failed", { error });
       });
     }
 

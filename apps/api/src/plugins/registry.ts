@@ -312,7 +312,11 @@ export async function broadcastTaskCreated(
     try {
       await plugin.onTaskCreated(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.created`, { error });
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.created",
+        error,
+      });
     }
   }
 }
@@ -332,7 +336,9 @@ export async function broadcastTaskStatusChanged(
     try {
       await plugin.onTaskStatusChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.status_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.status_changed",
         error,
       });
     }
@@ -353,7 +359,9 @@ export async function broadcastTaskPriorityChanged(
     try {
       await plugin.onTaskPriorityChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.priority_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.priority_changed",
         error,
       });
     }
@@ -375,7 +383,9 @@ export async function broadcastTaskTitleChanged(
     try {
       await plugin.onTaskTitleChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.title_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.title_changed",
         error,
       });
     }
@@ -397,7 +407,9 @@ export async function broadcastTaskDescriptionChanged(
     try {
       await plugin.onTaskDescriptionChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.description_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.description_changed",
         error,
       });
     }
@@ -418,7 +430,11 @@ export async function broadcastTaskCommentCreated(
     try {
       await plugin.onTaskCommentCreated(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on comment.created`, { error });
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "comment.created",
+        error,
+      });
     }
   }
 }
@@ -437,7 +453,11 @@ export async function broadcastTaskDeleted(
     try {
       await plugin.onTaskDeleted(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.deleted`, { error });
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.deleted",
+        error,
+      });
     }
   }
 }
@@ -454,7 +474,11 @@ export async function broadcastTaskMoved(event: TaskMovedEvent): Promise<void> {
     try {
       await plugin.onTaskMoved(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.moved`, { error });
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.moved",
+        error,
+      });
     }
   }
 }
@@ -473,7 +497,9 @@ export async function broadcastTaskDueDateChanged(
     try {
       await plugin.onTaskDueDateChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.due_date_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.due_date_changed",
         error,
       });
     }
@@ -494,7 +520,9 @@ export async function broadcastTaskAssigneeChanged(
     try {
       await plugin.onTaskAssigneeChanged(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.assignee_changed`, {
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.assignee_changed",
         error,
       });
     }
@@ -515,7 +543,11 @@ export async function broadcastTaskUnassigned(
     try {
       await plugin.onTaskUnassigned(event, context);
     } catch (error) {
-      logger.error(`Plugin ${plugin.type} error on task.unassigned`, { error });
+      logger.error("Plugin event handler failed", {
+        plugin: plugin.type,
+        event: "task.unassigned",
+        error,
+      });
     }
   }
 }

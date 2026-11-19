@@ -66,7 +66,7 @@ const authSecret = (() => {
   try {
     return resolveAuthSecret();
   } catch (error) {
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error("Auth secret is not configured", { error });
     process.exit(1);
   }
 })();

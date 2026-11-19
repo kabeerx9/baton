@@ -36,7 +36,7 @@ export async function withJobLease<T>(
         sql`DELETE FROM job_lease WHERE "name" = ${name} AND "owner" = ${INSTANCE_ID};`,
       )
       .catch((error) => {
-        logger.error(`Failed to release the ${name} lease`, { error });
+        logger.error("Failed to release a job lease", { lease: name, error });
       });
   }
 }
