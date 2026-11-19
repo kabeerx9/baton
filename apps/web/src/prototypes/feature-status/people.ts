@@ -7,9 +7,9 @@ function person(id: string, name: string): Person {
 }
 
 export const KABEER = person("u-kabeer", "Kabeer Joshi");
-export const AISHA = person("u-aisha", "Aisha Khan");
+export const AISHA = person("u-ac", "Aisha Khan");
 export const ROHAN = person("u-rohan", "Rohan Mehta");
-export const MARIA = person("u-maria", "Maria Silva");
+export const MARIA = person("u-ka", "Maria Silva");
 
 const BY_ID = new Map(
   [KABEER, AISHA, ROHAN, MARIA].map((member) => [member.id, member]),

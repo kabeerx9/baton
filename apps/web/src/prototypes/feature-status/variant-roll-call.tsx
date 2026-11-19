@@ -1,4 +1,5 @@
 import type { Subtask } from "@/components/board/model";
+import { BarLegend } from "./bar-legend";
 import { FeatureHero } from "./feature-hero";
 import type { FeatureSummary, Held } from "./feature-status";
 import { LinkedRows } from "./linked-rows";
@@ -38,42 +39,47 @@ export function VariantRollCall({
       scenario={scenario}
       summary={summary}
       bar={
-        <div
-          role="group"
-          aria-label="Tasks by state"
-          className="overflow-hidden rounded-2xl border bg-background/60"
-        >
-          <RollCallGroup
-            title="Needs attention"
-            count={held.length}
-            tone={
-              held.some((h) => h.kind === "blocked") ? BLOCKED_TEXT : ASKED_TEXT
-            }
+        <div className="flex flex-col gap-3">
+          <BarLegend summary={summary} />
+          <div
+            role="group"
+            aria-label="Tasks by state"
+            className="overflow-hidden rounded-2xl border bg-background/60"
           >
-            {rows(
-              held.map((h) => h.task),
-              held,
-            )}
-          </RollCallGroup>
-          <RollCallGroup title="In progress" count={active.length}>
-            {rows(active)}
-          </RollCallGroup>
-          <RollCallGroup title="To do" count={waiting.length}>
-            {rows(waiting)}
-          </RollCallGroup>
-          <RollCallGroup
-            title="Done"
-            count={done.length}
-            foldable
-            defaultOpen={allDone}
-          >
-            {rows(done)}
-          </RollCallGroup>
-          {linked > 0 && (
-            <RollCallGroup title="Other features" count={linked}>
-              <LinkedRows waitsOn={summary.waitsOn} blocks={summary.blocks} />
+            <RollCallGroup
+              title="Needs attention"
+              count={held.length}
+              tone={
+                held.some((h) => h.kind === "blocked")
+                  ? BLOCKED_TEXT
+                  : ASKED_TEXT
+              }
+            >
+              {rows(
+                held.map((h) => h.task),
+                held,
+              )}
             </RollCallGroup>
-          )}
+            <RollCallGroup title="Moving" count={active.length}>
+              {rows(active)}
+            </RollCallGroup>
+            <RollCallGroup title="Up next" count={waiting.length}>
+              {rows(waiting)}
+            </RollCallGroup>
+            <RollCallGroup
+              title="Done"
+              count={done.length}
+              foldable
+              defaultOpen={allDone}
+            >
+              {rows(done)}
+            </RollCallGroup>
+            {linked > 0 && (
+              <RollCallGroup title="Other features" count={linked}>
+                <LinkedRows waitsOn={summary.waitsOn} blocks={summary.blocks} />
+              </RollCallGroup>
+            )}
+          </div>
         </div>
       }
     />

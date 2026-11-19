@@ -3,7 +3,6 @@ import {
   type BoardTask,
   isBlocked,
   type Person,
-  STATUS_LABEL,
   type Status,
   type Subtask,
 } from "@/components/board/model";
@@ -139,4 +138,3 @@ export function summarizeFeature(
 
 /** The column words, in the order the board shows them. */
 export const COLUMN_ORDER: Status[] = ["todo", "doing", "review", "done"];
-export const columnLabel = (status: Status) => STATUS_LABEL[status];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { featureHeadline, featureTone } from "./feature-headline";
+import { featureHeadline } from "./feature-headline";
 import { summarizeFeature } from "./feature-status";
 import { blockerOf, makeFeature, makeTask } from "./make-task";
 import { AISHA, KABEER, MARIA } from "./people";
@@ -116,7 +116,7 @@ describe("summarizeFeature", () => {
   });
 });
 
-describe("featureHeadline and featureTone", () => {
+describe("featureHeadline", () => {
   it("says the counts and the trouble", () => {
     expect(featureHeadline(summaryOf("big"))).toBe(
       "3 of 12 tasks done. 2 blocked, 1 waiting for an answer.",
@@ -134,12 +134,5 @@ describe("featureHeadline and featureTone", () => {
     expect(featureHeadline(summaryOf("linked"))).toBe(
       "1 of 4 tasks done. 2 in progress. It cannot finish until T-41 is done.",
     );
-  });
-
-  it("picks the tone from the status", () => {
-    expect(featureTone(summaryOf("big"))).toBe("blue");
-    expect(featureTone(summaryOf("done"))).toBe("emerald");
-    expect(featureTone(summaryOf("fresh"))).toBe("neutral");
-    expect(featureTone(summaryOf("linked"))).toBe("amber");
   });
 });

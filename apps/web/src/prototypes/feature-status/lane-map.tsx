@@ -4,7 +4,7 @@ import { COLUMN_ORDER, type FeatureSummary } from "./feature-status";
 import { LaneColumn } from "./lane-column";
 import { LaneEdges } from "./lane-edges";
 import { LaneLinkRow } from "./lane-link-row";
-import { OutsideNode } from "./lane-node";
+import { OutsideNode } from "./outside-node";
 import type { Scenario } from "./scenario-types";
 import { type NodeEdge, useEdgePaths } from "./use-edge-paths";
 
@@ -34,7 +34,7 @@ export function LaneMap({
   const shape = useEdgePaths(wrap, edges);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-3">
+    <div className="flex max-w-5xl flex-col gap-3">
       <LaneLinkRow label="Waits on" items={summary.waitsOn} open />
       <div ref={wrap} className="relative flex flex-col gap-5">
         {outside.length > 0 && (

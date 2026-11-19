@@ -18,7 +18,15 @@ export function LaneColumn({
   tasks: Subtask[];
   held: Held[];
 }) {
-  const shown = tasks.slice(0, LIMIT);
+  // A task held up by another feature goes first: its line comes from above.
+  const outsideFirst = (t: Subtask) =>
+    held.some(
+      (h) => h.kind === "blocked" && h.task.id === t.id && h.outside.length > 0,
+    )
+      ? 0
+      : 1;
+  const ordered = [...tasks].sort((a, b) => outsideFirst(a) - outsideFirst(b));
+  const shown = ordered.slice(0, LIMIT);
   return (
     <section
       aria-label={`${STATUS_LABEL[status]}: ${tasks.length}`}

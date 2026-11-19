@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { TaskHero } from "@/components/task/detail/task-hero";
-import { featureHeadline, featureTone } from "./feature-headline";
+import { featureHeadline } from "./feature-headline";
+import { featureTone } from "./feature-tone";
 import type { FeatureSummary } from "./feature-status";
 import type { Scenario } from "./scenario-types";
 
