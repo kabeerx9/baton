@@ -33,6 +33,7 @@ import {
 import { hasRegisteredUsers } from "../../utils/instance-bootstrap";
 import { isCloud } from "../../utils/is-cloud";
 import { trackPasswordResetDelivery } from "../../utils/password-reset-delivery";
+import { logger } from "../../observability/logger";
 
 config();
 
@@ -65,7 +66,7 @@ const authSecret = (() => {
   try {
     return resolveAuthSecret();
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    logger.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 })();

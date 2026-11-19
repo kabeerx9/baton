@@ -6,6 +6,7 @@ import {
   involvedPeople,
   loadConsentFacts,
 } from "./load-consent-facts";
+import { logger } from "../observability/logger";
 
 /**
  * After a committed field edit (title, description, priority, dates), tell
@@ -38,6 +39,6 @@ export async function notifyOutsiderEdit(
       },
     ]);
   } catch (error) {
-    console.error("[change-request] outsider edit notice failed", error);
+    logger.error("[change-request] outsider edit notice failed", { error });
   }
 }

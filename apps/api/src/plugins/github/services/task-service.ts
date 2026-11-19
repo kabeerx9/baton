@@ -17,6 +17,7 @@ import {
   finishedEffects,
 } from "../../../task-change-request/effects";
 import type { TaskTransaction } from "../../../task/controllers/with-locked-task";
+import { logger } from "../../../observability/logger";
 
 export type TaskRow = InferSelectModel<typeof taskTable>;
 
@@ -110,7 +111,7 @@ export async function updateTaskStatus(
       ),
     }))
   ) {
-    console.warn(
+    logger.warn(
       `[GitHub] Skipping status update for task ${taskId}: column "${newStatus}" not found in project ${task.projectId}`,
     );
     return { applied: false };

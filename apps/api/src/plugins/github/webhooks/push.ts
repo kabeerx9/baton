@@ -13,6 +13,7 @@ import {
 } from "../services/task-service";
 import { extractTaskNumberFromBranch } from "../utils/branch-matcher";
 import { resolveTargetStatus } from "../utils/resolve-column";
+import { logger } from "../../../observability/logger";
 
 type PushPayload = {
   after?: string;
@@ -52,23 +53,23 @@ export async function handlePush(payload: PushPayload) {
   }
 
   const branchName = ref.slice("refs/heads/".length);
-  console.log(`[Push] Processing branch: ${branchName}`);
+  logger.debug(`[Push] Processing branch: ${branchName}`);
 
   if (PROTECTED_BRANCHES.includes(branchName)) {
-    console.log(`[Push] Skipping protected branch: ${branchName}`);
+    logger.debug(`[Push] Skipping protected branch: ${branchName}`);
     return;
   }
 
   const integrations = await findAllIntegrationsByRepo(payload);
 
   if (integrations.length === 0) {
-    console.log(
+    logger.debug(
       `[Push] No integrations found for ${repository.owner.login}/${repository.name}`,
     );
     return;
   }
 
-  console.log(
+  logger.debug(
     `[Push] Found ${integrations.length} integration(s) for this repo`,
   );
 
@@ -79,7 +80,7 @@ export async function handlePush(payload: PushPayload) {
 
     const config = JSON.parse(integration.config) as GitHubConfig;
     const projectSlug = integration.project.slug;
-    console.log(
+    logger.debug(
       `[Push] Trying project: ${projectSlug}, pattern: ${config.branchPattern}`,
     );
 
@@ -90,26 +91,26 @@ export async function handlePush(payload: PushPayload) {
     );
 
     if (!taskNumber) {
-      console.log(
+      logger.debug(
         `[Push] Could not extract task number from branch: ${branchName} (pattern: ${config.branchPattern}, slug: ${projectSlug})`,
       );
       continue;
     }
 
-    console.log(
+    logger.debug(
       `[Push] Extracted task number: ${taskNumber} for project ${projectSlug}`,
     );
 
     const task = await findTaskByNumber(integration.projectId, taskNumber);
 
     if (!task) {
-      console.log(
+      logger.debug(
         `[Push] Task #${taskNumber} not found in project ${integration.projectId}`,
       );
       continue;
     }
 
-    console.log(
+    logger.debug(
       `[Push] Found task: ${task.id}, current status: ${task.status}`,
     );
 
@@ -151,7 +152,7 @@ export async function handlePush(payload: PushPayload) {
           config.statusTransitions?.onBranchPush || "in-progress",
           database,
         );
-        console.log(
+        logger.debug(
           `[Push] Target status: ${targetStatus}, current: ${task.status}`,
         );
 
@@ -159,7 +160,7 @@ export async function handlePush(payload: PushPayload) {
           branchLink.created || !(await isTaskInFinalState(task, database));
 
         if (task.status !== targetStatus && canMove) {
-          console.log(
+          logger.info(
             `[Push] Updating task ${task.id} status from ${task.status} to ${targetStatus}`,
           );
           const statusResult = await updateTaskStatus(
@@ -186,7 +187,9 @@ export async function handlePush(payload: PushPayload) {
             );
           }
         } else {
-          console.log(`[Push] Skipping status update - already ${task.status}`);
+          logger.debug(
+            `[Push] Skipping status update - already ${task.status}`,
+          );
         }
 
         afterCommit(() =>
@@ -201,7 +204,7 @@ export async function handlePush(payload: PushPayload) {
     return;
   }
 
-  console.log(
+  logger.debug(
     `[Push] No matching task found in any integrated project for branch: ${branchName}`,
   );
 }

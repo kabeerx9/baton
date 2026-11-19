@@ -139,7 +139,7 @@ export function initializeScheduler(): void {
   // tick; sendDueDigests decides who is due in their own zone.
   if (slackConfig()) {
     for (const warning of digestConfigWarnings()) {
-      console.warn(`[slack-dm] ${warning}`);
+      logger.warn(`[slack-dm] ${warning}`);
     }
     jobs.push(
       new Cron(
@@ -149,7 +149,7 @@ export function initializeScheduler(): void {
       ),
     );
   }
-  console.log(
+  logger.info(
     "⏰ Scheduler started (deferred integration edits every minute, reminders every 5 minutes)",
   );
 }

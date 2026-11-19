@@ -12,6 +12,7 @@ import { getSyncIntegrations } from "./integrations";
 import { readSyncRules } from "./rules";
 import { outgoingPredicate } from "./task-predicate";
 import { reconciliationPredicate } from "./reconciliation-predicate";
+import { logger } from "../../observability/logger";
 
 export async function reconcileTaskSync(
   projectId: string,
@@ -74,7 +75,7 @@ async function reconcileTaskWithIntegrations(
         { integrationId: integration.id, projectId, config },
       );
     } catch {
-      console.error("Task sync reconciliation failed", {
+      logger.error("Task sync reconciliation failed", {
         projectId,
         taskId,
         integrationId: integration.id,
@@ -130,7 +131,7 @@ export async function reconcileProjectSync(
             )
               changed = true;
           } catch {
-            console.error("Task sync reconciliation failed", {
+            logger.error("Task sync reconciliation failed", {
               projectId,
               taskId: task.id,
               integrationId: integration.id,

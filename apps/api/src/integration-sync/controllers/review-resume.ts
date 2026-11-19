@@ -12,6 +12,7 @@ import { getSyncIntegration } from "./get-integration";
 import { getAuthorizedSyncProject } from "./authorized-project";
 import type { IntegrationDatabase } from "../../plugins/github/services/integration-task-scope";
 import type { ResumeProviderSnapshot } from "./resume-provider-snapshot";
+import { logger } from "../../observability/logger";
 
 export async function reviewSyncResume(
   projectId: string,
@@ -63,7 +64,7 @@ export async function reviewSyncResume(
       const access = await providerIssue(integration, link);
       snapshot = { access, remoteIssue: await access.read() };
     } catch {
-      console.error("Sync resume provider read failed", {
+      logger.error("Sync resume provider read failed", {
         projectId,
         provider,
         linkId,

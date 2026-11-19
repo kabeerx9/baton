@@ -10,6 +10,7 @@ import {
   getVerifiedInstallationOctokit,
 } from "../utils/github-app";
 import { addLabelsToIssue, removeLabel } from "../utils/labels";
+import { logger } from "../../../observability/logger";
 
 export async function handleTaskStatusChanged(
   event: TaskStatusChangedEvent,
@@ -115,6 +116,6 @@ export async function handleTaskStatusChanged(
       { type: "github", config: JSON.stringify(config) },
     );
   } catch (error) {
-    console.error("Failed to update GitHub issue status:", error);
+    logger.error("Failed to update GitHub issue status", { error });
   }
 }

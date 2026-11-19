@@ -21,6 +21,7 @@ import {
   removeConnection,
   shutdownWebSocketAdapter,
 } from "../../../apps/api/src/ws/index";
+import { logger } from "../../../apps/api/src/observability/logger";
 
 const projectUpdateHandler = vi
   .mocked(subscribeToEvent)
@@ -257,7 +258,7 @@ describe("broadcastToProject", () => {
 
   it("warns when called before adapter initialization", async () => {
     await shutdownWebSocketAdapter();
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
     broadcastToProject("proj-1", {
       type: "TASK_CREATED",

@@ -9,6 +9,7 @@ import type { AdminAuditRequest } from "../audit/admin-audit-request";
 import { recordAdminAction } from "../audit/record-admin-action";
 import { safeErrorCode } from "../system/safe-error-code";
 import { createAttemptLimiter } from "../system/attempt-limiter";
+import { logger } from "../../observability/logger";
 
 const testEmailLimiter = createAttemptLimiter({
   max: 5,
@@ -61,7 +62,7 @@ async function sendAdminTestEmail(
     });
   } catch (error) {
     const details = getSmtpErrorDetails(error);
-    console.error("Error sending admin test email", details);
+    logger.error("Error sending admin test email", { details });
     const reason =
       "responseCode" in details
         ? `${details.code} ${details.responseCode}`
@@ -84,7 +85,7 @@ async function sendAdminTestEmail(
     });
   } catch (error) {
     // SMTP already accepted the message; an audit failure cannot undo it.
-    console.error("Admin audit entry could not be recorded:", {
+    logger.error("Admin audit entry could not be recorded", {
       action: "email.test_sent",
       code: safeErrorCode(error),
     });

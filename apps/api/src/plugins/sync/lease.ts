@@ -3,6 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import db from "../../database";
 import { SyncLeaseBusyError } from "./lease-busy-error";
+import { logger } from "../../observability/logger";
 
 const LEASE_MS = 15 * 60 * 1000;
 
@@ -37,7 +38,7 @@ export async function withSyncLease<T>(
       where name = ${key} and owner = ${owner}
     `)
       .catch(() => {
-        console.error("Sync creation lease renewal failed", { key });
+        logger.error("Sync creation lease renewal failed", { key });
       });
   }, 60_000);
   renewal.unref();

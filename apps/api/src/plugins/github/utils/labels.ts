@@ -1,5 +1,6 @@
 import type { IssueWrite } from "../../sync/issue-write";
 import type { Octokit } from "octokit";
+import { logger } from "../../../observability/logger";
 
 const labelColors: Record<string, string> = {
   "priority:low": "0EA5E9",
@@ -46,7 +47,9 @@ export async function ensureLabelsExist(
         );
       } catch (createError) {
         if (requireSuccess) throw createError;
-        console.error(`Failed to create label "${labelName}":`, createError);
+        logger.error(`Failed to create label "${labelName}"`, {
+          error: createError,
+        });
       }
     }
   }
@@ -81,7 +84,7 @@ export async function addLabelsToIssue(
     );
   } catch (error) {
     if (requireSuccess) throw error;
-    console.error("Failed to add labels to issue:", error);
+    logger.error("Failed to add labels to issue", { error });
   }
 }
 
@@ -112,7 +115,7 @@ export async function removeLabel(
       return;
     }
 
-    console.error(`Failed to remove label "${labelName}" from issue:`, error);
+    logger.error(`Failed to remove label "${labelName}" from issue`, { error });
     throw error;
   }
 }

@@ -1,5 +1,6 @@
 import { sendEmailVerificationEmail } from "@baton/email";
 import { accountEmailSubject } from "../admin/users/account-email-subjects";
+import { logger } from "../observability/logger";
 
 type Recipient = { email: string; name?: string | null };
 
@@ -33,6 +34,6 @@ export async function sendSignUpVerificationEmail({
     );
   } catch {
     // The account stays; signing in with the password sends a new link.
-    console.error("Sign-up verification email could not be sent");
+    logger.error("Sign-up verification email could not be sent");
   }
 }

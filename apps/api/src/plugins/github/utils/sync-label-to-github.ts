@@ -5,6 +5,7 @@ import db from "../../../database";
 import { externalLinkTable } from "../../../database/schema";
 import { type GitHubConfig, hasVerifiedGitHubBinding } from "../config";
 import { getVerifiedInstallationOctokit } from "./github-app";
+import { logger } from "../../../observability/logger";
 
 const namedColorToHex: Record<string, string> = {
   red: "EF4444",
@@ -125,10 +126,9 @@ export async function syncLabelToGitHub(
       );
       if (!created) return;
     } catch (createError) {
-      console.error(
-        `Failed to create label "${labelName}" in GitHub:`,
-        createError,
-      );
+      logger.error(`Failed to create label "${labelName}" in GitHub`, {
+        error: createError,
+      });
       return;
     }
   }
@@ -143,7 +143,9 @@ export async function syncLabelToGitHub(
       }),
     );
   } catch (error) {
-    console.error(`Failed to add label "${labelName}" to GitHub issue:`, error);
+    logger.error(`Failed to add label "${labelName}" to GitHub issue`, {
+      error,
+    });
   }
 }
 
@@ -163,9 +165,8 @@ export async function removeLabelFromGitHub(taskId: string, labelName: string) {
       }),
     );
   } catch (error) {
-    console.error(
-      `Failed to remove label "${labelName}" from GitHub issue:`,
+    logger.error(`Failed to remove label "${labelName}" from GitHub issue`, {
       error,
-    );
+    });
   }
 }

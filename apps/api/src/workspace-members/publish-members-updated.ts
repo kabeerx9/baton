@@ -1,4 +1,5 @@
 import { publishEvent } from "../events";
+import { logger } from "../observability/logger";
 
 /**
  * After a member change commits: everyone who may hold a connection to the
@@ -10,6 +11,6 @@ export async function publishMembersUpdated(workspaceId: string) {
   try {
     await publishEvent("workspace.members_updated", { workspaceId });
   } catch (error) {
-    console.error("Workspace members broadcast failed:", error);
+    logger.error("Workspace members broadcast failed", { error });
   }
 }

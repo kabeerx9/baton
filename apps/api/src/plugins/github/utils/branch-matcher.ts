@@ -1,4 +1,5 @@
 import type { GitHubConfig } from "../config";
+import { logger } from "../../../observability/logger";
 
 function slugify(text: string): string {
   return text
@@ -52,7 +53,9 @@ export function extractTaskNumberFromBranch(
         if (!Number.isNaN(num)) return num;
       }
     } catch {
-      console.error("Invalid custom branch regex:", config.customBranchRegex);
+      logger.error("Invalid custom branch regex", {
+        regex: config.customBranchRegex,
+      });
     }
     return null;
   }

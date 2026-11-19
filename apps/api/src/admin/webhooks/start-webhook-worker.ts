@@ -1,4 +1,5 @@
 import { sendWebhookDelivery } from "./send-webhook-delivery";
+import { logger } from "../../observability/logger";
 
 export function startWebhookWorker() {
   let running: Promise<unknown> | null = null;
@@ -7,7 +8,7 @@ export function startWebhookWorker() {
     running = sendWebhookDelivery()
       .catch(() => {
         // Database errors may embed payloads and encrypted secrets.
-        console.error("Instance webhook delivery worker failed");
+        logger.error("Instance webhook delivery worker failed");
       })
       .finally(() => {
         running = null;

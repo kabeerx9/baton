@@ -1,10 +1,11 @@
 import { githubPlugin, initializeGitHubPlugin } from "./github";
 import { initializeEventSubscriptions, registerPlugin } from "./registry";
+import { logger } from "../observability/logger";
 
 export const integrationPlugins = [githubPlugin];
 
 export function initializePlugins() {
-  console.log("Initializing plugins...");
+  logger.info("Initializing plugins...");
 
   for (const plugin of integrationPlugins) {
     registerPlugin(plugin);
@@ -12,7 +13,7 @@ export function initializePlugins() {
   initializeGitHubPlugin();
   initializeEventSubscriptions();
 
-  console.log("✅ Plugins initialized");
+  logger.info("✅ Plugins initialized");
 }
 
 export * from "./registry";

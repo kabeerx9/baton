@@ -3,6 +3,7 @@ import { hashApiKey } from "../api-key/hash-api-key";
 import db, { schema } from "../database";
 import { evaluateApiKeyUsage } from "./api-key-usage";
 import { notBannedCondition } from "./user-ban";
+import { logger } from "../observability/logger";
 
 export function parsePermissions(
   raw: string | null,
@@ -152,7 +153,7 @@ export async function readApiKeyCheck(key: string) {
   try {
     return await verifyApiKey(key, { consume: false });
   } catch (error) {
-    console.error("Failed to read API key usage:", error);
+    logger.error("Failed to read API key usage", { error });
     return null;
   }
 }

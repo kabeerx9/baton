@@ -29,6 +29,7 @@ import {
   validateTaskAssetUploadInput,
   verifyTaskAssetUpload,
 } from "../../../apps/api/src/storage/s3";
+import { logger } from "../../../apps/api/src/observability/logger";
 
 describe("S3 helpers", () => {
   it("binds project background upload URLs to the declared content length", async () => {
@@ -389,7 +390,7 @@ describe("S3 helpers", () => {
         { name: "InternalError", $metadata: { httpStatusCode: 500 } },
       ) as never,
     );
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await expect(
       verifyTaskAssetUpload("workspace/w1/project/p1/task/t1/a.png", {
@@ -398,7 +399,7 @@ describe("S3 helpers", () => {
       }),
     ).rejects.toThrow("Unable to verify uploaded object.");
 
-    expect(log).toHaveBeenCalledWith("Unable to verify uploaded object:", {
+    expect(log).toHaveBeenCalledWith("Unable to verify uploaded object", {
       name: "InternalError",
       status: 500,
     });

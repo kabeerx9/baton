@@ -9,6 +9,7 @@ import { handleLabelCreated } from "./webhooks/label-created";
 import { handlePullRequestClosed } from "./webhooks/pull-request-closed";
 import { handlePullRequestOpened } from "./webhooks/pull-request-opened";
 import { handlePush } from "./webhooks/push";
+import { logger } from "../../observability/logger";
 
 export async function handleGitHubWebhook(
   body: string,
@@ -16,19 +17,19 @@ export async function handleGitHubWebhook(
   eventName: string,
   deliveryId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  console.log(
+  logger.info(
     `[GitHub Webhook] Received event: ${eventName}, delivery: ${deliveryId}`,
   );
 
   const githubApp = getGithubApp();
 
   if (!githubApp) {
-    console.error("[GitHub Webhook] GitHub App not configured");
+    logger.error("[GitHub Webhook] GitHub App not configured");
     return { success: false, error: "GitHub integration not configured" };
   }
 
   try {
-    console.log(`[GitHub Webhook] Verifying and processing ${eventName}...`);
+    logger.debug(`[GitHub Webhook] Verifying and processing ${eventName}...`);
     await githubApp.webhooks.verifyAndReceive({
       id: deliveryId,
       name: eventName as
@@ -41,10 +42,10 @@ export async function handleGitHubWebhook(
       payload: body,
     });
 
-    console.log(`[GitHub Webhook] Successfully processed ${eventName}`);
+    logger.info(`[GitHub Webhook] Successfully processed ${eventName}`);
     return { success: true };
   } catch (error) {
-    console.error("[GitHub Webhook] Verification/processing failed:", error);
+    logger.error("[GitHub Webhook] Verification/processing failed", { error });
     return {
       success: false,
       error:
@@ -57,183 +58,181 @@ export function setupWebhookHandlers() {
   const githubApp = getGithubApp();
 
   if (!githubApp) {
-    console.log("GitHub App not configured, skipping webhook handlers");
+    logger.info("GitHub App not configured, skipping webhook handlers");
     return;
   }
 
   githubApp.webhooks.on("issues.opened", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.opened");
+    logger.debug("[GitHub Webhook] Handling issues.opened");
     try {
       await handleIssueOpened(
         payload as Parameters<typeof handleIssueOpened>[0],
       );
-      console.log("[GitHub Webhook] issues.opened handled successfully");
+      logger.debug("[GitHub Webhook] issues.opened handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.opened handler error:", error);
+      logger.error("[GitHub Webhook] issues.opened handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issues.closed", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.closed");
+    logger.debug("[GitHub Webhook] Handling issues.closed");
     try {
       await handleIssueClosed(
         payload as Parameters<typeof handleIssueClosed>[0],
       );
-      console.log("[GitHub Webhook] issues.closed handled successfully");
+      logger.debug("[GitHub Webhook] issues.closed handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.closed handler error:", error);
+      logger.error("[GitHub Webhook] issues.closed handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issues.reopened", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.reopened");
+    logger.debug("[GitHub Webhook] Handling issues.reopened");
     try {
       await handleIssueReopened(
         payload as Parameters<typeof handleIssueReopened>[0],
       );
-      console.log("[GitHub Webhook] issues.reopened handled successfully");
+      logger.debug("[GitHub Webhook] issues.reopened handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.reopened handler error:", error);
+      logger.error("[GitHub Webhook] issues.reopened handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issues.labeled", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.labeled");
+    logger.debug("[GitHub Webhook] Handling issues.labeled");
     try {
       await handleIssueLabeled(
         payload as Parameters<typeof handleIssueLabeled>[0],
       );
-      console.log("[GitHub Webhook] issues.labeled handled successfully");
+      logger.debug("[GitHub Webhook] issues.labeled handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.labeled handler error:", error);
+      logger.error("[GitHub Webhook] issues.labeled handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issues.unlabeled", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.unlabeled");
+    logger.debug("[GitHub Webhook] Handling issues.unlabeled");
     try {
       await handleIssueLabeled(
         payload as Parameters<typeof handleIssueLabeled>[0],
       );
-      console.log("[GitHub Webhook] issues.unlabeled handled successfully");
+      logger.debug("[GitHub Webhook] issues.unlabeled handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.unlabeled handler error:", error);
+      logger.error("[GitHub Webhook] issues.unlabeled handler error", {
+        error,
+      });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issues.edited", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issues.edited");
+    logger.debug("[GitHub Webhook] Handling issues.edited");
     try {
       await handleIssueEdited(
         payload as Parameters<typeof handleIssueEdited>[0],
       );
-      console.log("[GitHub Webhook] issues.edited handled successfully");
+      logger.debug("[GitHub Webhook] issues.edited handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] issues.edited handler error:", error);
+      logger.error("[GitHub Webhook] issues.edited handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("push", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling push");
+    logger.debug("[GitHub Webhook] Handling push");
     try {
       await handlePush(payload as Parameters<typeof handlePush>[0]);
-      console.log("[GitHub Webhook] push handled successfully");
+      logger.debug("[GitHub Webhook] push handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] push handler error:", error);
+      logger.error("[GitHub Webhook] push handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("pull_request.opened", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling pull_request.opened");
+    logger.debug("[GitHub Webhook] Handling pull_request.opened");
     try {
       await handlePullRequestOpened(
         payload as Parameters<typeof handlePullRequestOpened>[0],
       );
-      console.log("[GitHub Webhook] pull_request.opened handled successfully");
+      logger.debug("[GitHub Webhook] pull_request.opened handled successfully");
     } catch (error) {
-      console.error(
-        "[GitHub Webhook] pull_request.opened handler error:",
+      logger.error("[GitHub Webhook] pull_request.opened handler error", {
         error,
-      );
+      });
       throw error;
     }
   });
 
   githubApp.webhooks.on("pull_request.closed", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling pull_request.closed");
+    logger.debug("[GitHub Webhook] Handling pull_request.closed");
     try {
       await handlePullRequestClosed(
         payload as Parameters<typeof handlePullRequestClosed>[0],
       );
-      console.log("[GitHub Webhook] pull_request.closed handled successfully");
+      logger.debug("[GitHub Webhook] pull_request.closed handled successfully");
     } catch (error) {
-      console.error(
-        "[GitHub Webhook] pull_request.closed handler error:",
+      logger.error("[GitHub Webhook] pull_request.closed handler error", {
         error,
-      );
+      });
       throw error;
     }
   });
 
   githubApp.webhooks.on("pull_request.reopened", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling pull_request.reopened");
+    logger.debug("[GitHub Webhook] Handling pull_request.reopened");
     try {
       await handlePullRequestOpened(
         payload as Parameters<typeof handlePullRequestOpened>[0],
       );
-      console.log(
+      logger.debug(
         "[GitHub Webhook] pull_request.reopened handled successfully",
       );
     } catch (error) {
-      console.error(
-        "[GitHub Webhook] pull_request.reopened handler error:",
+      logger.error("[GitHub Webhook] pull_request.reopened handler error", {
         error,
-      );
+      });
       throw error;
     }
   });
 
   githubApp.webhooks.on("label.created", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling label.created");
+    logger.debug("[GitHub Webhook] Handling label.created");
     try {
       await handleLabelCreated(
         payload as Parameters<typeof handleLabelCreated>[0],
       );
-      console.log("[GitHub Webhook] label.created handled successfully");
+      logger.debug("[GitHub Webhook] label.created handled successfully");
     } catch (error) {
-      console.error("[GitHub Webhook] label.created handler error:", error);
+      logger.error("[GitHub Webhook] label.created handler error", { error });
       throw error;
     }
   });
 
   githubApp.webhooks.on("issue_comment.created", async ({ payload }) => {
-    console.log("[GitHub Webhook] Handling issue_comment.created");
+    logger.debug("[GitHub Webhook] Handling issue_comment.created");
     try {
       await handleIssueCommentCreated(
         payload as Parameters<typeof handleIssueCommentCreated>[0],
       );
-      console.log(
+      logger.debug(
         "[GitHub Webhook] issue_comment.created handled successfully",
       );
     } catch (error) {
-      console.error(
-        "[GitHub Webhook] issue_comment.created handler error:",
+      logger.error("[GitHub Webhook] issue_comment.created handler error", {
         error,
-      );
+      });
       throw error;
     }
   });
 
   githubApp.webhooks.onError((error) => {
-    console.error("[GitHub Webhook] Error in webhook handler:", error);
+    logger.error("[GitHub Webhook] Error in webhook handler", { error });
   });
 
-  console.log("✓ GitHub webhook handlers registered");
+  logger.info("✓ GitHub webhook handlers registered");
 }

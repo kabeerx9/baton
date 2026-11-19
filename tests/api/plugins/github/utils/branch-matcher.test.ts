@@ -8,6 +8,7 @@ import {
   extractTaskNumberFromPRTitle,
   generateBranchName,
 } from "../../../../../apps/api/src/plugins/github/utils/branch-matcher";
+import { logger } from "../../../../../apps/api/src/observability/logger";
 
 const baseConfig: GitHubConfig = {
   repositoryOwner: "baton",
@@ -92,7 +93,7 @@ describe("extractTaskNumberFromBranch", () => {
 
   it("returns null and logs when the custom regex is invalid", () => {
     const consoleError = vi
-      .spyOn(console, "error")
+      .spyOn(logger, "error")
       .mockImplementation(() => undefined);
 
     expect(

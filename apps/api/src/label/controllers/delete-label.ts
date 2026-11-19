@@ -6,6 +6,7 @@ import { publishEvent } from "../../events";
 import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
 import { notifySyncWorkspaceLabelChanged } from "../../plugins/sync/workspace-label-changed";
 import { withLabelDeletionLock } from "../deletion-lock";
+import { logger } from "../../observability/logger";
 
 export const LABEL_DELETE_BATCH_SIZE = 25;
 type Label = typeof labelTable.$inferSelect;
@@ -33,7 +34,7 @@ async function notifyDeletion(label: Label, userId: string) {
     try {
       await remove(task.id, label.name);
     } catch {
-      console.error(
+      logger.error(
         "Failed to synchronize a label removal with an external provider",
       );
     }

@@ -195,7 +195,7 @@ export function createApp() {
   const reflectUnconfiguredOrigins = process.env.NODE_ENV !== "production";
 
   if (!corsOrigins && !reflectUnconfiguredOrigins) {
-    console.warn(
+    logger.warn(
       "[cors] Neither CORS_ORIGINS nor BATON_CLIENT_URL is set, so cross-origin requests are refused. Same-origin deployments (the bundled image) are unaffected; set BATON_CLIENT_URL if the web app is served from another origin.",
     );
   }
@@ -396,7 +396,7 @@ export function createApp() {
           },
         });
       } catch (error) {
-        console.error("Failed to stream asset:", error);
+        logger.error("Failed to stream asset", { error });
         throw new HTTPException(404, { message: "Asset object not found" });
       }
     },
@@ -756,11 +756,11 @@ export async function runStartupTasks() {
       });
     },
     runStartupMigrations: async () => {
-      console.log("🔄 Migrating database...");
+      logger.info("🔄 Migrating database...");
       await migrate(getDatabase(), {
         migrationsFolder: `${currentDir}/../drizzle`,
       });
-      console.log("✅ Database migrated successfully!");
+      logger.info("✅ Database migrated successfully!");
     },
   });
 
@@ -779,7 +779,7 @@ export async function startServer(
   try {
     await runStartupTasks();
   } catch (error) {
-    console.error("❌ Database migration failed!", error);
+    logger.error("❌ Database migration failed!", { error });
     process.exit(1);
   }
 
@@ -791,7 +791,7 @@ export async function startServer(
       port,
     },
     () => {
-      console.log(
+      logger.info(
         `⚡ API is running at ${process.env.BATON_API_URL || "http://localhost:1337"}`,
       );
     },
@@ -805,7 +805,7 @@ export async function startServer(
     if (shuttingDown) return;
     shuttingDown = true;
 
-    console.log("🛑 Shutting down gracefully...");
+    logger.info("🛑 Shutting down gracefully...");
     shutdownScheduler();
     await stopWebhookWorker();
     // Waits for in-flight deliveries; unfinished rows run after their lease.

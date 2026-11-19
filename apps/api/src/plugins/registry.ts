@@ -19,6 +19,7 @@ import type {
   TaskUnassignedEvent,
 } from "./types";
 import { activeIntegrationCondition } from "./active-integration-condition";
+import { logger } from "../observability/logger";
 
 const plugins = new Map<string, IntegrationPlugin>();
 let eventSubscriptionsInitialized = false;
@@ -28,7 +29,7 @@ export function registerPlugin(plugin: IntegrationPlugin): void {
     throw new Error(`Plugin ${plugin.type} already registered`);
   }
   plugins.set(plugin.type, plugin);
-  console.log(`✓ Registered plugin: ${plugin.name}`);
+  logger.info(`✓ Registered plugin: ${plugin.name}`);
 }
 
 export function initializeEventSubscriptions(): void {
@@ -262,7 +263,7 @@ export function initializeEventSubscriptions(): void {
   );
 
   eventSubscriptionsInitialized = true;
-  console.log("✓ Plugin event subscriptions initialized");
+  logger.info("✓ Plugin event subscriptions initialized");
 }
 
 export function getPlugin(type: string): IntegrationPlugin | undefined {
@@ -311,7 +312,7 @@ export async function broadcastTaskCreated(
     try {
       await plugin.onTaskCreated(event, context);
     } catch (error) {
-      console.error(`Plugin ${plugin.type} error on task.created:`, error);
+      logger.error(`Plugin ${plugin.type} error on task.created`, { error });
     }
   }
 }
@@ -331,10 +332,9 @@ export async function broadcastTaskStatusChanged(
     try {
       await plugin.onTaskStatusChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.status_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.status_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -353,10 +353,9 @@ export async function broadcastTaskPriorityChanged(
     try {
       await plugin.onTaskPriorityChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.priority_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.priority_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -376,10 +375,9 @@ export async function broadcastTaskTitleChanged(
     try {
       await plugin.onTaskTitleChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.title_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.title_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -399,10 +397,9 @@ export async function broadcastTaskDescriptionChanged(
     try {
       await plugin.onTaskDescriptionChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.description_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.description_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -421,7 +418,7 @@ export async function broadcastTaskCommentCreated(
     try {
       await plugin.onTaskCommentCreated(event, context);
     } catch (error) {
-      console.error(`Plugin ${plugin.type} error on comment.created:`, error);
+      logger.error(`Plugin ${plugin.type} error on comment.created`, { error });
     }
   }
 }
@@ -440,7 +437,7 @@ export async function broadcastTaskDeleted(
     try {
       await plugin.onTaskDeleted(event, context);
     } catch (error) {
-      console.error(`Plugin ${plugin.type} error on task.deleted:`, error);
+      logger.error(`Plugin ${plugin.type} error on task.deleted`, { error });
     }
   }
 }
@@ -457,7 +454,7 @@ export async function broadcastTaskMoved(event: TaskMovedEvent): Promise<void> {
     try {
       await plugin.onTaskMoved(event, context);
     } catch (error) {
-      console.error(`Plugin ${plugin.type} error on task.moved:`, error);
+      logger.error(`Plugin ${plugin.type} error on task.moved`, { error });
     }
   }
 }
@@ -476,10 +473,9 @@ export async function broadcastTaskDueDateChanged(
     try {
       await plugin.onTaskDueDateChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.due_date_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.due_date_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -498,10 +494,9 @@ export async function broadcastTaskAssigneeChanged(
     try {
       await plugin.onTaskAssigneeChanged(event, context);
     } catch (error) {
-      console.error(
-        `Plugin ${plugin.type} error on task.assignee_changed:`,
+      logger.error(`Plugin ${plugin.type} error on task.assignee_changed`, {
         error,
-      );
+      });
     }
   }
 }
@@ -520,7 +515,7 @@ export async function broadcastTaskUnassigned(
     try {
       await plugin.onTaskUnassigned(event, context);
     } catch (error) {
-      console.error(`Plugin ${plugin.type} error on task.unassigned:`, error);
+      logger.error(`Plugin ${plugin.type} error on task.unassigned`, { error });
     }
   }
 }

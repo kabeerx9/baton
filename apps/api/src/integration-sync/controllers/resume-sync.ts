@@ -15,6 +15,7 @@ import { lockResumeScope } from "./lock-resume-scope";
 import { reviewSyncResume } from "./review-resume";
 import { verifyResumeProvider } from "./verify-resume-provider";
 import type { ResumeProviderSnapshot } from "./resume-provider-snapshot";
+import { logger } from "../../observability/logger";
 
 export async function resumeSync(
   projectId: string,
@@ -110,7 +111,7 @@ async function resumeWithLease(
       });
       const result = await request!;
       if ("error" in result) {
-        console.error("Sync resume provider write failed", {
+        logger.error("Sync resume provider write failed", {
           projectId,
           provider,
           linkId,
@@ -162,7 +163,7 @@ async function resumeWithLease(
     );
   } catch (error) {
     verificationError = error;
-    console.error("Sync resume provider verification failed", {
+    logger.error("Sync resume provider verification failed", {
       projectId,
       provider,
       linkId,

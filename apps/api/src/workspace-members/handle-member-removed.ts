@@ -2,6 +2,7 @@ import { publishEvent } from "../events";
 import { hasInstanceAdminRole } from "../utils/instance-admin-role";
 import { revokeWorkspaceConnections } from "../ws";
 import { publishMembersUpdated } from "./publish-members-updated";
+import { logger } from "../observability/logger";
 
 /**
  * After the removal commits: live updates and socket revocation. The
@@ -18,16 +19,16 @@ export async function handleMemberRemoved(removal: {
   try {
     await publishEvent("project_members.updated", { workspaceId });
   } catch (error) {
-    console.error("Project members broadcast failed after removal:", error);
+    logger.error("Project members broadcast failed after removal", { error });
   }
   await publishMembersUpdated(workspaceId);
   if (hasInstanceAdminRole(userRole)) return;
   try {
     await revokeWorkspaceConnections(userId, workspaceId, { role: userRole });
   } catch (error) {
-    console.error(
-      "Socket revocation failed after removal; the recheck will close it:",
-      error,
+    logger.error(
+      "Socket revocation failed after removal; the recheck will close it",
+      { error },
     );
   }
 }

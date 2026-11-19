@@ -15,6 +15,7 @@ import {
   addDomainBreadcrumb,
   recordDomainEvent,
 } from "../../observability/domain-event";
+import { logger } from "../../observability/logger";
 
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
 
@@ -164,7 +165,7 @@ async function applyStep(row: OutboxRow, step: Step, error: string) {
     reason: step.reason,
     error,
   };
-  console.error("Outbox delivery is dead", facts);
+  logger.error("Outbox delivery is dead", facts);
   Sentry.captureMessage("Outbox delivery is dead", {
     level: "error",
     tags: { area: "outbox", consumer: row.consumer, type: row.type },

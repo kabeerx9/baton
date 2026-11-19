@@ -3,6 +3,7 @@ import db, { schema } from "../../database";
 import type { DbOrTx } from "../../project-access/db-or-tx";
 import { enqueueAuditWebhooks } from "../webhooks/enqueue-audit-webhooks";
 import { sanitizeAuditMetadata } from "./sanitize-audit-metadata";
+import { logger } from "../../observability/logger";
 
 const MAX_USER_AGENT_LENGTH = 512;
 
@@ -78,7 +79,7 @@ export async function recordAdminAction(
     try {
       await enqueueAuditWebhooks(database, entry.id);
     } catch {
-      console.error("Admin audit webhook delivery could not be queued");
+      logger.error("Admin audit webhook delivery could not be queued");
     }
   }
 }

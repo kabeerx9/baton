@@ -9,6 +9,7 @@ import {
   getGithubApp,
   getVerifiedInstallationOctokit,
 } from "../utils/github-app";
+import { logger } from "../../../observability/logger";
 
 export async function handleTaskTitleChanged(
   event: TaskTitleChangedEvent,
@@ -61,7 +62,7 @@ export async function handleTaskTitleChanged(
         lastTitleSync.value === event.newTitle &&
         lastTitleSync.source === "github"
       ) {
-        console.log("Skipping title sync - already synced from GitHub");
+        logger.debug("Skipping title sync - already synced from GitHub");
         return;
       }
     }
@@ -95,8 +96,8 @@ export async function handleTaskTitleChanged(
       { type: "github", config: JSON.stringify(config) },
     );
 
-    console.log(`Synced task title to GitHub issue #${issueNumber}`);
+    logger.info(`Synced task title to GitHub issue #${issueNumber}`);
   } catch (error) {
-    console.error("Failed to update GitHub issue title:", error);
+    logger.error("Failed to update GitHub issue title", { error });
   }
 }

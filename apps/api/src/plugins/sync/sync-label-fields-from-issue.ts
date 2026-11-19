@@ -14,6 +14,7 @@ import { withSyncLease } from "./lease";
 import { SyncLeaseBusyError } from "./lease-busy-error";
 import { providerIssue } from "./provider-issue";
 import { isTransientProviderError } from "./transient-provider-error";
+import { logger } from "../../observability/logger";
 
 // GitHub counts deliveries slower than 10s as failed; replay takes the rest.
 const BUDGET_MS = 8_000;
@@ -160,7 +161,7 @@ async function readAndApply(
             .labels;
         } catch (error) {
           if (isTransientProviderError(error)) return "defer";
-          console.error("Issue labels could not be read", {
+          logger.error("Issue labels could not be read", {
             integrationId: integration.id,
             linkId: link.id,
           });
@@ -210,7 +211,7 @@ export async function syncLabelFieldsFromIssue(
   // A read that outlives the budget finishes in the background.
   work.catch(() => {
     if (timedOut)
-      console.error("Issue label read failed after deferral", {
+      logger.error("Issue label read failed after deferral", {
         integrationId: integration.id,
         linkId: link.id,
       });

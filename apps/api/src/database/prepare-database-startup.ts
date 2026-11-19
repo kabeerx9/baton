@@ -1,5 +1,6 @@
 import type { ResolvedDatabaseConfig } from "./resolve-database-url";
 import { resolveDatabaseConfig } from "./resolve-database-url";
+import { logger } from "../observability/logger";
 
 type PrepareDatabaseStartupOptions = {
   resolveConfig?: () => ResolvedDatabaseConfig;
@@ -13,8 +14,10 @@ export async function prepareDatabaseStartup({
   resolveConfig = resolveDatabaseConfig,
   waitForDatabase,
   runStartupMigrations,
-  logInfo = console.log,
-  logError = console.error,
+  logInfo = (message, ...details) =>
+    logger.info(message, details.length ? { details } : undefined),
+  logError = (message, ...details) =>
+    logger.error(message, details.length ? { details } : undefined),
 }: PrepareDatabaseStartupOptions): Promise<void> {
   let config: ResolvedDatabaseConfig;
 

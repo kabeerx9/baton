@@ -6,6 +6,7 @@ import {
 import { deriveLinkState } from "./lifecycle";
 import type { JoinLink } from "./schema";
 import { joinLinkUrl } from "./token";
+import { logger } from "../observability/logger";
 
 export type JoinLinkRow = typeof workspaceJoinLinkTable.$inferSelect;
 export type JoinLinkCreator = { id: string; name: string } | null;
@@ -17,7 +18,7 @@ function readableUrl(ciphertext: string | null) {
     return token ? joinLinkUrl(token) : null;
   } catch (error) {
     // A rotated or wrong key must not break the members page.
-    console.error("Join link could not be decrypted:", error);
+    logger.error("Join link could not be decrypted", { error });
     return null;
   }
 }

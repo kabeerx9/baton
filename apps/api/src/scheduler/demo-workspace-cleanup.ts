@@ -8,6 +8,7 @@ import {
 } from "../tour/demo/delete-demo-workspace";
 import { lockTourUser } from "../tour/lock-tour-user";
 import { withJobLease } from "./leader-lock";
+import { logger } from "../observability/logger";
 
 export const DEMO_WORKSPACE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BATCH = 100;
@@ -54,7 +55,7 @@ export async function cleanupDemoWorkspaces(now = new Date()) {
           if (deleted) deletedCount += 1;
         } catch (error) {
           degraded = true;
-          console.error("Demo workspace cleanup failed", {
+          logger.error("Demo workspace cleanup failed", {
             workspaceId: stale.id,
             error,
           });

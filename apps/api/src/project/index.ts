@@ -54,6 +54,7 @@ import {
   uploadProjectBackgroundBody,
   workspaceIdQuery,
 } from "./schema";
+import { logger } from "../observability/logger";
 
 const moveProjectRoute = createRoute({
   method: "put",
@@ -510,7 +511,7 @@ const project = apiRouter<BaseVariables & { workspaceId: string }>()
       return new Response(object.body as BodyInit, { headers });
     } catch (error) {
       if (error instanceof HTTPException) throw error;
-      console.error("Failed to stream project background:", error);
+      logger.error("Failed to stream project background", { error });
       throw new HTTPException(404, {
         message: "Project background not found",
       });
@@ -672,7 +673,7 @@ const project = apiRouter<BaseVariables & { workspaceId: string }>()
       currentProject.backgroundObjectKey !== normalizedKey
     ) {
       deleteS3Object(currentProject.backgroundObjectKey).catch((error) => {
-        console.warn(`S3 cleanup error: ${error}`);
+        logger.warn(`S3 cleanup error: ${error}`);
       });
     }
 

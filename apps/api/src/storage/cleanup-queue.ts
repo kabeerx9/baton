@@ -9,6 +9,7 @@ import {
   storageCleanupTable,
 } from "../database/schema";
 import { deleteS3Object } from "./s3";
+import { logger } from "../observability/logger";
 
 export async function queueStorageCleanup(
   tx: Pick<typeof db, "insert">,
@@ -83,7 +84,7 @@ export async function retryStorageCleanup(): Promise<{ degraded: boolean }> {
           code?: string;
           $metadata?: { httpStatusCode?: number };
         } | null;
-        console.error("Storage cleanup failed", {
+        logger.error("Storage cleanup failed", {
           name: failure?.name,
           code: failure?.code,
           status: failure?.$metadata?.httpStatusCode,

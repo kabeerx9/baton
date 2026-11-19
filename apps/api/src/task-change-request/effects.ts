@@ -13,6 +13,7 @@ import {
   slackEscape,
 } from "./messages";
 import type { ChangeRequestRow } from "./response";
+import { logger } from "../observability/logger";
 
 /**
  * What a committed transaction owes people, dispatched only after commit.
@@ -202,7 +203,7 @@ export async function dispatchRequestEffects(effects: RequestEffect[]) {
       await dispatch(effect);
     } catch (error) {
       // The change is committed; a failed message must not undo or fail it.
-      console.error("[change-request] failed to dispatch an effect", error);
+      logger.error("[change-request] failed to dispatch an effect", { error });
     }
   }
 }

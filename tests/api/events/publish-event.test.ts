@@ -5,6 +5,7 @@ import {
   shutdownEventBus,
   subscribeToEvent,
 } from "../../../apps/api/src/events/index";
+import { logger } from "../../../apps/api/src/observability/logger";
 
 describe("publishEvent / subscribeToEvent", () => {
   it("awaits subscriber completion in sequence when requested", async () => {
@@ -37,7 +38,7 @@ describe("publishEvent / subscribeToEvent", () => {
   });
 
   it("keeps best-effort error isolation for awaited subscribers", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     const next = vi.fn(async () => {});
     try {
       await subscribeToEvent("test.failure", async () => {

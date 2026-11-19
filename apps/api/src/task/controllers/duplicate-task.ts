@@ -23,12 +23,13 @@ import {
 import { assertValidTaskStatus } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { nextTaskPosition } from "./next-task-position";
+import { logger } from "../../observability/logger";
 
 async function discardCopiedObjects(objectKeys: string[]) {
   await Promise.all(
     objectKeys.map((objectKey) =>
       deleteS3Object(objectKey).catch((error) => {
-        console.error("Failed to discard a duplicated task asset:", error);
+        logger.error("Failed to discard a duplicated task asset", { error });
       }),
     ),
   );
@@ -107,7 +108,7 @@ async function duplicateDescriptionAssets({
   } catch (error) {
     await discardCopiedObjects(assets.map((asset) => asset.objectKey));
 
-    console.error("Failed to copy task attachments:", error);
+    logger.error("Failed to copy task attachments", { error });
     throw new HTTPException(503, {
       message: "Failed to copy the task attachments",
     });

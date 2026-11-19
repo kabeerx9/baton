@@ -2,6 +2,7 @@ import { isDemoWorkspace } from "../workspace/kind/is-demo-workspace";
 import { slackConfig } from "./config";
 import { resolveSlackUser } from "./resolve-slack-user";
 import { postSlackDm } from "./slack-api";
+import { logger } from "../observability/logger";
 
 export type SendOutcome =
   | "sent"
@@ -48,12 +49,12 @@ export async function sendDm(
     if (!slackUserId) return "no_slack_user";
     const result = await postSlackDm(config.token, slackUserId, text);
     if (result.kind === "error") {
-      console.error(`[slack-dm] send failed: ${result.error}`);
+      logger.error(`[slack-dm] send failed: ${result.error}`);
       return "failed";
     }
     return "sent";
   } catch (error) {
-    console.error("[slack-dm] send failed", error);
+    logger.error("[slack-dm] send failed", { error });
     return "failed";
   }
 }
