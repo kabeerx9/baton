@@ -58,9 +58,9 @@ export default function TaskLabelsPopover({
   children,
 }: TaskLabelsPopoverProps) {
   const [open, setOpen] = useState(false);
-  const { canUpdateLabels } = useWorkspacePermission();
+  const { canLabelTask } = useWorkspacePermission();
 
-  if (!canUpdateLabels()) return <>{children}</>;
+  if (!canLabelTask(task.userId)) return <>{children}</>;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

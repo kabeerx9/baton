@@ -35,9 +35,12 @@ export function TaskShortcuts({
   const { mutateAsync: updateAssignee } = useUpdateTaskAssignee();
   const { mutateAsync: updateDueDate } = useUpdateTaskDueDate();
   const openRelationPicker = useRelationPickerStore((state) => state.open);
-  const { canUpdateTasks, canAssignTasks, canCreateTasks } =
+  const { canUpdateTasks, canWorkOnTask, canAssignTasks, canCreateTasks } =
     useWorkspacePermission();
   const active = { enabled: enabled && Boolean(task) };
+  // Status, priority, labels and due date: the caller's own task is enough.
+  const workable = { enabled: active.enabled && canWorkOnTask(task?.userId) };
+  // Moving repos, links and relations still need task:update.
   const editable = { enabled: active.enabled && canUpdateTasks() };
   const assignable = { enabled: active.enabled && canAssignTasks() };
   const creatable = { enabled: active.enabled && canCreateTasks() };
@@ -50,20 +53,20 @@ export function TaskShortcuts({
     });
   };
 
-  useShortcut("changeStatus", () => clickTaskAction("status"), editable);
-  useShortcut("changePriority", () => clickTaskAction("priority"), editable);
+  useShortcut("changeStatus", () => clickTaskAction("status"), workable);
+  useShortcut("changePriority", () => clickTaskAction("priority"), workable);
   useShortcut("assignTask", () => clickTaskAction("assignee"), assignable);
-  useShortcut("changeLabels", () => clickTaskAction("labels"), editable);
-  useShortcut("setDueDate", () => clickTaskAction("dueDate"), editable);
+  useShortcut("changeLabels", () => clickTaskAction("labels"), workable);
+  useShortcut("setDueDate", () => clickTaskAction("dueDate"), workable);
   useShortcut("moveToProject", () => clickTaskAction("move"), editable);
   useShortcut("addLink", () => clickTaskAction("addLink"), editable);
   useShortcut("createSubtask", () => clickTaskAction("addSubtask"), creatable);
   useShortcut("toggleResources", () => clickTaskAction("resources"), active);
-  useShortcut("renameTask", () => focusTaskAction("title"), editable);
+  useShortcut("renameTask", () => focusTaskAction("title"), workable);
   useShortcut(
     "editDescription",
     () => focusTaskAction("description"),
-    editable,
+    workable,
   );
   useShortcut("commentOnTask", () => focusTaskAction("comment"), active);
 
@@ -101,7 +104,7 @@ export function TaskShortcuts({
         );
       }
     },
-    editable,
+    workable,
   );
 
   useShortcut(

@@ -23,6 +23,7 @@ describe("@baton/permissions statement surface", () => {
       "update",
       "delete",
       "assign",
+      "update_assigned",
     ]);
     expect(statement.label).toEqual(["create", "read", "update", "delete"]);
     expect(statement.workspace).toEqual([
@@ -38,9 +39,9 @@ describe("@baton/permissions statement surface", () => {
 });
 
 describe("built-in role privileges", () => {
-  it("viewer can read but cannot create or modify", () => {
+  it("viewer reads everything and works only on tasks assigned to them", () => {
     expect(viewer.project).toEqual(["read"]);
-    expect(viewer.task).toEqual(["read"]);
+    expect(viewer.task).toEqual(["read", "update_assigned"]);
     expect(viewer.label).toEqual(["read"]);
     expect(viewer.workspace).toEqual(["read"]);
   });

@@ -3,6 +3,8 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
 import { taskTable } from "../../database/schema";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { assertMayEdit } from "../../task-change-request/assert-may-edit";
 import {
   publishTaskMutation,
   recordTaskMutation,
@@ -12,10 +14,12 @@ async function updateTaskDueDate({
   id,
   dueDate,
   currentUserId,
+  actor = personActor(currentUserId),
 }: {
   id: string;
   dueDate: Date | null;
   currentUserId: string;
+  actor?: TaskActor;
 }) {
   let existingTask = await db.query.taskTable.findFirst({
     where: eq(taskTable.id, id),
@@ -34,6 +38,7 @@ async function updateTaskDueDate({
       .where(eq(taskTable.id, id))
       .for("update");
     if (!locked) throw new HTTPException(404, { message: "Task not found" });
+    await assertMayEdit(tx, locked, actor);
     existingTask = locked;
 
     const [task] = await tx

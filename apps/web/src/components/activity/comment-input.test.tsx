@@ -1,13 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { canWorkOnTask } from "@/hooks/can-work-on-task";
 import CommentInput from "./comment-input";
 
-const permissions = vi.hoisted(() => ({ canUpdateTasks: true }));
+const permissions = vi.hoisted(() => ({
+  updateTasks: true,
+  updateAssignedTasks: true,
+  assigneeId: "someone" as string | null,
+}));
 vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
-    canUpdateTasks: () => permissions.canUpdateTasks,
+    canWorkOnTask: (assigneeId: string | null) =>
+      canWorkOnTask(permissions, "me", assigneeId),
   }),
+}));
+vi.mock("@/hooks/queries/task/use-task-assignee", () => ({
+  default: () => permissions.assigneeId,
 }));
 vi.mock("@/components/activity/comment-editor", () => ({
   default: ({ placeholder }: { placeholder: string }) => (
@@ -36,7 +45,9 @@ vi.mock("react-i18next", () => ({
 
 afterEach(() => {
   cleanup();
-  permissions.canUpdateTasks = true;
+  permissions.updateTasks = true;
+  permissions.updateAssignedTasks = true;
+  permissions.assigneeId = "someone";
 });
 
 const renderInput = () =>
@@ -56,8 +67,23 @@ describe("CommentInput", () => {
     ).toBeTruthy();
   });
 
-  it("shows a viewer no comment box: the API refuses their comment", () => {
-    permissions.canUpdateTasks = false;
+  it("shows a viewer the comment box on a task assigned to them", () => {
+    permissions.updateTasks = false;
+    permissions.assigneeId = "me";
+    renderInput();
+    expect(screen.queryByRole("textbox")).not.toBeNull();
+  });
+
+  it("shows a viewer no comment box on someone else's task: the API refuses it", () => {
+    permissions.updateTasks = false;
+    renderInput();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("shows no comment box without either permission", () => {
+    permissions.updateTasks = false;
+    permissions.updateAssignedTasks = false;
+    permissions.assigneeId = "me";
     renderInput();
     expect(screen.queryByRole("textbox")).toBeNull();
   });

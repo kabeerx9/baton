@@ -4,8 +4,15 @@ import db from "../../database";
 import { activityTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { withEditableTask } from "../../task-change-request/assert-may-edit";
 
-async function updateComment(userId: string, id: string, content: string) {
+async function updateComment(
+  userId: string,
+  id: string,
+  content: string,
+  actor: TaskActor = personActor(userId),
+) {
   const [existing] = await db
     .select({
       id: activityTable.id,
@@ -28,17 +35,19 @@ async function updateComment(userId: string, id: string, content: string) {
     });
   }
 
-  const [updated] = await db
-    .update(activityTable)
-    .set({ content })
-    .where(
-      and(
-        eq(activityTable.id, id),
-        eq(activityTable.userId, userId),
-        eq(activityTable.type, "comment"),
-      ),
-    )
-    .returning();
+  const [updated] = await withEditableTask(existing.taskId, actor, (tx) =>
+    tx
+      .update(activityTable)
+      .set({ content })
+      .where(
+        and(
+          eq(activityTable.id, id),
+          eq(activityTable.userId, userId),
+          eq(activityTable.type, "comment"),
+        ),
+      )
+      .returning(),
+  );
 
   if (!updated) {
     throw new HTTPException(404, {

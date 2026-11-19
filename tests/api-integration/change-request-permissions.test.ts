@@ -136,12 +136,25 @@ describe("status change consent", () => {
     expect(response.status).toBe(200);
   });
 
-  it("refuses an involved viewer, who lacks task:update", async () => {
+  it("applies an assigned viewer's status change directly", async () => {
     const f = await changeRequestFixture();
     const viewer = await addWorkspaceMember(f.workspace.id, "viewer");
     await db
       .update(schema.taskTable)
       .set({ userId: viewer.id })
+      .where(eq(schema.taskTable.id, f.task.id));
+    const response = await setStatus(viewer, f.task.id, "in-progress");
+    expect(response.status).toBe(200);
+    expect((await readTask(f.task.id))?.status).toBe("in-progress");
+    expect(await db.select().from(schema.taskChangeRequestTable)).toEqual([]);
+  });
+
+  it("refuses a viewer who created the task but is not its assignee", async () => {
+    const f = await changeRequestFixture();
+    const viewer = await addWorkspaceMember(f.workspace.id, "viewer");
+    await db
+      .update(schema.taskTable)
+      .set({ createdBy: viewer.id })
       .where(eq(schema.taskTable.id, f.task.id));
     const response = await setStatus(viewer, f.task.id, "in-progress");
     expect(response.status).toBe(403);

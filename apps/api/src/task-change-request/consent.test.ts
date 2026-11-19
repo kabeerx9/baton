@@ -3,9 +3,11 @@ import { type ConsentFacts, decideAnswer, decideConsent } from "./consent";
 
 const outsider: ConsentFacts = {
   involved: false,
+  assignee: false,
   bypass: false,
   feature: false,
   canUpdate: true,
+  canUpdateAssigned: true,
   canDelete: false,
   canAssign: true,
 };
@@ -97,14 +99,91 @@ describe("decideConsent", () => {
   });
 });
 
+describe("decideConsent for task:update_assigned only (viewer)", () => {
+  const viewer: ConsentFacts = {
+    ...outsider,
+    canUpdate: false,
+    canAssign: false,
+  };
+  const own = { ...viewer, involved: true, assignee: true };
+
+  it("applies status and edits on a task assigned to the caller", () => {
+    expect(decideConsent("status", own)).toEqual({
+      kind: "apply",
+      notifyInvolved: false,
+    });
+    expect(decideConsent("edit", own)).toEqual({
+      kind: "apply",
+      notifyInvolved: false,
+    });
+    // Archive is a status too, and the feature rule is the task's rule.
+    expect(
+      decideConsent(
+        "status",
+        { ...own, feature: true },
+        {
+          from: "to-do",
+          to: "archived",
+        },
+      ).kind,
+    ).toBe("apply");
+  });
+
+  it("refuses status and edits on any other task, never a request", () => {
+    for (const facts of [
+      viewer,
+      // The creator who is not the assignee is involved but not assigned.
+      { ...viewer, involved: true },
+      // A feature the caller does not own does not take the feature rule.
+      { ...viewer, feature: true },
+      // An admin role cannot lend bypass to a narrowed key or role.
+      { ...viewer, bypass: true },
+    ]) {
+      for (const change of ["status", "edit"] as const)
+        expect(
+          decideConsent(change, facts, { from: "to-do", to: "done" }),
+        ).toEqual({
+          kind: "deny",
+          status: 403,
+          message: "You can only change tasks assigned to you.",
+        });
+    }
+  });
+
+  it("never deletes or assigns, even on the caller's own task", () => {
+    expect(decideConsent("delete", own).kind).toBe("deny");
+    expect(decideConsent("assign", own).kind).toBe("deny");
+    expect(decideConsent("delete", viewer).kind).toBe("deny");
+  });
+
+  it("names task:update when update_assigned is missing too", () => {
+    expect(
+      decideConsent("edit", { ...viewer, canUpdateAssigned: false }),
+    ).toMatchObject({
+      kind: "deny",
+      message: "Missing task:update permission",
+    });
+  });
+});
+
 describe("decideAnswer", () => {
   const involved = {
     isRequester: false,
     involved: true,
+    assignee: false,
     bypass: false,
     canUpdate: true,
+    canUpdateAssigned: true,
     canDelete: false,
   };
+  it("lets a viewer answer status requests only on a task assigned to them", () => {
+    const viewer = { ...involved, canUpdate: false };
+    expect(decideAnswer("status", { ...viewer, assignee: true }).ok).toBe(true);
+    expect(decideAnswer("status", viewer).ok).toBe(false);
+    expect(decideAnswer("delete", { ...viewer, assignee: true }).ok).toBe(
+      false,
+    );
+  });
   it("needs involvement or bypass and the action permission", () => {
     expect(decideAnswer("status", involved).ok).toBe(true);
     expect(decideAnswer("delete", involved).ok).toBe(false);

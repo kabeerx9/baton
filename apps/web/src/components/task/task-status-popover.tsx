@@ -37,10 +37,10 @@ export default function TaskStatusPopover({
     isError,
   } = useGetColumns(task.projectId);
   const { mutateAsync: updateTaskStatus } = useUpdateTaskStatus();
-  const { canUpdateTasks } = useWorkspacePermission();
+  const { canWorkOnTask } = useWorkspacePermission();
   const entry = useTaskStatusStore((s) => s.entries[task.id]);
 
-  if (!canUpdateTasks()) return <>{children}</>;
+  if (!canWorkOnTask(task.userId)) return <>{children}</>;
   // "deny", or a write that holds the task: the control shows, and stays shut.
   if (moveOf(task.statusChange) === "deny" || isStatusLocked(entry))
     return <>{disabledTrigger(children)}</>;

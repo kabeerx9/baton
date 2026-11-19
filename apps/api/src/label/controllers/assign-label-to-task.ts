@@ -13,10 +13,23 @@ import {
   syncLabelToGitHub,
 } from "../../plugins/github/utils/sync-label-to-github";
 import { assertProjectAccess } from "../../project-access/assert-project-access";
+import type { PersonActor } from "../../task-change-request/actor";
+import { lockEditableTask } from "../../task-change-request/assert-may-edit";
+import { NOT_ASSIGNED_MESSAGE } from "../../task-change-request/consent";
+import { ApiError } from "../../errors/api-error";
 
 type LabelRow = typeof labelTableType.$inferSelect;
 
-async function assignLabelToTask(id: string, taskId: string, userId: string) {
+/**
+ * `ownTaskOnly` is the caller when they lack label:update: then the task must
+ * be assigned to them, and the label may not be taken off another task.
+ */
+async function assignLabelToTask(
+  id: string,
+  taskId: string,
+  userId: string,
+  ownTaskOnly: PersonActor | null = null,
+) {
   const label = await db.query.labelTable.findFirst({
     where: (label, { eq }) => eq(label.id, id),
   });
@@ -67,6 +80,10 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
   };
   const { taskLabel, inserted, previousTaskId, previousName } =
     await db.transaction<InsertionResult>(async (tx) => {
+      if (ownTaskOnly)
+        await lockEditableTask(tx, taskId, ownTaskOnly, {
+          assignedOnly: true,
+        });
       const currentLabel = await tx.query.labelTable.findFirst({
         where: (label, { eq }) => eq(label.id, id),
       });
@@ -101,6 +118,12 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
       }
 
       const previousTaskId = currentLabel.taskId;
+      // Attaching a task's label row moves it off that task.
+      if (ownTaskOnly && previousTaskId)
+        throw new ApiError(403, {
+          message: NOT_ASSIGNED_MESSAGE,
+          code: "NOT_ASSIGNED",
+        });
       if (previousTaskId) {
         await tx.delete(labelTable).where(eq(labelTable.id, id));
       }

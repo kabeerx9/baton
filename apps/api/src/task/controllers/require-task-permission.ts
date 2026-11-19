@@ -61,7 +61,9 @@ export async function requireBulkTaskPermission(c: Context, next: Next) {
     return requireWorkspacePermission({ label: ["update"] })(c, next);
   }
 
-  return requireWorkspacePermission({ task: ["update"] })(c, next);
+  // Status, priority and due date: task:update_assigned gets past here and
+  // the controller refuses each task not assigned to the caller.
+  return requireWorkspacePermission({ task: ["update_assigned"] })(c, next);
 }
 
 export async function requireTaskAssigneePermission(c: Context, next: Next) {

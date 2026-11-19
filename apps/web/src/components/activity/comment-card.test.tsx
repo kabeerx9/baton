@@ -3,19 +3,26 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { cloneElement, isValidElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { canWorkOnTask } from "@/hooks/can-work-on-task";
 import CommentCard from "./comment-card";
 
 const permissions = vi.hoisted(() => ({
   canCreateTasks: true,
   canCreateProjects: true,
-  canUpdateTasks: true,
+  updateTasks: true,
+  updateAssignedTasks: true,
+  assigneeId: "someone" as string | null,
 }));
 vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
     canCreateTasks: () => permissions.canCreateTasks,
     canCreateProjects: () => permissions.canCreateProjects,
-    canUpdateTasks: () => permissions.canUpdateTasks,
+    canWorkOnTask: (assigneeId: string | null) =>
+      canWorkOnTask(permissions, "user-1", assigneeId),
   }),
+}));
+vi.mock("@/hooks/queries/task/use-task-assignee", () => ({
+  default: () => permissions.assigneeId,
 }));
 
 afterEach(cleanup);
@@ -182,7 +189,8 @@ describe("CommentCard", () => {
   describe("edit and delete on the author's own comment", () => {
     afterEach(() => {
       auth.user = null;
-      permissions.canUpdateTasks = true;
+      permissions.updateTasks = true;
+      permissions.assigneeId = "someone";
     });
 
     it("are offered to an author who can update tasks", () => {
@@ -192,9 +200,18 @@ describe("CommentCard", () => {
       expect(document.querySelector(".lucide-trash-2")).not.toBeNull();
     });
 
-    it("are hidden from an author who is now a viewer", () => {
+    it("are offered to a viewer author while the task is assigned to them", () => {
       auth.user = { id: "user-1" };
-      permissions.canUpdateTasks = false;
+      permissions.updateTasks = false;
+      permissions.assigneeId = "user-1";
+      renderCommentCard();
+      expect(document.querySelector(".lucide-pencil")).not.toBeNull();
+      expect(document.querySelector(".lucide-trash-2")).not.toBeNull();
+    });
+
+    it("are hidden from a viewer author on someone else's task", () => {
+      auth.user = { id: "user-1" };
+      permissions.updateTasks = false;
       renderCommentCard();
       expect(document.querySelector(".lucide-pencil")).toBeNull();
       expect(document.querySelector(".lucide-trash-2")).toBeNull();

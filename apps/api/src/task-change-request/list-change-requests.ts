@@ -63,8 +63,8 @@ export async function listChangeRequests(
     conditions.push(eq(taskChangeRequestTable.requestedBy, userId));
   if (filters.canAnswer === "me") {
     // Pending requests made by someone else, of a kind the caller has the
-    // permission to answer (status: task:update, delete: task:delete, both
-    // narrowed by an API key), on tasks they created or are assigned (or
+    // permission to answer (status: task:update, or task:update_assigned on
+    // a task assigned to them; delete: task:delete; all narrowed by an API key), on tasks they created or are assigned (or
     // any task, for an owner or admin). Accept re-checks all of it under lock.
     const grants = await loadPersonGrants(db, filters.workspaceId, {
       userId,
@@ -74,8 +74,20 @@ export async function listChangeRequests(
       grants.can({ task: ["update"] }) && "status",
       grants.can({ task: ["delete"] }) && "delete",
     ].filter((kind): kind is string => Boolean(kind));
+    // task:update_assigned answers status requests on the caller's own task.
+    const ownStatus =
+      !kinds.includes("status") && grants.can({ task: ["update_assigned"] })
+        ? sql`(${taskChangeRequestTable.kind} = 'status' and exists (
+            select 1 from ${taskTable}
+            where ${taskTable.id} = ${taskChangeRequestTable.taskId}
+              and ${taskTable.userId} = ${userId}
+          ))`
+        : sql`false`;
     conditions.push(
-      kinds.length ? inArray(taskChangeRequestTable.kind, kinds) : sql`false`,
+      or(
+        kinds.length ? inArray(taskChangeRequestTable.kind, kinds) : sql`false`,
+        ownStatus,
+      )!,
       eq(taskChangeRequestTable.state, "pending"),
       ne(sql`coalesce(${taskChangeRequestTable.requestedBy}, '')`, userId),
       grants.bypass

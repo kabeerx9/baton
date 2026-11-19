@@ -114,7 +114,7 @@ describe("the auth-boundary drops migration (A8)", () => {
     const journal = JSON.parse(
       readFileSync(join(migrationsFolder, "meta/_journal.json"), "utf8"),
     ) as { entries: { tag: string }[] };
-    expect(journal.entries.at(-1)?.tag).toBe(DROPS);
+    expect(journal.entries.map((entry) => entry.tag)).toContain(DROPS);
   });
 
   it("keeps workspace, member, role and user rows byte for byte", async () => {

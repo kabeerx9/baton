@@ -29,7 +29,7 @@ vi.mock("react-i18next", async (importOriginal) => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 vi.mock("@/hooks/use-workspace-permission", () => ({
-  useWorkspacePermission: () => ({ canUpdateTasks: () => true }),
+  useWorkspacePermission: () => ({ canWorkOnTask: () => true }),
 }));
 vi.mock("@/hooks/queries/column/use-get-columns", () => ({
   useGetColumns: () => ({

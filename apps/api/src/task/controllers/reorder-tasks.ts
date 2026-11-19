@@ -19,7 +19,10 @@ import {
   loadPersonGrants,
   projectWorkspaceId,
 } from "../../task-change-request/load-consent-facts";
-import { NOT_INVOLVED_MESSAGE } from "../../task-change-request/request-change";
+import {
+  consentError,
+  NOT_INVOLVED_MESSAGE,
+} from "../../task-change-request/request-change";
 import { checkStatusChange } from "../../task-change-request/status-change";
 import { statusWrite } from "../../task-change-request/apply-task-change";
 
@@ -125,33 +128,46 @@ export default async function reorderTasks(
         ? [{ locked, status: task.status }]
         : [];
     });
-    if (moving.length) {
-      if (actor.kind === "person") {
-        const workspaceId = (await projectWorkspaceId(tx, projectId)) ?? "";
-        const grants = await loadPersonGrants(tx, workspaceId, actor);
-        for (const { locked, status } of moving) {
+    if (actor.kind === "person") {
+      const workspaceId = (await projectWorkspaceId(tx, projectId)) ?? "";
+      const grants = await loadPersonGrants(tx, workspaceId, actor);
+      // Without task:update (task:update_assigned only), every card sent
+      // must be assigned to the caller, even one that only changes position.
+      if (!grants.can({ task: ["update"] }))
+        for (const task of tasks) {
           const consent = decideConsent(
-            "status",
-            await consentFactsWith(tx, locked, actor.userId, grants),
-            { from: locked.status, to: status },
+            "edit",
+            await consentFactsWith(
+              tx,
+              lockedById.get(task.id)!,
+              actor.userId,
+              grants,
+            ),
           );
-          if (consent.kind === "request")
-            throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });
-          if (consent.kind === "deny")
-            throw new HTTPException(403, { message: consent.message });
+          if (consent.kind === "deny") throw consentError(consent);
         }
-      }
       for (const { locked, status } of moving) {
-        const check = await checkStatusChange(tx, locked, status, userId);
-        if (!check.ok)
-          throw new HTTPException(check.status, { message: check.message });
-        effects.push(
-          ...finishedEffects(
-            await cancelPendingRequests(tx, locked.id, "task_changed"),
-            userId,
-          ),
+        const consent = decideConsent(
+          "status",
+          await consentFactsWith(tx, locked, actor.userId, grants),
+          { from: locked.status, to: status },
         );
+        if (consent.kind === "request")
+          throw new HTTPException(409, { message: NOT_INVOLVED_MESSAGE });
+        if (consent.kind === "deny")
+          throw new HTTPException(403, { message: consent.message });
       }
+    }
+    for (const { locked, status } of moving) {
+      const check = await checkStatusChange(tx, locked, status, userId);
+      if (!check.ok)
+        throw new HTTPException(check.status, { message: check.message });
+      effects.push(
+        ...finishedEffects(
+          await cancelPendingRequests(tx, locked.id, "task_changed"),
+          userId,
+        ),
+      );
     }
     const values = tasks.map((task) => ({
       id: task.id,

@@ -4,7 +4,12 @@ import {
   errorResponse,
   jsonResponse,
 } from "../openapi";
-import { requireWorkspacePermission } from "../utils/require-workspace-permission";
+import {
+  hasWorkspacePermission,
+  requireAnyWorkspacePermission,
+  requireWorkspacePermission,
+} from "../utils/require-workspace-permission";
+import { actorFromContext } from "../task-change-request/actor";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
 import assignLabelToTask from "./controllers/assign-label-to-task";
 import createLabel from "./controllers/create-label";
@@ -111,6 +116,16 @@ const getLabelRoute = createRoute({
   },
 });
 
+/**
+ * Without label:update the caller got past the route on task:update_assigned:
+ * the controller then works only on a task assigned to them.
+ */
+async function ownTaskOnly(c: Parameters<typeof hasWorkspacePermission>[0]) {
+  return (await hasWorkspacePermission(c, { label: ["update"] }))
+    ? null
+    : actorFromContext(c);
+}
+
 const attachLabelToTaskRoute = createRoute({
   method: "put",
   operationId: "attachLabelToTask",
@@ -120,7 +135,11 @@ const attachLabelToTaskRoute = createRoute({
   description: "Attach an existing label to a task",
   middleware: [
     workspaceAccess.fromLabel(),
-    requireWorkspacePermission({ label: ["update"] }),
+    // task:update_assigned works on labels of the caller's own task only.
+    requireAnyWorkspacePermission(
+      { label: ["update"] },
+      { task: ["update_assigned"] },
+    ),
   ] as const,
   request: {
     params: labelParam,
@@ -133,7 +152,7 @@ const attachLabelToTaskRoute = createRoute({
     200: jsonResponse("Label attached to task successfully", labelSchema),
     400: errorResponse("Label and task belong to different workspaces"),
     403: errorResponse(
-      "No access to the project, or missing label:update permission",
+      "No access to the project, missing label:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Label or task not found"),
     409: errorResponse("The workspace label is being deleted"),
@@ -149,14 +168,18 @@ const detachLabelFromTaskRoute = createRoute({
   description: "Detach a label from its current task",
   middleware: [
     workspaceAccess.fromLabel(),
-    requireWorkspacePermission({ label: ["update"] }),
+    // task:update_assigned works on labels of the caller's own task only.
+    requireAnyWorkspacePermission(
+      { label: ["update"] },
+      { task: ["update_assigned"] },
+    ),
   ] as const,
   request: { params: labelParam },
   responses: {
     200: jsonResponse("Label detached from task successfully", labelSchema),
     400: errorResponse("Label is not assigned to a task"),
     403: errorResponse(
-      "No access to the project, or missing label:update permission",
+      "No access to the project, missing label:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Label or task not found"),
   },
@@ -246,12 +269,18 @@ const label = apiRouter()
     const { id } = c.req.valid("param");
     const { taskId } = c.req.valid("json");
     const userId = c.get("userId");
-    return c.json(await assignLabelToTask(id, taskId, userId), 200);
+    return c.json(
+      await assignLabelToTask(id, taskId, userId, await ownTaskOnly(c)),
+      200,
+    );
   })
   .openapi(detachLabelFromTaskRoute, async (c) => {
     const { id } = c.req.valid("param");
     const userId = c.get("userId");
-    return c.json(await unassignLabelFromTask(id, userId), 200);
+    return c.json(
+      await unassignLabelFromTask(id, userId, await ownTaskOnly(c)),
+      200,
+    );
   })
   .openapi(updateLabelRoute, async (c) => {
     const { id } = c.req.valid("param");

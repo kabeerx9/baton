@@ -3,9 +3,11 @@ import {
   type WorkspaceCapability,
 } from "@baton/permissions";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
+import { AuthContext } from "@/components/providers/auth-provider";
 import getMyCapabilities from "@/fetchers/workspace/get-my-capabilities";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { canWorkOnTask } from "./can-work-on-task";
 
 // Capabilities are named permission bundles (see `workspaceCapabilities` in
 // @baton/permissions). The server evaluates all of them in one request with
@@ -49,6 +51,7 @@ export function useWorkspacePermission() {
   });
 
   const can: CapabilityMap = capabilities ?? emptyCapabilityMap();
+  const userId = useContext(AuthContext).user?.id;
 
   const helpers = useMemo(() => {
     return {
@@ -58,6 +61,15 @@ export function useWorkspacePermission() {
       canShareProjects: () => can.shareProjects,
       canDeleteProjects: () => !isDemo && can.deleteProjects,
       canUpdateTasks: () => can.updateTasks,
+      /** task:update or task:update_assigned: some task work at all. */
+      canUpdateAssignedTasks: () => can.updateAssignedTasks,
+      /** Status, fields and comments on this task (see `canWorkOnTask`). */
+      canWorkOnTask: (assigneeId: string | null | undefined) =>
+        canWorkOnTask(can, userId, assigneeId),
+      /** Labels on this task: label:update, or the caller's own task. */
+      canLabelTask: (assigneeId: string | null | undefined) =>
+        can.updateLabels ||
+        canWorkOnTask({ ...can, updateTasks: false }, userId, assigneeId),
       canCreateTasks: () => can.createTasks,
       canDeleteTasks: () => !isDemo && can.deleteTasks,
       canAssignTasks: () => can.assignTasks,
@@ -72,7 +84,7 @@ export function useWorkspacePermission() {
       canUpdateMembers: () => can.updateMembers,
       canRemoveMembers: () => can.removeMembers,
     };
-  }, [can, isDemo]);
+  }, [can, isDemo, userId]);
 
   return {
     ...helpers,

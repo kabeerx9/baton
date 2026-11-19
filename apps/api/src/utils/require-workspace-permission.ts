@@ -179,3 +179,18 @@ export function requireWorkspacePermission(permissions: PermissionMap) {
     return next();
   };
 }
+
+/**
+ * Passes when the caller holds any one of `alternatives` (each checked as
+ * `hasWorkspacePermission` would). Otherwise refuses with the first one's
+ * error, so the usual permission is the one named.
+ */
+export function requireAnyWorkspacePermission(
+  ...alternatives: [PermissionMap, ...PermissionMap[]]
+) {
+  return async (c: Context, next: Next) => {
+    for (const permissions of alternatives)
+      if (await hasWorkspacePermission(c, permissions)) return next();
+    return requireWorkspacePermission(alternatives[0])(c, next);
+  };
+}

@@ -88,6 +88,7 @@ import {
   statusGenerationSchema,
 } from "./response";
 import { readStatusChange } from "./read-status-change";
+import { assertMayEdit } from "../task-change-request/assert-may-edit";
 import {
   assignedTasksQuery,
   bulkUpdateBody,
@@ -126,7 +127,7 @@ const updateResult = mutationResultSchema(taskSchema, "TaskUpdate");
 const deleteResult = mutationResultSchema(taskSchema, "TaskDelete");
 
 const REQUEST_NOTE =
-  ' If you are not involved in the task (not its creator, its assignee, or a workspace owner or admin), the change is not made: the response is 202 with outcome "requested" and the change request, which its creator, assignee or an admin can accept. Read `outcome`, not only the HTTP status.';
+  ' If you are not involved in the task (not its creator, its assignee, or a workspace owner or admin), the change is not made: the response is 202 with outcome "requested" and the change request, which its creator, assignee or an admin can accept. Read `outcome`, not only the HTTP status. With task:update_assigned and no task:update, only a task assigned to you changes; any other task answers 403, never a request.';
 
 // Requesting a delete needs task:update; deleting directly needs task:delete
 // (checked with involvement in the controller). Either one gets past here.
@@ -271,10 +272,10 @@ const reorderTasksRoute = createRoute({
   tags: ["Tasks"],
   summary: "Reorder or move cards",
   description:
-    "Atomically update positions and optional column status for cards in one project. Other task fields are preserved. Reordering within a column is open; moving a card you are not involved in to another column is refused with 409 (request the status change on the task instead), as is finishing a blocked task.",
+    "Atomically update positions and optional column status for cards in one project. Other task fields are preserved. Reordering within a column is open to holders of task:update; with task:update_assigned only, every card you send must be assigned to you (403 otherwise). Moving a card you are not involved in to another column is refused with 409 (request the status change on the task instead), as is finishing a blocked task.",
   middleware: [
     workspaceAccess.fromProject("projectId"),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     body: {
@@ -290,7 +291,9 @@ const reorderTasksRoute = createRoute({
         .array(),
     ),
     400: errorResponse("Invalid positions or column"),
-    403: errorResponse("Missing task:update permission"),
+    403: errorResponse(
+      "Missing task:update permission, or task:update_assigned only and a card you sent is not assigned to you",
+    ),
     404: errorResponse(
       "Project not found, or tasks do not belong to the project",
     ),
@@ -445,7 +448,7 @@ const updateTaskRoute = createRoute({
     'Replace every field of a task. Use the single-field routes for narrower edits. Only the task\'s creator, assignee or a workspace owner or admin may change the assignee (403 otherwise). If you are not involved in the task, the other fields still apply but a status change becomes a change request: 202 with outcome "requested", the request and the updated task.',
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
     requireTaskAssigneePermission,
   ] as const,
   request: {
@@ -463,7 +466,7 @@ const updateTaskRoute = createRoute({
     ),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, missing task:update or task:assign permission, or an assignee change by someone not involved in the task",
+      "No access to the project, missing task:update or task:assign permission, an assignee change by someone not involved in the task, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
     409: errorResponse("Blocked from finishing, or the task changed"),
@@ -556,7 +559,7 @@ const updateTaskStatusRoute = createRoute({
   description: `Move a task to another column in the same project. A blocked task cannot be set to a final column (409).${REQUEST_NOTE} An unanswered status request applies after 24 hours unless it targets a final column or archived; those expire.`,
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -573,7 +576,7 @@ const updateTaskStatusRoute = createRoute({
     ),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
     409: errorResponse("The task is blocked and cannot be finished"),
@@ -590,7 +593,7 @@ const updateTaskPriorityRoute = createRoute({
   description: "Set a task's priority.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -603,7 +606,7 @@ const updateTaskPriorityRoute = createRoute({
     200: jsonResponse("The updated task", taskSchema),
     400: errorResponse("Invalid priority"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -649,7 +652,7 @@ const updateTaskDueDateRoute = createRoute({
   description: "Set or clear a task's due date.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -662,7 +665,7 @@ const updateTaskDueDateRoute = createRoute({
     200: jsonResponse("The updated task", taskSchema),
     400: errorResponse("Invalid date"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -677,7 +680,7 @@ const updateTaskTitleRoute = createRoute({
   description: "Rename a task.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -690,7 +693,7 @@ const updateTaskTitleRoute = createRoute({
     200: jsonResponse("The updated task", taskSchema),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -706,7 +709,7 @@ const createTaskImageUploadRoute = createRoute({
     "Get a presigned URL for uploading an image used in a task description or comment. PUT the bytes to it, then call the finalize route.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -719,7 +722,7 @@ const createTaskImageUploadRoute = createRoute({
     200: jsonResponse("The presigned upload", imageUploadSchema),
     400: errorResponse("Unsupported content type, or the file is too large"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
     503: errorResponse("Image uploads are not configured on this instance"),
@@ -736,7 +739,7 @@ const finalizeTaskImageUploadRoute = createRoute({
     "Record an uploaded image as a private asset and return the URL to reference it by.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -751,7 +754,7 @@ const finalizeTaskImageUploadRoute = createRoute({
       "Invalid upload, or the key does not belong to this task",
     ),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -766,7 +769,7 @@ const updateTaskDescriptionRoute = createRoute({
   description: "Replace a task's description.",
   middleware: [
     workspaceAccess.fromTask(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskParam,
@@ -779,7 +782,7 @@ const updateTaskDescriptionRoute = createRoute({
     200: jsonResponse("The updated task", taskSchema),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -1141,7 +1144,12 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     const { priority } = c.req.valid("json");
     const currentUserId = c.get("userId");
 
-    const task = await updateTaskPriority({ id, priority, currentUserId });
+    const task = await updateTaskPriority({
+      id,
+      priority,
+      currentUserId,
+      actor: actorFromContext(c),
+    });
 
     return c.json(task, 200);
   })
@@ -1168,6 +1176,7 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       id,
       dueDate: dueDate ? validateAndParseDate(dueDate, "dueDate") : null,
       currentUserId,
+      actor: actorFromContext(c),
     });
 
     return c.json(task, 200);
@@ -1177,7 +1186,12 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     const { title } = c.req.valid("json");
     const currentUserId = c.get("userId");
 
-    const task = await updateTaskTitle({ id, title, currentUserId });
+    const task = await updateTaskTitle({
+      id,
+      title,
+      currentUserId,
+      actor: actorFromContext(c),
+    });
 
     return c.json(task, 200);
   })
@@ -1201,6 +1215,8 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
         taskId: taskTable.id,
         projectId: taskTable.projectId,
         workspaceId: workspaceTable.id,
+        createdBy: taskTable.createdBy,
+        userId: taskTable.userId,
       })
       .from(taskTable)
       .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
@@ -1214,6 +1230,11 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     if (!taskContext) {
       throw new HTTPException(404, { message: "Task not found" });
     }
+    await assertMayEdit(
+      db,
+      { ...taskContext, id: taskContext.taskId },
+      actorFromContext(c),
+    );
 
     try {
       const upload = await createTaskImageUploadUrl({
@@ -1257,6 +1278,8 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
         taskId: taskTable.id,
         projectId: taskTable.projectId,
         workspaceId: workspaceTable.id,
+        createdBy: taskTable.createdBy,
+        userId: taskTable.userId,
       })
       .from(taskTable)
       .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
@@ -1270,6 +1293,11 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
     if (!taskContext) {
       throw new HTTPException(404, { message: "Task not found" });
     }
+    await assertMayEdit(
+      db,
+      { ...taskContext, id: taskContext.taskId },
+      actorFromContext(c),
+    );
 
     const normalizedKey = key.trim();
     if (
@@ -1382,6 +1410,7 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
       id,
       description,
       currentUserId,
+      actor: actorFromContext(c),
     });
 
     return c.json(task, 200);

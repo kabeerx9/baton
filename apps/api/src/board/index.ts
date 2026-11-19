@@ -194,10 +194,10 @@ const updateByKeyRoute = createRoute({
   tags: ["Board"],
   summary: "Change a task or subtask found by its key",
   description:
-    'Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done. An owner change needs task:assign (narrowed by the API key scope) and only the task\'s creator, its owner or a workspace owner or admin may make it (403 otherwise). If you are not involved in the task, a status change is not made: the response is 202 with outcome "requested" and the change request. Read `outcome`, not only the HTTP status. Board contract: unlike the task routes, which answer `{ outcome, task }`, this route answers with the flat board item and adds `outcome` (and `request` on 202) beside its fields.',
+    'Sets the status, the owner, or what the item waits on. A blocked item cannot be set to done. An owner change needs task:assign (narrowed by the API key scope) and only the task\'s creator, its owner or a workspace owner or admin may make it (403 otherwise). If you are not involved in the task, a status change is not made: the response is 202 with outcome "requested" and the change request. Read `outcome`, not only the HTTP status. With task:update_assigned and no task:update, only a task assigned to you changes (status only; 403 for anything else), never a request. Board contract: unlike the task routes, which answer `{ outcome, task }`, this route answers with the flat board item and adds `outcome` (and `request` on 202) beside its fields.',
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: boardKeyParam,
@@ -230,7 +230,7 @@ const updateByKeyRoute = createRoute({
     ),
     400: errorResponse("A person or status could not be found"),
     403: errorResponse(
-      "An owner change without task:assign or by someone not involved in the task",
+      "An owner change without task:assign or by someone not involved in the task; with task:update_assigned only, any change to a task not assigned to you, or a waits-on change",
     ),
     404: errorResponse("No task with that key"),
     409: errorResponse("The item is blocked and cannot be finished"),

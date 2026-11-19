@@ -1,7 +1,8 @@
 import type { PermissionStatements } from "./statements.js";
 
 // Built-in workspace roles as plain data. Key order matches the statements
-// Better Auth compiled before, so seeded JSON payloads stay byte-equal.
+// Better Auth compiled before. The viewer works on tasks assigned to them
+// (`task:update_assigned`); migration 0006 rewrote stored viewer rows to it.
 export const BUILT_IN_ROLE_STATEMENTS = {
   viewer: {
     organization: [],
@@ -9,7 +10,7 @@ export const BUILT_IN_ROLE_STATEMENTS = {
     invitation: [],
     ac: ["read"],
     project: ["read"],
-    task: ["read"],
+    task: ["read", "update_assigned"],
     label: ["read"],
     workspace: ["read"],
   },

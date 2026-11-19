@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { permits } from "./permits";
+import { holdsAction, permits } from "./permits";
 
 describe("permits", () => {
   const granted = { task: ["read", "update"], workspace: ["read"] };
@@ -21,5 +21,29 @@ describe("permits", () => {
 
   it("denies an inherited object key as a resource", () => {
     expect(permits(granted, { constructor: [] })).toBe(false);
+  });
+});
+
+describe("task:update implies task:update_assigned", () => {
+  it("grants update_assigned to a holder of update", () => {
+    expect(permits({ task: ["update"] }, { task: ["update_assigned"] })).toBe(
+      true,
+    );
+  });
+
+  it("never grants update to a holder of update_assigned only", () => {
+    expect(permits({ task: ["update_assigned"] }, { task: ["update"] })).toBe(
+      false,
+    );
+  });
+
+  it("does not imply anything for other resources", () => {
+    expect(permits({ label: ["update"] }, { label: ["update_assigned"] })).toBe(
+      false,
+    );
+  });
+
+  it("holdsAction ignores inherited keys", () => {
+    expect(holdsAction(["update"], "task", "constructor")).toBe(false);
   });
 });

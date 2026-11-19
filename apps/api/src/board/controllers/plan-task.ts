@@ -321,20 +321,30 @@ export async function updateByKey({
   const newOwner = owner
     ? unwrap(matchMember(directory.members, owner))
     : undefined;
-  // Refuse an outsider's owner change before anything is written; the
-  // assignee controller checks again under the task lock.
-  if (owner !== undefined && actor.kind === "person") {
+  // Refuse before anything is written: a task:update_assigned caller on a
+  // task not assigned to them, "waits on" without task:update, and an
+  // outsider's owner change. The status and assignee controllers check again
+  // under the task lock.
+  if (actor.kind === "person") {
     const [row] = await db
       .select()
       .from(tasks)
       .where(eq(tasks.id, task.id))
       .limit(1);
-    if (row && (newOwner?.id ?? null) !== row.userId) {
-      const consent = decideConsent(
-        "assign",
-        await loadConsentFacts(db, row, actor),
-      );
-      if (consent.kind === "deny") throw consentError(consent);
+    if (row) {
+      const facts = await loadConsentFacts(db, row, actor);
+      const edit = decideConsent("edit", facts);
+      if (edit.kind === "deny") throw consentError(edit);
+      if (waitsOn.length > 0 && !facts.canUpdate)
+        throw consentError({
+          kind: "deny",
+          status: 403,
+          message: "Missing task:update permission",
+        });
+      if (owner !== undefined && (newOwner?.id ?? null) !== row.userId) {
+        const consent = decideConsent("assign", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+      }
     }
   }
   const blockers = [];

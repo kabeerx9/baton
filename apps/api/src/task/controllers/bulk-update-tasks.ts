@@ -54,7 +54,8 @@ export type BulkItemResult =
 /**
  * Decides each task separately against the locked rows. Bulk paths never
  * create requests: a task the caller is not involved in is refused, with the
- * reason, and the others still apply.
+ * reason, and the others still apply. So is a task not assigned to a caller
+ * with task:update_assigned only.
  */
 async function refusalsFor(
   tx: DbOrTx,
@@ -67,6 +68,9 @@ async function refusalsFor(
   const refusals = new Map<string, string>();
   if (actor.kind !== "person") return refusals;
   const grants = await loadPersonGrants(tx, workspaceId, actor);
+  // Field edits refuse only task:update_assigned holders; skip the per-task
+  // reads for everyone with task:update.
+  if (change === "edit" && grants.can({ task: ["update"] })) return refusals;
   for (const task of tasks) {
     const consent = decideConsent(
       change,
@@ -330,11 +334,19 @@ async function bulkUpdateTasks({
           throw new HTTPException(409, {
             message: "Tasks changed projects; retry the operation",
           });
-        await tx
-          .update(taskTable)
-          .set({ priority: value })
-          .where(inArray(taskTable.id, foundIds));
-        return locked;
+        refusals = await refusalsFor(tx, actor, workspaceId, locked, "edit");
+        const allowed = locked.filter((task) => !refusals.has(task.id));
+        if (allowed.length)
+          await tx
+            .update(taskTable)
+            .set({ priority: value })
+            .where(
+              inArray(
+                taskTable.id,
+                allowed.map((task) => task.id),
+              ),
+            );
+        return allowed;
       });
       updatedCount = before.length;
       for (const task of before) {
@@ -652,8 +664,15 @@ async function bulkUpdateTasks({
             message: "Tasks changed projects; retry the operation",
           });
         const beforeById = new Map(before.map((task) => [task.id, task]));
+        refusals = await refusalsFor(tx, actor, workspaceId, before, "edit");
+        const allowedIds = foundIds.filter((id) => !refusals.has(id));
+        if (allowedIds.length === 0) return { updatedTasks: [], beforeById };
         const changedIds = before
-          .filter((task) => task.dueDate?.getTime() !== parsedDate?.getTime())
+          .filter(
+            (task) =>
+              !refusals.has(task.id) &&
+              task.dueDate?.getTime() !== parsedDate?.getTime(),
+          )
           .map((task) => task.id);
         if (changedIds.length)
           await tx
@@ -662,7 +681,7 @@ async function bulkUpdateTasks({
         const updatedTasks = await tx
           .update(taskTable)
           .set({ dueDate: parsedDate })
-          .where(inArray(taskTable.id, foundIds))
+          .where(inArray(taskTable.id, allowedIds))
           .returning({
             id: taskTable.id,
             projectId: taskTable.projectId,

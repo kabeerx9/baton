@@ -163,6 +163,9 @@ async function updateTask(
     let statusIsRequest = false;
     if (actor.kind === "person") {
       const facts = await loadConsentFacts(tx, locked, actor);
+      // task:update_assigned alone works only on the caller's own task.
+      const edit = decideConsent("edit", facts);
+      if (edit.kind === "deny") throw consentError(edit);
       if ((normalizedUserId ?? null) !== locked.userId) {
         const assign = decideConsent("assign", facts);
         if (assign.kind === "deny") throw consentError(assign);
@@ -175,7 +178,6 @@ async function updateTask(
         if (consent.kind === "deny") throw consentError(consent);
         statusIsRequest = consent.kind === "request";
       }
-      const edit = decideConsent("edit", facts);
       const fields = [
         title !== locked.title && "title",
         description !== undefined &&

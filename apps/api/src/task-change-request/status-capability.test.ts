@@ -4,9 +4,11 @@ import { ordinaryStatusMove, visibleStatusMove } from "./status-capability";
 
 const outsider: ConsentFacts = {
   involved: false,
+  assignee: false,
   bypass: false,
   feature: false,
   canUpdate: true,
+  canUpdateAssigned: true,
   canDelete: false,
   canAssign: false,
 };
@@ -50,6 +52,25 @@ describe("ordinaryStatusMove", () => {
   });
 });
 
+describe("ordinaryStatusMove for task:update_assigned only (viewer)", () => {
+  const viewer = { ...outsider, canUpdate: false };
+  it("applies on the caller's own task and denies everywhere else", () => {
+    expect(
+      ordinaryStatusMove(
+        { ...viewer, involved: true, assignee: true },
+        "to-do",
+      ),
+    ).toBe("apply");
+    expect(ordinaryStatusMove(viewer, "to-do")).toBe("deny");
+    expect(ordinaryStatusMove({ ...viewer, involved: true }, "to-do")).toBe(
+      "deny",
+    );
+    expect(ordinaryStatusMove({ ...viewer, feature: true }, "to-do")).toBe(
+      "deny",
+    );
+  });
+});
+
 describe("visibleStatusMove", () => {
   const grants = (
     over: Partial<{ member: boolean; bypass: boolean }> = {},
@@ -81,12 +102,26 @@ describe("visibleStatusMove", () => {
     );
   });
 
+  it("applies only for the assignee when the grants hold update_assigned only", () => {
+    const viewerGrants = {
+      ...grants(),
+      can: (p: Record<string, string[]>) =>
+        !(p.task ?? []).some((action) => action !== "update_assigned"),
+    };
+    expect(visibleStatusMove(viewerGrants, "assignee", task)).toBe("apply");
+    expect(visibleStatusMove(viewerGrants, "creator", task)).toBe("deny");
+    expect(visibleStatusMove(viewerGrants, "other", task)).toBe("deny");
+    expect(
+      visibleStatusMove({ ...viewerGrants, member: false }, "assignee", task),
+    ).toBe("deny");
+  });
+
   it("denies when the grants lack task:update", () => {
     expect(
       visibleStatusMove(
         {
           ...grants(),
-          can: (p) => !("task" in p && p.task?.includes("update")),
+          can: (p) => !("task" in p),
         },
         "creator",
         task,

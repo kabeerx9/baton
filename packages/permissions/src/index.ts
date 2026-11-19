@@ -1,4 +1,4 @@
-export { permits } from "./permits.js";
+export { holdsAction, permits } from "./permits.js";
 export {
   BUILT_IN_ROLE_STATEMENTS,
   type BuiltInRoleName,
