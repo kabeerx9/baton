@@ -85,7 +85,7 @@ describe("bounded shared MCP OAuth store", () => {
     expect(await total("client")).toBe(2);
   });
 
-  it("commits bounded cleanup even when a legacy over-cap table denies the insert", async () => {
+  it("commits bounded cleanup even when the capacity check denies the insert", async () => {
     await seed(
       "client",
       OAUTH_STATE_LIMITS.client.rows + EXPIRED_STATE_BATCH * 2,

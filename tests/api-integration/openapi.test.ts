@@ -229,7 +229,7 @@ describe("Baton API OpenAPI spec", () => {
     expect(JSON.stringify(spec.components.schemas.TaskByTicketId)).toContain(
       "#/components/schemas/TaskWithAssignee",
     );
-    // The workspace board item has its own component, not the legacy
+    // The workspace board item has its own component, not the per-project
     // project board's `BoardTask`.
     expect(board).toContain("#/components/schemas/WorkspaceBoardTask");
     expect(JSON.stringify(spec.components.schemas.BoardItem)).toContain(

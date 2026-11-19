@@ -103,7 +103,7 @@ describe("tenant resource boundaries", () => {
     expect(syncGithub).toHaveBeenCalledWith(own.task.id, "bug", "#ff0000");
   });
 
-  it("rejects legacy cross-workspace label rows at every label-ID endpoint", async () => {
+  it("rejects cross-workspace label rows at every label-ID endpoint", async () => {
     const own = await context();
     const foreign = await context();
     const forged = await label(own.workspace.id, foreign.task.id);

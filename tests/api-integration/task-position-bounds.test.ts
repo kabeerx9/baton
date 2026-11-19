@@ -44,7 +44,7 @@ async function setup() {
   return { ...member, project, columns, task };
 }
 
-describe("task position bounds and legacy recovery", () => {
+describe("task position bounds and recovery", () => {
   it.each([-1, 0.5, 2_147_483_647, 2_147_483_648, Number.MAX_SAFE_INTEGER])(
     "rejects unsafe position %s before updating any task field",
     async (position) => {
@@ -71,7 +71,7 @@ describe("task position bounds and legacy recovery", () => {
     },
   );
 
-  it("accepts bounded positions and recovers legacy overflow without touching other columns", async () => {
+  it("accepts bounded positions and recovers overflow without touching other columns", async () => {
     const { project, columns, task, user } = await setup();
     await db
       .update(schema.taskTable)

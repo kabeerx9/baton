@@ -8,7 +8,7 @@ export type GitHubImportState = {
   currentIssue: {
     number: number;
     taskId: string;
-    isNewTask?: boolean;
+    isNewTask: boolean;
     labelCursor: string | null;
     commentCursor: string | null;
     moreComments: boolean;

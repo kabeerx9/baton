@@ -91,7 +91,7 @@ describe("private asset current grants", () => {
     );
   }
 
-  it("rechecks role demotion for an unscoped legacy key", async () => {
+  it("rechecks role demotion for an unscoped key", async () => {
     const { app, headers, assets, role } = await fixture("api-key", null);
     const comment = assets.find((asset) => asset.surface === "comment")!;
     const before = await app.request(`/api/asset/${comment.id}`, { headers });

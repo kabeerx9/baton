@@ -221,7 +221,7 @@ describe("API integration: subtask counters", () => {
     const foreignChild = await addTask(foreignProject.project.id, "done");
     await relate(parent.id, publicChild.id);
     await relate(parent.id, privateChild.id);
-    // Simulate a legacy malformed relation; it must not cross the workspace boundary.
+    // A malformed cross-workspace relation must not cross the workspace boundary.
     await relate(parent.id, foreignChild.id);
     expect(await countsFor(project.id, parent.id)).toEqual({
       completed: 2,

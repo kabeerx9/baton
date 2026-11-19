@@ -105,7 +105,7 @@ describe("bounded board related pages", () => {
     expect(links.size).toBe(203);
     expect(columns.size).toBe(241);
   });
-  it("does not let malformed legacy link metadata break the board", async () => {
+  it("does not let malformed link metadata break the board", async () => {
     const { project, task } = await fixture();
     for (const metadata of ["broken {", "null", '"primitive"', "[1,2]"]) {
       await db

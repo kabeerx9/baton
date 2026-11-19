@@ -192,7 +192,7 @@ describe("API integration: assigned tasks", () => {
       },
       {
         projectId: project.id,
-        title: "Legacy ambiguous status",
+        title: "Ambiguous status",
         status: columns.todo.slug,
         userId: member.user.id,
         number: 3,

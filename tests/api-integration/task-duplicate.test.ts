@@ -547,7 +547,7 @@ describe("API integration: task duplication", () => {
     return { ...member, project, columns, task, app: createApp().app };
   }
 
-  it("copies only same-workspace parents and labels from legacy mixed data", async () => {
+  it("copies only same-workspace parents and labels from mixed-workspace data", async () => {
     const own = await fixture();
     const other = await createWorkspaceMember();
     const { project: foreignProject, columns: foreignColumns } =

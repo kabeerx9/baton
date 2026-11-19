@@ -104,7 +104,7 @@ function keyHeaders(key: string, bearer: boolean, cookies?: string) {
 
 describe("native auth credential boundary", () => {
   it.each([null, { label: ["read"] }] as (Permissions | null)[])(
-    "keeps scoped and legacy keys out of account, session and admin management (%j)",
+    "keeps scoped and unscoped keys out of account, session and admin management (%j)",
     async (permissions) => {
       const { app, owner, viewer, ownerToken } = await fixture();
       await db
@@ -427,7 +427,7 @@ describe("workspace scope and current workspace grants", () => {
       const { app, owner, viewer, workspace } = await fixture();
       const limited = await keyFor(app, owner.cookies, { label: ["read"] });
       const reader = await keyFor(app, owner.cookies, { workspace: ["read"] });
-      const legacy = await keyFor(app, owner.cookies, null);
+      const unscoped = await keyFor(app, owner.cookies, null);
       for (const cookies of [undefined, viewer.cookies]) {
         for (const path of [
           `/api/workspace/${workspace.id}`,
@@ -442,7 +442,7 @@ describe("workspace scope and current workspace grants", () => {
             code: "API_KEY_SCOPE",
           });
         }
-        for (const key of [reader, legacy]) {
+        for (const key of [reader, unscoped]) {
           const full = await app.request(`/api/workspace/${workspace.id}`, {
             headers: keyHeaders(key.key, bearer, cookies),
           });
@@ -518,10 +518,10 @@ describe("workspace scope and current workspace grants", () => {
     });
     expect(updated.status).toBe(200);
     expect(await updated.json()).toMatchObject({ name: "Updated" });
-    const legacy = await keyFor(app, owner.cookies, null);
+    const unscoped = await keyFor(app, owner.cookies, null);
     const created = await app.request("/api/workspace", {
       method: "POST",
-      headers: keyHeaders(legacy.key, false),
+      headers: keyHeaders(unscoped.key, false),
       body: JSON.stringify({ name: "CLI workspace" }),
     });
     expect(created.status).toBe(201);

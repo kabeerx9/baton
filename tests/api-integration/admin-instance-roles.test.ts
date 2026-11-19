@@ -158,7 +158,7 @@ describe("custom instance roles", () => {
     async (operation) => {
       const { app } = createApp();
       const admin = await signInWithRole(app, "admin");
-      const stale = await insertUser("user,legacy-support");
+      const stale = await insertUser("user,stale-support");
       const role = await insertInstanceRole("support", []);
       const assigned = await insertUser("support");
 
@@ -166,7 +166,7 @@ describe("custom instance roles", () => {
         operation === "create" ? "/roles" : `/roles/${role.id}`,
         {
           method: operation === "create" ? "POST" : "PUT",
-          body: { name: "legacy-support", permissions: ["users:read"] },
+          body: { name: "stale-support", permissions: ["users:read"] },
         },
       );
 
@@ -175,7 +175,7 @@ describe("custom instance roles", () => {
         code: "ROLE_NAME_IN_USE",
         message: "Users already have this role name. Change their role first.",
       });
-      expect(await roleOf(stale.id)).toBe("user,legacy-support");
+      expect(await roleOf(stale.id)).toBe("user,stale-support");
       expect(await roleOf(assigned.id)).toBe("support");
       const roles = await db.select().from(schema.instanceRoleTable);
       expect(roles).toMatchObject([{ name: "support", permissions: [] }]);

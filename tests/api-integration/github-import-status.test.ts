@@ -141,7 +141,7 @@ describe("GitHub import project workflow validation", () => {
     },
   );
 
-  it("uses planned without workflow columns and repairs an invalid legacy status on reimport", async () => {
+  it("uses planned without workflow columns and repairs an invalid status on reimport", async () => {
     const { project } = await setup();
     await db
       .delete(schema.columnTable)
@@ -165,7 +165,7 @@ describe("GitHub import project workflow validation", () => {
     });
   });
 
-  it("does not mutate another project's task through a legacy external link", async () => {
+  it("does not mutate another project's task through a cross-project external link", async () => {
     const { project, integration, workspace } = await setup();
     const { project: other } = await createProjectFixture({
       workspaceId: workspace.id,

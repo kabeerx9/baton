@@ -307,7 +307,7 @@ it.each(["single", "full"])(
       .insert(schema.taskTable)
       .values({
         projectId: project.id,
-        title: "Legacy task",
+        title: "Old task",
         status: "to-do",
         columnId: null,
       })
