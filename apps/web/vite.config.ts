@@ -6,6 +6,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig, lazyPlugins } from "vite-plus";
 import packageJson from "../../package.json";
+import { sourcemapUploadWarning } from "./src/lib/observability/sourcemap-upload-warning";
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
@@ -68,6 +69,11 @@ export default defineConfig({
             release: { name: sentryRelease },
             sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.map"] },
             telemetry: false,
+            // Warn and ship without maps: an upload failure must not block
+            // the image. Dockerfile.baton deletes any map left behind.
+            errorHandler: (error) => {
+              console.warn(sourcemapUploadWarning(error, sentryAuthToken));
+            },
           }),
         ]
       : []),

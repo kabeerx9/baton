@@ -93,7 +93,8 @@ RUN pnpm run build
 WORKDIR /app/apps/web
 # Source maps upload only when CI passes all three Sentry secrets. They are
 # BuildKit secret mounts: read for this RUN only, never in a layer, ARG or
-# ENV. Without them the build skips the upload. Maps are deleted either way.
+# ENV. Without them the build skips the upload. A failed upload only warns
+# (SENTRY SOURCEMAP UPLOAD FAILED: ...). Maps are deleted in every case.
 ARG SENTRY_RELEASE=
 RUN --mount=type=secret,id=sentry_auth_token \
   --mount=type=secret,id=sentry_org \
@@ -102,7 +103,8 @@ RUN --mount=type=secret,id=sentry_auth_token \
   SENTRY_ORG="$(cat /run/secrets/sentry_org 2>/dev/null || true)" \
   SENTRY_PROJECT="$(cat /run/secrets/sentry_project 2>/dev/null || true)" \
   SENTRY_RELEASE="$SENTRY_RELEASE" \
-  pnpm run build && find dist -type f -name '*.map' -delete
+  pnpm run build && find dist -type f -name '*.map' -delete && \
+  if find dist -name '*.map' | grep -q .; then echo "Source maps left in dist" >&2; exit 1; fi
 
 FROM node:24.22.2-alpine AS runtime
 

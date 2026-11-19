@@ -86,7 +86,7 @@ Sentry is off until a DSN is set. Each side has its own Sentry project and DSN.
 
 Recommended starting rates for a small hosted instance: `SENTRY_TRACES_SAMPLE_RATE=0.1` and `SENTRY_PROFILES_SAMPLE_RATE=0`. The browser traces 10% of page loads; that rate is set in `apps/web/src/instrument.ts`. Raise the rates when traffic is low and you need more data. Lower them when the Sentry quota runs short.
 
-The release is the commit SHA. CI passes it as the `SENTRY_RELEASE` build argument; the API reports it, and the web bundle and its uploaded source maps use the same name. Source maps are deleted from the image after the upload, so the browser cannot download them.
+The release is the commit SHA. CI passes it as the `SENTRY_RELEASE` build argument; the API reports it, and the web bundle and its uploaded source maps use the same name. Source maps are deleted from the image after the upload, so the browser cannot download them. A failed upload (expired token, Sentry outage) does not fail the build: the `main` build's CI log shows a line starting `SENTRY SOURCEMAP UPLOAD FAILED:`, and that release still reports errors, only with minified stack traces.
 
 What is sent, and what is not:
 
