@@ -8,6 +8,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const provider = vi.hoisted(() => ({ labels: vi.fn(), comment: vi.fn() }));
 vi.mock("../../apps/api/src/plugins/github/utils/github-app", () => ({
@@ -120,7 +121,7 @@ it.each(
           },
         }),
       );
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     const labels =
       phase === "excluded"
         ? ["status:IN-PROGRESS"]

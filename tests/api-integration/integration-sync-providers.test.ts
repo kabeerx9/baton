@@ -37,6 +37,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const mocks = vi.hoisted(() => ({
   githubCreate: vi.fn(),
@@ -563,7 +564,7 @@ describe.each(["github"] as const)("%s label-filtered sync", (type) => {
         .set({ status: f.columns.done.slug, columnId: f.columns.done.id })
         .where(eq(schema.taskTable.id, f.task.id));
       let remoteState = "open";
-      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(logger, "error").mockImplementation(() => {});
       mocks.update.mockImplementationOnce(async () => {
         remoteState = "closed";
         throw new Error("provider timeout");
@@ -734,7 +735,7 @@ describe.each(["github"] as const)("%s label-filtered sync", (type) => {
       .set({ status: f.columns.done.slug, columnId: f.columns.done.id })
       .where(eq(schema.taskTable.id, f.task.id));
     let remoteState = "open";
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     mocks.update.mockImplementationOnce(async () => {
       remoteState = "closed";
       throw new Error("private-state-response-token");
@@ -1011,7 +1012,7 @@ describe.each(["github"] as const)("%s label-filtered sync", (type) => {
           };
         });
         if (scenario === "read-failure") {
-          const log = vi.spyOn(console, "error").mockImplementation(() => {});
+          const log = vi.spyOn(logger, "error").mockImplementation(() => {});
           mocks.comments.mockRejectedValueOnce(
             Object.assign(new Error("Read unavailable"), {
               request: {
@@ -1164,7 +1165,7 @@ describe.each(["github"] as const)("%s label-filtered sync", (type) => {
         return result;
       }, config),
     );
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     await syncLatestTaskValue(
       f.task.id,
       f.project.id,
@@ -1746,7 +1747,7 @@ it("continues after a task export throws and leaves failed tasks available for e
   const handler = vi
     .spyOn(githubPlugin, "onTaskCreated")
     .mockRejectedValueOnce(new Error("Test creation lease failed"));
-  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const log = vi.spyOn(logger, "error").mockImplementation(() => {});
   try {
     await reconcileProjectSync(f.project.id, f.integration.id);
     expect(mocks.githubCreate).toHaveBeenCalledOnce();

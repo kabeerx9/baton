@@ -35,6 +35,7 @@ import {
   createWorkspaceMember,
 } from "./helpers/fixtures";
 import { readErrorBody } from "./helpers/error-body";
+import { logger } from "../../apps/api/src/observability/logger";
 
 const provider = vi.hoisted(() => ({ read: vi.fn(), write: vi.fn() }));
 vi.mock("../../apps/api/src/plugins/sync/provider-issue", () => ({
@@ -1404,7 +1405,7 @@ describe("reviewed sync resume", () => {
       f.link.id,
       f.workspace.id,
     );
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(logger, "error").mockImplementation(() => {});
     provider.read.mockResolvedValueOnce(review.snapshot.remoteIssue);
     provider.read.mockRejectedValueOnce(
       new Error("private-provider-token-and-response"),
@@ -1761,7 +1762,7 @@ describe("reviewed sync resume", () => {
         request: { headers: { authorization: "fake-test-secret" } },
       });
       provider[stage].mockRejectedValue(failure);
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const log = vi.spyOn(logger, "error").mockImplementation(() => {});
       try {
         const response = await f.request(
           `/links/${f.link.id}/${stage === "read" ? "review" : "resume"}`,

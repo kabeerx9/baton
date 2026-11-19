@@ -10,6 +10,7 @@ import {
   readActivities,
   readOutbox,
 } from "./helpers/outbox";
+import { logger } from "../../apps/api/src/observability/logger";
 
 beforeEach(resetTestDatabase);
 
@@ -31,7 +32,7 @@ it("backs off a failing row, makes the sixth failure dead, and keeps delivering 
       return original(tx, row, context);
     },
   );
-  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const log = vi.spyOn(logger, "error").mockImplementation(() => {});
 
   for (let attempt = 1; attempt < MAX_ATTEMPTS; attempt++) {
     await drainOutbox();
@@ -148,7 +149,7 @@ it("makes an unknown payload dead only after 24 hours", async () => {
     payload: sql`jsonb_set(payload, '{v}', '2')`,
     createdAt: sql`(now() AT TIME ZONE 'utc') - interval '25 hours'`,
   });
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(logger, "error").mockImplementation(() => {});
   await drainOutbox();
   expect(await readOutbox()).toEqual([
     expect.objectContaining({ state: "dead", lastError: "outcome:unknown" }),

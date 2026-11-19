@@ -27,6 +27,7 @@ import {
 import { readAuditLog } from "./helpers/admin/read-audit-log";
 import { resetTestDatabase } from "./helpers/database";
 import { createTestApiKey } from "./helpers/api-key";
+import { logger } from "../../apps/api/src/observability/logger";
 
 vi.mock("node:dns/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:dns/promises")>();
@@ -456,7 +457,7 @@ describe("instance webhook delivery", () => {
       where: eq(schema.userTable.id, target.userId),
     });
     const audit = await readAuditLog();
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(logger, "error").mockImplementation(() => {});
     await db.execute(sql`ALTER TABLE instance_webhook_delivery
       ADD CONSTRAINT test_reject_queue CHECK (false) NOT VALID`);
     try {

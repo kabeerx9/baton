@@ -22,6 +22,7 @@ import {
 } from "./helpers/fixtures";
 import { projectAccessApi } from "./helpers/project-access/project-access-api";
 import { createTestApiKey } from "./helpers/api-key";
+import { logger } from "../../apps/api/src/observability/logger";
 
 beforeEach(resetTestDatabase);
 
@@ -317,7 +318,7 @@ describe("committed workspace transitions", () => {
       const error = new Error("Realtime delivery unavailable");
       vi.spyOn(realtime, "revokeWorkspaceConnections").mockRejectedValue(error);
       const publish = vi.spyOn(events, "publishEvent").mockRejectedValue(error);
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const log = vi.spyOn(logger, "error").mockImplementation(() => {});
 
       const response = await projectAccessApi()(
         `/admin/workspaces/${workspace.id}${action === "archive" ? "/archive" : ""}`,

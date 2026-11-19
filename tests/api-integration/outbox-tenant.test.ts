@@ -6,6 +6,7 @@ import { enqueueEvent } from "../../apps/api/src/events/outbox/enqueue";
 import updateTaskStatus from "../../apps/api/src/task/controllers/update-task-status";
 import { resetTestDatabase } from "./helpers/database";
 import { outboxTaskFixture, readOutbox } from "./helpers/outbox";
+import { logger } from "../../apps/api/src/observability/logger";
 
 beforeEach(resetTestDatabase);
 
@@ -89,7 +90,7 @@ it("keeps the description and the task row out of the payload", async () => {
 });
 
 it("logs a bridge failure without the payload and still reaches live subscribers", async () => {
-  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const log = vi.spyOn(logger, "error").mockImplementation(() => {});
   const live = vi.fn(async () => undefined);
   await subscribeToEvent("task.status_changed", live);
   await publishEvent("task.status_changed", {
