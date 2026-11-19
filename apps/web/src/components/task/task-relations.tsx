@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Ban, Link2, Search, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -88,6 +89,7 @@ export default function TaskRelations({
 }: TaskRelationsProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [commandOpen, setCommandOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRelationType, setSelectedRelationType] =
@@ -209,6 +211,12 @@ export default function TaskRelations({
     ];
   }, [filteredTasks, t]);
 
+  // The board read carries a feature's blocked counts and lanes, and a link
+  // can cross projects. A closed page does not refetch on mount, so refresh it
+  // after an edit made here.
+  const refreshBoard = () =>
+    void queryClient.invalidateQueries({ queryKey: ["task-board"] });
+
   const handleLinkTask = async (pickedTaskId: string) => {
     const previousParent =
       selectedRelationType === "parent"
@@ -221,6 +229,7 @@ export default function TaskRelations({
       if (previousParent) {
         await deleteRelation.mutateAsync(previousParent.id);
       }
+      refreshBoard();
       setCommandOpen(false);
       setSearchQuery("");
     } catch {
@@ -229,7 +238,7 @@ export default function TaskRelations({
   };
 
   const handleRemoveRelation = (relationId: string) => {
-    deleteRelation.mutate(relationId);
+    deleteRelation.mutate(relationId, { onSuccess: refreshBoard });
   };
 
   const handleNavigateToTask = (linkedTaskId: string) => {

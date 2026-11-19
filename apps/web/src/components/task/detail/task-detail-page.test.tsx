@@ -25,6 +25,7 @@ const m = vi.hoisted(() => ({
   item: undefined as unknown,
   itemLoading: false,
   itemEnabled: undefined as boolean | undefined,
+  laneProjectIds: [] as string[],
   nothing: () => null,
 }));
 
@@ -74,6 +75,12 @@ vi.mock("@/components/external-links/external-links-accordion", () => ({
 }));
 vi.mock("@/components/board/add-subtask-dialog", () => ({
   AddSubtaskDialog: () => <p>add task dialog</p>,
+}));
+vi.mock("@/components/board/lane-sockets", () => ({
+  LaneSockets: ({ projectIds }: { projectIds: string[] }) => {
+    m.laneProjectIds = projectIds;
+    return null;
+  },
 }));
 vi.mock("@/components/task/change-request/task-change-request", () => ({
   TaskChangeRequest: m.nothing,
@@ -235,6 +242,7 @@ beforeEach(() => {
   m.item = undefined;
   m.itemLoading = false;
   m.itemEnabled = undefined;
+  m.laneProjectIds = [];
   m.relations = [];
   permissions.canCreateTasks = true;
 });
@@ -491,5 +499,14 @@ describe("first paint", () => {
 
     expect(screen.getByText("api-24")).toBeVisible();
     expect(screen.queryByText(/\?-24/)).toBeNull();
+  });
+});
+
+describe("live cross-project links", () => {
+  it("keeps a socket on every other project the board draws from", () => {
+    m.task = task("plain", { projectId: "board" });
+    page("plain");
+
+    expect(m.laneProjectIds).toEqual(["api"]);
   });
 });

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExternalLinksAccordion } from "@/components/external-links/external-links-accordion";
 import { AddSubtaskDialog } from "@/components/board/add-subtask-dialog";
+import { LaneSockets } from "@/components/board/lane-sockets";
 import {
   buildBoard,
   effectiveStatus,
@@ -272,6 +273,18 @@ export function TaskDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 sm:px-6">
+      {/*
+        The page draws relations across the whole workspace: a "waits on" link
+        from another project changes this page's lanes and blocked counts. Keep
+        a socket per project the board draws from, as the board page does, so a
+        link added or removed by another client reaches this page. The layout
+        already keeps the current project's socket.
+      */}
+      <LaneSockets
+        projectIds={(board?.projects ?? [])
+          .map((p) => p.id)
+          .filter((id) => id !== projectId)}
+      />
       {feature && featureSummary ? (
         <>
           <FeatureHero
