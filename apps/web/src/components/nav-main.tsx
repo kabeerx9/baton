@@ -1,3 +1,4 @@
+import { DelayedSpinner } from "@/components/common/pending/delayed-spinner";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   ChartNoAxesColumn,
@@ -32,7 +33,7 @@ type NavItem = {
 
 export function NavMain() {
   const { t } = useTranslation();
-  const { data: workspace } = useActiveWorkspace();
+  const { data: workspace, isLoading } = useActiveWorkspace();
   const navigate = useNavigate();
   const pathname = useLocation({
     select: (location) => location.pathname.replace(/\/+$/, ""),
@@ -40,7 +41,13 @@ export function NavMain() {
   const { data: notifications = [] } = useGetNotifications(workspace?.id);
   const { data: assignedTasks } = useGetAssignedTasks(workspace?.id, true);
 
-  if (!workspace) return null;
+  if (!workspace) {
+    return isLoading ? (
+      <div className="flex h-8 items-center justify-center">
+        <DelayedSpinner pending />
+      </div>
+    ) : null;
+  }
 
   const homeUrl = `/dashboard/workspace/${workspace.id}`;
   const unreadCount = notifications.filter(

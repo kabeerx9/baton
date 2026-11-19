@@ -7,6 +7,7 @@ import { useUserPreferencesEffects } from "@/hooks/use-user-preferences-effects"
 import { cn } from "@/lib/cn";
 import { useBackgroundStore } from "@/store/background";
 import { useUserPreferencesStore } from "@/store/user-preferences";
+import { InShell } from "./in-shell";
 import { hasShellEntered, markShellEntered } from "./shell-entered";
 import { useShellReveal } from "./use-shell-reveal";
 
@@ -88,7 +89,7 @@ function Layout({ children, className }: LayoutProps) {
             "--bg": `url(${background})`,
           }}
         >
-          {children}
+          <InShell>{children}</InShell>
         </SidebarInset>
       </SidebarProvider>
     </div>

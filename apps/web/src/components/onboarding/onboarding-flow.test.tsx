@@ -324,9 +324,13 @@ describe("OnboardingFlow access", () => {
     render(<OnboardingFlow />);
     await settled();
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    // The spinner waits 300ms; until then the page is blank, not the flow.
     expect(startStep()).not.toBeInTheDocument();
     expect(restricted()).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("status", {}, { timeout: 1500 }),
+    ).toBeInTheDocument();
+    expect(startStep()).not.toBeInTheDocument();
   });
 
   it("falls back to the flow when the config request fails", async () => {

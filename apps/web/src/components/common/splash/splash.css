@@ -1,0 +1,65 @@
+/* The Handoff splash: a baton passes between two people. Transform and opacity only. */
+@keyframes splash-baton {
+  0%,
+  8% {
+    transform: translateX(0);
+    animation-timing-function: var(--ease-in-out);
+  }
+  42%,
+  58% {
+    transform: translateX(var(--splash-travel));
+    animation-timing-function: var(--ease-in-out);
+  }
+  92%,
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes splash-receive {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  46% {
+    opacity: 0.45;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.splash-baton {
+  animation: splash-baton 3.6s infinite;
+}
+.splash-receive {
+  animation: splash-receive 3.6s var(--ease-out) infinite;
+}
+.splash-receive[data-side="left"] {
+  animation-delay: -1.8s;
+}
+.splash-enter {
+  animation: splash-fade-in 200ms var(--ease-out) both;
+}
+/* The reassuring line fades in 3s after the splash shows. CSS only, no timer. */
+.splash-reassure {
+  animation: splash-fade-in 300ms var(--ease-out) 3s both;
+}
+
+/* Reduced motion: static. The line may still fade; nothing moves. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-baton,
+  .splash-receive,
+  .splash-enter {
+    animation: none;
+  }
+  .splash-receive {
+    opacity: 0;
+  }
+}

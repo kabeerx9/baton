@@ -1,3 +1,4 @@
+import { DelayedSpinner } from "@/components/common/pending/delayed-spinner";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
@@ -33,7 +34,7 @@ import CreateWorkspaceModal from "./shared/modals/create-workspace-modal";
 
 export function WorkspaceSwitcher() {
   const { t } = useTranslation();
-  const { data: workspace } = useActiveWorkspace();
+  const { data: workspace, isLoading } = useActiveWorkspace();
 
   const { data: workspaces } = useGetWorkspaces();
   const { data: currentUser } = useCurrentUser();
@@ -85,7 +86,11 @@ export function WorkspaceSwitcher() {
   useShortcut("switchWorkspace", () => setIsOpen(true));
 
   if (!workspace) {
-    return null;
+    return isLoading ? (
+      <div className="flex h-8 items-center justify-center">
+        <DelayedSpinner pending />
+      </div>
+    ) : null;
   }
 
   return (

@@ -5,10 +5,12 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { markBootSplashShown } from "@/lib/boot-splash";
 import { authClient } from "@/lib/auth-client";
 import { descriptionSaveQueue } from "@/lib/description-save-queue";
 import type { User } from "@/types/user";
-import { BootFrame } from "../../common/boot-frame";
+import { useDelayedPending } from "../../common/pending/use-delayed-pending";
+import { SplashScreen } from "../../common/splash/splash-screen";
 
 const { useSession } = authClient;
 
@@ -51,8 +53,18 @@ function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [error]);
 
-  if (isPending && !hasLoadedOnce.current) {
-    return <BootFrame />;
+  const booting = isPending && !hasLoadedOnce.current;
+  // Blank for 300ms, then the splash, held for at least 500ms once it shows.
+  const splashUp = useDelayedPending(booting);
+  useEffect(() => {
+    if (splashUp) markBootSplashShown();
+  }, [splashUp]);
+  if (booting || splashUp) {
+    return splashUp ? (
+      <SplashScreen step="session" />
+    ) : (
+      <div className="h-svh w-full bg-background" />
+    );
   }
 
   return (
