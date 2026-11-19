@@ -20,7 +20,6 @@ const secretNames = [
   "GITHUB_PRIVATE_KEY_BASE64",
   "GITHUB_WEBHOOK_SECRET",
   "GITHUB_OAUTH_CLIENT_SECRET",
-  "GITHUB_CLIENT_SECRET",
   "NOTIFICATION_SECRET_ENCRYPTION_KEY",
   "S3_ACCESS_KEY_ID",
   "S3_SECRET_ACCESS_KEY",
@@ -29,7 +28,6 @@ const keys = [
   ...secretNames,
   ...secretNames.map((name) => `${name}_FILE`),
   "GITHUB_OAUTH_CLIENT_ID",
-  "GITHUB_CLIENT_ID",
   "S3_ENDPOINT",
   "S3_BUCKET",
   "GITHUB_APP_ID",
@@ -93,14 +91,6 @@ describe("secrets read from _FILE variables", () => {
       clientId: "oauth-id",
       clientSecret: "oauth-secret",
     });
-
-    delete process.env.GITHUB_OAUTH_CLIENT_ID;
-    process.env.GITHUB_CLIENT_ID = "legacy-id";
-    secretFile("GITHUB_CLIENT_SECRET", "legacy-secret");
-    expect(getGithubSsoOAuthCredentials()).toEqual({
-      clientId: "legacy-id",
-      clientSecret: "legacy-secret",
-    });
   });
 
   it("encrypts notification secrets with a key from a file", () => {
@@ -144,15 +134,6 @@ describe("secrets read from _FILE variables", () => {
 
   it("skips a GitHub sign-in secret file whose client ID is unset", () => {
     missingSecretFile("GITHUB_OAUTH_CLIENT_SECRET");
-    process.env.GITHUB_CLIENT_ID = "legacy-id";
-    secretFile("GITHUB_CLIENT_SECRET", "legacy-secret");
-    expect(getGithubSsoOAuthCredentials()).toEqual({
-      clientId: "legacy-id",
-      clientSecret: "legacy-secret",
-    });
-
-    delete process.env.GITHUB_CLIENT_ID;
-    missingSecretFile("GITHUB_CLIENT_SECRET");
     expect(getGithubSsoOAuthCredentials()).toEqual({
       clientId: "",
       clientSecret: "",

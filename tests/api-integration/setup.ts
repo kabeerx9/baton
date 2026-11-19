@@ -78,8 +78,6 @@ process.env.SMTP_USER = "";
 process.env.SMTP_PASSWORD = "";
 process.env.GITHUB_OAUTH_CLIENT_ID = "";
 process.env.GITHUB_OAUTH_CLIENT_SECRET = "";
-process.env.GITHUB_CLIENT_ID = "";
-process.env.GITHUB_CLIENT_SECRET = "";
 
 afterEach(() => {
   vi.restoreAllMocks();

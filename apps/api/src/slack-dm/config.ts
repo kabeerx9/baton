@@ -28,14 +28,9 @@ export function slackConfig() {
 
 export type SlackConfig = NonNullable<ReturnType<typeof slackConfig>>;
 
-/** Config the digest ignores or replaces, reported once at boot. */
+/** Digest config that is invalid and replaced by a default, reported once at boot. */
 export function digestConfigWarnings(): string[] {
   const warnings: string[] = [];
-  if (process.env.SLACK_DIGEST_CRON?.trim()) {
-    warnings.push(
-      "SLACK_DIGEST_CRON is ignored; set SLACK_DIGEST_TIME (HH:MM). The digest goes out Monday to Friday in each person's time zone.",
-    );
-  }
   const time = process.env.SLACK_DIGEST_TIME?.trim();
   if (time && !parseDigestTime(time)) {
     warnings.push(`SLACK_DIGEST_TIME "${time}" is not HH:MM; using 10:00.`);

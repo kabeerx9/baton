@@ -57,22 +57,10 @@ describe("getSmtpTransportOptions", () => {
     expect(options.tls?.rejectUnauthorized).not.toBe(false);
   });
 
-  it("rejects the formerly misleading flag instead of disabling STARTTLS", () => {
-    for (const secure of ["true", "false"]) {
-      expect(() =>
-        getSmtpTransportOptions({
-          SMTP_SECURE: secure,
-          SMTP_IGNORE_TLS: "true",
-        }),
-      ).toThrow("SMTP_IGNORE_TLS=true is no longer supported");
-    }
-  });
-
   it("requires an explicit opt-out for relays without TLS", () => {
     const options = getSmtpTransportOptions({
       SMTP_SECURE: "false",
       SMTP_REQUIRE_TLS: "false",
-      SMTP_IGNORE_TLS: "false",
     });
     expect(options.requireTLS).toBe(false);
     expect(options.ignoreTLS).toBe(false);
