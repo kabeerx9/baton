@@ -58,7 +58,7 @@ The first account completes instance setup. Keep this local instance private unt
 `.env.sample` lists every server setting with its default.
 
 - **Uploads:** configure S3-compatible storage. Any S3-compatible store works, for example MinIO. The API and browser must both reach its endpoint.
-- **Email:** configure SMTP (`SMTP_HOST` and related settings). It sends invitations, email verification and password resets. Email and password is the only way to sign in; there is no email code or magic-link sign-in.
+- **Email:** configure SMTP (`SMTP_HOST` and related settings). It sends email verification, password resets and notification emails. Email and password is the only way to sign in; there is no email code or magic-link sign-in.
 - **GitHub:** set `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` and register the local callback URL with the GitHub OAuth App. A signed-in user can then link their GitHub account for repository connections. GitHub never signs anyone in or creates an account. The GitHub App (`GITHUB_APP_*`) powers issue and pull request sync.
 - **API port:** the API listens on `BATON_API_PORT`, default `1337`. If you change it, change `BATON_API_URL`, `BATON_INTERNAL_API_URL` and `VITE_API_URL` to match. Leave it unset in the bundled image: its nginx and entrypoint expect 1337.
 - **MCP:** the built-in endpoint uses `BATON_INTERNAL_API_URL`, defaulting to `http://127.0.0.1:1337`, for internal tool requests. The stdio `baton-mcp` package signs in with an API key (`BATON_API_KEY`).
@@ -66,7 +66,7 @@ The first account completes instance setup. Keep this local instance private unt
 - **Redis:** only needed to relay live updates between multiple API instances. Leave it unset for one local API process.
 - **Sentry and logs:** see [Sentry and logs](#sentry-and-logs). Leave the DSNs unset if you do not need reporting.
 
-`DISABLE_REGISTRATION=true` limits new accounts to people with a workspace invitation link. `DISABLE_PASSWORD_REGISTRATION=true` turns off sign-up entirely, so an instance admin creates each account. An empty instance still accepts the first account, which completes instance setup.
+`DISABLE_REGISTRATION=true` limits new accounts to people with a workspace join link. `DISABLE_PASSWORD_REGISTRATION=true` turns off sign-up entirely, so an instance admin creates each account. An empty instance still accepts the first account, which completes instance setup.
 
 ## Sentry and logs
 
@@ -93,7 +93,7 @@ What is sent, and what is not:
 - Errors: unexpected API errors and 5xx responses, one event each. Expected 4xx refusals are not reported. An `error` log line with an `Error` attribute is also reported.
 - Logs: the API writes every line at or above `LOG_LEVEL` to stdout as JSON, with `request_id`, `workspace_id` and `user_id` when known. Only `warn` and `error` lines, plus a few domain events, go to Sentry Logs. The per-request access line stays on stdout. Browser `console.warn` and `console.error` go to Sentry Logs.
 - Context: the user is identified by id only (no email, name or IP address). Events carry a `workspace_id` tag, and API events also carry `request_id`.
-- Scrubbing: join, reset and invitation tokens, OAuth `code` and `state`, Bearer and Basic credentials, API keys, MCP tokens, session cookies, presigned storage URLs, webhook URLs and email addresses are removed from events, breadcrumbs, spans and logs before they leave the process.
+- Scrubbing: join and reset tokens, OAuth `code` and `state`, Bearer and Basic credentials, API keys, MCP tokens, session cookies, presigned storage URLs, webhook URLs and email addresses are removed from events, breadcrumbs, spans and logs before they leave the process.
 - Session Replay is off on purpose. Its recording stores the page URL (`location.href`), which holds join and reset tokens, and `@sentry/replay` 11.9 has no hook to scrub it. Turn it on only after token routes keep the token out of the URL, or when the SDK can scrub that URL.
 
 To trace one request: take the `X-Request-Id` response header, search the App Platform runtime logs for that `request_id`, then filter Sentry by the `request_id` tag.
