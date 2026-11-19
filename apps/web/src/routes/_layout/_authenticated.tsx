@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_layout/_authenticated")({
       if (import.meta.env.DEV) console.warn("getSession failed", error);
       // getSession() rejected (e.g. network error) — session state is
       // unknown. Don't conflate with "no session" (unauthenticated): let
-      // children decide whether to skip active-organization mutations.
+      // children decide what to do without a session.
     }
     if (!session && !sessionError) {
       throw redirect({

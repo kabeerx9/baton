@@ -18,13 +18,11 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
-import { Route as InvitationTokenRouteImport } from './routes/invitation/$token'
 import { Route as JoinTokenRouteImport } from './routes/join/$token'
 import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/dashboard'
 import { Route as LayoutAuthenticatedOnboardingRouteImport } from './routes/_layout/_authenticated/onboarding'
 import { Route as LayoutAuthenticatedProfileSetupRouteImport } from './routes/_layout/_authenticated/profile-setup'
-import { Route as InvitationAcceptInviteIdRouteImport } from './routes/invitation/accept.$inviteId'
 import { Route as LayoutAuthenticatedDashboardIndexRouteImport } from './routes/_layout/_authenticated/dashboard/index'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/dashboard/settings'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/dashboard/settings/index'
@@ -109,11 +107,6 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
-const InvitationTokenRoute = InvitationTokenRouteImport.update({
-  id: '/invitation/$token',
-  path: '/invitation/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const JoinTokenRoute = JoinTokenRouteImport.update({
   id: '/join/$token',
   path: '/join/$token',
@@ -141,12 +134,6 @@ const LayoutAuthenticatedProfileSetupRoute =
     id: '/profile-setup',
     path: '/profile-setup',
     getParentRoute: () => LayoutAuthenticatedRoute,
-  } as any)
-const InvitationAcceptInviteIdRoute =
-  InvitationAcceptInviteIdRouteImport.update({
-    id: '/invitation/accept/$inviteId',
-    path: '/invitation/accept/$inviteId',
-    getParentRoute: () => rootRouteImport,
   } as any)
 const LayoutAuthenticatedDashboardIndexRoute =
   LayoutAuthenticatedDashboardIndexRouteImport.update({
@@ -408,13 +395,11 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
-  '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
   '/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/dashboard/': typeof LayoutAuthenticatedDashboardIndexRoute
   '/dashboard/settings/account': typeof LayoutAuthenticatedDashboardSettingsAccountRouteWithChildren
@@ -464,12 +449,10 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
-  '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardIndexRoute
   '/dashboard/settings/account': typeof LayoutAuthenticatedDashboardSettingsAccountRouteWithChildren
   '/dashboard/settings/projects': typeof LayoutAuthenticatedDashboardSettingsProjectsRouteWithChildren
@@ -519,13 +502,11 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/_layout/_authenticated/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/_authenticated/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/_layout/_authenticated/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
-  '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
   '/_layout/_authenticated/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_authenticated/dashboard/': typeof LayoutAuthenticatedDashboardIndexRoute
   '/_layout/_authenticated/dashboard/settings/account': typeof LayoutAuthenticatedDashboardSettingsAccountRouteWithChildren
@@ -577,13 +558,11 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/dashboard'
     | '/onboarding'
     | '/profile-setup'
-    | '/invitation/accept/$inviteId'
     | '/dashboard/settings'
     | '/dashboard/'
     | '/dashboard/settings/account'
@@ -633,12 +612,10 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/onboarding'
     | '/profile-setup'
-    | '/invitation/accept/$inviteId'
     | '/dashboard'
     | '/dashboard/settings/account'
     | '/dashboard/settings/projects'
@@ -687,13 +664,11 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/_layout/_authenticated/dashboard'
     | '/_layout/_authenticated/onboarding'
     | '/_layout/_authenticated/profile-setup'
-    | '/invitation/accept/$inviteId'
     | '/_layout/_authenticated/dashboard/settings'
     | '/_layout/_authenticated/dashboard/'
     | '/_layout/_authenticated/dashboard/settings/account'
@@ -740,10 +715,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LayoutRoute: typeof LayoutRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
-  InvitationTokenRoute: typeof InvitationTokenRoute
   JoinTokenRoute: typeof JoinTokenRoute
   McpAuthorizeRoute: typeof McpAuthorizeRoute
-  InvitationAcceptInviteIdRoute: typeof InvitationAcceptInviteIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -811,13 +784,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/invitation/$token': {
-      id: '/invitation/$token'
-      path: '/invitation/$token'
-      fullPath: '/invitation/$token'
-      preLoaderRoute: typeof InvitationTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/join/$token': {
       id: '/join/$token'
       path: '/join/$token'
@@ -852,13 +818,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/profile-setup'
       preLoaderRoute: typeof LayoutAuthenticatedProfileSetupRouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
-    }
-    '/invitation/accept/$inviteId': {
-      id: '/invitation/accept/$inviteId'
-      path: '/invitation/accept/$inviteId'
-      fullPath: '/invitation/accept/$inviteId'
-      preLoaderRoute: typeof InvitationAcceptInviteIdRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_layout/_authenticated/dashboard/': {
       id: '/_layout/_authenticated/dashboard/'
@@ -1396,10 +1355,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LayoutRoute: LayoutRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-  InvitationTokenRoute: InvitationTokenRoute,
   JoinTokenRoute: JoinTokenRoute,
   McpAuthorizeRoute: McpAuthorizeRoute,
-  InvitationAcceptInviteIdRoute: InvitationAcceptInviteIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

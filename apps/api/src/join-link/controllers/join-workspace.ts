@@ -19,7 +19,7 @@ import {
 import { deriveLinkState } from "../lifecycle";
 import { hashJoinToken, parseJoinToken } from "../token";
 
-// Parity with Better Auth's invitation accept.
+// A join beyond this many members is refused.
 export const WORKSPACE_MEMBER_LIMIT = 100;
 
 type JoinResult = {

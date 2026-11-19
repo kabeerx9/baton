@@ -138,15 +138,6 @@ describe("Baton API OpenAPI spec", () => {
     expect(byKey.get("POST /join-link/join")?.security).toBeUndefined();
   });
 
-  it("documents no provider organization or invitation route", () => {
-    const paths = operations(spec).map(([, path]) => path);
-    expect(
-      paths.filter((path) =>
-        /^\/auth\/organization(\/|$)|^\/invitation(\/|$)/.test(path),
-      ),
-    ).toEqual([]);
-  });
-
   it("documents change requests and the applied or requested outcome", () => {
     const keys = new Set(
       operations(spec).map(

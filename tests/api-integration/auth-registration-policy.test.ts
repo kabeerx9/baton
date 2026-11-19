@@ -116,16 +116,6 @@ describe("auth registration and bootstrap boundaries", () => {
     ).toHaveLength(0);
   });
 
-  it("no longer lets an invitation header open closed registration", async () => {
-    await createWorkspaceMember();
-    vi.stubEnv("DISABLE_REGISTRATION", "true");
-    const email = "invitee@example.com";
-    expect((await signup(email)).status).toBe(403);
-    expect(
-      (await signup(email, { "x-invitation-id": "old-invitation" })).status,
-    ).toBe(403);
-  });
-
   it("refuses a new account at the user-create boundary when registration is closed", async () => {
     await createWorkspaceMember();
     const invite = { email: "invitee@example.com" };

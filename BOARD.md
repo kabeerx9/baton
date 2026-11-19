@@ -407,8 +407,6 @@ People join a workspace with a link, not an email invite. Code:
 - Leave and removal both run under the workspace lock, so a leave never
   clears the row of a removal that runs at the same time.
 - A join sends `WORKSPACE_MEMBERS_UPDATED` to everyone in the workspace.
-- Email invitations are gone: every `/api/auth/organization/*` path answers
-  404.
 
 | Call | Purpose |
 | --- | --- |

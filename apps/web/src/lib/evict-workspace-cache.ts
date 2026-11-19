@@ -111,7 +111,6 @@ function evictPrivateQueries(
     });
     const privatePrefixes = new Set([
       "github-repositories",
-      "active-organization",
       "github-integration",
       "columns",
       "workflow-rules",

@@ -4,7 +4,7 @@
 export const FILTERED = "[Filtered]";
 
 const SENSITIVE_PARAMS =
-  "t|token|code|state|access_token|refresh_token|id_token|api_key|apikey|key|secret|password|session|session_token|signature|sig|invite|invitation";
+  "t|token|code|state|access_token|refresh_token|id_token|api_key|apikey|key|secret|password|session|session_token|signature|sig";
 
 type Rule = readonly [RegExp, string];
 
@@ -23,7 +23,6 @@ const RULES: readonly Rule[] = [
   ],
   // Secrets carried in the path.
   [/(\/join\/)[^/?#\s"'<>]+/gi, `$1${FILTERED}`],
-  [/(\/invitation\/accept\/)[^/?#\s"'<>]+/gi, `$1${FILTERED}`],
   [/(\/reset-password\/)[^/?#\s"'<>]+/gi, `$1${FILTERED}`],
   [/(hooks\.slack\.com\/)[^\s"'<>]+/gi, `$1${FILTERED}`],
   [/(discord(?:app)?\.com\/api\/webhooks\/)[^\s"'<>]+/gi, `$1${FILTERED}`],
@@ -68,7 +67,7 @@ const SECRET_KEY =
 // Route and query parameters copied into attributes by tracing, such as
 // `params.token` or `url.path.parameter.token` for /join/$token.
 const SECRET_PARAM_KEY = new RegExp(
-  `^(?:params|url\\.path\\.parameter|url\\.query|query)\\.(?:${SENSITIVE_PARAMS}|inviteId)$`,
+  `^(?:params|url\\.path\\.parameter|url\\.query|query)\\.(?:${SENSITIVE_PARAMS})$`,
   "i",
 );
 

@@ -42,7 +42,6 @@ import getInstanceStatus from "./instance/controllers/get-instance-status";
 import joinLink from "./join-link";
 import joinLinkPublic from "./join-link/public";
 import apiKey from "./api-key";
-import { ApiError } from "./errors/api-error";
 import label from "./label";
 import mcpRoutes, { mcpWellKnownRoutes } from "./mcp";
 import notification from "./notification";
@@ -520,15 +519,6 @@ export function createApp() {
     }
 
     return c.json(document);
-  });
-
-  // Baton owns workspaces now (auth-boundary P3): the provider's
-  // organization routes are gone, for every kind of credential.
-  api.all("/auth/organization/*", () => {
-    throw new ApiError(404, {
-      code: "NOT_FOUND",
-      message: "Workspaces are served under /api/workspace.",
-    });
   });
 
   api.on(

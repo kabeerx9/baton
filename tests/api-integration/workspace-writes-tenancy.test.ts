@@ -1,9 +1,4 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import db, { schema } from "../../apps/api/src/database";
-import { signUpWithSession } from "./helpers/auth-session";
 import { resetTestDatabase } from "./helpers/database";
 import {
   ACTIONS,
@@ -122,82 +117,4 @@ describe("tenancy (A1)", () => {
       expect(await members.json()).toHaveLength(3);
     },
   );
-});
-
-describe("the provider organization endpoints are gone (A10)", () => {
-  it("answers 404 on every /api/auth/organization path", async () => {
-    const b = await ctx.seed("owner");
-    for (const path of [
-      "create",
-      "update",
-      "delete",
-      "leave",
-      "list",
-      "set-active",
-      "get-full-organization",
-      "list-members",
-      "get-active-member",
-      "remove-member",
-      "update-member-role",
-      "invite-member",
-      "accept-invitation",
-      "cancel-invitation",
-      "list-invitations",
-      "has-permission",
-      "create-role",
-      "update-role",
-      "delete-role",
-      "list-roles",
-      "check-slug",
-      "create-team",
-      "",
-    ]) {
-      for (const method of ["GET", "POST"] as const) {
-        const response = await ctx.app.request(
-          `/api/auth/organization/${path}?organizationId=${b.workspaceId}`,
-          {
-            method,
-            headers: {
-              ...ctx.as.cookie("owner"),
-              "content-type": "application/json",
-              origin: "http://localhost:5173",
-            },
-            body:
-              method === "POST"
-                ? JSON.stringify({ organizationId: b.workspaceId })
-                : undefined,
-          },
-        );
-        expect([method, path, response.status]).toEqual([method, path, 404]);
-      }
-    }
-  });
-
-  it("leaves no /organization string in the provider config", () => {
-    const source = readFileSync(
-      resolve(
-        import.meta.dirname,
-        "../../apps/api/src/identity/better-auth/auth.ts",
-      ),
-      "utf8",
-    );
-    expect(source).not.toContain("/organization");
-  });
-
-  it("signs up without an active organization, which has no column now", async () => {
-    const person = await signUpWithSession(ctx.app, {
-      email: "fresh@example.com",
-      name: "Fresh",
-    });
-    const sessions = await db
-      .select({ id: schema.sessionTable.id })
-      .from(schema.sessionTable)
-      .where(eq(schema.sessionTable.userId, person.userId));
-    expect(sessions.length).toBeGreaterThan(0);
-    const columns = await db.execute<{ column_name: string }>(sql`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'session'
-        AND column_name = 'active_organization_id'`);
-    expect(columns.rows).toEqual([]);
-  });
 });

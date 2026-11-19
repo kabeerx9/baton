@@ -347,7 +347,7 @@ const deleteWorkspaceRoute = createRoute({
   tags: ["Admin"],
   summary: "Delete a workspace",
   description:
-    "Permanently delete a workspace and everything in it, archived or not, the same way its owner can: projects, tasks, members, invitations and uploaded files go, and open realtime connections are closed. The administrator does not need to be a member. Requires the `workspaces:delete` instance permission; API keys are rejected.",
+    "Permanently delete a workspace and everything in it, archived or not, the same way its owner can: projects, tasks, members, join links and uploaded files go, and open realtime connections are closed. The administrator does not need to be a member. Requires the `workspaces:delete` instance permission; API keys are rejected.",
   middleware: [
     requireUserSession,
     requireInstancePermission("workspaces:delete"),

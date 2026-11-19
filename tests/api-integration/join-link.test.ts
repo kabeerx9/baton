@@ -801,27 +801,3 @@ describe("create defaults", () => {
     expect(hours).toBeLessThan(24.1);
   });
 });
-
-describe("email invitations are removed (20)", () => {
-  it("answers every provider organization endpoint with 404", async () => {
-    const ctx = await joinLinkFixture();
-    for (const operation of [
-      "invite-member",
-      "accept-invitation",
-      "invite-member/",
-      "create",
-      "remove-member",
-    ]) {
-      const response = await ctx.call(`/auth/organization/${operation}`, {
-        method: "POST",
-        body: {
-          organizationId: ctx.workspace.id,
-          email: "friend@example.com",
-          role: "member",
-        },
-        headers: { cookie: ctx.owner.cookies },
-      });
-      expect([operation, response.status]).toEqual([operation, 404]);
-    }
-  });
-});

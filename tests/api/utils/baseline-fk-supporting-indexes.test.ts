@@ -11,7 +11,6 @@ describe("baseline FK-supporting indexes", () => {
     const indexNames = [
       "activity_userId_idx",
       "asset_createdBy_idx",
-      "invitation_inviterId_idx",
       "notification_userId_idx",
       "task_assigneeId_idx",
       "task_columnId_idx",

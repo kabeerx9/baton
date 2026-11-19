@@ -2732,25 +2732,6 @@
 			}
 		}
 	},
-	"invitations": {
-		"email": {
-			"subject": "{{inviterName}} invited you to join {{workspaceName}} on {{instanceName}}",
-			"preview": "You're invited to {{workspaceName}} on Baton",
-			"title": "Join {{workspaceName}}",
-			"subtitle": "{{inviterName}} ({{inviterEmail}}) invited you to collaborate in Baton.",
-			"cta": "Accept invitation",
-			"sameEmail": "You can accept with the same email that received this message.",
-			"ignore": "If this wasn't expected, you can safely ignore this email.",
-			"footer": "Baton workspace invitation",
-			"details": {
-				"title": "Invitation details",
-				"sentTo": "Sent to",
-				"instance": "Instance",
-				"role": "Role",
-				"expires": "Expires"
-			}
-		}
-	},
 	"workspace": {
 		"projects": {
 			"pageTitle": "Projects",
@@ -3175,10 +3156,6 @@
 		}
 	},
 	"joinLink": {
-		"legacyInvite": {
-			"description": "Email invitations were replaced by join links. Ask a workspace admin for a link.",
-			"title": "Email invitations have ended"
-		},
 		"onboarding": {
 			"title": "Got a join link?",
 			"description": "Paste it to join your team. No link yet? You can start a workspace of your own.",
