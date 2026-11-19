@@ -16,6 +16,7 @@ import { S3Client } from "../../apps/api/node_modules/@aws-sdk/client-s3";
 import db, { schema } from "../../apps/api/src/database";
 import { as } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
+import { createWorkspaceMember } from "./helpers/fixtures";
 import { holdRowLock, waitForLockWaiters } from "./helpers/row-lock";
 import { seedViewerBoard } from "./helpers/viewer-board";
 
@@ -184,4 +185,48 @@ describe("lock order against a workspace delete", () => {
       expect((await pending!).status).toBe(200);
     });
   }
+});
+
+describe("a repo move overlapping the viewer's write", () => {
+  it("refuses with 409 when the task's repo moved to another workspace", async () => {
+    const f = await seedViewerBoard();
+    // The viewer belongs to the destination too, so only the move check
+    // stands between the write and a row tagged with the old workspace.
+    const { workspace: target } = await createWorkspaceMember();
+    await db.insert(schema.workspaceUserTable).values({
+      workspaceId: target.id,
+      userId: f.viewer.id,
+      role: "viewer",
+      joinedAt: new Date(),
+    });
+    // A project move holds the project FOR UPDATE until it commits.
+    const move = await connect();
+    await move.query("BEGIN");
+    await move.query('SELECT 1 FROM "project" WHERE "id" = $1 FOR UPDATE', [
+      f.board.id,
+    ]);
+    await move.query(
+      'UPDATE "project" SET "workspace_id" = $1 WHERE "id" = $2',
+      [target.id, f.board.id],
+    );
+    let pending: Promise<Response> | undefined;
+    try {
+      pending = as(f.viewer)(
+        `/api/comment/${f.own.id}`,
+        json("POST", { content: "Mid-move" }),
+      );
+      await waitForLockWaiters(1);
+      await move.query("COMMIT");
+    } finally {
+      await move.end();
+    }
+    const response = await pending!;
+    expect(response.status).toBe(409);
+    expect(
+      await db
+        .select()
+        .from(schema.activityTable)
+        .where(eq(schema.activityTable.taskId, f.own.id)),
+    ).toHaveLength(0);
+  });
 });

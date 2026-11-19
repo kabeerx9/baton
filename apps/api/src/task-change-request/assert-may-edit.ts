@@ -62,7 +62,7 @@ export async function lockEditableTask(
   if (!locked.has(peek.workspaceId))
     throw new HTTPException(404, { message: "Task not found" });
   const [project] = await tx
-    .select({ id: projectTable.id })
+    .select({ id: projectTable.id, workspaceId: projectTable.workspaceId })
     .from(projectTable)
     .where(eq(projectTable.id, peek.projectId))
     .for("key share");
@@ -77,12 +77,18 @@ export async function lockEditableTask(
     .where(eq(taskTable.id, taskId))
     .for("share");
   if (!task) throw new HTTPException(404, { message: "Task not found" });
-  if (!project || task.projectId !== project.id)
+  // The peek was unlocked: a project moved to another workspace meanwhile
+  // is the same retry as a task moved to another project.
+  if (
+    !project ||
+    project.workspaceId !== peek.workspaceId ||
+    task.projectId !== project.id
+  )
     throw new HTTPException(409, {
       message: "Task changed projects; retry the operation",
     });
   await assertMayEdit(tx, task, actor, options);
-  return { ...task, workspaceId: peek.workspaceId };
+  return { ...task, workspaceId: project.workspaceId };
 }
 
 /** `write` in a transaction that holds an editable task (comments). */
