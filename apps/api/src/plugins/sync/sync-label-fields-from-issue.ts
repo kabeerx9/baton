@@ -30,12 +30,14 @@ type Link = { id: string; taskId: string; externalId: string };
 type Metadata = {
   syncFieldLabels?: unknown;
   syncLabelFieldsDeferred?: unknown;
-  syncLabelFieldsAdded?: unknown;
 };
-const names = (value: unknown) =>
-  Array.isArray(value)
-    ? value.filter((name): name is string => typeof name === "string")
-    : [];
+
+/** The field labels Baton accounted for, or null when the record is malformed. */
+const recordedFieldLabels = (metadata: Metadata) =>
+  Array.isArray(metadata.syncFieldLabels) &&
+  metadata.syncFieldLabels.every((name) => typeof name === "string")
+    ? (metadata.syncFieldLabels as string[])
+    : null;
 
 /** The delivery-wide deadline shared by every integration a webhook reaches. */
 export const labelReadDeadline = () => Date.now() + BUDGET_MS;
@@ -51,7 +53,6 @@ async function applyLabelFields(
   link: Link,
   labels: string[],
   deferred: unknown,
-  added: string[],
 ) {
   await withIntegrationLink(
     link,
@@ -62,25 +63,17 @@ async function applyLabelFields(
         columns: { status: true, priority: true },
       });
       if (!task) return;
+      // Re-read the record under this row lock: an outbound sync may have
+      // confirmed labels while the provider read ran.
       const metadata = metadataOf(link);
-      // Links from before this record only trust labels events added. Read the
-      // queue under this row lock: deferrals may have joined it during the read,
-      // and every entry is handled here, so clearing it below loses none.
-      const trusted = [...added, ...names(metadata.syncLabelFieldsAdded)];
-      const known = Array.isArray(metadata.syncFieldLabels)
-        ? names(metadata.syncFieldLabels)
-        : labels.filter(
-            (name) => isFieldLabel(name) && !trusted.includes(name),
-          );
+      const known = recordedFieldLabels(metadata);
+      if (!known) return;
       const { status, priority } = changedLabelFields(labels, known, task);
       await updateExternalLink(
         link.id,
         {
           metadata: {
             syncFieldLabels: labels.filter(isFieldLabel),
-            ...(metadata.syncLabelFieldsAdded
-              ? { syncLabelFieldsAdded: null }
-              : {}),
             // A delivery deferred after this read began still needs its own.
             ...(deferred && metadata.syncLabelFieldsDeferred === deferred
               ? { syncLabelFieldsDeferred: null }
@@ -132,7 +125,6 @@ async function applyLabelFields(
 async function readAndApply(
   integration: Integration,
   link: Link,
-  added: string | null | undefined,
 ): Promise<"done" | "defer"> {
   try {
     return await withSyncLease(
@@ -144,17 +136,20 @@ async function readAndApply(
         });
         if (!stored) return "done";
         const metadata = metadataOf(stored);
-        const pending = [
-          ...(added ? [added] : []),
-          ...names(metadata.syncLabelFieldsAdded),
-        ];
-        if (
-          added === null &&
-          !pending.length &&
-          !Array.isArray(metadata.syncFieldLabels)
-        )
-          return "done";
         const deferred = metadata.syncLabelFieldsDeferred;
+        // Every issue link starts with this record. Without it, Baton cannot
+        // tell which labels it already applied, so it changes nothing.
+        if (!recordedFieldLabels(metadata)) {
+          logger.error("Issue link has no field-label record", {
+            integrationId: integration.id,
+            linkId: link.id,
+          });
+          if (deferred)
+            await updateExternalLink(link.id, {
+              metadata: { syncLabelFieldsDeferred: null },
+            });
+          return "done";
+        }
         let labels: string[];
         try {
           labels = (await (await providerIssue(integration, link)).read())
@@ -172,7 +167,7 @@ async function readAndApply(
             });
           return "done";
         }
-        await applyLabelFields(integration, link, labels, deferred, pending);
+        await applyLabelFields(integration, link, labels, deferred);
         return "done";
       },
       { maxWaitMs: LEASE_WAIT_MS },
@@ -189,25 +184,18 @@ async function readAndApply(
  * values back (#1956). The lease is the one outbound field-label sync holds
  * while it rewrites labels. One attempt runs within the delivery's budget; a
  * busy lease, transient failure or slow provider defers the read to replay.
- *
- * Links from before `syncFieldLabels` existed have no record of the labels
- * Baton accounted for. They apply only `added`, the field label a webhook
- * reports as added, kept with a deferral until replay; `null` marks a
- * removal, which leaves them untouched. Without either, the first read only
- * records the labels. Pass one `deadline` for every integration a delivery
- * reaches.
+ * Pass one `deadline` for every integration a delivery reaches.
  */
 export async function syncLabelFieldsFromIssue(
   integration: Integration,
   link: Link,
-  added?: string | null,
   deadline = labelReadDeadline(),
 ) {
   const remaining = deadline - Date.now();
-  if (remaining <= 0) return defer(integration, link, added);
+  if (remaining <= 0) return defer(integration, link);
   let timedOut = false;
   let timer: NodeJS.Timeout | undefined;
-  const work = readAndApply(integration, link, added);
+  const work = readAndApply(integration, link);
   // A read that outlives the budget finishes in the background.
   work.catch(() => {
     if (timedOut)
@@ -227,32 +215,15 @@ export async function syncLabelFieldsFromIssue(
   } finally {
     clearTimeout(timer);
   }
-  await defer(integration, link, added);
+  await defer(integration, link);
 }
 
-// The row lock keeps concurrent deferrals from dropping each other's label.
-async function defer(
-  integration: Integration,
-  link: Link,
-  added: string | null | undefined,
-) {
+// A fresh token per deferral: a read that began earlier clears only its own.
+async function defer(integration: Integration, link: Link) {
   await withIntegrationLink(link, integration, async (tx, _effects, link) => {
-    const metadata = metadataOf(link);
     await updateExternalLink(
       link.id,
-      {
-        metadata: {
-          syncLabelFieldsDeferred: randomUUID(),
-          // Replay of a link without a record trusts only these labels.
-          ...(added && !Array.isArray(metadata.syncFieldLabels)
-            ? {
-                syncLabelFieldsAdded: [
-                  ...new Set([...names(metadata.syncLabelFieldsAdded), added]),
-                ],
-              }
-            : {}),
-        },
-      },
+      { metadata: { syncLabelFieldsDeferred: randomUUID() } },
       tx,
     );
   });
