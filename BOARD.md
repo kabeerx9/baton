@@ -54,7 +54,9 @@ The permission check always comes first: a status change needs `task:update`,
 a direct delete needs `task:delete`, a reassignment needs `task:assign`. An
 API key narrows each permission to its scope. The check runs on every path
 that changes the owner: the assignee route, a full update, the board item
-update and a move that drops the owner. Then:
+update and a move that drops the owner. A full update changes the owner only
+when it sends a `userId` that differs from the locked row: an omitted
+`userId` keeps the owner, `""` clears it. Then:
 
 | Change | Involved, owner or admin | Other member | Viewer, own task | Viewer, any other task |
 | --- | --- | --- | --- | --- |
@@ -242,6 +244,17 @@ delete, feature delete, duplicate, GitHub) are a follow-up.
 
 Status, assignee, description and comments use the normal task endpoints.
 
+### Task titles
+
+Every path that writes a title trims it first. A blank title, or one over
+500 characters after the trim, is 400 `VALIDATION_ERROR`: create, full
+update, title update, import, duplicate, the board create, plan and subtask
+routes, and the MCP tools. The rule is `taskTitle` in
+`apps/api/src/task/task-title.ts`; the MCP package repeats it. GitHub import
+and sync keep their own bound, because GitHub owns those titles. Titles
+already stored over the limit stay until someone edits them; a full update
+that echoes one back is 400.
+
 ## MCP tools
 
 Agents work in names, not ids: owner "Aakash", repo "API", key "T-5".
@@ -332,6 +345,11 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
   reserved names; the seeded three can't be deleted or renamed (400
   `DEFAULT_ROLE`), and a role members hold can't be deleted or renamed (409
   `ROLE_IN_USE`). A role grants only what the actor holds.
+- Membership implies `workspace:read`: every role a member holds grants it,
+  whatever a custom role leaves out, so a member always sees their workspace
+  in `GET /api/workspace`, can open it and can list its members. An unknown
+  role grants nothing, and an API key scope still narrows it. The rule is
+  `withWorkspaceRead` in `apps/api/src/utils/role-permissions.ts`.
 
 | Call | Purpose |
 | --- | --- |
@@ -358,6 +376,10 @@ People join a workspace with a link, not an email invite. Code:
   create response has the URL.
 - Owners and admins manage the link (`invitation:create`). The preview is
   public and shows the workspace name only while the link is active.
+- Preview and join accept what people paste: the token with spaces around it,
+  or a join URL (`/join/<token>` or `?t=<token>`). Anything else is not found.
+  Lookup is by the token's hash only (`parseJoinToken` in
+  `apps/api/src/join-link/token.ts`).
 - Every route refuses API keys and MCP tokens. There is no MCP tool.
 - Join locks the workspace row, then the link row: the repo lock order. A
   person who is already a member uses nothing.
