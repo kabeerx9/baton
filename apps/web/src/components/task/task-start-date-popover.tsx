@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
+import { disabledTrigger } from "./disabled-trigger";
 import { toast } from "@/lib/toast";
 import type Task from "@/types/task";
 
@@ -42,7 +43,8 @@ export default function TaskStartDatePopover({
     }
   };
 
-  if (!canEdit) return <>{children}</>;
+  // Inert for a viewer on someone else's task: keep the trigger, mark it so.
+  if (!canEdit) return disabledTrigger(children);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

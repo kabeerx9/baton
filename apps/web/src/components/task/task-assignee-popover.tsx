@@ -9,6 +9,7 @@ import {
 import { useUpdateTaskAssignee } from "@/hooks/mutations/task/use-update-task-assignee";
 import useGetProjectMembers from "@/hooks/queries/workspace-users/use-get-project-members";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
+import { disabledTrigger } from "./disabled-trigger";
 import { toast } from "@/lib/toast";
 import type Task from "@/types/task";
 import { assigneeMenuOptions } from "./menus/assignee-menu-options";
@@ -33,7 +34,8 @@ export default function TaskAssigneePopover({
   });
   const { canAssignTasks } = useWorkspacePermission();
 
-  if (!canAssignTasks()) return <>{children}</>;
+  // Viewers and members cannot assign: the trigger says so and opens nothing.
+  if (!canAssignTasks()) return disabledTrigger(children);
 
   const changeAssignee = async (userId: string) => {
     setOpen(false);

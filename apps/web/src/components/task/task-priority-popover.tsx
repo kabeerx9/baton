@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { useUpdateTaskPriority } from "@/hooks/mutations/task/use-update-task-status-priority";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
+import { disabledTrigger } from "./disabled-trigger";
 import { getPriorityLabel } from "@/lib/i18n/domain";
 import { getPriorityIcon } from "@/lib/priority";
 import { toast } from "@/lib/toast";
@@ -29,7 +30,8 @@ export default function TaskPriorityPopover({
   const { mutateAsync: updateTaskPriority } = useUpdateTaskPriority();
   const { canWorkOnTask } = useWorkspacePermission();
 
-  if (!canWorkOnTask(task.userId)) return <>{children}</>;
+  // Inert for a viewer on someone else's task: keep the trigger, mark it so.
+  if (!canWorkOnTask(task.userId)) return disabledTrigger(children);
 
   const changePriority = async (priority: string) => {
     setOpen(false);
