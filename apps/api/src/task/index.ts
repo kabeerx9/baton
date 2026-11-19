@@ -448,7 +448,7 @@ const updateTaskRoute = createRoute({
   tags: ["Tasks"],
   summary: "Update task",
   description:
-    'Replace every field of a task. Use the single-field routes for narrower edits. Only the task\'s creator, assignee or a workspace owner or admin may change the assignee (403 otherwise). If you are not involved in the task, the other fields still apply but a status change becomes a change request: 202 with outcome "requested", the request and the updated task.',
+    'Replace every field of a task except the assignee, which changes only when `userId` is sent and differs. Use the single-field routes for narrower edits. Changing the assignee needs task:assign, and only the task\'s creator, assignee or a workspace owner or admin may do it (403 otherwise). If you are not involved in the task, the other fields still apply but a status change becomes a change request: 202 with outcome "requested", the request and the updated task.',
   middleware: [
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update_assigned"] }),
