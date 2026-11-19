@@ -18,11 +18,13 @@ export function isJoinToken(value: string) {
 
 const JOIN_PATH_PATTERN = /^\/join\/([^/]+)\/?$/;
 
+/** Every branch parses inside the try: a malformed paste is null, not a 500. */
 function parseUrl(text: string): URL | null {
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text)
-    ? text
-    : `https://${text.replace(/^\/+/, "")}`;
   try {
+    if (text.startsWith("/")) return new URL(text, "https://baton.invalid");
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text)
+      ? text
+      : `https://${text}`;
     return new URL(withScheme);
   } catch {
     return null;
@@ -38,9 +40,7 @@ export function parseJoinToken(input: string): string | null {
   const text = input.trim();
   if (isJoinToken(text)) return text;
   if (!text || /\s/.test(text)) return null;
-  const url = text.startsWith("/")
-    ? new URL(text, "https://baton.invalid")
-    : parseUrl(text);
+  const url = parseUrl(text);
   if (!url) return null;
   const fromPath = JOIN_PATH_PATTERN.exec(url.pathname)?.[1];
   const token = fromPath ?? url.searchParams.get("t");

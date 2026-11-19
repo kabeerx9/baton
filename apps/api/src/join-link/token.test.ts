@@ -69,6 +69,10 @@ describe("parseJoinToken", () => {
       `https://baton.example/elsewhere/${token}`,
       `https://baton.example/join?t=${token}x`,
       "https://",
+      // Malformed URLs on each branch must not throw.
+      "//[",
+      "/[",
+      "https://[",
     ]) {
       expect(parseJoinToken(pasted), pasted).toBeNull();
     }

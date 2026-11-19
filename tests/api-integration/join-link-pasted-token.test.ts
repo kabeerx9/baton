@@ -61,6 +61,9 @@ describe("join link token as pasted", () => {
       `https://baton.example/join/${token}/extra`,
       `https://baton.example/join?t=${token}x`,
       `${token} ${token}`,
+      // Malformed URLs: once a 500, now the same not found.
+      "//[",
+      "https://[",
     ]) {
       const joined = await ctx.join(who, pasted);
       expect(joined.status, pasted).toBe(404);
