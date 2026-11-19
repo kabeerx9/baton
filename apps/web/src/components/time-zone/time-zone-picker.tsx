@@ -64,8 +64,8 @@ export function TimeZonePicker({
       disabled={disabled}
       defaultOpen={defaultOpen}
       autoHighlight
-      itemToStringLabel={(zone) => labels.get(zone) ?? zone}
-      onInputValueChange={setQuery}
+      itemToLabel={(zone) => labels.get(zone) ?? zone}
+      onQueryChange={setQuery}
       onValueChange={(next) => {
         if (next) onChange(next);
       }}

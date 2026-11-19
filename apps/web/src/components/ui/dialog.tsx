@@ -65,11 +65,6 @@ function Dialog({
   );
 }
 
-/** UI SDK dialogs render in place and have no portal: this renders its children. */
-function DialogPortal({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 function DialogTrigger({
   asChild = false,
   children,
@@ -150,11 +145,6 @@ function DialogBackdrop({
       )}
     />
   );
-}
-
-/** UI SDK dialogs have no viewport: the content is placed by its own classes. */
-function DialogViewport({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
 }
 
 function DialogPopup({
@@ -344,7 +334,6 @@ const DialogPrimitive = {
 export {
   Dialog,
   DialogBackdrop,
-  DialogBackdrop as DialogOverlay,
   DialogClose,
   DialogCreateHandle,
   DialogDescription,
@@ -353,11 +342,9 @@ export {
   DialogPanel,
   DialogPopup,
   DialogPopup as DialogContent,
-  DialogPortal,
   DialogPrimitive,
   DialogTitle,
   DialogTrigger,
-  DialogViewport,
 };
 
 export type { DialogHandle };

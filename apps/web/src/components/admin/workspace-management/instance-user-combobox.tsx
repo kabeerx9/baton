@@ -47,8 +47,8 @@ function InstanceUserCombobox({
       value={value}
       disabled={disabled}
       onValueChange={(next) => onValueChange(next)}
-      onInputValueChange={setQuery}
-      itemToStringLabel={(user) => user.name || user.email}
+      onQueryChange={setQuery}
+      itemToLabel={(user) => user.name || user.email}
       isItemEqualToValue={(item, selected) => item.id === selected.id}
     >
       <ComboboxInput

@@ -62,16 +62,7 @@ function getActivityTypeIcon(type: string) {
 
 function formatActivityDateText(value: string) {
   const parsed = new Date(value);
-  if (!Number.isNaN(parsed.getTime())) {
-    return formatDateMedium(parsed);
-  }
-
-  const slashMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!slashMatch) return value;
-  const [, month, day, year] = slashMatch;
-  const fromSlashDate = new Date(`${year}-${month}-${day}T00:00:00`);
-  if (Number.isNaN(fromSlashDate.getTime())) return value;
-  return formatDateMedium(fromSlashDate);
+  return Number.isNaN(parsed.getTime()) ? value : formatDateMedium(parsed);
 }
 
 function toDisplayCase(value: string) {
@@ -81,16 +72,6 @@ function toDisplayCase(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
-}
-
-function findUserByName(users: WorkspaceUser[] | undefined, name: string) {
-  if (!users) return null;
-  const matches = users.filter(
-    (member) => member.name?.toLowerCase().trim() === name.toLowerCase().trim(),
-  );
-
-  if (matches.length !== 1) return null;
-  return matches[0];
 }
 
 function UserHoverName({
@@ -173,22 +154,6 @@ function renderActivityContent({
         </span>
       );
     }
-
-    const match = content.match(
-      /changed priority from "?(.+?)"? to "?(.+?)"?$/i,
-    );
-    if (!match) {
-      return <span className="text-muted-foreground">{content}</span>;
-    }
-
-    return (
-      <span className="text-muted-foreground">
-        {t("activity:changedPriority", {
-          from: getPriorityLabel(match[1]),
-          to: getPriorityLabel(match[2]),
-        })}
-      </span>
-    );
   }
 
   if (activity.type === "status_changed") {
@@ -202,20 +167,6 @@ function renderActivityContent({
         </span>
       );
     }
-
-    const match = content.match(/changed status from "?(.+?)"? to "?(.+?)"?$/i);
-    if (!match) {
-      return <span className="text-muted-foreground">{content}</span>;
-    }
-
-    return (
-      <span className="text-muted-foreground">
-        {t("activity:changedStatus", {
-          from: getStatusLabel(match[1]),
-          to: getStatusLabel(match[2]),
-        })}
-      </span>
-    );
   }
 
   if (activity.type === "due_date_changed") {
@@ -240,39 +191,6 @@ function renderActivityContent({
         </span>
       );
     }
-
-    const changeMatch = content.match(/changed due date from (.+) to (.+)$/i);
-    if (changeMatch) {
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:changedDueDate", {
-            from: formatActivityDateText(changeMatch[1]),
-            to: formatActivityDateText(changeMatch[2]),
-          })}
-        </span>
-      );
-    }
-
-    const setMatch = content.match(/set due date to (.+)$/i);
-    if (setMatch) {
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:setDueDate", {
-            date: formatActivityDateText(setMatch[1]),
-          })}
-        </span>
-      );
-    }
-
-    if (content.includes("cleared the due date")) {
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:clearedDueDate")}
-        </span>
-      );
-    }
-
-    return <span className="text-muted-foreground">{content}</span>;
   }
 
   if (activity.type === "unassigned") {
@@ -304,44 +222,6 @@ function renderActivityContent({
         </span>
       );
     }
-
-    if (content.includes("themselves")) {
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:assignedToSelf")}
-        </span>
-      );
-    }
-
-    const tokenMatch = content.match(
-      /assigned the task to \[\[user:([^|\]]+)\|([^\]]+)\]\]/,
-    );
-    if (tokenMatch) {
-      const [, targetId, targetName] = tokenMatch;
-      const targetUser =
-        workspaceUsers?.find((member) => member.id === targetId) || null;
-
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:assignedTo", {
-            name: targetUser?.name ?? targetName,
-          })}
-        </span>
-      );
-    }
-
-    const legacyMatch = content.match(/assigned the task to (.+)$/i);
-    if (legacyMatch) {
-      const targetName = legacyMatch[1];
-      const targetUser = findUserByName(workspaceUsers, targetName);
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:assignedTo", {
-            name: targetUser?.name ?? targetName,
-          })}
-        </span>
-      );
-    }
   }
 
   if (activity.type === "title_changed") {
@@ -351,18 +231,6 @@ function renderActivityContent({
           {t("activity:changedTitle", {
             from: String(eventData.oldTitle ?? ""),
             to: String(eventData.newTitle ?? ""),
-          })}
-        </span>
-      );
-    }
-
-    const legacyMatch = content.match(/changed title from "(.+)" to "(.+)"$/i);
-    if (legacyMatch) {
-      return (
-        <span className="text-muted-foreground">
-          {t("activity:changedTitle", {
-            from: legacyMatch[1],
-            to: legacyMatch[2],
           })}
         </span>
       );

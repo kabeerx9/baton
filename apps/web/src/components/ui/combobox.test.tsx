@@ -235,15 +235,15 @@ describe("Combobox parity", () => {
     expect(onValueChange.mock.calls[0]?.[0]).toBeNull();
   });
 
-  it("maps object values with itemToStringLabel, itemToStringValue and isItemEqualToValue", async () => {
+  it("maps object values with itemToLabel, itemToValue and isItemEqualToValue", async () => {
     const onValueChange = vi.fn();
     // A different object with the same id: only isItemEqualToValue can match it.
     const selected: User = { id: "u2", name: "Alan Turing" };
     render(
       <Combobox
         isItemEqualToValue={(item, value) => item.id === value.id}
-        itemToStringLabel={(user: User) => user.name}
-        itemToStringValue={(user: User) => user.id}
+        itemToLabel={(user: User) => user.name}
+        itemToValue={(user: User) => user.id}
         items={USERS}
         name="user"
         onValueChange={onValueChange}
@@ -283,14 +283,10 @@ describe("Combobox parity", () => {
     expect(onValueChange.mock.calls[0]?.[0]).toEqual(USERS[2]);
   });
 
-  it("keeps every item with filter={null} and reports typing through onInputValueChange", async () => {
-    const onInputValueChange = vi.fn();
+  it("keeps every item with filter={null} and reports typing through onQueryChange", async () => {
+    const onQueryChange = vi.fn();
     render(
-      <Combobox
-        filter={null}
-        items={FRUITS}
-        onInputValueChange={onInputValueChange}
-      >
+      <Combobox filter={null} items={FRUITS} onQueryChange={onQueryChange}>
         <ComboboxInput aria-label="Fruit" showTrigger={false} />
         <ComboboxPopup>
           <ComboboxList>
@@ -306,8 +302,8 @@ describe("Combobox parity", () => {
     const input = screen.getByRole("combobox", { name: "Fruit" });
     await type(input, "zz");
 
-    await waitFor(() => expect(onInputValueChange).toHaveBeenCalled());
-    expect(onInputValueChange.mock.calls.at(-1)?.[0]).toBe("zz");
+    await waitFor(() => expect(onQueryChange).toHaveBeenCalled());
+    expect(onQueryChange.mock.calls.at(-1)?.[0]).toBe("zz");
     await waitFor(() => expect(optionNames()).toEqual(FRUITS));
   });
 
@@ -531,7 +527,7 @@ describe("Combobox parity", () => {
   });
 
   it("keeps the Base UI function filter signature (item, query, itemToString)", async () => {
-    // Without itemToStringLabel Base UI hands no conversion, so it is not called.
+    // Without itemToLabel Base UI hands no conversion, so it is not called.
     const seen: [string, string][] = [];
     render(
       <FruitCombobox
@@ -560,7 +556,7 @@ describe("Combobox parity", () => {
           query: string,
           itemToString: (value: User) => string,
         ) => itemToString(user).toLowerCase().startsWith(query.toLowerCase())}
-        itemToStringLabel={(user: User) => user.name}
+        itemToLabel={(user: User) => user.name}
         items={USERS}
       >
         <ComboboxInput aria-label="User" showTrigger={false} />

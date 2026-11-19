@@ -20,11 +20,8 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogOverlay,
-  AlertDialogPortal,
   AlertDialogTitle,
   AlertDialogTrigger,
-  AlertDialogViewport,
 } from "./alert-dialog";
 import { expectPopupContainment } from "./popup-containment-test-utils";
 import { POPUP_RESET } from "./popup-reset";
@@ -567,28 +564,6 @@ describe("AlertDialog disabled", () => {
     press(locked);
     await act(async () => {});
     expect(openDialog()).not.toBeNull();
-  });
-});
-
-describe("AlertDialog exports kept for callers", () => {
-  it("keeps Portal, Viewport and Overlay as usable parts", async () => {
-    expect(AlertDialogOverlay).toBeDefined();
-    render(
-      <AlertDialog defaultOpen>
-        <AlertDialogPortal>
-          <AlertDialogViewport>
-            <AlertDialogContent>
-              <AlertDialogTitle>Parts</AlertDialogTitle>
-              <AlertDialogClose>Cancel</AlertDialogClose>
-            </AlertDialogContent>
-          </AlertDialogViewport>
-        </AlertDialogPortal>
-      </AlertDialog>,
-    );
-    await expectOpen();
-    expect(
-      screen.getByRole("alertdialog", { name: "Parts" }),
-    ).toBeInTheDocument();
   });
 });
 

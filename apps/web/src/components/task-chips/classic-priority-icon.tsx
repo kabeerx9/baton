@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-// The chevron icons Baton used before the 2.47 mark glyphs, kept for people
-// who prefer them.
+// The chevron icon set, which a person can pick in preferences instead of the
+// mark glyphs.
 const ICONS: Record<string, { Icon: LucideIcon; tone: string }> = {
   low: { Icon: ChevronDown, tone: "text-info-foreground/85" },
   medium: { Icon: ChevronUp, tone: "text-warning-foreground/80" },

@@ -214,9 +214,9 @@ describe("ToggleGroup parity (passes on the Base UI wrapper)", () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
-  it("does not wrap at the ends when loopFocus is false", async () => {
+  it("does not wrap at the ends when loop is false", async () => {
     render(
-      <ToggleGroup aria-label="View" loopFocus={false} value={[]}>
+      <ToggleGroup aria-label="View" loop={false} value={[]}>
         <GroupItems />
       </ToggleGroup>,
     );
@@ -232,9 +232,9 @@ describe("ToggleGroup parity (passes on the Base UI wrapper)", () => {
     await waitFor(() => expect(board).toHaveFocus());
   });
 
-  it("keeps loopFocus working when the group has a disabled item", async () => {
+  it("keeps loop working when the group has a disabled item", async () => {
     render(
-      <ToggleGroup aria-label="View" loopFocus={false} value={[]}>
+      <ToggleGroup aria-label="View" loop={false} value={[]}>
         <ToggleGroupItem value="a">A</ToggleGroupItem>
         <ToggleGroupItem disabled value="b">
           B

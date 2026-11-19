@@ -96,11 +96,6 @@ function AlertDialog({
   );
 }
 
-/** UI SDK dialogs render in place and have no portal: this renders its children. */
-function AlertDialogPortal({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 function AlertDialogTrigger({
   handle,
   controller,
@@ -151,11 +146,6 @@ function AlertDialogBackdrop({
       )}
     />
   );
-}
-
-/** UI SDK dialogs have no viewport: the content is placed by its own classes. */
-function AlertDialogViewport({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
 }
 
 function AlertDialogPopup({
@@ -278,7 +268,6 @@ function AlertDialogClose(
 export {
   AlertDialog,
   AlertDialogBackdrop,
-  AlertDialogBackdrop as AlertDialogOverlay,
   AlertDialogClose,
   AlertDialogCreateHandle,
   AlertDialogDescription,
@@ -286,10 +275,8 @@ export {
   AlertDialogHeader,
   AlertDialogPopup,
   AlertDialogPopup as AlertDialogContent,
-  AlertDialogPortal,
   AlertDialogTitle,
   AlertDialogTrigger,
-  AlertDialogViewport,
 };
 
 export type { AlertDialogHandle };
