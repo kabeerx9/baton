@@ -6,10 +6,6 @@ import {
   scrubLog,
   scrubSpan,
 } from "@/lib/observability/scrub";
-import {
-  scrubRecordingEvent,
-  scrubReplayEvent,
-} from "@/lib/observability/scrub-recording-event";
 import { resolveSentryConfig } from "@/lib/observability/sentry-config";
 
 // env.sh renders these placeholders at container start; see apps/web/env.awk.
@@ -62,21 +58,13 @@ if (config) {
     beforeSendSpan: scrubSpan,
     beforeBreadcrumb: failClosed(scrubBreadcrumb),
     beforeSendLog: failClosed(scrubLog),
-    // Router tracing is added in main.tsx once the router exists.
+    // Router tracing is added in main.tsx once the router exists. Session
+    // Replay is off on purpose: its rrweb Meta event records location.href
+    // (join and reset tokens) and @sentry/replay 11.9 has no hook to scrub it.
     integrations: [
-      Sentry.replayIntegration({
-        maskAllText: true,
-        maskAllInputs: true,
-        blockAllMedia: true,
-        beforeAddRecordingEvent: scrubRecordingEvent,
-      }),
       // Console warnings and errors become Sentry Logs; info and debug do not.
       Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] }),
     ],
     tracesSampleRate: 0.1,
-    // Replays only for sessions that hit an error.
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1.0,
   });
-  Sentry.addEventProcessor(scrubReplayEvent);
 }
