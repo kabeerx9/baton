@@ -251,9 +251,8 @@ Every path that writes a title trims it first. A blank title, or one over
 update, title update, import, duplicate, the board create, plan and subtask
 routes, and the MCP tools. The rule is `taskTitle` in
 `apps/api/src/task/task-title.ts`; the MCP package repeats it. GitHub import
-and sync keep their own bound, because GitHub owns those titles. Titles
-already stored over the limit stay until someone edits them; a full update
-that echoes one back is 400.
+and sync keep their own bound, because GitHub owns those titles. A duplicate
+that leaves the title out checks the copied title by the same rule.
 
 ## MCP tools
 

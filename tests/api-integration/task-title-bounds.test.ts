@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { ensureBoardProject } from "../../apps/api/src/board/controllers/ensure-board-project";
@@ -128,5 +129,35 @@ describe("task titles", () => {
     const renamed = await titleCalls(f).updateTitle("  Renamed  ");
     expect(renamed.status).toBe(200);
     expect((await readTask(f.task.id))?.title).toBe("Renamed");
+  });
+
+  it("checks the copied title when a duplicate leaves the title out", async () => {
+    const f = await seed();
+    // GitHub sync stores its own titles up to 4096 characters.
+    for (const stored of [tooLong, blank]) {
+      await db
+        .update(schema.taskTable)
+        .set({ title: stored })
+        .where(eq(schema.taskTable.id, f.task.id));
+      const before = await db.select().from(schema.taskTable);
+      const response = await f.send(
+        `/api/task/duplicate/${f.task.id}`,
+        post({}),
+      );
+      expect(response.status, stored).toBe(400);
+      expect((await readErrorBody(response)).code).toBe("VALIDATION_ERROR");
+      expect(await db.select().from(schema.taskTable)).toHaveLength(
+        before.length,
+      );
+    }
+
+    await db
+      .update(schema.taskTable)
+      .set({ title: "  Padded  " })
+      .where(eq(schema.taskTable.id, f.task.id));
+    const copied = await f.send(`/api/task/duplicate/${f.task.id}`, post({}));
+    expect(copied.status).toBe(200);
+    const { id } = (await copied.json()) as { id: string };
+    expect((await readTask(id))?.title).toBe("Padded");
   });
 });

@@ -1,6 +1,8 @@
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
+import { validationError } from "../../errors/validation-error";
+import { taskTitle } from "../task-title";
 import db from "../../database";
 import {
   assetTable,
@@ -144,6 +146,19 @@ async function duplicateTask({
     });
   }
 
+  // The copy obeys the title rule even when the title comes from the source,
+  // checked before any asset is copied.
+  const parsedTitle = taskTitle.safeParse(title ?? sourceTask.title);
+  if (!parsedTitle.success) {
+    throw validationError(
+      parsedTitle.error.issues.map((issue) => ({
+        ...issue,
+        path: ["title", ...issue.path],
+      })),
+    );
+  }
+  const copyTitle = parsedTitle.data;
+
   const [project] = await db
     .select({ workspaceId: projectTable.workspaceId })
     .from(projectTable)
@@ -256,7 +271,7 @@ async function duplicateTask({
           userId,
           // The person duplicating creates the copy; never the source's creator.
           createdBy: currentUserId || null,
-          title: title ?? sourceTask.title,
+          title: copyTitle,
           status,
           columnId: column?.id ?? null,
           startDate: sourceTask.startDate,
@@ -337,6 +352,8 @@ async function duplicateTask({
       ...relation,
       taskId: relation.sourceTaskId,
       projectId: parentProjectId ?? sourceTask.projectId,
+      sourceProjectId: parentProjectId,
+      targetProjectId: sourceTask.projectId,
       userId: currentUserId,
     });
   }
