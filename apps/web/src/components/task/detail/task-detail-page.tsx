@@ -43,6 +43,9 @@ import useGetTaskRelations from "@/hooks/queries/task-relation/use-get-task-rela
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import type { ExternalLink } from "@/types/external-link";
 import { DiagramCore } from "./diagram/diagram-core";
+import { FeatureHero } from "./feature-status/feature-hero";
+import { FeatureLanes } from "./feature-status/feature-lanes";
+import { summarizeFeature } from "./feature-status/feature-status";
 import { TaskDiagram } from "./diagram/task-diagram";
 import { deriveHeadline } from "./headline-model";
 import { TaskHeadline } from "./task-headline";
@@ -190,7 +193,19 @@ export function TaskDetailPage({
       }),
     };
   });
-  const followsSubtasks = !!boardTask && boardTask.subtasks.length > 0;
+  const feature =
+    boardTask && boardTask.subtasks.length > 0 ? boardTask : undefined;
+  const followsSubtasks = !!feature;
+  const featureSummary =
+    feature && built
+      ? summarizeFeature(feature, {
+          waitsOn: waitsOnView,
+          blocks: blocksView,
+          boardTasks: built.boardTasks,
+          memberName: (id) =>
+            board?.members.find((m) => m.id === id)?.name ?? null,
+        })
+      : undefined;
   const isBoardItem = !!boardTask || !!self;
 
   const bar = deriveStatusBar({
@@ -207,7 +222,7 @@ export function TaskDetailPage({
     (x) => x.status !== "done" && !x.blocked,
   ).length;
   const headline = deriveHeadline({
-    bar: followsSubtasks ? "ready" : bar.kind,
+    bar: bar.kind,
     done: isDone,
     openBlockers,
     pendingRequest,
@@ -218,14 +233,19 @@ export function TaskDetailPage({
     bar.kind === "ready" && bar.steps.length > 1
       ? bar.index / (bar.steps.length - 1)
       : 0;
+  const keyLabel = `${slugOf(projectId)}-${task.number}${boardTask ? ` · ${kindOf(boardTask)}` : ""}`;
+  const repoName =
+    repo?.kind === "repo"
+      ? (repo.repository?.split("/")[1] ??
+        repo.name.replace(/\s*\(.*\)\s*$/, ""))
+      : null;
   const column = columns.data?.find((c) => c.slug === shown || c.id === shown);
-  const label = followsSubtasks
-    ? t("tasks:hero.status.followsTasks")
-    : bar.kind === "unknown"
+  const label =
+    bar.kind === "unknown"
       ? t("tasks:hero.status.unknownShort")
       : getStatusDisplayLabel(shown, column?.name);
   const tone = heroTone({
-    unknown: bar.kind === "unknown" && !followsSubtasks,
+    unknown: bar.kind === "unknown",
     done: isDone,
     pendingRequest,
     blocked,
@@ -234,56 +254,61 @@ export function TaskDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 sm:px-6">
-      <TaskHero
-        tone={tone}
-        keyLabel={`${slugOf(projectId)}-${task.number}${boardTask ? ` · ${kindOf(boardTask)}` : ""}`}
-        repoName={
-          repo?.kind === "repo"
-            ? (repo.repository?.split("/")[1] ??
-              repo.name.replace(/\s*\(.*\)\s*$/, ""))
-            : null
-        }
-        title={<TaskTitle taskId={taskId} size="md" />}
-        headline={
-          <TaskHeadline headline={headline} owner={owner?.name ?? null} />
-        }
-        bar={
-          followsSubtasks ? (
-            <p className="rounded-xl bg-muted px-3 py-3 text-muted-foreground text-sm">
-              {t("tasks:hero.status.followsTasks")}
-            </p>
-          ) : (
+      {feature && featureSummary ? (
+        <>
+          <FeatureHero
+            feature={feature}
+            summary={featureSummary}
+            keyLabel={keyLabel}
+            repoName={repoName}
+            title={<TaskTitle taskId={taskId} size="md" />}
+            owner={owner}
+          />
+          {featureSummary.connected && (
+            <FeatureLanes feature={feature} summary={featureSummary} />
+          )}
+        </>
+      ) : (
+        <TaskHero
+          tone={tone}
+          keyLabel={keyLabel}
+          repoName={repoName}
+          title={<TaskTitle taskId={taskId} size="md" />}
+          headline={
+            <TaskHeadline headline={headline} owner={owner?.name ?? null} />
+          }
+          bar={
             <div data-tour="status-bar">
               <TaskStatusBar task={task} blocked={blocked} />
             </div>
-          )
-        }
-        diagram={
-          <TaskDiagram
-            waitsOn={waitsOnView}
-            blocks={blocksView}
-            done={isDone}
-            stillNeeded={blocked}
-            workspaceId={workspaceId}
-            core={
-              <DiagramCore
-                label={label}
-                glyph={isDone ? "done" : status}
-                progress={progress}
-                tone={tone}
-              />
-            }
-          />
-        }
-        owner={owner}
-        signal={
-          pendingRequest
-            ? t("tasks:hero.status.requested")
-            : blocked && !isDone
-              ? t("tasks:hero.signal.blocked")
-              : null
-        }
-      />
+          }
+          diagram={
+            <TaskDiagram
+              waitsOn={waitsOnView}
+              blocks={blocksView}
+              done={isDone}
+              stillNeeded={blocked}
+              workspaceId={workspaceId}
+              core={
+                <DiagramCore
+                  label={label}
+                  glyph={isDone ? "done" : status}
+                  progress={progress}
+                  tone={tone}
+                />
+              }
+            />
+          }
+          owner={owner}
+          signal={
+            pendingRequest
+              ? t("tasks:hero.status.requested")
+              : blocked && !isDone
+                ? t("tasks:hero.signal.blocked")
+                : null
+          }
+        />
+      )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-8">
