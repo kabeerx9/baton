@@ -21,7 +21,7 @@ async function leaveWorkspace(input: {
   actor: Extract<WorkspaceActor, { kind: "member" }>;
 }) {
   const { workspaceId, actor } = input;
-  const userRole = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const locked = await lockWorkspace(tx, workspaceId, { allowDemo: true });
     const member = await authorizeWorkspaceWrite(tx, locked, actor, {
       permissions: {},
@@ -46,20 +46,12 @@ async function leaveWorkspace(input: {
         ),
       );
     await clearMemberProjectAccess(workspaceId, actor.userId, tx);
-    const [user] = await tx
-      .select({ role: schema.userTable.role })
-      .from(schema.userTable)
-      .where(eq(schema.userTable.id, actor.userId))
-      .limit(1);
-    return user?.role ?? null;
   });
 
   await publishEvent("project_members.updated", { workspaceId });
   await publishMembersUpdated(workspaceId);
   try {
-    await revokeWorkspaceConnections(actor.userId, workspaceId, {
-      role: userRole,
-    });
+    await revokeWorkspaceConnections(actor.userId, workspaceId);
   } catch (error) {
     // The leave is committed; the socket recheck (every 60 s) closes it.
     logger.error("Socket revocation failed after leave", { error });

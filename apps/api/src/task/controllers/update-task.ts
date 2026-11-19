@@ -83,11 +83,14 @@ async function updateTask(
 
   await assertValidTaskStatus(status, projectId);
 
-  const normalizedUserId = userId?.trim() || undefined;
+  // Omitted keeps the owner; "" clears it. The change is judged against the
+  // locked row below.
+  const requestedUserId =
+    userId === undefined ? undefined : userId.trim() || null;
 
-  if (normalizedUserId && normalizedUserId !== existingTask.userId) {
+  if (requestedUserId && requestedUserId !== existingTask.userId) {
     await assertAssignableUser(
-      normalizedUserId,
+      requestedUserId,
       await getProjectWorkspaceId(projectId),
       projectId,
     );
@@ -156,6 +159,9 @@ async function updateTask(
         message: "Task order changed; refresh before updating",
       });
     existingTask = locked;
+    const nextUserId =
+      requestedUserId === undefined ? locked.userId : requestedUserId;
+    const ownerChanges = nextUserId !== locked.userId;
 
     // Consent is decided against the locked task as it was before this edit,
     // so an outsider cannot assign themselves and finish in one call.
@@ -166,7 +172,7 @@ async function updateTask(
       // task:update_assigned alone works only on the caller's own task.
       const edit = decideConsent("edit", facts);
       if (edit.kind === "deny") throw consentError(edit);
-      if ((normalizedUserId ?? null) !== locked.userId) {
+      if (ownerChanges) {
         const assign = decideConsent("assign", facts);
         if (assign.kind === "deny") throw consentError(assign);
       }
@@ -212,7 +218,7 @@ async function updateTask(
       }
     }
     // A new assignee changes who must consent: open requests no longer hold.
-    if ((normalizedUserId ?? null) !== locked.userId)
+    if (ownerChanges)
       effects.push(
         ...finishedEffects(
           await cancelPendingRequests(tx, id, "task_changed"),
@@ -249,7 +255,7 @@ async function updateTask(
         description,
         priority,
         position,
-        userId: normalizedUserId ?? null,
+        userId: nextUserId,
       })
       .where(and(eq(taskTable.id, id), eq(taskTable.projectId, projectId)))
       .returning({

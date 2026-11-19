@@ -4,19 +4,15 @@ import { beforeEach, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import {
-  addConnection,
-  addUserConnection,
-  removeConnection,
-  removeUserConnection,
-} from "../../apps/api/src/ws";
-import { syncWorkspaceAccess } from "../../apps/api/src/ws/workspace-access";
+  hasWorkspaceAccess,
+  syncWorkspaceAccess,
+} from "../../apps/api/src/ws/workspace-access";
 import { resetTestDatabase } from "./helpers/database";
-import {
-  createProjectFixture,
-  createWorkspaceMember,
-} from "./helpers/fixtures";
+import { createWorkspaceMember } from "./helpers/fixtures";
+
+// Instance administrators hold workspace sockets only through membership.
 beforeEach(resetTestDatabase);
-it("evicts a deleted workspace for an implicit administrator and reconciles offline administrators", async () => {
+it("gives an instance administrator no socket access to a workspace they never joined", async () => {
   const admin = await createWorkspaceMember();
   await db
     .update(schema.userTable)
@@ -44,7 +40,6 @@ it("evicts a deleted workspace for an implicit administrator and reconciles offl
   });
   expect(created.status).toBe(201);
   const workspace = (await created.json()) as { id: string };
-  const { project } = await createProjectFixture({ workspaceId: workspace.id });
   expect(
     await db.query.workspaceUserTable.findFirst({
       where: and(
@@ -53,42 +48,17 @@ it("evicts a deleted workspace for an implicit administrator and reconciles offl
       ),
     }),
   ).toBeUndefined();
-  const global = { send: vi.fn(), close: vi.fn() };
-  const board = { send: vi.fn(), close: vi.fn() };
-  const userConnection = addUserConnection(
-    admin.user.id,
-    global as unknown as WSContext,
-  );
-  const projectConnection = addConnection(
-    project.id,
-    board as unknown as WSContext,
-    admin.user.id,
-    "window",
-    workspace.id,
-  );
-  try {
-    const deleted = await app.request(`/api/workspace/${workspace.id}`, {
-      method: "DELETE",
-      headers: { cookie },
-    });
-    expect(deleted.status).toBe(200);
-    expect(board.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
-    expect(
-      global.send.mock.calls.map(([message]) => JSON.parse(message)),
-    ).toContainEqual({
-      type: "WORKSPACE_ACCESS_REVOKED",
-      workspaceId: workspace.id,
-    });
-    const reconnected = { send: vi.fn(), close: vi.fn() };
-    await syncWorkspaceAccess(
-      admin.user.id,
-      reconnected as unknown as WSContext,
-    );
-    const snapshot = JSON.parse(reconnected.send.mock.calls[0][0]);
-    expect(snapshot.workspaceIds).toContain(admin.workspace.id);
-    expect(snapshot.workspaceIds).not.toContain(workspace.id);
-  } finally {
-    removeConnection(project.id, projectConnection);
-    removeUserConnection(admin.user.id, userConnection);
-  }
+  const snapshot = async () => {
+    const socket = { send: vi.fn(), close: vi.fn() };
+    await syncWorkspaceAccess(admin.user.id, socket as unknown as WSContext);
+    return JSON.parse(socket.send.mock.calls[0][0]).workspaceIds as string[];
+  };
+  expect(await snapshot()).toEqual([admin.workspace.id]);
+  expect(await hasWorkspaceAccess(admin.user.id, workspace.id)).toBe(false);
+  const deleted = await app.request(`/api/workspace/${workspace.id}`, {
+    method: "DELETE",
+    headers: { cookie },
+  });
+  expect(deleted.status).toBe(200);
+  expect(await snapshot()).toEqual([admin.workspace.id]);
 });

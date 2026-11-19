@@ -196,12 +196,18 @@ async function createTask({
   });
 
   if (parentTaskId) {
+    const [parent] = await db
+      .select({ projectId: taskTable.projectId })
+      .from(taskTable)
+      .where(eq(taskTable.id, parentTaskId));
     await publishEvent("task-relation.created", {
       sourceTaskId: parentTaskId,
       targetTaskId: createdTask.id,
       relationType: "subtask",
       taskId: parentTaskId,
       projectId,
+      sourceProjectId: parent?.projectId,
+      targetProjectId: projectId,
       userId: currentUserId,
     });
   }

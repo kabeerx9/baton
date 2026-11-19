@@ -692,3 +692,29 @@ describe("registerTools", () => {
     ]);
   });
 });
+
+describe("task title bounds", () => {
+  const { server, tools } = createServerMock();
+  registerTools(server as never, {
+    client: { json: vi.fn() } as never,
+    catalog: "all",
+  });
+  const parse = (tool: string, args: Record<string, unknown>) =>
+    tools.get(tool)?.config.inputSchema?.parse(args) as Record<string, unknown>;
+  const cases: Array<[string, (title: string) => Record<string, unknown>]> = [
+    ["create_board_task", (title) => ({ title })],
+    ["create_board_task", (title) => ({ title: "F", subtasks: [{ title }] })],
+    ["add_subtasks", (title) => ({ taskKey: "T-1", subtasks: [{ title }] })],
+    ["update_task", (title) => ({ taskId: "t", title })],
+    ["duplicate_task", (title) => ({ taskId: "t", title })],
+  ];
+
+  it.each(cases)("%s refuses blank and over-500 titles", (tool, args) => {
+    expect(() => parse(tool, args("   "))).toThrow();
+    expect(() => parse(tool, args("x".repeat(501)))).toThrow();
+  });
+
+  it.each(cases)("%s trims a title of 500 characters", (tool, args) => {
+    expect(() => parse(tool, args(` ${"x".repeat(500)} `))).not.toThrow();
+  });
+});

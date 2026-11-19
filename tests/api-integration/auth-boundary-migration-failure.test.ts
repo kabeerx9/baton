@@ -117,6 +117,8 @@ it("rolls back every drop and exits non-zero when one drop fails", async () => {
 
   expect(result.code, result.output).not.toBe(0);
   expect(result.output).toContain("Database migrations failed");
-  expect(result.output).toContain("depend");
+  // The logger hides the raw database text; the SQLSTATE names the cause:
+  // 2BP01 is dependent_objects_still_exist.
+  expect(result.output).toContain("2BP01");
   expect(await state()).toEqual(before);
 });

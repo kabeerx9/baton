@@ -702,15 +702,11 @@ describe("MCP grants API", () => {
     ).toEqual({ grants: [], nextCursor: null });
   });
 
-  it.each([
-    "removed",
-    "custom role without workspace:read",
-    "archived",
-  ] as const)(
+  it.each(["removed", "given an unknown role", "archived"] as const)(
     "hides the default workspace once the caller is %s",
     async (change) => {
       const { app } = createApp();
-      // The first account becomes the instance admin, who passes role checks.
+      // The first account becomes the instance admin.
       await signUp(app, "Instance admin");
       const owner = await signUp(app);
       const workspace = await addWorkspace(owner.userId, "Acme");
@@ -736,16 +732,12 @@ describe("MCP grants API", () => {
           .set({ archivedAt: new Date() })
           .where(eq(schema.workspaceTable.id, workspace.id));
       } else {
+        // Membership implies workspace:read, but a role with no
+        // definition grants nothing.
         await db
           .update(schema.workspaceUserTable)
-          .set({ role: "contractor" })
+          .set({ role: "gone" })
           .where(eq(schema.workspaceUserTable.workspaceId, workspace.id));
-        await db.insert(schema.workspaceRoleTable).values({
-          workspaceId: workspace.id,
-          role: "contractor",
-          permission: JSON.stringify({ task: ["read"] }),
-          createdAt: new Date(),
-        });
       }
       await db
         .update(schema.workspaceTable)
@@ -910,20 +902,15 @@ describe("MCP default workspace", () => {
 
   it("refuses a workspace the user belongs to but cannot read", async () => {
     const { app } = createApp();
-    // The first account becomes the instance admin, who passes role checks.
+    // The first account becomes the instance admin.
     await signUp(app, "Instance admin");
     const owner = await signUp(app);
     const limited = await addWorkspace(owner.userId, "Limited");
+    // Membership implies workspace:read; only an unknown role grants nothing.
     await db
       .update(schema.workspaceUserTable)
-      .set({ role: "contractor" })
+      .set({ role: "gone" })
       .where(eq(schema.workspaceUserTable.workspaceId, limited.id));
-    await db.insert(schema.workspaceRoleTable).values({
-      workspaceId: limited.id,
-      role: "contractor",
-      permission: JSON.stringify({ task: ["read"] }),
-      createdAt: new Date(),
-    });
     await expectWorkspaceRefused(app, owner.token, limited.id);
   });
 

@@ -1,5 +1,6 @@
 import { pagingNumber, z } from "../openapi";
 import { MAX_TASK_POSITION } from "./controllers/next-task-position";
+import { taskTitle } from "./task-title";
 import { TICKET_ID_PATTERN } from "./ticket-id";
 import { VALID_PRIORITIES } from "./validate-task-fields";
 
@@ -74,7 +75,7 @@ export const bulkUpdateBody = z.object({
 });
 
 export const createTaskBody = z.object({
-  title: z.string(),
+  title: taskTitle,
   description: z.string(),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
@@ -85,7 +86,7 @@ export const createTaskBody = z.object({
 });
 
 export const updateTaskBody = z.object({
-  title: z.string(),
+  title: taskTitle,
   description: z.string().optional().openapi({
     description:
       "Omit to preserve the existing description when updating a list summary.",
@@ -96,7 +97,10 @@ export const updateTaskBody = z.object({
   status: z.string(),
   projectId: z.string(),
   position: z.number().int().min(0).max(MAX_TASK_POSITION),
-  userId: z.string().optional(),
+  userId: z.string().optional().openapi({
+    description:
+      'Assignee. Omit to keep the current one; send "" to unassign. Only a change needs task:assign.',
+  }),
 });
 
 export const moveTaskBody = z.object({
@@ -109,7 +113,7 @@ export const moveTaskBody = z.object({
 export const importTasksBody = z.object({
   tasks: z.array(
     z.object({
-      title: z.string(),
+      title: taskTitle,
       description: z.string().optional(),
       status: z.string().openapi({
         description:
@@ -132,7 +136,7 @@ export const updateAssigneeBody = z.object({
   userId: z.string().nullable().openapi({ description: "Null unassigns." }),
 });
 export const updateDueDateBody = z.object({ dueDate: z.string().optional() });
-export const updateTitleBody = z.object({ title: z.string() });
+export const updateTitleBody = z.object({ title: taskTitle });
 export const updateDescriptionBody = z.object({ description: z.string() });
 
 const surface = z.enum(["description", "comment"]).openapi({
@@ -168,7 +172,11 @@ export const descriptionMatchesQuery = z.object({
   after: z.string().min(1).max(128).optional(),
 });
 
-export const duplicateTaskBody = z.object({ title: z.string().optional() });
+export const duplicateTaskBody = z.object({
+  title: taskTitle.optional().openapi({
+    description: "Leave out to copy the source title.",
+  }),
+});
 
 export const stagedImageUploadBody = imageUploadBody.extend({
   surface: z.literal("description"),

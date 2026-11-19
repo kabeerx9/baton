@@ -148,7 +148,7 @@ describe("GET /api/workspace", () => {
     expect(await readJson(response)).toEqual([expected(joined, "member")]);
   });
 
-  it("leaves out workspaces where the caller's role lacks workspace:read", async () => {
+  it("lists every membership whatever the role grants, but not an unknown role", async () => {
     const { user, workspace: hidden } = await createWorkspaceMember({
       role: "limited",
       workspaceName: "Hidden",
@@ -162,6 +162,9 @@ describe("GET /api/workspace", () => {
     await addRole(custom.id, "reader", { workspace: ["read"] });
     const visible = await createWorkspace({ name: "Visible" });
     await addMembership(visible.id, user.id, "member");
+    // A role with no definition grants nothing, workspace:read included.
+    const unknown = await createWorkspace({ name: "Unknown role" });
+    await addMembership(unknown.id, user.id, "gone");
     mockAuthenticatedSession(user);
     const { app } = createApp();
 
@@ -169,6 +172,8 @@ describe("GET /api/workspace", () => {
 
     expect(await readJson(response)).toEqual([
       expected(custom, "reader"),
+      expected(edited, "viewer"),
+      expected(hidden, "limited"),
       expected(visible, "member"),
     ]);
   });
@@ -202,7 +207,7 @@ describe("GET /api/workspace", () => {
     );
   });
 
-  it("hides a workspace when none of the caller's roles grants workspace:read", async () => {
+  it("shows a workspace when none of the caller's roles names workspace:read", async () => {
     const { user, workspace } = await createWorkspaceMember({
       role: "limited,other",
     });
@@ -215,12 +220,15 @@ describe("GET /api/workspace", () => {
     const list = await app.request("/api/workspace");
     const single = await app.request(`/api/workspace/${workspace.id}`);
 
-    expect(await readJson(list)).toEqual([]);
-    expect(single.status).toBe(404);
-    expect(await readErrorBody(single)).toEqual(workspaceNotFound);
+    expect(await readJson(list)).toEqual([
+      expected(workspace, "limited,other"),
+    ]);
+    expect(await readJson(single)).toEqual(
+      expected(workspace, "limited,other"),
+    );
   });
 
-  it("grants access when any duplicate role row grants workspace:read", async () => {
+  it("grants access whatever duplicate role rows say", async () => {
     const { user, workspace: readFirst } = await createWorkspaceMember({
       role: "custom",
       workspaceName: "Read first",
@@ -244,12 +252,13 @@ describe("GET /api/workspace", () => {
     const denied = await app.request(`/api/workspace/${noRead.id}`);
 
     expect(await readJson(list)).toEqual([
+      expected(noRead, "custom"),
       expected(readFirst, "custom"),
       expected(readLast, "custom"),
     ]);
     expect(await readJson(first)).toEqual(expected(readFirst, "custom"));
     expect(await readJson(last)).toEqual(expected(readLast, "custom"));
-    expect(denied.status).toBe(404);
+    expect(await readJson(denied)).toEqual(expected(noRead, "custom"));
   });
 
   it("lists an instance admin's membership even when the role lacks workspace:read", async () => {
@@ -384,11 +393,10 @@ describe("GET /api/workspace/{workspaceId}", () => {
     expect(await readErrorBody(missing)).toEqual(workspaceNotFound);
   });
 
-  it("returns the same 404 when the caller's role lacks workspace:read", async () => {
+  it("returns the same 404 when the caller's role is unknown", async () => {
     const { user, workspace } = await createWorkspaceMember({
-      role: "limited",
+      role: "gone",
     });
-    await addRole(workspace.id, "limited", { task: ["read"] });
     mockAuthenticatedSession(user);
     const { app } = createApp();
 
@@ -401,7 +409,7 @@ describe("GET /api/workspace/{workspaceId}", () => {
     expect(await readErrorBody(missing)).toEqual(workspaceNotFound);
   });
 
-  it("lets an instance admin read a workspace they are not a member of", async () => {
+  it("gives an instance admin who is not a member the same 404", async () => {
     const { workspace } = await createWorkspaceMember({ role: "owner" });
     const admin = await createInstanceAdmin();
     mockAuthenticatedSession(admin);
@@ -409,7 +417,8 @@ describe("GET /api/workspace/{workspaceId}", () => {
 
     const response = await app.request(`/api/workspace/${workspace.id}`);
 
-    expect(await readJson(response)).toEqual(expected(workspace, null));
+    expect(response.status).toBe(404);
+    expect(await readErrorBody(response)).toEqual(workspaceNotFound);
   });
 
   it("returns 404 to an instance admin for a nonexistent workspace", async () => {
@@ -510,7 +519,7 @@ describe("workspace endpoints with bearer credentials", () => {
     expect(await readJson(single)).toEqual(expected(workspace, "owner"));
   });
 
-  it("reads the instance admin role from the database for API keys", async () => {
+  it("gives an instance admin's API key no workspace they do not belong to", async () => {
     const { workspace } = await createWorkspaceMember({ role: "owner" });
     const admin = await createInstanceAdmin();
     const { key } = await createTestApiKey({
@@ -523,7 +532,8 @@ describe("workspace endpoints with bearer credentials", () => {
       headers: { Authorization: `Bearer ${key}` },
     });
 
-    expect(await readJson(response)).toEqual(expected(workspace, null));
+    expect(response.status).toBe(404);
+    expect(await readErrorBody(response)).toEqual(workspaceNotFound);
   });
 
   it("accepts a session token as a bearer token", async () => {

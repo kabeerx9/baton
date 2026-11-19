@@ -1,4 +1,5 @@
 import { z } from "../openapi";
+import { taskTitle } from "../task/task-title";
 
 export const boardWorkspaceParam = z.object({ workspaceId: z.string() });
 
@@ -16,7 +17,7 @@ export const teamHistoryQuery = z.object({
 });
 
 const subtaskPlan = z.object({
-  title: z.string().min(1),
+  title: taskTitle,
   description: z.string().optional(),
   repo: z.string().optional().openapi({
     description:
@@ -36,7 +37,7 @@ const subtaskPlan = z.object({
 });
 
 export const taskPlanBody = z.object({
-  title: z.string().min(1),
+  title: taskTitle,
   description: z.string().optional(),
   owner: z.string().optional().openapi({
     description: "A person's first name, full name, email or user id.",
@@ -69,7 +70,7 @@ export const updateByKeyBody = z.object({
 });
 
 export const createBoardTaskBody = z.object({
-  title: z.string().min(1),
+  title: taskTitle,
   description: z.string().optional(),
   userId: z.string().optional().openapi({
     description:
@@ -84,7 +85,7 @@ export const addSubtaskBody = z.object({
     description:
       "Where the subtask lives: a repo project (for example the API project), or the board project itself for work with no repo such as QA or design.",
   }),
-  title: z.string().min(1),
+  title: taskTitle,
   description: z.string().optional(),
   userId: z.string().optional().openapi({ description: "Assignee, if any." }),
   status: z

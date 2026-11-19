@@ -1,12 +1,6 @@
 import { UserPlusIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import MemberProjectAccessDialog from "@/components/team/member-project-access-dialog";
-import { findMemberProjectAccess } from "@/components/team/project-access/find-member-project-access";
-import {
-  ALL_PROJECTS_ACCESS,
-  type ProjectAccessValue,
-} from "@/components/team/project-access/project-access-value";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,7 +17,6 @@ import useUpdateAdminWorkspaceMemberRole from "@/hooks/mutations/admin/use-updat
 import useAdminAccess from "@/hooks/queries/admin/use-admin-access";
 import useAdminWorkspaceMembers from "@/hooks/queries/admin/use-admin-workspace-members";
 import useAdminWorkspaceRoles from "@/hooks/queries/admin/use-admin-workspace-roles";
-import useGetWorkspaceProjectAccess from "@/hooks/queries/workspace-users/use-get-workspace-project-access";
 import AddWorkspaceMemberDialog from "./add-workspace-member-dialog";
 import { getAssignableRoleOptions } from "./get-assignable-role-options";
 import { isWorkspaceOwnerRole } from "./is-workspace-owner-role";
@@ -32,12 +25,6 @@ import { sortWorkspaceMembers } from "./sort-workspace-members";
 import WorkspaceMemberConfirmDialog from "./workspace-member-confirm-dialog";
 import WorkspaceMemberRow from "./workspace-member-row";
 import { WorkspaceMembersCard } from "./workspace-members-card";
-
-type AccessTarget = {
-  userId: string;
-  name: string;
-  access: ProjectAccessValue;
-};
 
 type Props = {
   workspace: AdminWorkspace | null;
@@ -51,8 +38,6 @@ function WorkspaceMembersDialog({ workspace, open, onOpenChange }: Props) {
   const workspaceName = workspace?.name ?? "";
   const [pendingAction, setPendingAction] =
     useState<PendingMemberAction | null>(null);
-  const [accessTarget, setAccessTarget] = useState<AccessTarget | null>(null);
-  const [isAccessOpen, setIsAccessOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   const {
@@ -64,11 +49,8 @@ function WorkspaceMembersDialog({ workspace, open, onOpenChange }: Props) {
   const { data: roles } = useAdminWorkspaceRoles(workspaceId, open);
   const { can } = useAdminAccess();
   const canManage = can("workspaces:manage");
-  // Project access goes through workspace routes only built-in admins bypass.
-  const { data: accessEntries } = useGetWorkspaceProjectAccess(
-    workspaceId,
-    open && can("roles:manage"),
-  );
+  // Project access is the workspace's own business: its owners and admins
+  // manage it inside the workspace, not from the admin panel.
   const updateRole = useUpdateAdminWorkspaceMemberRole();
   const removeMember = useRemoveAdminWorkspaceMember();
   const transferOwnership = useTransferAdminWorkspaceOwnership();
@@ -143,16 +125,12 @@ function WorkspaceMembersDialog({ workspace, open, onOpenChange }: Props) {
             >
               {sortedMembers.map((member) => {
                 const isOwner = isWorkspaceOwnerRole(member.role);
-                const access = accessEntries
-                  ? findMemberProjectAccess(accessEntries, member.userId)
-                  : undefined;
 
                 return (
                   <WorkspaceMemberRow
                     key={member.userId}
                     member={member}
                     roleOptions={getAssignableRoleOptions(roles, member.role)}
-                    access={access}
                     isOnlyOwner={isOwner && ownerCount === 1}
                     canManage={canManage}
                     isUpdatingRole={
@@ -166,15 +144,6 @@ function WorkspaceMembersDialog({ workspace, open, onOpenChange }: Props) {
                         role,
                       })
                     }
-                    onEditAccess={() => {
-                      if (!access) return;
-                      setAccessTarget({
-                        userId: member.userId,
-                        name: member.name || member.email,
-                        access,
-                      });
-                      setIsAccessOpen(true);
-                    }}
                     onMakeOwner={() =>
                       setPendingAction({ type: "transfer", member })
                     }
@@ -194,14 +163,6 @@ function WorkspaceMembersDialog({ workspace, open, onOpenChange }: Props) {
           onOpenChange={setIsAddOpen}
           memberIds={memberIds}
           roleOptions={getAssignableRoleOptions(roles)}
-        />
-
-        <MemberProjectAccessDialog
-          workspaceId={workspaceId}
-          open={isAccessOpen}
-          member={accessTarget}
-          access={accessTarget?.access ?? ALL_PROJECTS_ACCESS}
-          onOpenChange={setIsAccessOpen}
         />
 
         <WorkspaceMemberConfirmDialog

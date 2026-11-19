@@ -263,7 +263,7 @@ describe("instance admins need an existing workspace", () => {
     });
   });
 
-  it("still reads a workspace the admin never joined", async () => {
+  it("answers 404 for a workspace the admin never joined, like anyone", async () => {
     const other = await workspaceWithTask();
     const admin = await createInstanceAdmin();
     mockAuthenticatedSession(admin);
@@ -272,8 +272,9 @@ describe("instance admins need an existing workspace", () => {
       `/project?workspaceId=${other.workspace.id}`,
     );
 
-    expect(response.status).toBe(200);
-    const projects = (await response.json()) as { id: string }[];
-    expect(projects.map((project) => project.id)).toEqual([other.project.id]);
+    expect(response.status).toBe(404);
+    expect(await readErrorBody(response)).toMatchObject({
+      message: "Workspace not found",
+    });
   });
 });

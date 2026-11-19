@@ -1,6 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { schema } from "../database";
-import { hasInstanceAdminRole } from "../utils/instance-admin-role";
 import { roleHasWorkspacePermission } from "../utils/require-workspace-permission";
 import type { DbOrTx } from "./db-or-tx";
 
@@ -40,12 +39,6 @@ export async function lockAccessChange(
     return { actorAllowed: true, targetRole: roles.get(change.userId) ?? null };
   }
 
-  const [actor] = await database
-    .select({ role: schema.userTable.role })
-    .from(schema.userTable)
-    .where(eq(schema.userTable.id, change.actorId))
-    .limit(1);
-  const actorAllowed = hasInstanceAdminRole(actor?.role);
-
-  return { actorAllowed, targetRole: roles.get(change.userId) ?? null };
+  // Only a member with member:update; instance administrators get no bypass.
+  return { actorAllowed: false, targetRole: roles.get(change.userId) ?? null };
 }

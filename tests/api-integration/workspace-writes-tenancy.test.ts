@@ -46,7 +46,7 @@ describe("tenancy (A1)", () => {
   );
 
   it(
-    "gives a non-member instance admin 403 MEMBERSHIP_REQUIRED on every write",
+    "gives a non-member instance admin 404 on every write",
     {
       timeout: 60_000,
     },
@@ -57,7 +57,7 @@ describe("tenancy (A1)", () => {
         expect([
           action,
           await ctx.cell(ACTIONS[action]!(b), ctx.as.cookie("instanceAdmin")),
-        ]).toEqual([action, { status: 403, code: "MEMBERSHIP_REQUIRED" }]);
+        ]).toMatchObject([action, { status: 404 }]);
         expect(await snapshot(b.workspaceId), action).toEqual(before);
       }
     },

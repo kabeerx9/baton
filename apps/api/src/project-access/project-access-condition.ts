@@ -4,13 +4,10 @@ export function projectAccessCondition(
   userId: string | SQLWrapper,
   projectId: string | SQLWrapper,
 ) {
+  // A project limit binds everyone but a workspace owner; an instance
+  // administrator gets no bypass.
   return sql<boolean>`(
-    EXISTS (
-      SELECT 1 FROM "user" AS access_user
-      WHERE access_user.id = ${userId}
-        AND 'admin' = ANY(string_to_array(access_user.role, ','))
-    )
-    OR NOT EXISTS (
+    NOT EXISTS (
       SELECT 1 FROM project AS access_project
       JOIN workspace_member_access AS access_rule
         ON access_rule.workspace_id = access_project.workspace_id

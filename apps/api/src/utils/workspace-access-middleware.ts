@@ -3,7 +3,6 @@ import type { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
 import db, { schema } from "../database";
 import { assertProjectAccess } from "../project-access/assert-project-access";
-import { isInstanceAdmin } from "./is-instance-admin";
 import { validateWorkspaceAccess } from "./validate-workspace-access";
 import { setWorkspaceContext } from "../observability/workspace-context";
 
@@ -154,7 +153,6 @@ export function workspaceAccessMiddleware(
 
     await validateWorkspaceAccess(userId, workspaceId, apiKeyId, {
       notFoundMessage,
-      instanceAdmin: await isInstanceAdmin(c),
     });
     await assertProjectAccess(userId, projectIds);
 

@@ -83,7 +83,10 @@ describe("notification response current read grants", () => {
         },
         {
           notification: workspaceNotification,
-          allowed: permissions.workspace?.includes("read") ?? false,
+          // Membership implies workspace:read; only a key's scope narrows it.
+          allowed:
+            authentication === "custom-role" ||
+            (permissions.workspace?.includes("read") ?? false),
         },
         { notification: personalNotification, allowed: true },
       ];
@@ -133,7 +136,7 @@ describe("notification response current read grants", () => {
       }
     });
 
-    it(`${authentication} rechecks historical rows after role demotion`, async () => {
+    it(`${authentication} rechecks historical rows after the role is deleted`, async () => {
       const {
         app,
         headers,
@@ -147,9 +150,10 @@ describe("notification response current read grants", () => {
       });
       const before = await app.request("/api/notification", { headers });
       expect((await before.json()).length).toBe(3);
+      // An undefined role grants nothing. A role set to {} would keep the
+      // workspace row, since membership implies workspace:read.
       await db
-        .update(schema.workspaceRoleTable)
-        .set({ permission: "{}" })
+        .delete(schema.workspaceRoleTable)
         .where(eq(schema.workspaceRoleTable.id, role.id));
       const after = await app.request("/api/notification", { headers });
       expect(await after.json()).toEqual([

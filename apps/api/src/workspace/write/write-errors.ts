@@ -3,8 +3,7 @@ import { ApiError } from "../../errors/api-error";
 export const membershipRequiredError = () =>
   new ApiError(403, {
     code: "MEMBERSHIP_REQUIRED",
-    message:
-      "Only a member can change this workspace. Instance administrators use the admin panel.",
+    message: "Only a member can change this workspace.",
   });
 
 export const ownerRequiredError = () =>

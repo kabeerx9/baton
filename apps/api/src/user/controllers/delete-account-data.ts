@@ -8,7 +8,6 @@ import {
   workspaceUserTable,
 } from "../../database/schema";
 import type { DbOrTx } from "../../project-access/db-or-tx";
-import { instanceAdminRoleSql } from "../../utils/instance-admin-role";
 import {
   formatBlockedWorkspacesMessage,
   hasOwnerRole,
@@ -104,11 +103,6 @@ async function deleteAccountRows(userId: string, database: DbOrTx) {
 
   const recipients = new Set([userId]);
   if (plan.workspaceIdsToDelete.length > 0) {
-    const admins = await database
-      .select({ userId: userTable.id })
-      .from(userTable)
-      .where(instanceAdminRoleSql(userTable.role));
-    for (const admin of admins) recipients.add(admin.userId);
     await lockWorkspacesForDeletion(database, plan.workspaceIdsToDelete);
     await deleteResourceNotifications(database, {
       workspaceIds: plan.workspaceIdsToDelete,

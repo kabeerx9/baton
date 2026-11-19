@@ -16,6 +16,37 @@ export function isJoinToken(value: string) {
   return TOKEN_PATTERN.test(value);
 }
 
+const JOIN_PATH_PATTERN = /^\/join\/([^/]+)\/?$/;
+
+/** Every branch parses inside the try: a malformed paste is null, not a 500. */
+function parseUrl(text: string): URL | null {
+  try {
+    if (text.startsWith("/")) return new URL(text, "https://baton.invalid");
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text)
+      ? text
+      : `https://${text}`;
+    return new URL(withScheme);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads the token out of what a person pastes: the token with spaces around
+ * it, a join URL (`/join/<token>` or `?t=<token>`), or a bare `/join/<token>`
+ * path. The host is not checked; the hash lookup decides. Null otherwise.
+ */
+export function parseJoinToken(input: string): string | null {
+  const text = input.trim();
+  if (isJoinToken(text)) return text;
+  if (!text || /\s/.test(text)) return null;
+  const url = parseUrl(text);
+  if (!url) return null;
+  const fromPath = JOIN_PATH_PATTERN.exec(url.pathname)?.[1];
+  const token = fromPath ?? url.searchParams.get("t");
+  return token && isJoinToken(token) ? token : null;
+}
+
 /** The web page that opens the link; the token stays out of API paths. */
 export function joinLinkUrl(token: string) {
   const base = (process.env.BATON_CLIENT_URL ?? "").replace(/\/+$/, "");

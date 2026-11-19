@@ -9,7 +9,6 @@ import db from "../database";
 import {
   apikeyTable,
   projectTable,
-  userTable,
   workspaceUserTable,
 } from "../database/schema";
 import { subscribeToEvent } from "../events";
@@ -18,10 +17,6 @@ import { findInaccessibleProjectIds } from "../project-access/find-inaccessible-
 import { filterUsersWithProjectAccess } from "../project-access/filter-users-with-project-access";
 import { listWorkspaceProjectIds } from "../project-access/list-workspace-project-ids";
 import { listWorkspaceAudience } from "../workspace/lifecycle/list-workspace-audience";
-import {
-  hasInstanceAdminRole,
-  instanceAdminRoleSql,
-} from "../utils/instance-admin-role";
 import { isRedisConfigured } from "../redis";
 import {
   getRelationSourceProject,
@@ -38,6 +33,7 @@ import type {
 import { InMemoryBroadcastAdapter } from "./in-memory-broadcast-adapter";
 import { RedisBroadcastAdapter } from "./redis-broadcast-adapter";
 import { getProjectReadAccess } from "./project-read-access";
+import { relationBroadcasts } from "./relation-broadcasts";
 import { logger } from "../observability/logger";
 
 const INSTANCE_ID = randomUUID();
@@ -635,7 +631,6 @@ export async function revokeWorkspaceConnections(
   workspaceId: string,
   options: {
     force?: boolean;
-    role?: string | null;
     /** Tells clients why, so they can explain it instead of redirecting. */
     reason?: "archived";
   } = {},
@@ -645,20 +640,6 @@ export async function revokeWorkspaceConnections(
     !(await workspaceRevocationIsCurrent(userId, workspaceId, options.reason))
   )
     return;
-  if (!options.force) {
-    try {
-      const [user] =
-        "role" in options
-          ? [{ role: options.role }]
-          : await db
-              .select({ userId: userTable.id, role: userTable.role })
-              .from(userTable)
-              .where(eq(userTable.id, userId));
-      if (hasInstanceAdminRole(user?.role)) return;
-    } catch (error) {
-      logger.error("Failed to read role after membership removal", { error });
-    }
-  }
   const reason = options.reason ? { reason: options.reason } : {};
   deliverToLocalUserConnections(userId, {
     type: "WORKSPACE_ACCESS_REVOKED",
@@ -681,22 +662,16 @@ export async function revokeWorkspaceConnections(
       : options.force
         ? undefined
         : async () => {
-            const [[user], members] = await Promise.all([
-              db
-                .select({ role: userTable.role })
-                .from(userTable)
-                .where(eq(userTable.id, userId)),
-              db
-                .select({ userId: workspaceUserTable.userId })
-                .from(workspaceUserTable)
-                .where(
-                  and(
-                    eq(workspaceUserTable.userId, userId),
-                    eq(workspaceUserTable.workspaceId, workspaceId),
-                  ),
+            const members = await db
+              .select({ userId: workspaceUserTable.userId })
+              .from(workspaceUserTable)
+              .where(
+                and(
+                  eq(workspaceUserTable.userId, userId),
+                  eq(workspaceUserTable.workspaceId, workspaceId),
                 ),
-            ]);
-            return !hasInstanceAdminRole(user?.role) && members.length === 0;
+              );
+            return members.length === 0;
           },
   );
 }
@@ -797,19 +772,6 @@ function currentBroadcastAccess(
             recipients,
             rows,
           ));
-          const nonmembers = userIds.filter((userId) => !members.has(userId));
-          if (nonmembers.length > 0) {
-            const admins = await db
-              .select({ userId: userTable.id, role: userTable.role })
-              .from(userTable)
-              .where(
-                and(
-                  inArray(userTable.id, nonmembers),
-                  instanceAdminRoleSql(userTable.role),
-                ),
-              );
-            for (const admin of admins) members.add(admin.userId);
-          }
         } catch (error) {
           logger.error("Failed to validate broadcast membership", { error });
           return null;
@@ -981,6 +943,9 @@ type TaskEvent = {
   taskId: string;
   sourceTaskId: string | undefined;
   targetTaskId: string | undefined;
+  /** Relation events: each endpoint's project, when the publisher knows it. */
+  sourceProjectId?: string;
+  targetProjectId?: string;
 };
 
 // Include the initiating window: its local mutation refreshes the child project,
@@ -1225,20 +1190,34 @@ for (const eventName of taskUpdateEvents) {
       return;
     }
 
-    broadcastToProject(
-      projectId,
-      {
+    if (
+      eventName === "task-relation.created" ||
+      eventName === "task-relation.deleted"
+    ) {
+      for (const sent of relationBroadcasts({
         type,
         projectId,
-        taskId: taskId,
+        sourceProjectId: data.sourceProjectId,
+        targetProjectId: data.targetProjectId,
         sourceTaskId: data.sourceTaskId,
         targetTaskId: data.targetTaskId,
-        ...(eventName === "task.title_changed" || data.titleChanged
-          ? { taskTitleChanged: true }
-          : {}),
-      },
-      initiatorId,
-    );
+      })) {
+        broadcastToProject(sent.projectId, sent.message, initiatorId);
+      }
+    } else {
+      broadcastToProject(
+        projectId,
+        {
+          type,
+          projectId,
+          taskId: taskId,
+          ...(eventName === "task.title_changed" || data.titleChanged
+            ? { taskTitleChanged: true }
+            : {}),
+        },
+        initiatorId,
+      );
+    }
     if (eventName === "task.status_changed" && !data.skipSubtaskParentRefresh) {
       refreshParentBoards(await getSubtaskParentProjects([taskId]), projectId);
     } else if (eventName === "task-relation.deleted" && data.sourceTaskId) {

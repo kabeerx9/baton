@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable, workspaceTable } from "../../database/schema";
@@ -55,7 +55,7 @@ export default async function getTaskByTicketId(
       .from(workspaceTable)
       .where(sql`lower(${workspaceTable.slug}) = lower(${workspaceSlug})`);
     const readableMatches = slugMatches.filter((workspace) =>
-      grants.allows(workspace.id, taskRead, workspace.kind),
+      grants.allows(workspace.id, taskRead),
     );
     const exactMatch = readableMatches.find(
       (workspace) => workspace.slug === workspaceSlug,
@@ -89,14 +89,7 @@ export default async function getTaskByTicketId(
           ? inArray(projectTable.workspaceId, slugWorkspaceIds)
           : undefined,
         projectId ? eq(projectTable.id, projectId) : undefined,
-        // Administrators reach every team workspace; a demo (theirs too)
-        // only through membership, so demos never make a lookup ambiguous.
-        grants.isInstanceAdmin
-          ? or(
-              eq(workspaceTable.kind, "team"),
-              inArray(projectTable.workspaceId, readableWorkspaceIds),
-            )
-          : inArray(projectTable.workspaceId, readableWorkspaceIds),
+        inArray(projectTable.workspaceId, readableWorkspaceIds),
         projectAccessCondition(userId, projectTable.id),
       ),
     );
@@ -104,9 +97,7 @@ export default async function getTaskByTicketId(
   const rank = (candidate: { archivedAt: Date | null }) =>
     candidate.archivedAt?.getTime() ?? Number.POSITIVE_INFINITY;
   const matches = candidates
-    .filter((candidate) =>
-      grants.allows(candidate.workspaceId, taskRead, candidate.workspaceKind),
-    )
+    .filter((candidate) => grants.allows(candidate.workspaceId, taskRead))
     .filter((candidate) => isSameProjectKey(candidate.slug, projectKey));
   // Every demo has a T-1: a team match wins, so a tour never makes a
   // lookup ambiguous. A demo task still resolves when it is the only match.

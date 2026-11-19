@@ -93,29 +93,6 @@ vi.mock("@/hooks/queries/admin/use-admin-users", () => ({
     isError: false,
   }),
 }));
-vi.mock(
-  "@/hooks/queries/workspace-users/use-get-workspace-project-access",
-  () => ({
-    default: () => ({ data: [{ userId: "grace", projectIds: ["p1", "p2"] }] }),
-  }),
-);
-vi.mock("@/components/team/member-project-access-dialog", () => ({
-  default: ({
-    open,
-    member,
-    access,
-  }: {
-    open: boolean;
-    member: { name: string } | null;
-    access: { projectAccess: string; projectIds: string[] };
-  }) =>
-    open ? (
-      <div data-testid="project-access-dialog">
-        {`${member?.name}:${access.projectAccess}:${access.projectIds.length}`}
-      </div>
-    ) : null,
-}));
-
 const mocks = vi.hoisted(() => ({
   updateRole: vi.fn(),
   remove: vi.fn(),
@@ -459,17 +436,13 @@ describe("WorkspaceManagementPanel", () => {
     );
   });
 
-  it("opens project access with the member's current access", async () => {
+  it("offers no project access control: that is the workspace's own business", async () => {
     const dialog = await openAcme();
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "settings:adminWorkspaces.members.editAccess|Grace Hopper",
-      }),
-    );
-
     expect(
-      (await screen.findByTestId("project-access-dialog")).textContent,
-    ).toBe("Grace Hopper:selected:2");
+      within(dialog).queryByRole("button", {
+        name: /settings:adminWorkspaces\.members\.editAccess/,
+      }),
+    ).toBeNull();
   });
 
   it("adds an instance user with the chosen role", async () => {

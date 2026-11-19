@@ -59,36 +59,67 @@ describe("notification recipient current grants", () => {
     expect(defaultSelect).not.toHaveBeenCalled();
   });
 
-  it.each(["task", "workspace"])(
-    "requires the current %s read grant",
-    async (resourceType) => {
-      for (const permissions of [{}, { label: ["read"] }]) {
-        const { database, select } = injectedDatabase([
-          { ...member, permission: JSON.stringify(permissions) },
-        ]);
-        expect(
-          await canReceiveResourceNotification(
-            "user",
-            "resource",
-            resourceType,
-            database,
-          ),
-        ).toBe(false);
-        expect(select).toHaveBeenCalledTimes(1);
-      }
-      const { database } = injectedDatabase([
-        { ...member, permission: JSON.stringify({ [resourceType]: ["read"] }) },
+  it("requires the current task read grant", async () => {
+    for (const permissions of [{}, { label: ["read"] }]) {
+      const { database, select } = injectedDatabase([
+        { ...member, permission: JSON.stringify(permissions) },
       ]);
       expect(
         await canReceiveResourceNotification(
           "user",
           "resource",
-          resourceType,
+          "task",
           database,
         ),
-      ).toBe(true);
-    },
-  );
+      ).toBe(false);
+      expect(select).toHaveBeenCalledTimes(1);
+    }
+    const { database } = injectedDatabase([
+      { ...member, permission: JSON.stringify({ task: ["read"] }) },
+    ]);
+    expect(
+      await canReceiveResourceNotification(
+        "user",
+        "resource",
+        "task",
+        database,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets every member read workspace notices, and no non-member", async () => {
+    const { database } = injectedDatabase([
+      { ...member, permission: JSON.stringify({ label: ["read"] }) },
+    ]);
+    expect(
+      await canReceiveResourceNotification(
+        "user",
+        "resource",
+        "workspace",
+        database,
+      ),
+    ).toBe(true);
+    for (const instanceRole of ["user", "admin"]) {
+      const outsider = injectedDatabase([
+        {
+          ...member,
+          instanceRole,
+          memberRole: null,
+          storedRole: null,
+          permission: null,
+        },
+      ]);
+      expect(
+        await canReceiveResourceNotification(
+          "user",
+          "resource",
+          "workspace",
+          outsider.database,
+        ),
+        instanceRole,
+      ).toBe(false);
+    }
+  });
 
   it("preserves built-in fallback and user-only notifications", async () => {
     const fallback = injectedDatabase([

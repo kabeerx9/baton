@@ -75,17 +75,14 @@ export function buildFullTaskUpdateBody(
     throw new Error("Cannot update task: missing projectId.");
   }
 
-  // When patch.userId is explicitly null, we set userId to "" so the API clears assignee; the API
-  // treats "" as unassigned (userId || null). When patch.userId is undefined, keep existing.userId
-  // unchanged (leave assignee as-is).
+  // Omitted keeps the owner on the server; null clears it with "". Echoing
+  // the fetched owner would undo a reassignment made in between.
   const userId =
-    patch.userId !== undefined
-      ? patch.userId === null
+    patch.userId === undefined
+      ? undefined
+      : patch.userId === null
         ? ""
-        : patch.userId
-      : typeof existing.userId === "string"
-        ? existing.userId
-        : undefined;
+        : patch.userId;
 
   const startDate = formatOptionalIso(
     patch.startDate !== undefined ? patch.startDate : existing.startDate,

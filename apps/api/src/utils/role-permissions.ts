@@ -39,14 +39,25 @@ function parsePermissionStatements(raw: string): PermissionStatements | null {
   return result;
 }
 
+// Membership implies workspace:read: every role a member holds grants it,
+// whatever a custom role leaves out. An unknown role still grants nothing.
+function withWorkspaceRead(
+  statements: PermissionStatements,
+): PermissionStatements {
+  const workspace = statements.workspace ?? [];
+  return workspace.includes("read")
+    ? statements
+    : { ...statements, workspace: [...workspace, "read"] };
+}
+
 function roleStatements(
   role: string,
   storedPermission: string | null | undefined,
 ): PermissionStatements | null {
-  return (
+  const statements =
     (storedPermission ? parsePermissionStatements(storedPermission) : null) ??
-    builtInRoleStatements(role)
-  );
+    builtInRoleStatements(role);
+  return statements && withWorkspaceRead(statements);
 }
 
 export function roleAllows(

@@ -1,6 +1,5 @@
-import { and, eq, exists, inArray, or, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import db, { schema } from "../database";
-import { instanceAdminRoleSql } from "../utils/instance-admin-role";
 
 export async function resolveImportAssignees(
   references: string[],
@@ -10,19 +9,16 @@ export async function resolveImportAssignees(
   if (references.length === 0) return resolved;
 
   // Membership is a predicate: duplicate membership rows still mean one user.
-  const eligible = or(
-    exists(
-      db
-        .select({ id: schema.workspaceUserTable.id })
-        .from(schema.workspaceUserTable)
-        .where(
-          and(
-            eq(schema.workspaceUserTable.userId, schema.userTable.id),
-            eq(schema.workspaceUserTable.workspaceId, workspaceId),
-          ),
+  const eligible = exists(
+    db
+      .select({ id: schema.workspaceUserTable.id })
+      .from(schema.workspaceUserTable)
+      .where(
+        and(
+          eq(schema.workspaceUserTable.userId, schema.userTable.id),
+          eq(schema.workspaceUserTable.workspaceId, workspaceId),
         ),
-    ),
-    instanceAdminRoleSql(schema.userTable.role),
+      ),
   );
   const idUsers = await db
     .select({ id: schema.userTable.id, eligible: sql<boolean>`${eligible}` })

@@ -597,7 +597,6 @@
 				"loadError": "Members could not be loaded.",
 				"empty": "This workspace has no members.",
 				"roleLabel": "Role for {{name}}",
-				"editAccess": "Change project access for {{name}} ({{access}})",
 				"actions": "Actions for {{name}}",
 				"makeOwner": "Make owner",
 				"remove": "Remove from workspace"

@@ -25,13 +25,13 @@ describe("API integration: instance admin workspace access", () => {
     await resetTestDatabase();
   });
 
-  it("lets a multi-role instance admin into a workspace they never joined", async () => {
+  it("refuses a multi-role instance admin a workspace they never joined, like anyone", async () => {
     const owner = await createWorkspaceMember({ role: "owner" });
     const admin = await createUser("user,admin");
 
     await expect(
       validateWorkspaceAccess(admin.id, owner.workspace.id),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({ status: 404, message: "Workspace not found" });
   });
 
   it("still rejects a plain user who is not a member", async () => {

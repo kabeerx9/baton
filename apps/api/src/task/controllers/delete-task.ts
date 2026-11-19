@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
@@ -95,6 +95,21 @@ export async function publishTaskDeleted(
     title: task.title,
   });
 
+  // Each endpoint's project, so every board hears only about its own task.
+  const otherIds = relations.map((relation) =>
+    relation.sourceTaskId === task.id
+      ? relation.targetTaskId
+      : relation.sourceTaskId,
+  );
+  const others =
+    otherIds.length > 0
+      ? await db
+          .select({ id: taskTable.id, projectId: taskTable.projectId })
+          .from(taskTable)
+          .where(inArray(taskTable.id, otherIds))
+      : [];
+  const projectOf = new Map(others.map((row) => [row.id, row.projectId]));
+  projectOf.set(task.id, task.projectId);
   for (const relation of relations) {
     await publishEvent("task-relation.deleted", {
       projectId: task.projectId,
@@ -102,6 +117,8 @@ export async function publishTaskDeleted(
       taskId: task.id,
       sourceTaskId: relation.sourceTaskId,
       targetTaskId: relation.targetTaskId,
+      sourceProjectId: projectOf.get(relation.sourceTaskId),
+      targetProjectId: projectOf.get(relation.targetTaskId),
     });
   }
 }

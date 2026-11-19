@@ -186,7 +186,7 @@ describe("instance admin workspace management", () => {
     expect((await add(other.restricted.id, "owner")).status).toBe(400);
   });
 
-  it("lets an instance admin limit a member's projects without joining", async () => {
+  it("gives a non-member instance admin no project access route", async () => {
     const ctx = await createRestrictedWorkspace();
     const member = await addWorkspaceMember(ctx.workspace.id);
     const admin = await createInstanceAdmin();
@@ -200,11 +200,10 @@ describe("instance admin workspace management", () => {
       },
     );
 
-    expect(response.status).toBe(200);
-    expect(
-      (await readMemberAccessRows(ctx.workspace.id, member.id)).grants.map(
-        (grant) => grant.projectId,
-      ),
-    ).toEqual([ctx.beta.id]);
+    expect(response.status).toBe(404);
+    expect(await readMemberAccessRows(ctx.workspace.id, member.id)).toEqual({
+      rules: [],
+      grants: [],
+    });
   });
 });

@@ -66,10 +66,18 @@ export async function requireBulkTaskPermission(c: Context, next: Next) {
   return requireWorkspacePermission({ task: ["update_assigned"] })(c, next);
 }
 
+/**
+ * A full update asks for task:assign only when it changes the owner. An
+ * omitted userId keeps the owner; "" or null clears it. The controller
+ * decides again on the locked row; this only refuses early.
+ */
 export async function requireTaskAssigneePermission(c: Context, next: Next) {
   const id = c.req.param("id");
-  const { userId } = await readJsonBody(c);
-  const nextAssignee = typeof userId === "string" ? userId : null;
+  const body = await readJsonBody(c);
+  if (!Object.hasOwn(body, "userId") || body.userId === undefined)
+    return next();
+  const nextAssignee =
+    typeof body.userId === "string" ? body.userId.trim() || null : null;
 
   const [existingTask] = await db
     .select({ userId: taskTable.userId })

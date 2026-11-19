@@ -6,18 +6,21 @@ import {
   satisfies,
 } from "./role-permissions";
 
+// project:read probes "does this role grant it"; workspace:read every role
+// grants (see "membership implies workspace:read").
+const projectRead = { project: ["read"] };
 const workspaceRead = { workspace: ["read"] };
 
 describe("roleAllows", () => {
   it("uses the built-in statements when no permission is stored", () => {
-    expect(roleAllows("viewer", null, workspaceRead)).toBe(true);
+    expect(roleAllows("viewer", null, projectRead)).toBe(true);
     expect(roleAllows("viewer", undefined, { task: ["create"] })).toBe(false);
   });
 
   it("prefers the stored permission over the built-in statements", () => {
     const stored = JSON.stringify({ task: ["read"] });
 
-    expect(roleAllows("member", stored, workspaceRead)).toBe(false);
+    expect(roleAllows("member", stored, projectRead)).toBe(false);
     expect(roleAllows("member", stored, { task: ["read"] })).toBe(true);
   });
 
@@ -35,31 +38,31 @@ describe("roleAllows", () => {
   });
 
   it("reads a custom role from its stored permission only", () => {
-    expect(roleAllows("custom", null, workspaceRead)).toBe(false);
-    expect(
-      roleAllows("custom", JSON.stringify(workspaceRead), workspaceRead),
-    ).toBe(true);
+    expect(roleAllows("custom", null, projectRead)).toBe(false);
+    expect(roleAllows("custom", JSON.stringify(projectRead), projectRead)).toBe(
+      true,
+    );
   });
 
   it("falls back to the built-in statements when the stored JSON is malformed", () => {
-    expect(roleAllows("viewer", "{not json", workspaceRead)).toBe(true);
-    expect(roleAllows("custom", "{not json", workspaceRead)).toBe(false);
+    expect(roleAllows("viewer", "{not json", projectRead)).toBe(true);
+    expect(roleAllows("custom", "{not json", projectRead)).toBe(false);
   });
 
   it("ignores malformed entries in the stored permission", () => {
     const stored = JSON.stringify({
-      workspace: "read",
+      project: "read",
       task: ["read", 1],
     });
 
-    expect(roleAllows("custom", stored, workspaceRead)).toBe(false);
+    expect(roleAllows("custom", stored, projectRead)).toBe(false);
     expect(roleAllows("custom", stored, { task: ["read"] })).toBe(true);
   });
 });
 
 describe("rolesAllow", () => {
   const noRead = JSON.stringify({ task: ["read"] });
-  const read = JSON.stringify(workspaceRead);
+  const read = JSON.stringify(projectRead);
 
   it("allows when any role grants the permission", () => {
     expect(
@@ -69,14 +72,14 @@ describe("rolesAllow", () => {
           { role: "limited", permission: noRead },
           { role: "reader", permission: read },
         ],
-        workspaceRead,
+        projectRead,
       ),
     ).toBe(true);
     expect(
       rolesAllow(
         ["limited", "viewer"],
         [{ role: "limited", permission: noRead }],
-        workspaceRead,
+        projectRead,
       ),
     ).toBe(true);
   });
@@ -89,10 +92,10 @@ describe("rolesAllow", () => {
           { role: "limited", permission: noRead },
           { role: "viewer", permission: noRead },
         ],
-        workspaceRead,
+        projectRead,
       ),
     ).toBe(false);
-    expect(rolesAllow([], [], workspaceRead)).toBe(false);
+    expect(rolesAllow([], [], projectRead)).toBe(false);
   });
 
   it("allows when any duplicate row for a role grants the permission", () => {
@@ -106,7 +109,7 @@ describe("rolesAllow", () => {
         { role: "custom", permission: noRead },
       ],
     ]) {
-      expect(rolesAllow(["custom"], stored, workspaceRead)).toBe(true);
+      expect(rolesAllow(["custom"], stored, projectRead)).toBe(true);
     }
   });
 
@@ -118,7 +121,7 @@ describe("rolesAllow", () => {
           { role: "limited", permission: noRead },
           { role: "reader", permission: read },
         ],
-        workspaceRead,
+        projectRead,
       ),
     ).toBe(false);
   });
@@ -191,6 +194,31 @@ describe("rolesMissingPermissions", () => {
         required,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("membership implies workspace:read", () => {
+  it("grants workspace:read to a custom role that leaves it out", () => {
+    const stored = JSON.stringify({ task: ["read", "update_assigned"] });
+    expect(roleAllows("custom", stored, workspaceRead)).toBe(true);
+    expect(
+      rolesAllow(
+        ["custom"],
+        [{ role: "custom", permission: stored }],
+        workspaceRead,
+      ),
+    ).toBe(true);
+    expect(roleAllows("custom", stored, { workspace: ["update"] })).toBe(false);
+  });
+
+  it("grants it to every built-in role", () => {
+    for (const role of ["viewer", "member", "admin", "owner"])
+      expect(roleAllows(role, null, workspaceRead), role).toBe(true);
+  });
+
+  it("grants nothing to an unknown role or to no role", () => {
+    expect(roleAllows("custom", null, workspaceRead)).toBe(false);
+    expect(rolesAllow([], [], workspaceRead)).toBe(false);
   });
 });
 

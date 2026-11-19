@@ -61,7 +61,7 @@ it("a cookie request reads the session once and the user row once", async () => 
   expect(seen.length).toBeLessThanOrEqual(6);
 });
 
-it("an API key request reads the instance role once", async () => {
+it("an API key request never reads the instance role", async () => {
   const { app } = createApp();
   const owner = await signUpWithSession(app, {
     email: "budget@example.com",
@@ -95,5 +95,6 @@ it("an API key request reads the instance role once", async () => {
   const roleReads = seen.filter((text) =>
     /^select "role" from "user"/i.test(text),
   ).length;
-  expect(roleReads).toBe(1);
+  // Workspace routes have no instance-admin branch, so nothing reads it.
+  expect(roleReads).toBe(0);
 });

@@ -3,7 +3,6 @@ import type { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
 import db, { schema } from "../database";
 import { ApiError } from "../errors/api-error";
-import { isInstanceAdmin } from "./is-instance-admin";
 import { missingPermissions } from "./missing-permissions";
 import {
   type PermissionMap,
@@ -82,10 +81,6 @@ export async function hasWorkspacePermission(
     return false;
   }
 
-  if (await isInstanceAdmin(c)) {
-    return true;
-  }
-
   const { roles, stored } = await memberRoles(c, workspaceId);
   return rolesAllow(roles, stored, permissions);
 }
@@ -99,14 +94,11 @@ export async function workspacePermissionChecker(
   if (!workspaceId) return () => false;
 
   const scope = apiKeyPermissions(c);
-  const isAdmin = await isInstanceAdmin(c);
-  const { roles, stored } = isAdmin
-    ? { roles: [], stored: [] }
-    : await memberRoles(c, workspaceId);
+  const { roles, stored } = await memberRoles(c, workspaceId);
 
   return (permissions) => {
     if (scope && !satisfies(scope, permissions)) return false;
-    return isAdmin || rolesAllow(roles, stored, permissions);
+    return rolesAllow(roles, stored, permissions);
   };
 }
 
@@ -159,10 +151,7 @@ export function requireWorkspacePermission(permissions: PermissionMap) {
 
     assertApiKeyScope(c, permissions);
 
-    if (await isInstanceAdmin(c)) {
-      return next();
-    }
-
+    // The member's roles decide; an instance administrator gets no bypass.
     if (!c.get("userId")) {
       throw new HTTPException(401, { message: "Unauthorized" });
     }
