@@ -40,6 +40,7 @@ import { useOverlaidBoard } from "@/hooks/queries/board/use-overlaid-board";
 import { useGetColumns } from "@/hooks/queries/column/use-get-columns";
 import useExternalLinks from "@/hooks/queries/external-link/use-external-links";
 import useGetTask from "@/hooks/queries/task/use-get-task";
+import useGetProject from "@/hooks/queries/project/use-get-project";
 import useGetTaskRelations from "@/hooks/queries/task-relation/use-get-task-relations";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import type { ExternalLink } from "@/types/external-link";
@@ -81,7 +82,11 @@ export function TaskDetailPage({
   const { t } = useTranslation();
   const { data: task } = useGetTask(taskId);
   const { data: relations = [] } = useGetTaskRelations(taskId);
-  const { data: board } = useGetBoard(workspaceId);
+  const { data: board, isLoading: boardLoading } = useGetBoard(workspaceId);
+  const { data: project, isLoading: projectLoading } = useGetProject({
+    id: projectId,
+    workspaceId,
+  });
   // The board leaves out old done work. This read has the feature that holds
   // this task whatever its age, so an old done feature still shows its tasks.
   // Only a task in a feature can be missing from the board, so a task the board
@@ -92,10 +97,11 @@ export function TaskDetailPage({
     board.tasks.some(
       (b) => b.id === taskId || b.subtasks.some((s) => s.id === taskId),
     );
-  const { data: item } = useGetBoardItem(
+  const readsBoardItem = !!board && inFeature && !boardLists;
+  const { data: item, isLoading: itemLoading } = useGetBoardItem(
     workspaceId,
     taskId,
-    !!board && inFeature && !boardLists,
+    readsBoardItem,
   );
   const withThisItem = useMemo(
     () => (board ? withItem(board, item?.task) : undefined),
@@ -118,7 +124,17 @@ export function TaskDetailPage({
   }, [openAddTask, onAddTaskOpened]);
   void activitiesLoading;
 
-  if (!task) return <TaskDetailsSkeleton />;
+  // Nothing may paint from half a read: a missing board or project would show
+  // a "?" key, and missing columns would flash "Loading statuses…" in the bar.
+  const columnsLoading = columns.isLoading;
+  if (
+    !task ||
+    projectLoading ||
+    boardLoading ||
+    (readsBoardItem && itemLoading) ||
+    columnsLoading
+  )
+    return <TaskDetailsSkeleton />;
 
   const slugOf = (id: string) =>
     board?.projects.find((p) => p.id === id)?.slug ?? "?";
@@ -234,7 +250,8 @@ export function TaskDetailPage({
     bar.kind === "ready" && bar.steps.length > 1
       ? bar.index / (bar.steps.length - 1)
       : 0;
-  const keyLabel = `${slugOf(projectId)}-${task.number}${boardTask ? ` · ${kindOf(boardTask)}` : ""}`;
+  const pageSlug = project?.slug ?? "";
+  const keyLabel = `${pageSlug ? `${pageSlug}-` : ""}${task.number}${boardTask ? ` · ${kindOf(boardTask)}` : ""}`;
   const repoName =
     repo?.kind === "repo"
       ? (repo.repository?.split("/")[1] ??
