@@ -1,77 +1,91 @@
 import type { defaultStackParser, ErrorEvent, EventHint } from "@sentry/node";
 import {
-  isDatabaseError,
-  safeDatabaseMessage,
+  errorChain,
+  holdsDatabaseError,
+  knownDatabaseValues,
+  redactedMessage,
   stackFrames,
 } from "./database-error";
 import { FILTERED } from "./scrub";
 
 type StackParser = typeof defaultStackParser;
-
-const MAX_CHAIN = 10;
-
-/** The error and its causes, as Sentry's linked errors walks them. */
-function errorChain(root: unknown): Error[] {
-  const out: Error[] = [];
-  const seen = new Set<unknown>();
-  const queue: unknown[] = [root];
-  while (queue.length && out.length < MAX_CHAIN) {
-    const next = queue.shift();
-    if (!(next instanceof Error) || seen.has(next)) continue;
-    seen.add(next);
-    out.push(next);
-    queue.push(next.cause);
-    if (next instanceof AggregateError) queue.push(...next.errors);
-  }
-  return out;
-}
-
 type ExceptionValue = NonNullable<
   NonNullable<ErrorEvent["exception"]>["values"]
 >[number];
+type Mechanism = NonNullable<ExceptionValue["mechanism"]>;
 
 /**
- * Rewrites an event whose error chain holds a database error. Each
- * exception value is matched to its error by the exact message: a database
- * error gets its fixed message and frames parsed from its own stack; a value
- * that matches no error in the chain is filtered. Text is never searched.
+ * Rewrites an event whose error is, wraps or groups a database error. The
+ * SDK's exception values are thrown away and rebuilt from the error chain
+ * itself: fixed messages, and frames parsed from stacks that pass the exact
+ * header rule. SDK text is never matched back to errors.
  */
 export function redactDatabaseErrors(
   event: ErrorEvent,
   hint: EventHint | undefined,
   parser: StackParser | undefined,
 ): ErrorEvent {
-  const chain = errorChain(hint?.originalException);
-  const database = chain.filter(isDatabaseError);
-  if (!database.length || !event.exception?.values) return event;
+  const root = hint?.originalException;
+  if (!(root instanceof Error) || !holdsDatabaseError(root)) return event;
 
-  const other = new Set(
-    chain.filter((e) => !database.includes(e)).map((e) => e.message),
-  );
-  const values = event.exception.values.map((value): ExceptionValue => {
-    const match = database.find((e) => e.message === value.value);
-    if (match) {
-      const frames = stackFrames(match);
-      const parsed = frames !== undefined && parser ? parser(frames) : [];
-      const { stacktrace: _dropped, ...rest } = value;
-      return {
-        ...rest,
-        value: safeDatabaseMessage(match),
-        ...(parsed.length && { stacktrace: { frames: parsed } }),
-      };
-    }
-    if (value.value === undefined || other.has(value.value)) return value;
-    const { stacktrace: _dropped, ...rest } = value;
-    return { ...rest, value: FILTERED };
+  const links = errorChain(root);
+  const avoid = knownDatabaseValues(root);
+  const rootMechanism = event.exception?.values?.at(-1)?.mechanism;
+  const grouped = links.length > 1;
+
+  const values = links.map(({ error, source, parent }, id): ExceptionValue => {
+    const frames = stackFrames(error, avoid);
+    const parsed = frames !== undefined && parser ? parser(frames) : [];
+    const mechanism: Mechanism =
+      parent === null
+        ? {
+            type: "generic",
+            handled: true,
+            ...rootMechanism,
+            ...(grouped && { exception_id: id }),
+            ...(root instanceof AggregateError && { is_exception_group: true }),
+          }
+        : {
+            type: "chained",
+            handled: rootMechanism?.handled ?? true,
+            source,
+            exception_id: id,
+            parent_id: parent,
+          };
+    return {
+      type: error.name,
+      value: redactedMessage(error),
+      ...(parsed.length > 0 && { stacktrace: { frames: parsed } }),
+      mechanism,
+    };
   });
+
+  // Raw text of every error that is or holds a database error: any other
+  // part of the event that repeats it is dropped.
+  const raw = links
+    .filter(({ error }) => holdsDatabaseError(error))
+    .map(({ error }) => error.message)
+    .concat(avoid)
+    .filter((text) => text.length > 0);
+  const repeats = (value: unknown) => {
+    if (value === undefined) return false;
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    return raw.some((r) => text.includes(r));
+  };
 
   // Extra error data copies an error's fields under its name.
   const contexts = event.contexts && { ...event.contexts };
-  if (contexts) for (const error of database) delete contexts[error.name];
+  if (contexts) for (const { error } of links) delete contexts[error.name];
 
-  return {
+  const out: ErrorEvent = {
     ...event,
-    exception: { ...event.exception, values },
+    // The SDK's own values come last; ours keep its order: root last.
+    exception: { ...event.exception, values: values.reverse() },
     ...(contexts && { contexts }),
   };
+  if (repeats(out.message)) out.message = FILTERED;
+  if (repeats(out.logentry)) delete out.logentry;
+  if (out.breadcrumbs)
+    out.breadcrumbs = out.breadcrumbs.filter((crumb) => !repeats(crumb));
+  return out;
 }

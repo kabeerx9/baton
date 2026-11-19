@@ -58,7 +58,7 @@ export function isDrizzleQueryError(
   return value instanceof DrizzleQueryError;
 }
 
-export function isDatabaseError(value: unknown): value is Error {
+export function isDatabaseError(value: unknown): boolean {
   return isDrizzleQueryError(value) || isPgError(value);
 }
 
@@ -96,42 +96,121 @@ export function safeDatabaseMessage(error: Error): string {
   return `Database error${describe(isPgError(error) ? pgFields(error) : {})}`;
 }
 
+const MAX_CHAIN = 10;
+
+/** One error in a chain: how it was reached and from which parent. */
+export type ChainLink = {
+  error: Error;
+  source: string;
+  parent: number | null;
+};
+
 /**
- * The stack's frame lines only. V8 starts a stack with `<name>: <message>`;
- * that prefix is cut by the message's length, not found in the text. A
- * stack that does not start with it is dropped.
+ * The error, its causes and an AggregateError's errors, breadth first, as
+ * Sentry's linked errors walks them. The root comes first.
  */
-export function stackFrames(error: Error): string | undefined {
+export function errorChain(root: Error): ChainLink[] {
+  const out: ChainLink[] = [];
+  const seen = new Set<Error>();
+  const queue: Array<{
+    value: unknown;
+    source: string;
+    parent: number | null;
+  }> = [{ value: root, source: "", parent: null }];
+  while (queue.length && out.length < MAX_CHAIN) {
+    const { value, source, parent } = queue.shift()!;
+    if (!(value instanceof Error) || seen.has(value)) continue;
+    seen.add(value);
+    const index = out.push({ error: value, source, parent }) - 1;
+    queue.push({ value: value.cause, source: "cause", parent: index });
+    if (value instanceof AggregateError)
+      value.errors.forEach((child, i) =>
+        queue.push({ value: child, source: `errors[${i}]`, parent: index }),
+      );
+  }
+  return out;
+}
+
+/** True when the error is, wraps or groups a database error. */
+export function holdsDatabaseError(error: Error): boolean {
+  return errorChain(error).some((link) => isDatabaseError(link.error));
+}
+
+// Pieces shorter than this are too common to tell a value from code.
+const MIN_VALUE_PIECE = 6;
+
+/**
+ * Text that a database error is known to carry: Drizzle's params and pg's
+ * value fields, line by line. A stack holding any of it is dropped.
+ */
+export function knownDatabaseValues(error: Error): string[] {
+  const out: string[] = [];
+  for (const { error: link } of errorChain(error)) {
+    if (!isDatabaseError(link)) continue;
+    const texts: unknown[] = [];
+    if (isDrizzleQueryError(link) && Array.isArray(link.params))
+      texts.push(...link.params);
+    const fields = link as {
+      detail?: unknown;
+      where?: unknown;
+      hint?: unknown;
+      internalQuery?: unknown;
+    };
+    texts.push(fields.detail, fields.where, fields.hint, fields.internalQuery);
+    for (const text of texts) {
+      if (typeof text !== "string" && typeof text !== "number") continue;
+      for (const piece of String(text).split("\n")) {
+        const trimmed = piece.trim();
+        if (trimmed.length >= MIN_VALUE_PIECE) out.push(trimmed);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The stack's frame lines only. A V8 stack starts with the exact line
+ * `<name>: <message>` (or `<name>` for an empty message), so the header is
+ * cut by the error's own strings; any other start drops the stack, as does
+ * frame text that holds a known database value.
+ */
+export function stackFrames(
+  error: Error,
+  avoid: readonly string[] = [],
+): string | undefined {
   const { stack } = error;
   if (typeof stack !== "string") return undefined;
   const header = error.message ? `${error.name}: ${error.message}` : error.name;
-  if (!stack.startsWith(header)) return undefined;
-  return stack.slice(header.length);
+  if (stack !== header && !stack.startsWith(`${header}\n`)) return undefined;
+  const frames = stack.slice(header.length);
+  if (avoid.some((value) => frames.includes(value))) return undefined;
+  return frames;
 }
 
-/** The stack with the safe message in place of the original. */
-export function safeDatabaseStack(error: Error): string | undefined {
-  const frames = stackFrames(error);
-  return frames === undefined
-    ? undefined
-    : `${error.name}: ${safeDatabaseMessage(error)}${frames}`;
+/** The message to log or send: fixed for a database error and its wrappers. */
+export function redactedMessage(error: Error): string {
+  if (isDatabaseError(error)) return safeDatabaseMessage(error);
+  if (holdsDatabaseError(error))
+    return `${error.name} (wraps a database error)`;
+  return error.message;
 }
 
-export type SafeDatabaseError = {
+export type RedactedError = {
   name: string;
   message: string;
   stack?: string;
   query?: string;
 } & PgFields;
 
-/** The loggable form of a database error: schema facts and SQL, no values. */
-export function serializeDatabaseError(error: Error): SafeDatabaseError {
-  const out: SafeDatabaseError = {
-    name: error.name,
-    message: safeDatabaseMessage(error),
-  };
-  const stack = safeDatabaseStack(error);
-  if (stack !== undefined) out.stack = stack;
+/**
+ * The loggable form of an error that is or holds a database error: schema
+ * facts and SQL, never values or the raw message.
+ */
+export function serializeRedactedError(error: Error): RedactedError {
+  const message = redactedMessage(error);
+  const out: RedactedError = { name: error.name, message };
+  const frames = stackFrames(error, knownDatabaseValues(error));
+  if (frames !== undefined) out.stack = `${error.name}: ${message}${frames}`;
   if (isDrizzleQueryError(error)) {
     // Drizzle sends values as $n parameters, so the SQL holds none.
     if (typeof error.query === "string") out.query = error.query;

@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import { sql } from "drizzle-orm";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { DatabaseError } from "pg";
+import { defaultStackParser } from "@sentry/node";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { buildLogRecord } from "../../apps/api/src/observability/log-record";
@@ -15,6 +16,7 @@ const SECRET = "Confidential acquisition plan";
 const TITLE = `Meeting\n    at noon discuss ${SECRET}`;
 const LEAKS = [SECRET, "noon"];
 const NOT_NULL = "(pg 23502 not_null_violation on task.project_id)";
+const MAX_VALUE = 70;
 const events: Sentry.ErrorEvent[] = [];
 
 beforeAll(() => {
@@ -22,6 +24,8 @@ beforeAll(() => {
   Sentry.init({
     dsn: "https://public@sentry.invalid/1",
     defaultIntegrations: false,
+    // Short enough that the SDK truncates a Drizzle message (collision test).
+    maxValueLength: MAX_VALUE,
     // Linked errors sends the pg cause; extra error data copies its fields.
     integrations: [
       Sentry.linkedErrorsIntegration(),
@@ -162,9 +166,9 @@ it("keeps a uuid syntax error's value out of logs and Sentry", async () => {
   ]);
 });
 
-it("filters an exception value that matches no error in the chain", async () => {
+it("replaces an SDK value it cannot trust with the chain's own", async () => {
   const error = await failedTitleInsert();
-  // A processor that changed a value breaks the exact match: fail closed.
+  // A processor that changed a value: nothing of it is kept.
   const event = privacyOptions.beforeSend(
     {
       type: undefined,
@@ -173,5 +177,104 @@ it("filters an exception value that matches no error in the chain", async () => 
     { originalException: error },
   );
   expectNoLeak(event);
-  expect(event?.exception?.values?.[0]?.value).toBe("[Filtered]");
+  expect(event?.exception?.values?.map((v) => v.value)).toEqual([
+    `Database error ${NOT_NULL}`,
+    `Failed query ${NOT_NULL}`,
+  ]);
+});
+
+// Round 3: nothing the SDK produced for a database error event survives.
+
+async function captured(error: unknown, scope?: (s: Sentry.Scope) => void) {
+  Sentry.withScope((s) => {
+    scope?.(s);
+    Sentry.captureException(error);
+  });
+  await Sentry.flush(1000);
+  expect(events).toHaveLength(1);
+  return events[0]!;
+}
+
+it("keeps no SDK frame when a truncated value equals a wrapper's message", async () => {
+  const error = await failedTitleInsert();
+  // The SDK's own parse of the stack turns the value into frames.
+  expect(JSON.stringify(defaultStackParser(error.stack ?? ""))).toContain(
+    SECRET,
+  );
+  // The SDK cuts both values to MAX_VALUE + "...": the Drizzle one then
+  // equals this wrapper's message exactly.
+  const wrapper = new Error(`${error.message.slice(0, MAX_VALUE)}...`, {
+    cause: error,
+  });
+  const event = await captured(wrapper);
+  expectNoLeak(event);
+  expect(event.exception?.values?.map((v) => v.value)).toEqual([
+    `Database error ${NOT_NULL}`,
+    `Failed query ${NOT_NULL}`,
+    "Error (wraps a database error)",
+  ]);
+});
+
+it("keeps no SDK frame when a processor removed the value", async () => {
+  const event = await captured(await failedTitleInsert(), (scope) =>
+    scope.addEventProcessor((e) => {
+      for (const value of e.exception?.values ?? []) delete value.value;
+      return e;
+    }),
+  );
+  expectNoLeak(event);
+  expect(event.exception?.values?.at(-1)?.value).toBe(
+    `Failed query ${NOT_NULL}`,
+  );
+});
+
+it("drops the stack when the message was shortened after the stack was made", async () => {
+  const error = await failedTitleInsert();
+  expect(error.stack).toContain(SECRET);
+  // Cut inside the value: the old stack still holds the rest of it.
+  error.message = error.message.slice(0, error.message.indexOf("noon") + 2);
+  const record = logRecord(error);
+  expectNoLeak(record);
+  expect((record.error as { stack?: string }).stack).toBeUndefined();
+  expectNoLeak(await captured(error));
+});
+
+it("replaces the message of a wrapper that copies a database message", async () => {
+  const cause = await failedTitleInsert();
+  const wrapper = new Error(`write failed: ${cause.message}`, { cause });
+  const record = logRecord(wrapper);
+  expectNoLeak(record);
+  expect(record.error).toMatchObject({
+    name: "Error",
+    message: "Error (wraps a database error)",
+    cause: { message: `Failed query ${NOT_NULL}` },
+  });
+  expect(String((record.error as { stack?: string }).stack)).toMatch(
+    /^Error: Error \(wraps a database error\)\n {4}at /,
+  );
+  const event = await captured(wrapper);
+  expectNoLeak(event);
+  expect(event.exception?.values?.at(-1)?.value).toBe(
+    "Error (wraps a database error)",
+  );
+});
+
+it("redacts an AggregateError that groups a database error", async () => {
+  const error = await failedTitleInsert();
+  const group = new AggregateError([error], `batch failed: ${error.message}`);
+  const record = logRecord(group);
+  expectNoLeak(record);
+  expect(record.error).toMatchObject({
+    message: "AggregateError (wraps a database error)",
+    errors: [{ message: `Failed query ${NOT_NULL}` }],
+  });
+  const event = await captured(group, (scope) =>
+    scope.addBreadcrumb({ message: `saw ${error.message}` }),
+  );
+  expectNoLeak(event);
+  expect(event.exception?.values?.at(-1)).toMatchObject({
+    type: "AggregateError",
+    value: "AggregateError (wraps a database error)",
+    mechanism: { is_exception_group: true },
+  });
 });

@@ -1,4 +1,4 @@
-import { isDatabaseError, serializeDatabaseError } from "./database-error";
+import { holdsDatabaseError, serializeRedactedError } from "./database-error";
 import type { LogLevel } from "./log-level";
 import type { RequestContext } from "./request-context";
 import { scrubDeep, scrubText } from "./scrub";
@@ -22,11 +22,16 @@ export function toLoggable(
   depth = 0,
   seen = new WeakSet<object>(),
 ): unknown {
-  if (isDatabaseError(value)) {
-    // Never the raw message, params or pg detail: they hold row values.
-    const out: Record<string, unknown> = { ...serializeDatabaseError(value) };
-    if (value.cause !== undefined && depth < MAX_DEPTH)
-      out.cause = toLoggable(value.cause, depth + 1, seen);
+  if (value instanceof Error && holdsDatabaseError(value)) {
+    // A database error or anything wrapping one: never the raw message,
+    // params or pg detail, which hold row values.
+    const out: Record<string, unknown> = { ...serializeRedactedError(value) };
+    if (depth < MAX_DEPTH) {
+      if (value.cause !== undefined)
+        out.cause = toLoggable(value.cause, depth + 1, seen);
+      if (value instanceof AggregateError)
+        out.errors = value.errors.map((e) => toLoggable(e, depth + 1, seen));
+    }
     return out;
   }
   if (value instanceof Error) {

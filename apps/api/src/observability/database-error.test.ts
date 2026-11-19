@@ -3,7 +3,7 @@ import { DatabaseError } from "pg";
 import { describe, expect, it } from "vite-plus/test";
 import {
   isDatabaseError,
-  serializeDatabaseError,
+  serializeRedactedError,
   stackFrames,
 } from "./database-error";
 
@@ -12,7 +12,7 @@ function pgError(message: string, fields: Record<string, string>) {
   return Object.assign(error, { severity: "ERROR", ...fields });
 }
 
-describe("serializeDatabaseError", () => {
+describe("serializeRedactedError", () => {
   it("keeps schema facts and drops pg's message, detail, where and hint", () => {
     const error = pgError('invalid input syntax for type uuid: "secret"', {
       code: "22P02",
@@ -22,7 +22,7 @@ describe("serializeDatabaseError", () => {
       internalQuery: "select 'secret'",
       routine: "string_to_uuid",
     });
-    const out = serializeDatabaseError(error);
+    const out = serializeRedactedError(error);
     expect(JSON.stringify(out)).not.toContain("secret");
     expect(out).toMatchObject({
       name: "error",
@@ -44,7 +44,7 @@ describe("serializeDatabaseError", () => {
       ["secret title"],
       cause,
     );
-    const out = serializeDatabaseError(error);
+    const out = serializeRedactedError(error);
     expect(JSON.stringify(out)).not.toContain("secret");
     expect(out).toMatchObject({
       message: "Failed query (pg 23502 not_null_violation on task.project_id)",
@@ -61,7 +61,26 @@ describe("serializeDatabaseError", () => {
     expect(error.stack).toContain("bad value secret");
     error.message = "changed after the stack was made";
     expect(stackFrames(error)).toBeUndefined();
-    expect(serializeDatabaseError(error).stack).toBeUndefined();
+    expect(serializeRedactedError(error).stack).toBeUndefined();
+  });
+
+  it("drops a stack cut at a line break inside a value", () => {
+    // The exact header rule passes here: the shortened message ends where a
+    // line of the value starts. The known params catch the rest.
+    const error = new DrizzleQueryError(
+      "insert into task (title) values ($1)",
+      ["Meeting\n    at noon discuss secret plan"],
+      undefined as never,
+    );
+    expect(error.stack).toContain("secret plan");
+    error.message = error.message.slice(
+      0,
+      error.message.indexOf("\n    at noon"),
+    );
+    expect(error.stack?.startsWith(`${error.name}: ${error.message}\n`)).toBe(
+      true,
+    );
+    expect(serializeRedactedError(error).stack).toBeUndefined();
   });
 
   it("leaves other errors to the generic path", () => {
