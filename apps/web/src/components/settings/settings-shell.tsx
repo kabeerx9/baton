@@ -1,3 +1,4 @@
+import { InShell } from "@/components/common/in-shell";
 import { useLocation } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { getSettingsBreadcrumb } from "@/components/settings/nav/get-settings-breadcrumb";
@@ -37,7 +38,9 @@ export function SettingsShell({ children }: SettingsShellProps) {
         <SettingsSidebar nav={nav} onLeave={leave} />
         <SidebarInset className="m-2 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-sm/5">
           <SettingsHeader breadcrumb={getSettingsBreadcrumb(nav, pathname)} />
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <InShell>{children}</InShell>
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </div>

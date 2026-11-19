@@ -56,7 +56,9 @@ function AuthProvider({ children }: PropsWithChildren) {
   const booting = isPending && !hasLoadedOnce.current;
   // Blank for 300ms, then the splash, held for at least 500ms once it shows.
   const splashUp = useDelayedPending(booting);
-  if (splashUp) markBootSplashShown();
+  useEffect(() => {
+    if (splashUp) markBootSplashShown();
+  }, [splashUp]);
   if (booting || splashUp) {
     return splashUp ? (
       <SplashScreen step="session" />
