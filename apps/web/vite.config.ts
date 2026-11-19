@@ -11,6 +11,9 @@ const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
 const uploadSourceMaps = Boolean(sentryAuthToken && sentryOrg && sentryProject);
+// One release name for the map upload and the browser SDK (instrument.ts).
+// CI passes the commit SHA; the API image gets the same value.
+const sentryRelease = process.env.SENTRY_RELEASE?.trim() || packageJson.version;
 
 export default defineConfig({
   run: {
@@ -43,6 +46,7 @@ export default defineConfig({
   },
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),
+    __SENTRY_RELEASE__: JSON.stringify(sentryRelease),
   },
   base: "/",
   plugins: lazyPlugins(() => [
@@ -61,8 +65,9 @@ export default defineConfig({
             authToken: sentryAuthToken,
             org: sentryOrg,
             project: sentryProject,
-            release: { name: packageJson.version },
+            release: { name: sentryRelease },
             sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.map"] },
+            telemetry: false,
           }),
         ]
       : []),

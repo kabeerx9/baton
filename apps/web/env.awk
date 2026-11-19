@@ -9,6 +9,19 @@ function json(value,    result, i, ch) {
     return result "\""
 }
 
+# https://<public key>@<host>[:port][/path]/<project id>. No {n,m} intervals:
+# BusyBox awk in the image must accept every expression here.
+function valid_dsn(value) {
+    if (value ~ /^https:\/\/[A-Za-z0-9]+@[A-Za-z0-9.-]+(:[0-9]+)?(\/[A-Za-z0-9._-]+)*\/[0-9]+$/ && length(value) <= 512)
+        return value
+    return ""
+}
+
+function valid_environment(value) {
+    if (value ~ /^[A-Za-z0-9_.-]+$/ && length(value) <= 64) return value
+    return ""
+}
+
 BEGIN {
     escape["\\"] = "\\\\"
     escape["\""] = "\\\""
@@ -17,6 +30,18 @@ BEGIN {
     values["BATON_API_URL"] = ENVIRON["BATON_API_URL"]
     values["BATON_CLIENT_URL"] = ENVIRON["BATON_CLIENT_URL"]
     values["BATON_TURNSTILE_SITE_KEY"] = ENVIRON["BATON_TURNSTILE_SITE_KEY"]
+    # Sentry values are public too, but only a well-formed value is written;
+    # anything else renders empty and leaves browser Sentry off.
+    values["BATON_SENTRY_DSN"] = valid_dsn(ENVIRON["BATON_SENTRY_DSN"])
+    values["BATON_SENTRY_ENVIRONMENT"] = valid_environment(ENVIRON["BATON_SENTRY_ENVIRONMENT"])
+
+    if (mode == "check") {
+        if (ENVIRON["BATON_SENTRY_DSN"] != "" && values["BATON_SENTRY_DSN"] == "")
+            print "WARNING: BATON_SENTRY_DSN is not an https Sentry DSN, so browser error reporting stays off."
+        if (ENVIRON["BATON_SENTRY_ENVIRONMENT"] != "" && values["BATON_SENTRY_ENVIRONMENT"] == "")
+            print "WARNING: BATON_SENTRY_ENVIRONMENT may use only letters, digits, dot, dash and underscore (64 at most); it is ignored."
+        exit
+    }
 
     if (mode == "resource" || mode == "authorization") {
         base = values["BATON_API_URL"]
@@ -40,14 +65,16 @@ BEGIN {
     # again, so a value containing another placeholder remains literal data.
     # Vite can fold a static path suffix into the same literal (for example
     # BATON_CLIENT_URL/auth/sign-in). Only accept an unescaped static path.
-    while (match(rest, /["'`]BATON_(API_URL|CLIENT_URL|TURNSTILE_SITE_KEY)(\/[-A-Za-z0-9_.\/]*)?["'`]/)) {
+    while (match(rest, /["'`]BATON_(API_URL|CLIENT_URL|TURNSTILE_SITE_KEY|SENTRY_DSN|SENTRY_ENVIRONMENT)(\/[-A-Za-z0-9_.\/]*)?["'`]/)) {
         token = substr(rest, RSTART, RLENGTH)
         key = substr(token, 2, length(token) - 2)
         suffix = ""
         slash = index(key, "/")
         if (slash) { suffix = substr(key, slash); key = substr(key, 1, slash - 1) }
         output = output substr(rest, 1, RSTART - 1)
-        if (substr(token, 1, 1) == substr(token, length(token), 1)) output = output json(values[key] suffix)
+        # A path suffix only makes sense on the URL placeholders.
+        if (suffix != "" && key ~ /^BATON_SENTRY_/) output = output token
+        else if (substr(token, 1, 1) == substr(token, length(token), 1)) output = output json(values[key] suffix)
         else output = output token
         rest = substr(rest, RSTART + RLENGTH)
     }

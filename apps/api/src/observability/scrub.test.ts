@@ -6,6 +6,7 @@ import {
   scrubDeep,
   scrubEvent,
   scrubLog,
+  scrubSpan,
   scrubText,
 } from "./scrub";
 
@@ -100,6 +101,31 @@ describe("scrubDeep", () => {
     });
   });
 
+  it("replaces values under secret keys and route parameter attributes", () => {
+    const out = scrubDeep({
+      token: "short",
+      "params.token": "JOINTOKEN",
+      "url.path.parameter.token": "JOINTOKEN",
+      "params.inviteId": "inv1",
+      "url.query.code": "c1",
+      headers: { Authorization: "x", cookie: "y" },
+      "params.workspaceId": "ws1",
+      state: "accepted",
+      code: "ECONNREFUSED",
+    });
+    expect(out).toEqual({
+      token: FILTERED,
+      "params.token": FILTERED,
+      "url.path.parameter.token": FILTERED,
+      "params.inviteId": FILTERED,
+      "url.query.code": FILTERED,
+      headers: { Authorization: FILTERED, cookie: FILTERED },
+      "params.workspaceId": "ws1",
+      state: "accepted",
+      code: "ECONNREFUSED",
+    });
+  });
+
   it("stops at a fixed depth instead of recursing forever", () => {
     type Loop = { self?: Loop; text: string };
     const loop: Loop = { text: "x" };
@@ -150,5 +176,33 @@ describe("Sentry item scrubbers", () => {
       throw new Error("boom");
     });
     expect(hook({ message: "x" })).toBeNull();
+  });
+});
+
+describe("scrubSpan", () => {
+  it("scrubs the span name and URL attributes", () => {
+    const span = scrubSpan({
+      name: "GET /join/abcSecret",
+      span_id: "1",
+      attributes: {
+        "url.full": "https://app.test/join/abcSecret?token=t9",
+        "http.response.status_code": 200,
+      },
+    });
+    expect(JSON.stringify(span)).not.toMatch(/abcSecret|t9/);
+    expect(span.attributes?.["http.response.status_code"]).toBe(200);
+    expect(span.span_id).toBe("1");
+  });
+
+  it("keeps only ids and timing when scrubbing throws", () => {
+    const attributes = {};
+    Object.defineProperty(attributes, "boom", {
+      enumerable: true,
+      get() {
+        throw new Error("boom");
+      },
+    });
+    const span = scrubSpan({ name: "/join/x", span_id: "1", attributes });
+    expect(span).toEqual({ name: FILTERED, span_id: "1", attributes: {} });
   });
 });

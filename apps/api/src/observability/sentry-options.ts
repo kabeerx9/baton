@@ -1,5 +1,11 @@
 import type { NodeOptions } from "@sentry/node";
-import { failClosed, scrubBreadcrumb, scrubEvent, scrubLog } from "./scrub";
+import {
+  failClosed,
+  scrubBreadcrumb,
+  scrubEvent,
+  scrubLog,
+  scrubSpan,
+} from "./scrub";
 
 export function parseSampleRate(value: string | undefined): number {
   if (value === undefined || value.trim() === "") return 0;
@@ -52,6 +58,7 @@ export const privacyOptions = {
   },
   beforeBreadcrumb: failClosed(scrubBreadcrumb),
   beforeSend: failClosed(scrubEvent),
-  beforeSendTransaction: failClosed(scrubEvent),
+  // v11 streams spans by default; beforeSendTransaction would never run.
+  beforeSendSpan: scrubSpan,
   beforeSendLog: failClosed(scrubLog),
 } satisfies Partial<NodeOptions>;

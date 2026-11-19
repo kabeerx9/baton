@@ -62,7 +62,21 @@ export function scrubText(value: string): string {
 
 const MAX_DEPTH = 8;
 
-/** Scrubs every string inside `value`; other values pass through. */
+// Keys whose value is a secret whatever it looks like.
+const SECRET_KEY =
+  /^(?:token|access_token|refresh_token|id_token|api_key|apikey|secret|password|session_token|signature|authorization|cookie)$/i;
+// Route and query parameters copied into attributes by tracing, such as
+// `params.token` or `url.path.parameter.token` for /join/$token.
+const SECRET_PARAM_KEY = new RegExp(
+  `^(?:params|url\\.path\\.parameter|url\\.query|query)\\.(?:${SENSITIVE_PARAMS}|inviteId)$`,
+  "i",
+);
+
+function isSecretKey(key: string) {
+  return SECRET_KEY.test(key) || SECRET_PARAM_KEY.test(key);
+}
+
+/** Scrubs every string inside `value`; values under secret keys are replaced. */
 export function scrubDeep<T>(value: T, depth = 0): T {
   if (typeof value === "string") return scrubText(value) as T;
   if (depth >= MAX_DEPTH || value === null || typeof value !== "object")
@@ -71,7 +85,7 @@ export function scrubDeep<T>(value: T, depth = 0): T {
     return value.map((item) => scrubDeep(item, depth + 1)) as T;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value))
-    out[key] = scrubDeep(item, depth + 1);
+    out[key] = isSecretKey(key) ? FILTERED : scrubDeep(item, depth + 1);
   return out as T;
 }
 
@@ -140,4 +154,24 @@ export function failClosed<T>(scrub: (item: T) => T): (item: T) => T | null {
       return null;
     }
   };
+}
+
+type Spanish = { name: string; attributes?: Record<string, unknown> };
+
+/**
+ * Scrubs a streamed span. Sentry cannot drop a span from beforeSendSpan,
+ * so if scrubbing fails the span keeps only its timing and ids.
+ */
+export function scrubSpan<S extends Spanish>(span: S): S {
+  try {
+    return {
+      ...span,
+      name: scrubText(span.name),
+      ...(span.attributes !== undefined && {
+        attributes: scrubDeep(span.attributes),
+      }),
+    };
+  } catch {
+    return { ...span, name: FILTERED, attributes: {} };
+  }
 }
