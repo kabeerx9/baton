@@ -32,6 +32,7 @@ import {
   projectWorkspaceId,
 } from "./load-consent-facts";
 import type { ChangeRequestRow } from "./response";
+import { recordDomainEvent } from "../observability/domain-event";
 
 type Task = typeof taskTable.$inferSelect;
 export type Decision = "accept" | "reject" | "cancel";
@@ -258,6 +259,11 @@ export async function decideChangeRequest({
     };
   }
 
+  recordDomainEvent("change_request", "Change request decided", {
+    change_request_id: requestId,
+    decision,
+    state: result.request.state,
+  });
   if (done.execution)
     await publishExecution(done.execution, actor.userId, relations);
   await dispatchRequestEffects(effects);

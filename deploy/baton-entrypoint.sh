@@ -78,7 +78,8 @@ fi
 /docker-entrypoint.d/05-baton-runtime-storage.sh
 /docker-entrypoint.d/env.sh
 
-node --enable-source-maps /app/apps/api/dist/index.js &
+# --import loads Sentry before the app so it can hook http, pg and hono.
+node --enable-source-maps --import /app/apps/api/dist/instrument.js /app/apps/api/dist/index.js &
 api_pid=$!
 
 echo "Waiting for API to be ready..."

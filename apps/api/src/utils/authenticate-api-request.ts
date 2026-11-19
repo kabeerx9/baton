@@ -1,7 +1,7 @@
-import * as Sentry from "@sentry/node";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { identity } from "../identity";
+import { setRequestUser } from "../observability/workspace-context";
 import type { Caller } from "../identity/port";
 import { isMcpToken } from "../mcp/grant/token-secret";
 import { verifyAccessToken } from "../mcp/grant/verify-access-token";
@@ -11,11 +11,11 @@ import { type ApiKeyRateLimit, rateLimitHeaders } from "./rate-limit-headers";
 import type { AuthMethod } from "./request-channel";
 import { verifyApiKey } from "./verify-api-key";
 
-// User is tagged on Sentry's isolation scope; the per-request isolation
-// scope is forked by Sentry.withIsolationScope in the api.use("*", ...)
-// middleware, so this only affects the in-flight request.
+// The request's own Sentry scope and log context come from
+// observability/request-context-middleware.ts, so this only affects the
+// in-flight request.
 function attachUserToScope(userId: string) {
-  Sentry.setUser({ id: userId });
+  setRequestUser(userId);
 }
 
 function resolveBearerOnly(c: Context) {

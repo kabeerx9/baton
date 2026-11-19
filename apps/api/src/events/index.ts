@@ -10,6 +10,7 @@ const EVENTS = new EventEmitter();
 EVENTS.setMaxListeners(100);
 export { currentChannel, eventContext } from "./context";
 import { eventContext } from "./context";
+import { addDomainBreadcrumb } from "../observability/domain-event";
 
 export type EventPayload<T = unknown> = {
   type: string;
@@ -79,6 +80,7 @@ export async function publishLive(
     timestamp: new Date().toISOString(),
   };
 
+  addDomainBreadcrumb("event", "Event published", { type: eventType });
   try {
     if (options?.waitForHandlers) {
       // EventEmitter.emit discards promises. Bounded producers must await the

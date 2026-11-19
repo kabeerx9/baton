@@ -3,14 +3,12 @@ import { startOutboxRelay } from "./events/outbox/start-relay";
 import integrationSync from "./integration-sync";
 import { syncWorkspaceAccess } from "./ws/workspace-access";
 import { drainPasswordResetDeliveries } from "./utils/password-reset-delivery";
-import "./instrument";
 
 import { dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import * as Sentry from "@sentry/node";
 import type { Identity } from "./identity/port";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -28,6 +26,10 @@ import db, { getDatabase, schema } from "./database";
 import { apiErrorSchema } from "./errors/api-error-schema";
 import { httpExceptionResponse } from "./errors/http-exception-response";
 import { notFoundResponse } from "./errors/not-found-response";
+import { logger } from "./observability/logger";
+import { reportRequestError } from "./observability/report-error";
+import { requestContext } from "./observability/request-context-middleware";
+import { setWorkspaceContext } from "./observability/workspace-context";
 import { validationHook } from "./errors/validation-error";
 import { prepareDatabaseStartup } from "./database/prepare-database-startup";
 import { waitForDatabase } from "./database/wait-for-database";
@@ -155,18 +157,12 @@ function buildContentDisposition(filename: string, inline: boolean) {
 
 export function createApp() {
   const app = new Hono<AppVariables>();
+  app.use("*", requestContext());
   app.use("*", clientIpMiddleware());
 
   app.onError((err) => {
-    if (err instanceof HTTPException) {
-      // expected errors (401/404/...) are not reported; real failures are
-      if (err.status >= 500) {
-        Sentry.captureException(err);
-      }
-      return httpExceptionResponse(err);
-    }
-
-    Sentry.captureException(err);
+    reportRequestError(err);
+    if (err instanceof HTTPException) return httpExceptionResponse(err);
     return httpExceptionResponse(
       new HTTPException(500, { message: "Internal Server Error" }),
     );
@@ -550,27 +546,23 @@ export function createApp() {
     if (path.startsWith("/api/mcp") || path.startsWith("/api/.well-known/")) {
       return next();
     }
-    return Sentry.withIsolationScope(async () => {
-      Sentry.setUser(null);
-      try {
-        await authenticateApiRequest(c);
-        const windowId = c.req.header("X-Baton-Window-Id");
-        const userId = c.get("userId");
-        const initiatorId = windowId ? `${userId}:${windowId}` : userId;
-        return await eventContext.run(
-          { initiatorId, channel: channelFor(c.get("authMethod")) },
-          next,
-        );
-      } catch (error) {
-        if (!(error instanceof HTTPException)) {
-          console.error("API authentication failed:", error);
-          throw new HTTPException(500, { message: "Internal Server Error" });
-        }
-        throw error;
-      } finally {
-        Sentry.setUser(null);
+    // requestContext() already gave this request its own Sentry scope.
+    try {
+      await authenticateApiRequest(c);
+    } catch (error) {
+      if (!(error instanceof HTTPException)) {
+        logger.error("API authentication failed", { error });
+        throw new HTTPException(500, { message: "Internal Server Error" });
       }
-    });
+      throw error;
+    }
+    const windowId = c.req.header("X-Baton-Window-Id");
+    const userId = c.get("userId");
+    const initiatorId = windowId ? `${userId}:${windowId}` : userId;
+    return eventContext.run(
+      { initiatorId, channel: channelFor(c.get("authMethod")) },
+      next,
+    );
   });
 
   const projectApi = api.route("/project", project);
@@ -682,7 +674,7 @@ export function createApp() {
         });
         await assertProjectAccess(userId, projectId);
         workspaceId = project.workspaceId;
-        c.set("workspaceId", workspaceId);
+        setWorkspaceContext(c, workspaceId);
         await requireWorkspacePermission(PROJECT_READ_PERMISSIONS)(
           c,
           async () => {},

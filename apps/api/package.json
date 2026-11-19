@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --import ./src/instrument.ts src/index.ts",
     "build": "vp run compile",
     "lint": "vp check .",
     "typecheck": "vp run check:types",

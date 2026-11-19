@@ -11,6 +11,10 @@ import type { ConsumerResult, LocalConsumer } from "./consumer";
 import { errorCode } from "./error-code";
 import { type Step, preflight, readDelivery, transition } from "./lifecycle";
 import { findConsumer } from "./registry";
+import {
+  addDomainBreadcrumb,
+  recordDomainEvent,
+} from "../../observability/domain-event";
 
 const dbNow = sql`(clock_timestamp() AT TIME ZONE 'utc')`;
 
@@ -173,7 +177,23 @@ async function applyStep(row: OutboxRow, step: Step, error: string) {
  * Runs one claimed row and records its outcome. Never throws for a handler
  * failure; a database error while recording leaves the row to its lease.
  */
-export async function deliverOutboxRow(
+export function deliverOutboxRow(
+  claimed: ClaimedRow,
+  options: { timeoutMs: number },
+): Promise<DeliveryResult> {
+  // Each delivery gets its own scope, so its breadcrumbs stay with its errors.
+  return Sentry.withIsolationScope(async () => {
+    const result = await deliverRow(claimed, options);
+    const facts = { consumer: claimed.row.consumer, outcome: result };
+    // Successful deliveries are frequent: a breadcrumb only, no Sentry log.
+    if (result === "delivered" || result === "skipped")
+      addDomainBreadcrumb("outbox", "Outbox delivery finished", facts);
+    else recordDomainEvent("outbox", "Outbox delivery finished", facts);
+    return result;
+  });
+}
+
+async function deliverRow(
   claimed: ClaimedRow,
   { timeoutMs }: { timeoutMs: number },
 ): Promise<DeliveryResult> {

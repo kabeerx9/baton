@@ -1,38 +1,17 @@
+// Preloaded with `node --import ./dist/instrument.js` (and `tsx --import` in
+// dev) so Sentry hooks http, pg and hono before the app imports them. The
+// app must not import this file: the bundle would run Sentry.init twice.
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import { readAppVersion } from "./app-version";
+import { sentryOptionsFromEnv } from "./observability/sentry-options";
 import { isSensitiveOutboundRequest } from "./utils/sensitive-outbound";
 
-function parseSampleRate(value: string | undefined) {
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0;
-}
+const options = sentryOptionsFromEnv(process.env, readAppVersion());
 
-const tracesSampleRate = parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE);
-
-const profilesSampleRate = parseSampleRate(
-  process.env.SENTRY_PROFILES_SAMPLE_RATE,
-);
-
-if (process.env.SENTRY_DSN) {
+if (options) {
   Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment:
-      process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "production",
-    release: process.env.SENTRY_RELEASE ?? readAppVersion() ?? undefined,
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpHeaders: { request: false, response: false },
-      httpBodies: [],
-      urlQueryParams: false,
-      genAI: { inputs: false, outputs: false },
-      databaseQueryData: false,
-      queues: false,
-      graphQL: { document: false, variables: false },
-    },
-    tracesSampleRate,
-    profileSessionSampleRate: profilesSampleRate,
+    ...options,
     profileLifecycle: "trace",
     integrations: [
       nodeProfilingIntegration(),
@@ -42,6 +21,9 @@ if (process.env.SENTRY_DSN) {
       Sentry.nativeNodeFetchIntegration({
         ignoreOutgoingRequests: isSensitiveOutboundRequest,
       }),
+      // app.onError reports request errors (observability/report-error.ts);
+      // the integration keeps route names and spans but never captures.
+      Sentry.honoIntegration({ shouldHandleError: () => false }),
     ],
   });
 }
