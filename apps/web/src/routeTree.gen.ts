@@ -20,6 +20,7 @@ import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as JoinTokenRouteImport } from './routes/join/$token'
 import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
+import { Route as PrototypesFeatureStatusRouteImport } from './routes/prototypes.feature-status'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/dashboard'
 import { Route as LayoutAuthenticatedOnboardingRouteImport } from './routes/_layout/_authenticated/onboarding'
 import { Route as LayoutAuthenticatedProfileSetupRouteImport } from './routes/_layout/_authenticated/profile-setup'
@@ -116,6 +117,11 @@ const JoinTokenRoute = JoinTokenRouteImport.update({
 const McpAuthorizeRoute = McpAuthorizeRouteImport.update({
   id: '/mcp/authorize',
   path: '/mcp/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrototypesFeatureStatusRoute = PrototypesFeatureStatusRouteImport.update({
+  id: '/prototypes/feature-status',
+  path: '/prototypes/feature-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutAuthenticatedDashboardRoute =
@@ -404,6 +410,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
+  '/prototypes/feature-status': typeof PrototypesFeatureStatusRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
@@ -459,6 +466,7 @@ export interface FileRoutesByTo {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
+  '/prototypes/feature-status': typeof PrototypesFeatureStatusRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
   '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
@@ -513,6 +521,7 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
+  '/prototypes/feature-status': typeof PrototypesFeatureStatusRoute
   '/_layout/_authenticated/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/_authenticated/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/_layout/_authenticated/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
@@ -570,6 +579,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/join/$token'
     | '/mcp/authorize'
+    | '/prototypes/feature-status'
     | '/dashboard'
     | '/onboarding'
     | '/profile-setup'
@@ -625,6 +635,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/join/$token'
     | '/mcp/authorize'
+    | '/prototypes/feature-status'
     | '/onboarding'
     | '/profile-setup'
     | '/invitation/accept/$inviteId'
@@ -678,6 +689,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/join/$token'
     | '/mcp/authorize'
+    | '/prototypes/feature-status'
     | '/_layout/_authenticated/dashboard'
     | '/_layout/_authenticated/onboarding'
     | '/_layout/_authenticated/profile-setup'
@@ -730,6 +742,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   JoinTokenRoute: typeof JoinTokenRoute
   McpAuthorizeRoute: typeof McpAuthorizeRoute
+  PrototypesFeatureStatusRoute: typeof PrototypesFeatureStatusRoute
   InvitationAcceptInviteIdRoute: typeof InvitationAcceptInviteIdRoute
 }
 
@@ -810,6 +823,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp/authorize'
       fullPath: '/mcp/authorize'
       preLoaderRoute: typeof McpAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prototypes/feature-status': {
+      id: '/prototypes/feature-status'
+      path: '/prototypes/feature-status'
+      fullPath: '/prototypes/feature-status'
+      preLoaderRoute: typeof PrototypesFeatureStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_layout/_authenticated/dashboard': {
@@ -1378,6 +1398,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   JoinTokenRoute: JoinTokenRoute,
   McpAuthorizeRoute: McpAuthorizeRoute,
+  PrototypesFeatureStatusRoute: PrototypesFeatureStatusRoute,
   InvitationAcceptInviteIdRoute: InvitationAcceptInviteIdRoute,
 }
 export const routeTree = rootRouteImport
