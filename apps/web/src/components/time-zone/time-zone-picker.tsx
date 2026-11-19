@@ -88,6 +88,12 @@ export function TimeZonePicker({
               key={zone}
               value={zone}
               label={labels.get(zone) ?? zone}
+              onClick={() => {
+                // A combobox does not report picking the value it already
+                // holds, which left the time-zone card stuck on the zone it
+                // suggested. Report it here so the card can confirm.
+                if (zone === selected) onChange(zone);
+              }}
             >
               {labels.get(zone) ?? zone}
             </ComboboxItem>

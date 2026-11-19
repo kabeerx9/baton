@@ -7,12 +7,14 @@ import { startTour } from "@/fetchers/tour/start-tour";
 import type { TourStatus } from "@/fetchers/tour/types";
 import getWorkspaces from "@/fetchers/workspace/get-workspaces";
 import { TOUR_QUERY_KEY } from "@/hooks/queries/tour/use-tour-status";
+import { WORKSPACES_QUERY_KEY } from "@/hooks/queries/workspace/workspace-query-keys";
 import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
 import {
   forgetWorkspace,
   rememberWorkspace,
 } from "@/lib/last-workspace/remembered-workspace";
 import { toast } from "@/lib/toast";
+import { dropDemoWorkspaceQueries } from "./drop-demo-workspace-queries";
 import type { CloseReason, TourSession } from "./tour-machine";
 import type { StepPage } from "./tour-steps";
 import { localTourProgress } from "./tour-progress";
@@ -69,18 +71,30 @@ export default function TourHost({
       leaveDemo: (session: TourSession) => {
         void (async () => {
           if (userId) forgetWorkspace(userId, session.demoWorkspaceId);
-          // The list never holds a demo workspace. The remembered origin may
-          // be one (a reload mid-tour starts the host inside the demo).
-          const real = await getWorkspaces().catch(() => []);
-          const target =
-            real.find((w) => w.id === session.originWorkspaceId) ?? real[0];
-          await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+          // The list never holds a demo workspace. Use the copy already on
+          // screen when there is one: staying on a deleted workspace for a
+          // network round trip is exactly what leaves 404s behind.
+          let real =
+            queryClient.getQueryData<Awaited<ReturnType<typeof getWorkspaces>>>(
+              WORKSPACES_QUERY_KEY,
+            );
+          let target =
+            real?.find((w) => w.id === session.originWorkspaceId) ?? real?.[0];
+          // The remembered origin may be one (a reload mid-tour starts the
+          // host inside the demo).
+          if (!target) {
+            real = await getWorkspaces().catch(() => []);
+            target =
+              real.find((w) => w.id === session.originWorkspaceId) ?? real[0];
+          }
           if (target) await open(target.id, "board");
           else await navigate({ to: "/dashboard" });
-          // Leave first: a mounted demo page would refetch into a 404.
-          queryClient.removeQueries({
-            predicate: (query) =>
-              query.queryKey.includes(session.demoWorkspaceId),
+          // Let the demo page unmount first: removing an active query makes
+          // its observer ask again, and that request would 404.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          dropDemoWorkspaceQueries(queryClient, session.demoWorkspaceId);
+          void queryClient.invalidateQueries({
+            queryKey: WORKSPACES_QUERY_KEY,
           });
         })();
       },

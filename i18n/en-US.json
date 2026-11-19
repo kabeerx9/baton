@@ -34,6 +34,11 @@
 		"people": {
 			"someone": "Someone"
 		},
+		"notFound": {
+			"title": "Page not found",
+			"description": "This page does not exist. It may have been moved or deleted.",
+			"home": "Back to Baton"
+		},
 		"error": {
 			"title": "Something went wrong",
 			"description": "The page crashed unexpectedly. Refreshing usually fixes it.",

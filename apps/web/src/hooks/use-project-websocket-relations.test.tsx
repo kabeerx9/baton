@@ -144,6 +144,19 @@ describe("useProjectWebSocket relation invalidation", () => {
     expect(invalidatedKeys()).toContain(projectRelationsKey);
   });
 
+  // A feature page draws its blocked counts from the board, not only from its
+  // relation list: the board read must go stale on the same message.
+  it("refreshes the board a feature page reads on a relation change", () => {
+    receive({
+      type: "TASK_RELATION_UPDATED",
+      projectId: "project-1",
+      sourceTaskId: "task-1",
+      targetTaskId: "feature",
+    });
+
+    expect(invalidatedKeys()).toContain(JSON.stringify(["task-board"]));
+  });
+
   // A linked task that is closed but cached would otherwise reopen on its old
   // relations, since queries default to refetchOnMount: false.
   it("refetches both ends' relations even when they are not open", () => {

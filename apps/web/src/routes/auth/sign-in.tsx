@@ -3,8 +3,8 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { CircleAlert } from "lucide-react";
-import { useEffect } from "react";
+import { CircleAlert, CircleCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
 import { AuthFormSkeleton } from "@/components/auth/auth-form-skeleton";
@@ -17,6 +17,7 @@ import { PasswordSignInForm } from "@/components/auth/password-sign-in-form";
 import { SignInFooterLine } from "@/components/auth/sign-in-footer-line";
 import PageTitle from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { signOutState } from "@/lib/sign-out-state";
 import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useInstanceStatus from "@/hooks/queries/instance/use-instance-status";
 import { toast } from "@/lib/toast";
@@ -46,6 +47,13 @@ function SignIn() {
 
   const redirectPath = getSafeRedirectPath(search.redirect);
   const destination = redirectPath ?? "/dashboard";
+  // One-shot: the sign-out that sent the person here confirms itself once,
+  // instead of a toast that announces it a second time.
+  const [signedOut] = useState(() => signOutState.justSignedOut);
+
+  useEffect(() => {
+    signOutState.justSignedOut = false;
+  }, []);
 
   useEffect(() => {
     if (instanceStatus?.hasUsers === false) {
@@ -96,6 +104,13 @@ function SignIn() {
             <Alert variant="error">
               <CircleAlert />
               <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          ) : signedOut ? (
+            <Alert variant="success" role="status">
+              <CircleCheck />
+              <AlertDescription>
+                {t("navigation:userMenu.signedOutSuccess")}
+              </AlertDescription>
             </Alert>
           ) : null
         }

@@ -21,8 +21,11 @@ const m = vi.hoisted(() => ({
   task: undefined as unknown,
   relations: [] as unknown[],
   board: undefined as unknown,
+  boardLoading: false,
   item: undefined as unknown,
+  itemLoading: false,
   itemEnabled: undefined as boolean | undefined,
+  laneProjectIds: [] as string[],
   nothing: () => null,
 }));
 
@@ -37,12 +40,22 @@ vi.mock("@/hooks/queries/task-relation/use-get-task-relations", () => ({
   default: () => ({ data: m.relations }),
 }));
 vi.mock("@/hooks/queries/board/use-get-board", () => ({
-  useGetBoard: () => ({ data: m.board }),
+  useGetBoard: () => ({
+    data: m.board,
+    isLoading: m.boardLoading,
+    isError: false,
+  }),
+}));
+vi.mock("@/hooks/queries/project/use-get-project", () => ({
+  default: ({ id }: { id: string }) => ({
+    data: { id, slug: id, name: id },
+    isLoading: false,
+  }),
 }));
 vi.mock("@/hooks/queries/board/use-get-board-item", () => ({
   useGetBoardItem: (_w: string, _t: string, enabled?: boolean) => {
     m.itemEnabled = enabled;
-    return { data: m.item };
+    return { data: m.item, isLoading: m.itemLoading };
   },
 }));
 vi.mock("@/hooks/queries/column/use-get-columns", () => ({
@@ -63,6 +76,12 @@ vi.mock("@/components/external-links/external-links-accordion", () => ({
 vi.mock("@/components/board/add-subtask-dialog", () => ({
   AddSubtaskDialog: () => <p>add task dialog</p>,
 }));
+vi.mock("@/components/board/lane-sockets", () => ({
+  LaneSockets: ({ projectIds }: { projectIds: string[] }) => {
+    m.laneProjectIds = projectIds;
+    return null;
+  },
+}));
 vi.mock("@/components/task/change-request/task-change-request", () => ({
   TaskChangeRequest: m.nothing,
 }));
@@ -77,8 +96,9 @@ vi.mock("@/components/board/task-flow/waits-on-section", () => ({
   WaitsOnSection: m.nothing,
 }));
 vi.mock("./task-hero", () => ({
-  TaskHero: (p: { bar: ReactNode; diagram: ReactNode }) => (
+  TaskHero: (p: { bar: ReactNode; diagram: ReactNode; keyLabel: string }) => (
     <div>
+      <p>{p.keyLabel}</p>
       {p.bar}
       {p.diagram}
     </div>
@@ -218,8 +238,11 @@ const page = (taskId: string, projectId = "board", openAddTask = false) =>
 
 beforeEach(() => {
   m.board = emptyBoard;
+  m.boardLoading = false;
   m.item = undefined;
+  m.itemLoading = false;
   m.itemEnabled = undefined;
+  m.laneProjectIds = [];
   m.relations = [];
   permissions.canCreateTasks = true;
 });
@@ -438,5 +461,52 @@ describe("feature status area", () => {
       <TaskDetailPage taskId="f" projectId="board" workspaceId="w" />,
     );
     expect(segments()).toEqual([true, false]);
+  });
+});
+
+describe("first paint", () => {
+  it("shows the skeleton until the workspace board resolves", () => {
+    m.board = undefined;
+    m.boardLoading = true;
+    m.task = task("plain", { projectId: "api" });
+    const { container } = page("plain", "api");
+
+    expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    expect(screen.queryByText("bar: open")).toBeNull();
+  });
+
+  it("shows the skeleton until the board item resolves", () => {
+    m.task = task("f");
+    m.relations = [
+      {
+        relationType: "subtask",
+        sourceTaskId: "f",
+        targetTaskId: "child",
+        sourceTask: related("f"),
+        targetTask: related("child"),
+      },
+    ];
+    m.item = undefined;
+    m.itemLoading = true;
+    const { container } = page("f");
+
+    expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+  });
+
+  it("draws a task key from the project's slug, never a question mark", () => {
+    m.task = task("plain", { projectId: "api", number: 24 });
+    page("plain", "api");
+
+    expect(screen.getByText("api-24")).toBeVisible();
+    expect(screen.queryByText(/\?-24/)).toBeNull();
+  });
+});
+
+describe("live cross-project links", () => {
+  it("keeps a socket on every other project the board draws from", () => {
+    m.task = task("plain", { projectId: "board" });
+    page("plain");
+
+    expect(m.laneProjectIds).toEqual(["api"]);
   });
 });

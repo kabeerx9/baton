@@ -30,6 +30,9 @@ function AvatarImage({
   src,
   ...props
 }: ComponentProps<typeof AvatarImagePrimitive>) {
+  // No source, no <img>: an empty src is invalid and makes some browsers
+  // request the page again. Render the fallback alone.
+  if (!src) return null;
   return (
     <AvatarImagePrimitive
       className={cn("size-full object-cover", className)}

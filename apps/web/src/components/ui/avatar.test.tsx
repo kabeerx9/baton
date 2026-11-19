@@ -106,10 +106,10 @@ describe("Avatar", () => {
   });
 
   it("shows the fallback when the image has no source", () => {
-    renderAvatar("");
+    const { container } = renderAvatar("");
 
     expect(fallback()).toBeVisible();
-    expect(image()).toBeNull();
+    expect(container.querySelector("img")).toBeNull();
   });
 
   it("shows the fallback while the image loads", () => {

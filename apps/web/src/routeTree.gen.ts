@@ -18,6 +18,7 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
+import { Route as InvitationTokenRouteImport } from './routes/invitation/$token'
 import { Route as JoinTokenRouteImport } from './routes/join/$token'
 import { Route as McpAuthorizeRouteImport } from './routes/mcp.authorize'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/dashboard'
@@ -107,6 +108,11 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
   getParentRoute: () => AuthRoute,
+} as any)
+const InvitationTokenRoute = InvitationTokenRouteImport.update({
+  id: '/invitation/$token',
+  path: '/invitation/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const JoinTokenRoute = JoinTokenRouteImport.update({
   id: '/join/$token',
@@ -402,6 +408,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
@@ -511,6 +519,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/invitation/$token': typeof InvitationTokenRoute
   '/join/$token': typeof JoinTokenRoute
   '/mcp/authorize': typeof McpAuthorizeRoute
   '/_layout/_authenticated/dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
@@ -568,6 +577,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/dashboard'
@@ -623,6 +633,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/onboarding'
@@ -676,6 +687,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/invitation/$token'
     | '/join/$token'
     | '/mcp/authorize'
     | '/_layout/_authenticated/dashboard'
@@ -728,6 +740,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LayoutRoute: typeof LayoutRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  InvitationTokenRoute: typeof InvitationTokenRoute
   JoinTokenRoute: typeof JoinTokenRoute
   McpAuthorizeRoute: typeof McpAuthorizeRoute
   InvitationAcceptInviteIdRoute: typeof InvitationAcceptInviteIdRoute
@@ -797,6 +810,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/sign-up'
       preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
+    }
+    '/invitation/$token': {
+      id: '/invitation/$token'
+      path: '/invitation/$token'
+      fullPath: '/invitation/$token'
+      preLoaderRoute: typeof InvitationTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/join/$token': {
       id: '/join/$token'
@@ -1376,6 +1396,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LayoutRoute: LayoutRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  InvitationTokenRoute: InvitationTokenRoute,
   JoinTokenRoute: JoinTokenRoute,
   McpAuthorizeRoute: McpAuthorizeRoute,
   InvitationAcceptInviteIdRoute: InvitationAcceptInviteIdRoute,

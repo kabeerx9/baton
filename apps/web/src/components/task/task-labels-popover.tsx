@@ -14,6 +14,7 @@ import useDetachLabelFromTask from "@/hooks/mutations/label/use-detach-label-fro
 import useGetLabelsByTask from "@/hooks/queries/label/use-get-labels-by-task";
 import useGetLabelsByWorkspace from "@/hooks/queries/label/use-get-labels-by-workspace";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
+import { disabledTrigger } from "./disabled-trigger";
 import { getTaskLabelOptions } from "@/lib/get-task-label-options";
 import { resolveLabelColor } from "@/lib/label-color";
 import { toast } from "@/lib/toast";
@@ -60,7 +61,8 @@ export default function TaskLabelsPopover({
   const [open, setOpen] = useState(false);
   const { canLabelTask } = useWorkspacePermission();
 
-  if (!canLabelTask(task.userId)) return <>{children}</>;
+  // Inert for a viewer on someone else's task: keep the trigger, mark it so.
+  if (!canLabelTask(task.userId)) return disabledTrigger(children);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

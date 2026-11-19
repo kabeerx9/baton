@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Compass, LogOut, Settings, LogOutIcon } from "lucide-react";
+import { Compass, LogOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import useSignOut from "@/hooks/mutations/use-sign-out";
 import { useReplayTour } from "@/hooks/queries/tour/use-replay-tour";
 import { getInitials } from "@/lib/get-initials";
+import { signOutState } from "@/lib/sign-out-state";
 import { toast } from "@/lib/toast";
 import useProjectStore from "@/store/project";
 
@@ -29,12 +30,14 @@ export function UserAvatar() {
 
   const handleSignOut = async () => {
     try {
+      // Sign-out leaves for the sign-in page before it settles, so the page
+      // must know now. The page says it once, in its own status region; a
+      // toast here would announce the same sentence a second time.
+      signOutState.justSignedOut = true;
       await signOut();
       setProject(undefined);
-      toast.success(t("navigation:userMenu.signedOutSuccess"), {
-        icon: LogOutIcon,
-      });
     } catch (error) {
+      signOutState.justSignedOut = false;
       toast.error(
         error instanceof Error
           ? error.message
@@ -54,6 +57,11 @@ export function UserAvatar() {
   };
 
   const initials = getInitials(user.name || user.email, "UN");
+  // No source, no <img>: an empty src is invalid and makes some browsers
+  // request the page again. The fallback initials stand in on their own.
+  const avatarImage = user.image ? (
+    <AvatarImage src={user.image} alt={user.name || ""} />
+  ) : null;
 
   return (
     <DropdownMenu>
@@ -64,7 +72,7 @@ export function UserAvatar() {
           className="h-8 w-8 rounded-full p-0 hover:bg-sidebar-accent/70"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image ?? ""} alt={user.name || ""} />
+            {avatarImage}
             <AvatarFallback className="text-xs font-medium border border-border/30">
               {initials}
             </AvatarFallback>
@@ -75,7 +83,7 @@ export function UserAvatar() {
         <div className="px-2.5 py-2">
           <div className="flex items-center gap-2 text-left text-sm">
             <Avatar className="h-7 w-7 rounded-full">
-              <AvatarImage src={user.image ?? ""} alt={user.name || ""} />
+              {avatarImage}
               <AvatarFallback className="rounded-full border border-border/30">
                 {initials}
               </AvatarFallback>
