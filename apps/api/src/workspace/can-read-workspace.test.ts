@@ -11,12 +11,18 @@ describe("canReadWorkspace", () => {
     }
   });
 
-  it("denies a role whose permission lacks workspace:read", () => {
+  it("allows a member whose custom role leaves out workspace:read", () => {
     expect(
       canReadWorkspace({ role: "custom", instanceAdmin: false }, [
         { role: "custom", permission: noRead },
       ]),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("denies a member whose only role is unknown", () => {
+    expect(canReadWorkspace({ role: "gone", instanceAdmin: false }, [])).toBe(
+      false,
+    );
   });
 
   it("allows a member when any of their roles grants workspace:read", () => {
@@ -33,13 +39,13 @@ describe("canReadWorkspace", () => {
     ).toBe(true);
   });
 
-  it("denies a member when none of their roles grants workspace:read", () => {
+  it("allows a member whose roles all leave out workspace:read", () => {
     expect(
       canReadWorkspace({ role: "limited,other", instanceAdmin: false }, [
         { role: "limited", permission: noRead },
         { role: "other", permission: noRead },
       ]),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("denies a non-member who is not an instance admin", () => {
