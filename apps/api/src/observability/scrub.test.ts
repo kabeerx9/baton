@@ -1,3 +1,4 @@
+import { defaultStackParser } from "@sentry/node";
 import { describe, expect, it } from "vite-plus/test";
 import {
   FILTERED,
@@ -159,6 +160,78 @@ describe("Sentry item scrubbers", () => {
     for (const secret of ["bob@x.io", "tkn", "/join/abc", "sig1", 's1"'])
       expect(text).not.toContain(secret);
     expect(event.release).toBe("a".repeat(40));
+  });
+
+  it("scrubs stack frame files and source context, keeping positions", () => {
+    // The real parser turns a page URL in the stack into frame filenames.
+    const frames = defaultStackParser(
+      "Error: boom\n    at handler (/app/apps/api/dist/index.js:10:5)\n    at load (https://app.test/join/shortSecret:1:2)",
+    ).map((frame) => ({
+      ...frame,
+      context_line: "const link = '/join/ctxSecret';",
+      pre_context: ["fetch('/api?token=preSecret')"],
+      post_context: ["mail('carol@x.io')"],
+      vars: { url: "/join/varSecret", password: "hunter2", count: 3 },
+    }));
+    expect(JSON.stringify(frames)).toContain("shortSecret");
+    const event = scrubEvent({
+      exception: {
+        values: [{ type: "Error", value: "boom", stacktrace: { frames } }],
+      },
+      threads: { values: [{ stacktrace: { frames } }] },
+    });
+    const text = JSON.stringify(event);
+    for (const secret of [
+      "shortSecret",
+      "ctxSecret",
+      "preSecret",
+      "carol@x.io",
+      "varSecret",
+      "hunter2",
+    ])
+      expect(text).not.toContain(secret);
+    const scrubbed = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
+    expect(
+      scrubbed.map(({ function: fn, lineno, colno, in_app }) => ({
+        fn,
+        lineno,
+        colno,
+        in_app,
+      })),
+    ).toEqual(
+      frames.map(({ function: fn, lineno, colno, in_app }) => ({
+        fn,
+        lineno,
+        colno,
+        in_app,
+      })),
+    );
+    expect(scrubbed.some((f) => f.filename?.endsWith("index.js"))).toBe(true);
+  });
+
+  it("filters database values in error text and fields", () => {
+    const message =
+      "Failed query: insert into task (title) values ($1)\nparams: Secret plan,\nline two";
+    expect(scrubText(message)).toBe(
+      `Failed query: insert into task (title) values ($1)\nparams: ${FILTERED}`,
+    );
+    const stack = `Error: ${message}\n    at run (/app/x.js:1:2)`;
+    expect(scrubText(stack)).toBe(
+      `Error: Failed query: insert into task (title) values ($1)\nparams: ${FILTERED}\n    at run (/app/x.js:1:2)`,
+    );
+    expect(
+      scrubDeep({
+        params: ["Secret plan"],
+        detail: "Failing row contains (Secret plan)",
+        where: "x",
+        code: "23502",
+      }),
+    ).toEqual({
+      params: FILTERED,
+      detail: FILTERED,
+      where: FILTERED,
+      code: "23502",
+    });
   });
 
   it("scrubs log messages and attributes", () => {

@@ -10,6 +10,10 @@ type Rule = readonly [RegExp, string];
 
 // Order matters: whole-query and path rules run before the generic ones.
 const RULES: readonly Rule[] = [
+  // Query values in a database error: Drizzle's message ends with
+  // `params: <values>`, which can hold task text. A stack repeats the
+  // message, so the values end where the first frame starts.
+  [/(^|\n)(params: )[\s\S]*?(?=\n\s+at |$)/g, `$1$2${FILTERED}`],
   // Presigned object-storage URLs: the whole query is the credential.
   [
     /(\?)[^\s#"'<>]*(?:X-Amz-|Signature=|X-Goog-Signature)[^\s#"'<>]*/gi,
@@ -65,6 +69,9 @@ const MAX_DEPTH = 8;
 // Keys whose value is a secret whatever it looks like.
 const SECRET_KEY =
   /^(?:token|access_token|refresh_token|id_token|api_key|apikey|secret|password|session_token|signature|authorization|cookie)$/i;
+// Database error fields that copy row values: Drizzle's `params`, and the
+// PostgreSQL error's `detail`, `where` and `parameters`.
+const DATABASE_VALUE_KEY = /^(?:params|parameters|detail|where)$/i;
 // Route and query parameters copied into attributes by tracing, such as
 // `params.token` or `url.path.parameter.token` for /join/$token.
 const SECRET_PARAM_KEY = new RegExp(
@@ -73,7 +80,11 @@ const SECRET_PARAM_KEY = new RegExp(
 );
 
 function isSecretKey(key: string) {
-  return SECRET_KEY.test(key) || SECRET_PARAM_KEY.test(key);
+  return (
+    SECRET_KEY.test(key) ||
+    SECRET_PARAM_KEY.test(key) ||
+    DATABASE_VALUE_KEY.test(key)
+  );
 }
 
 /** Scrubs every string inside `value`; values under secret keys are replaced. */
@@ -99,19 +110,65 @@ export function scrubBreadcrumb<B extends Breadcrumbish>(crumb: B): B {
   };
 }
 
-// Only the fields that carry free text or URLs. Stack frames, ids, release
-// and SDK metadata are left alone so grouping and symbolication still work.
+// Only the fields that carry free text or URLs. Ids, release and SDK
+// metadata are left alone so grouping still works.
 const EVENT_TEXT_FIELDS = [
   "message",
   "logentry",
   "transaction",
   "request",
   "extra",
+  "contexts",
   "spans",
 ] as const;
 
+type Frameish = {
+  filename?: string;
+  module?: string;
+  abs_path?: string;
+  context_line?: string;
+  pre_context?: string[];
+  post_context?: string[];
+  vars?: Record<string, unknown>;
+};
+
+type Stackish = { frames?: Frameish[] };
+
+/**
+ * A frame's file can be a page URL (`https://app/join/<token>:1:2`) and its
+ * source context can hold literals. Function, line, column and in_app stay
+ * as they are, so symbolication and grouping still work.
+ */
+function scrubFrame<F extends Frameish>(frame: F): F {
+  const out: F = { ...frame };
+  if (out.filename !== undefined) out.filename = scrubText(out.filename);
+  if (out.abs_path !== undefined) out.abs_path = scrubText(out.abs_path);
+  // The Node parser names the module after the file: a scrubbed path
+  // means the module name came from the secret too.
+  if (
+    out.module !== undefined &&
+    (out.filename !== frame.filename || out.abs_path !== frame.abs_path)
+  )
+    out.module = FILTERED;
+  if (out.context_line !== undefined)
+    out.context_line = scrubText(out.context_line);
+  if (out.pre_context) out.pre_context = out.pre_context.map(scrubText);
+  if (out.post_context) out.post_context = out.post_context.map(scrubText);
+  if (out.vars !== undefined) out.vars = scrubDeep(out.vars);
+  return out;
+}
+
+function scrubStacktrace<S extends Stackish>(stacktrace: S): S {
+  return stacktrace.frames
+    ? { ...stacktrace, frames: stacktrace.frames.map(scrubFrame) }
+    : stacktrace;
+}
+
+type Exceptionish = { value?: string; stacktrace?: Stackish };
+
 type Eventish = {
-  exception?: { values?: Array<{ value?: string }> };
+  exception?: { values?: Exceptionish[] };
+  threads?: { values?: Array<{ stacktrace?: Stackish }> };
   breadcrumbs?: Breadcrumbish[];
 } & Partial<Record<(typeof EVENT_TEXT_FIELDS)[number], unknown>>;
 
@@ -122,8 +179,21 @@ export function scrubEvent<E extends Eventish>(event: E): E {
   if (out.exception?.values)
     out.exception = {
       ...out.exception,
-      values: out.exception.values.map((v) =>
-        v.value === undefined ? v : { ...v, value: scrubText(v.value) },
+      values: out.exception.values.map((v) => ({
+        ...v,
+        ...(v.value !== undefined && { value: scrubText(v.value) }),
+        ...(v.stacktrace !== undefined && {
+          stacktrace: scrubStacktrace(v.stacktrace),
+        }),
+      })),
+    };
+  if (out.threads?.values)
+    out.threads = {
+      ...out.threads,
+      values: out.threads.values.map((t) =>
+        t.stacktrace === undefined
+          ? t
+          : { ...t, stacktrace: scrubStacktrace(t.stacktrace) },
       ),
     };
   if (out.breadcrumbs) out.breadcrumbs = out.breadcrumbs.map(scrubBreadcrumb);
