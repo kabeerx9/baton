@@ -10,10 +10,6 @@ type Rule = readonly [RegExp, string];
 
 // Order matters: whole-query and path rules run before the generic ones.
 const RULES: readonly Rule[] = [
-  // Query values in a database error: Drizzle's message ends with
-  // `params: <values>`, which can hold task text. A stack repeats the
-  // message, so the values end where the first frame starts.
-  [/(^|\n)(params: )[\s\S]*?(?=\n\s+at |$)/g, `$1$2${FILTERED}`],
   // Presigned object-storage URLs: the whole query is the credential.
   [
     /(\?)[^\s#"'<>]*(?:X-Amz-|Signature=|X-Goog-Signature)[^\s#"'<>]*/gi,
@@ -69,9 +65,6 @@ const MAX_DEPTH = 8;
 // Keys whose value is a secret whatever it looks like.
 const SECRET_KEY =
   /^(?:token|access_token|refresh_token|id_token|api_key|apikey|secret|password|session_token|signature|authorization|cookie)$/i;
-// Database error fields that copy row values: Drizzle's `params`, and the
-// PostgreSQL error's `detail`, `where` and `parameters`.
-const DATABASE_VALUE_KEY = /^(?:params|parameters|detail|where)$/i;
 // Route and query parameters copied into attributes by tracing, such as
 // `params.token` or `url.path.parameter.token` for /join/$token.
 const SECRET_PARAM_KEY = new RegExp(
@@ -80,11 +73,7 @@ const SECRET_PARAM_KEY = new RegExp(
 );
 
 function isSecretKey(key: string) {
-  return (
-    SECRET_KEY.test(key) ||
-    SECRET_PARAM_KEY.test(key) ||
-    DATABASE_VALUE_KEY.test(key)
-  );
+  return SECRET_KEY.test(key) || SECRET_PARAM_KEY.test(key);
 }
 
 /** Scrubs every string inside `value`; values under secret keys are replaced. */

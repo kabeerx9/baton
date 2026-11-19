@@ -1,13 +1,20 @@
 import * as Sentry from "@sentry/node";
+import { sql } from "drizzle-orm";
 import { DrizzleQueryError } from "drizzle-orm/errors";
+import { DatabaseError } from "pg";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vite-plus/test";
-import db, { schema } from "../../apps/api/src/database";
+import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { buildLogRecord } from "../../apps/api/src/observability/log-record";
 import { privacyOptions } from "../../apps/api/src/observability/sentry-options";
 import { resetTestDatabase } from "./helpers/database";
 import { outboxTaskFixture } from "./helpers/outbox";
 
-const TITLE = "Confidential acquisition plan";
+// A value shaped like a stack frame: a text rule that stops at
+// "\n    at " would let the rest through.
+const SECRET = "Confidential acquisition plan";
+const TITLE = `Meeting\n    at noon discuss ${SECRET}`;
+const LEAKS = [SECRET, "noon"];
+const NOT_NULL = "(pg 23502 not_null_violation on task.project_id)";
 const events: Sentry.ErrorEvent[] = [];
 
 beforeAll(() => {
@@ -37,63 +44,134 @@ beforeEach(async () => {
   await resetTestDatabase();
 });
 
+async function caught(work: PromiseLike<unknown>): Promise<unknown> {
+  try {
+    await work;
+  } catch (error) {
+    return error;
+  }
+  throw new Error("the query did not fail");
+}
+
 /** A real failed task insert: the title is a query value and in pg's detail. */
 async function failedTitleInsert(): Promise<DrizzleQueryError> {
   const { user, columns } = await outboxTaskFixture();
-  const error = await db
-    .insert(schema.taskTable)
-    .values({
+  const error = await caught(
+    db.insert(schema.taskTable).values({
       // A not-null failure: pg's detail then shows the whole row.
       projectId: null as never,
       columnId: columns.todo.id,
       title: TITLE,
       position: 1,
       createdBy: user.id,
-    })
-    .then(
-      () => null,
-      (caught: unknown) => caught,
-    );
+    }),
+  );
   if (!(error instanceof DrizzleQueryError)) throw new Error("no query error");
   return error;
 }
 
-it("keeps query values out of the log record, cause included", async () => {
-  const error = await failedTitleInsert();
-  // The test is only meaningful if the error carries the title.
-  expect(error.message).toContain(TITLE);
-  expect(JSON.stringify((error as { cause?: unknown }).cause)).toContain(TITLE);
+function expectNoLeak(value: unknown) {
+  const text = JSON.stringify(value);
+  for (const leak of LEAKS) expect(text).not.toContain(leak);
+}
 
-  const record = buildLogRecord(
+/** One log record for `error`, as logger.error would build it. */
+function logRecord(error: unknown) {
+  return buildLogRecord(
     "error",
-    "Task insert failed",
+    "Query failed",
     { error, nested: { error } },
     undefined,
     new Date(),
   );
-  const text = JSON.stringify(record);
-  expect(text).not.toContain(TITLE);
-  // What helps debugging stays: the query and the pg message and code.
-  expect(text).toContain("Failed query: insert into");
-  expect(text).toContain("params: [Filtered]");
-  expect(text).toContain("23502");
+}
+
+it("logs a failed insert with a multiline value as schema facts only", async () => {
+  const error = await failedTitleInsert();
+  // The test is only meaningful if the error carries the value.
+  expect(error.message).toContain(TITLE);
+  expect(error.stack).toContain(TITLE);
+  expect(JSON.stringify(error.cause)).toContain(SECRET);
+
+  const record = logRecord(error);
+  expectNoLeak(record);
+  const logged = record.error as Record<string, unknown>;
+  expect(logged).toMatchObject({
+    message: `Failed query ${NOT_NULL}`,
+    code: "23502",
+    table: "task",
+    column: "project_id",
+    cause: { name: "error", message: `Database error ${NOT_NULL}` },
+  });
+  // The SQL keeps its $n placeholders; the frames keep the real call sites.
+  expect(logged.query).toMatch(/^insert into "task" .*\$1/);
+  expect(String(logged.stack)).toMatch(
+    /^Error: Failed query \(pg 23502 .*\)\n {4}at /,
+  );
+  expect(String(logged.stack)).toContain("failedTitleInsert");
 });
 
-it("keeps query values out of the Sentry event, cause included", async () => {
-  const error = await failedTitleInsert();
-  Sentry.captureException(error);
+it("sends a failed insert with a multiline value to Sentry without it", async () => {
+  Sentry.captureException(await failedTitleInsert());
   await Sentry.flush(1000);
 
   expect(events).toHaveLength(1);
   const event = events[0]!;
-  expect(JSON.stringify(event)).not.toContain(TITLE);
-  // Both errors of the chain reach Sentry, with frames intact.
-  // (Drizzle leaves the name as "Error"; pg's error is "error".)
-  expect(event.exception?.values?.map((v) => v.type)).toEqual([
-    "error",
-    "Error",
+  expectNoLeak(event);
+  // Both errors of the chain reach Sentry, cause first, with real frames.
+  const values = event.exception?.values ?? [];
+  expect(values.map((v) => [v.type, v.value])).toEqual([
+    ["error", `Database error ${NOT_NULL}`],
+    ["Error", `Failed query ${NOT_NULL}`],
   ]);
-  const top = event.exception?.values?.at(-1);
-  expect(top?.value).toContain("params: [Filtered]");
-  expect(top?.stacktrace?.frames?.length).toBeGreaterThan(0);
+  const frames = values.at(-1)?.stacktrace?.frames ?? [];
+  expect(frames.some((f) => f.function?.includes("failedTitleInsert"))).toBe(
+    true,
+  );
+  expect(frames.every((f) => typeof f.lineno === "number")).toBe(true);
+});
+
+it("keeps a uuid syntax error's value out of logs and Sentry", async () => {
+  // pg puts the rejected input in the message itself.
+  const raw = await caught(getDatabasePool().query("select $1::uuid", [TITLE]));
+  const wrapped = await caught(db.execute(sql`select ${TITLE}::uuid`));
+  expect(raw).toBeInstanceOf(DatabaseError);
+  expect(wrapped).toBeInstanceOf(DrizzleQueryError);
+  expect((raw as Error).message).toContain(SECRET);
+
+  const rawRecord = logRecord(raw);
+  const wrappedRecord = logRecord(wrapped);
+  expectNoLeak([rawRecord, wrappedRecord]);
+  expect(rawRecord.error).toMatchObject({
+    name: "error",
+    message: "Database error (pg 22P02 invalid_text_representation)",
+    code: "22P02",
+  });
+  expect(wrappedRecord.error).toMatchObject({
+    message: "Failed query (pg 22P02 invalid_text_representation)",
+  });
+
+  Sentry.captureException(raw);
+  Sentry.captureException(wrapped);
+  await Sentry.flush(1000);
+  expect(events).toHaveLength(2);
+  expectNoLeak(events);
+  expect(events.map((e) => e.exception?.values?.at(-1)?.value)).toEqual([
+    "Database error (pg 22P02 invalid_text_representation)",
+    "Failed query (pg 22P02 invalid_text_representation)",
+  ]);
+});
+
+it("filters an exception value that matches no error in the chain", async () => {
+  const error = await failedTitleInsert();
+  // A processor that changed a value breaks the exact match: fail closed.
+  const event = privacyOptions.beforeSend(
+    {
+      type: undefined,
+      exception: { values: [{ type: "Error", value: `copied ${TITLE}` }] },
+    },
+    { originalException: error },
+  );
+  expectNoLeak(event);
+  expect(event?.exception?.values?.[0]?.value).toBe("[Filtered]");
 });

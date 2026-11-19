@@ -209,29 +209,19 @@ describe("Sentry item scrubbers", () => {
     expect(scrubbed.some((f) => f.filename?.endsWith("index.js"))).toBe(true);
   });
 
-  it("filters database values in error text and fields", () => {
-    const message =
-      "Failed query: insert into task (title) values ($1)\nparams: Secret plan,\nline two";
-    expect(scrubText(message)).toBe(
-      `Failed query: insert into task (title) values ($1)\nparams: ${FILTERED}`,
-    );
-    const stack = `Error: ${message}\n    at run (/app/x.js:1:2)`;
-    expect(scrubText(stack)).toBe(
-      `Error: Failed query: insert into task (title) values ($1)\nparams: ${FILTERED}\n    at run (/app/x.js:1:2)`,
+  it("keeps diagnostics that only look like database fields", () => {
+    // Database errors are handled by their type (database-error.ts), so
+    // ordinary text and keys named params, detail or where stay.
+    expect(scrubText("params: page=2\nrequest timed out")).toBe(
+      "params: page=2\nrequest timed out",
     );
     expect(
       scrubDeep({
-        params: ["Secret plan"],
-        detail: "Failing row contains (Secret plan)",
-        where: "x",
-        code: "23502",
+        params: { taskId: "t1" },
+        detail: "retry 2",
+        where: "relay",
       }),
-    ).toEqual({
-      params: FILTERED,
-      detail: FILTERED,
-      where: FILTERED,
-      code: "23502",
-    });
+    ).toEqual({ params: { taskId: "t1" }, detail: "retry 2", where: "relay" });
   });
 
   it("scrubs log messages and attributes", () => {

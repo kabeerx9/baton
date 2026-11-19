@@ -1,4 +1,6 @@
+import * as Sentry from "@sentry/node";
 import type { NodeOptions } from "@sentry/node";
+import { redactDatabaseErrors } from "./database-error-event";
 import {
   failClosed,
   scrubBreadcrumb,
@@ -57,7 +59,16 @@ export const privacyOptions = {
     graphQL: { document: false, variables: false },
   },
   beforeBreadcrumb: failClosed(scrubBreadcrumb),
-  beforeSend: failClosed(scrubEvent),
+  // Database errors are rewritten from their error objects first, then
+  // every event gets the text scrub. A throw drops the event.
+  beforeSend: (event, hint) => {
+    try {
+      const parser = Sentry.getClient()?.getOptions().stackParser;
+      return scrubEvent(redactDatabaseErrors(event, hint, parser));
+    } catch {
+      return null;
+    }
+  },
   // v11 streams spans by default; beforeSendTransaction would never run.
   beforeSendSpan: scrubSpan,
   beforeSendLog: failClosed(scrubLog),
