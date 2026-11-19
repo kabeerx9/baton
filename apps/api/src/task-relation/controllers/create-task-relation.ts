@@ -34,7 +34,7 @@ async function createTaskRelation({
     });
   }
 
-  const { relation, sourceTask, cancelled } = await db.transaction(
+  const { relation, sourceTask, targetTask, cancelled } = await db.transaction(
     async (tx) => {
       // Serialize relation creation with project moves before validating either
       // workspace. A move must see this relation or this request must see the move.
@@ -145,7 +145,7 @@ async function createTaskRelation({
           ? await cancelPendingRequests(tx, sourceTaskId, "became_feature")
           : [];
 
-      return { relation, sourceTask, cancelled };
+      return { relation, sourceTask, targetTask, cancelled };
     },
   );
 
@@ -155,6 +155,7 @@ async function createTaskRelation({
     ...relation,
     taskId: sourceTaskId,
     projectId: sourceTask.projectId,
+    targetProjectId: targetTask.projectId,
     userId,
   });
 

@@ -942,6 +942,8 @@ type TaskEvent = {
   taskId: string;
   sourceTaskId: string | undefined;
   targetTaskId: string | undefined;
+  /** Relation events: the target task's project, when it differs. */
+  targetProjectId?: string;
 };
 
 // Include the initiating window: its local mutation refreshes the child project,
@@ -1200,6 +1202,25 @@ for (const eventName of taskUpdateEvents) {
       },
       initiatorId,
     );
+    // A relation shows on both tasks' boards; send once per project.
+    if (
+      (eventName === "task-relation.created" ||
+        eventName === "task-relation.deleted") &&
+      data.targetProjectId &&
+      data.targetProjectId !== projectId
+    ) {
+      broadcastToProject(
+        data.targetProjectId,
+        {
+          type,
+          projectId: data.targetProjectId,
+          taskId,
+          sourceTaskId: data.sourceTaskId,
+          targetTaskId: data.targetTaskId,
+        },
+        initiatorId,
+      );
+    }
     if (eventName === "task.status_changed" && !data.skipSubtaskParentRefresh) {
       refreshParentBoards(await getSubtaskParentProjects([taskId]), projectId);
     } else if (eventName === "task-relation.deleted" && data.sourceTaskId) {
