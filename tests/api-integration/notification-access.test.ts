@@ -328,9 +328,10 @@ describe("notification recipient boundaries", () => {
       expect(sendEmail).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
+      // Deleting the role definition revokes every read. A role set to {}
+      // would still read the workspace, which membership implies.
       await db
-        .update(schema.workspaceRoleTable)
-        .set({ permission: "{}" })
+        .delete(schema.workspaceRoleTable)
         .where(eq(schema.workspaceRoleTable.id, role.id));
       await deliverNotification(notification.id);
       expect(sendEmail).toHaveBeenCalledTimes(1);

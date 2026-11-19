@@ -6,9 +6,8 @@ import { splitRoles } from "../utils/split-roles";
 import { canReadWorkspace, type WorkspaceAccess } from "./can-read-workspace";
 
 async function loadStoredRoles(rows: (WorkspaceAccess & { id: string })[]) {
-  const pending = rows.filter((row) => !row.instanceAdmin);
-  const workspaceIds = [...new Set(pending.map((row) => row.id))];
-  const roles = [...new Set(pending.flatMap((row) => splitRoles(row.role)))];
+  const workspaceIds = [...new Set(rows.map((row) => row.id))];
+  const roles = [...new Set(rows.flatMap((row) => splitRoles(row.role)))];
   const byWorkspace = new Map<string, StoredRolePermission[]>();
   if (workspaceIds.length === 0 || roles.length === 0) return byWorkspace;
 

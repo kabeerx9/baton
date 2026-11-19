@@ -1,6 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
 import db, { schema } from "../database";
-import { hasInstanceAdminRole } from "./instance-admin-role";
 import {
   type PermissionMap,
   rolesAllow,
@@ -22,7 +21,7 @@ export async function workspacePermissionGrants(
     workspaceIds?: string[];
   } = {},
 ) {
-  const [users, members, kinds] = await Promise.all([
+  const [users, members] = await Promise.all([
     db
       .select({ role: schema.userTable.role })
       .from(schema.userTable)
@@ -42,25 +41,14 @@ export async function workspacePermissionGrants(
             : undefined,
         ),
       ),
-    workspaceIds?.length
-      ? db
-          .select({
-            id: schema.workspaceTable.id,
-            kind: schema.workspaceTable.kind,
-          })
-          .from(schema.workspaceTable)
-          .where(inArray(schema.workspaceTable.id, workspaceIds))
-      : Promise.resolve([]),
   ]);
-  const isInstanceAdmin = hasInstanceAdminRole(users[0]?.role);
-  const kindOf = new Map(kinds.map((row) => [row.id, row.kind]));
   const memberRoles = new Map(
     members.map((member) => [member.workspaceId, splitRoles(member.role)]),
   );
   const memberWorkspaceIds = [...memberRoles.keys()];
   const roleNames = [...new Set([...memberRoles.values()].flat())];
   const stored =
-    !isInstanceAdmin && memberWorkspaceIds.length && roleNames.length
+    memberWorkspaceIds.length && roleNames.length
       ? await db
           .select({
             workspaceId: schema.workspaceRoleTable.workspaceId,
@@ -86,30 +74,17 @@ export async function workspacePermissionGrants(
   }
 
   return {
-    isInstanceAdmin,
     workspaceIds: memberWorkspaceIds,
-    /**
-     * `kind` is the workspace's kind when the caller read it; otherwise the
-     * kind loaded for `workspaceIds` is used. An administrator's bypass
-     * covers team workspaces only: a demo is reachable through membership,
-     * and an unknown kind is treated as a demo.
-     */
-    allows(workspaceId: string, permissions: PermissionMap, kind?: string) {
+    /** Membership and the stored roles decide; no instance-admin bypass. */
+    allows(workspaceId: string, permissions: PermissionMap) {
       if (!users.length) return false;
       if (apiKeyPermissions && !satisfies(apiKeyPermissions, permissions)) {
         return false;
       }
-      const adminBypass =
-        isInstanceAdmin &&
-        (memberRoles.has(workspaceId) ||
-          (kind ?? kindOf.get(workspaceId)) === "team");
-      return (
-        adminBypass ||
-        rolesAllow(
-          memberRoles.get(workspaceId) ?? [],
-          storedByWorkspace.get(workspaceId) ?? [],
-          permissions,
-        )
+      return rolesAllow(
+        memberRoles.get(workspaceId) ?? [],
+        storedByWorkspace.get(workspaceId) ?? [],
+        permissions,
       );
     },
   };

@@ -20,7 +20,7 @@ export const workspaceSchema = z
     }),
     role: z.string().nullable().openapi({
       description:
-        "The caller's workspace role: a built-in role (owner, admin, member, viewer) or the name of a custom role defined in the workspace. Several roles are comma-separated, for example owner,viewer. Null when an instance admin views a workspace they are not a member of.",
+        "The caller's workspace role: a built-in role (owner, admin, member, viewer) or the name of a custom role defined in the workspace. Several roles are comma-separated, for example owner,viewer.",
     }),
   })
   .openapi("Workspace");

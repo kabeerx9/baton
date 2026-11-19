@@ -202,7 +202,7 @@ describe("JSON import assignees", () => {
     ).toEqual(Array(2).fill("Assignee does not have access to this project"));
   });
 
-  it("preserves instance-admin assignment outside workspace membership", async () => {
+  it("refuses an instance admin who is not a workspace member", async () => {
     const { importUsers } = await fixture();
     const { user: admin } = await createWorkspaceMember();
     await db
@@ -210,12 +210,10 @@ describe("JSON import assignees", () => {
       .set({ role: "admin" })
       .where(eq(schema.userTable.id, admin.id));
     const result = await importUsers([admin.id, admin.email]);
-    expect(result.results.successful).toBe(2);
+    expect(result.results.successful).toBe(0);
     expect(
-      result.results.tasks.map(
-        (entry: { task: { userId: string } }) => entry.task.userId,
-      ),
-    ).toEqual([admin.id, admin.id]);
+      result.results.tasks.map((entry: { error: string }) => entry.error),
+    ).toEqual(Array(2).fill("Assignee is not a member of this workspace"));
   });
 
   it("does not pick an arbitrary member when emails differ only by case", async () => {

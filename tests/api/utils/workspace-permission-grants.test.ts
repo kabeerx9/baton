@@ -66,34 +66,29 @@ describe("batched workspace permission grants", () => {
     expect(select).toHaveBeenCalledTimes(3);
   });
 
-  it("applies key scope even to an instance administrator", async () => {
-    state.rows.set(schema.userTable, [{ role: "admin" }]);
-    const grants = await workspacePermissionGrants("user", {
-      apiKeyPermissions: { label: ["read"] },
-    });
-    expect(grants.allows("any-workspace", { task: ["read"] }, "team")).toBe(
-      false,
-    );
-    expect(grants.allows("any-workspace", { label: ["read"] }, "team")).toBe(
-      true,
-    );
-    const emptyScope = await workspacePermissionGrants("user", {
-      apiKeyPermissions: {},
-    });
-    expect(emptyScope.allows("any-workspace", { task: ["read"] }, "team")).toBe(
-      false,
-    );
-  });
-
-  it("gives an administrator team workspaces only, never someone else's demo", async () => {
+  it("gives an instance administrator nothing outside membership", async () => {
     state.rows.set(schema.userTable, [{ role: "admin" }]);
     const grants = await workspacePermissionGrants("user", {
       apiKeyPermissions: null,
     });
-    expect(grants.allows("team", { task: ["read"] }, "team")).toBe(true);
-    expect(grants.allows("demo", { task: ["read"] }, "demo")).toBe(false);
-    // A workspace whose kind was never read is treated as a demo.
-    expect(grants.allows("unknown", { task: ["read"] })).toBe(false);
+    expect(grants.workspaceIds).toEqual([]);
+    for (const workspace of ["team", "demo", "unknown"])
+      expect(grants.allows(workspace, { task: ["read"] })).toBe(false);
+  });
+
+  it("judges a member instance administrator by role and key scope", async () => {
+    state.rows.set(schema.userTable, [{ role: "admin" }]);
+    state.rows.set(schema.workspaceUserTable, [
+      { workspaceId: "workspace", role: "viewer" },
+    ]);
+    const grants = await workspacePermissionGrants("user", {
+      apiKeyPermissions: { label: ["read"] },
+    });
+    expect(grants.allows("workspace", { task: ["read"] })).toBe(false);
+    expect(grants.allows("workspace", { label: ["read"] })).toBe(true);
+    const unscoped = await workspacePermissionGrants("user");
+    expect(unscoped.allows("workspace", { task: ["read"] })).toBe(true);
+    expect(unscoped.allows("workspace", { task: ["delete"] })).toBe(false);
   });
 
   it("reloads role changes for the next request and denies a missing user", async () => {

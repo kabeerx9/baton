@@ -215,14 +215,12 @@ describe("project move revocation", () => {
 });
 
 describe("workspace membership revocation", () => {
-  it("preserves instance-admin access after membership removal, but forces account revocation", async () => {
+  it("revokes an instance administrator like any member", async () => {
     await initializeWebSocketAdapter();
     const ws = connect();
     m.admins.mockResolvedValue([{ userId: "user", role: "user,admin" }]);
     await revokeWorkspaceConnections("user", "old");
-    expect(ws.close).not.toHaveBeenCalled();
-    await revokeWorkspaceConnections("user", "old", { force: true });
-    expect(ws.close).toHaveBeenCalled();
+    expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
   });
   it("notifies user sockets even without an open project", async () => {
     await initializeWebSocketAdapter();
@@ -241,7 +239,7 @@ describe("workspace membership revocation", () => {
     }
   });
 
-  it("keeps instance admins connected without workspace membership", async () => {
+  it("stops broadcasts to an instance administrator without membership", async () => {
     vi.useFakeTimers();
     await initializeWebSocketAdapter();
     const ws = connect();
@@ -249,8 +247,8 @@ describe("workspace membership revocation", () => {
     m.admins.mockResolvedValue([{ userId: "user", role: "admin" }]);
     broadcastToProject("project", update);
     await vi.advanceTimersByTimeAsync(100);
-    expect(ws.send).toHaveBeenCalledWith(JSON.stringify(update));
-    expect(ws.close).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalled();
+    expect(ws.close).toHaveBeenCalledWith(1008, "Workspace access revoked");
   });
 
   it("stops broadcasts after membership removal even when fan-out was missed", async () => {

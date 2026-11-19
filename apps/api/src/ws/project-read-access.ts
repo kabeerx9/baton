@@ -1,6 +1,5 @@
 import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import db, { schema } from "../database";
-import { hasInstanceAdminRole } from "../utils/instance-admin-role";
 import { rolesAllow, satisfies } from "../utils/role-permissions";
 import { splitRoles } from "../utils/split-roles";
 import { notBannedCondition } from "../utils/user-ban";
@@ -22,7 +21,7 @@ export async function getProjectReadAccess(
   ];
   const [users, stored] = await Promise.all([
     db
-      .select({ id: schema.userTable.id, role: schema.userTable.role })
+      .select({ id: schema.userTable.id })
       .from(schema.userTable)
       .where(and(inArray(schema.userTable.id, userIds), notBannedCondition())),
     roleNames.length
@@ -45,7 +44,6 @@ export async function getProjectReadAccess(
   );
   for (const user of users) {
     if (
-      hasInstanceAdminRole(user.role) ||
       rolesAllow(
         splitRoles(membershipRoles.get(user.id)),
         stored,

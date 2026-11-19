@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import db from "../database";
-import { userTable, workspaceUserTable } from "../database/schema";
+import { workspaceUserTable } from "../database/schema";
 import { recordWorkspaceMemberAction } from "../admin/audit/record-workspace-member-action";
 import { recordMemberRemoval } from "../join-link/record-member-removal";
 import { clearMemberProjectAccess } from "../project-access/clear-member-project-access";
@@ -26,7 +26,7 @@ export async function removeWorkspaceMember(input: {
   actor: WorkspaceActor;
 }) {
   const { workspaceId, userId, actor } = input;
-  const userRole = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const locked = await lockWorkspace(tx, workspaceId, {
       allowDemo: actor.kind === "member",
     });
@@ -65,16 +65,8 @@ export async function removeWorkspaceMember(input: {
         userId,
         metadata: { role: target.role },
       });
-    // The socket revocation's input, read here so no lookup after commit
-    // can fail it.
-    const [user] = await tx
-      .select({ role: userTable.role })
-      .from(userTable)
-      .where(eq(userTable.id, userId))
-      .limit(1);
-    return user?.role ?? null;
   });
 
-  await handleMemberRemoved({ workspaceId, userId, userRole });
+  await handleMemberRemoved({ workspaceId, userId });
   return { workspaceId, userId };
 }

@@ -9,7 +9,6 @@ import db from "../database";
 import {
   apikeyTable,
   projectTable,
-  userTable,
   workspaceUserTable,
 } from "../database/schema";
 import { subscribeToEvent } from "../events";
@@ -18,10 +17,6 @@ import { findInaccessibleProjectIds } from "../project-access/find-inaccessible-
 import { filterUsersWithProjectAccess } from "../project-access/filter-users-with-project-access";
 import { listWorkspaceProjectIds } from "../project-access/list-workspace-project-ids";
 import { listWorkspaceAudience } from "../workspace/lifecycle/list-workspace-audience";
-import {
-  hasInstanceAdminRole,
-  instanceAdminRoleSql,
-} from "../utils/instance-admin-role";
 import { isRedisConfigured } from "../redis";
 import {
   getRelationSourceProject,
@@ -635,7 +630,6 @@ export async function revokeWorkspaceConnections(
   workspaceId: string,
   options: {
     force?: boolean;
-    role?: string | null;
     /** Tells clients why, so they can explain it instead of redirecting. */
     reason?: "archived";
   } = {},
@@ -645,20 +639,6 @@ export async function revokeWorkspaceConnections(
     !(await workspaceRevocationIsCurrent(userId, workspaceId, options.reason))
   )
     return;
-  if (!options.force) {
-    try {
-      const [user] =
-        "role" in options
-          ? [{ role: options.role }]
-          : await db
-              .select({ userId: userTable.id, role: userTable.role })
-              .from(userTable)
-              .where(eq(userTable.id, userId));
-      if (hasInstanceAdminRole(user?.role)) return;
-    } catch (error) {
-      logger.error("Failed to read role after membership removal", { error });
-    }
-  }
   const reason = options.reason ? { reason: options.reason } : {};
   deliverToLocalUserConnections(userId, {
     type: "WORKSPACE_ACCESS_REVOKED",
@@ -681,22 +661,16 @@ export async function revokeWorkspaceConnections(
       : options.force
         ? undefined
         : async () => {
-            const [[user], members] = await Promise.all([
-              db
-                .select({ role: userTable.role })
-                .from(userTable)
-                .where(eq(userTable.id, userId)),
-              db
-                .select({ userId: workspaceUserTable.userId })
-                .from(workspaceUserTable)
-                .where(
-                  and(
-                    eq(workspaceUserTable.userId, userId),
-                    eq(workspaceUserTable.workspaceId, workspaceId),
-                  ),
+            const members = await db
+              .select({ userId: workspaceUserTable.userId })
+              .from(workspaceUserTable)
+              .where(
+                and(
+                  eq(workspaceUserTable.userId, userId),
+                  eq(workspaceUserTable.workspaceId, workspaceId),
                 ),
-            ]);
-            return !hasInstanceAdminRole(user?.role) && members.length === 0;
+              );
+            return members.length === 0;
           },
   );
 }
@@ -797,19 +771,6 @@ function currentBroadcastAccess(
             recipients,
             rows,
           ));
-          const nonmembers = userIds.filter((userId) => !members.has(userId));
-          if (nonmembers.length > 0) {
-            const admins = await db
-              .select({ userId: userTable.id, role: userTable.role })
-              .from(userTable)
-              .where(
-                and(
-                  inArray(userTable.id, nonmembers),
-                  instanceAdminRoleSql(userTable.role),
-                ),
-              );
-            for (const admin of admins) members.add(admin.userId);
-          }
         } catch (error) {
           logger.error("Failed to validate broadcast membership", { error });
           return null;

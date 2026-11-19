@@ -74,16 +74,17 @@ describe("member writes return no member data", () => {
     });
   });
 
-  it("answers an actor whose role grants no read with the change", async () => {
+  it("answers an actor whose role names no read with the change only", async () => {
     const s = await ctx.seed("member");
     await addRole(s, "updater", { member: ["update", "delete"] });
     await db
       .update(schema.workspaceUserTable)
       .set({ role: "updater" })
-      // The `member` person acts with the read-less role.
+      // The `member` person acts with a role that names no read.
       .where(eq(schema.workspaceUserTable.userId, ctx.people.member.userId));
     const as = ctx.as.cookie("member");
-    expect((await ctx.call(ACTIONS["members.list"]!(s), as)).status).toBe(403);
+    // Membership alone grants workspace:read, so the list is open to them.
+    expect((await ctx.call(ACTIONS["members.list"]!(s), as)).status).toBe(200);
 
     const changed = await ctx.call(ACTIONS["member.role"]!(s), as);
     expect(changed.status).toBe(200);

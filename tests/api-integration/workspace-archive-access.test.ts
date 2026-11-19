@@ -56,7 +56,7 @@ async function seed() {
 }
 
 describe("an archived workspace over HTTP", () => {
-  it("returns WORKSPACE_ARCHIVED to members and administrators, and 404 to outsiders", async () => {
+  it("returns WORKSPACE_ARCHIVED to members, and 404 to outsiders and non-member administrators", async () => {
     const { member, workspace, project, task } = await seed();
     const outsider = await createWorkspaceMember();
     const admin = await createInstanceAdmin();
@@ -74,20 +74,23 @@ describe("an archived workspace over HTTP", () => {
     }
 
     await setArchived(workspace.id, true);
-    for (const user of [member, admin]) {
+    vi.restoreAllMocks();
+    mockAuthenticatedSession(member);
+    for (const path of paths) {
+      const response = await projectAccessApi()(path);
+      expect(response.status, path).toBe(403);
+      expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");
+    }
+
+    for (const user of [outsider.user, admin]) {
       vi.restoreAllMocks();
       mockAuthenticatedSession(user);
       for (const path of paths) {
-        const response = await projectAccessApi()(path);
-        expect(response.status, `${path} for ${user.id}`).toBe(403);
-        expect(await codeOf(response)).toBe("WORKSPACE_ARCHIVED");
+        expect(
+          (await projectAccessApi()(path)).status,
+          `${path} for ${user.id}`,
+        ).toBe(404);
       }
-    }
-
-    vi.restoreAllMocks();
-    mockAuthenticatedSession(outsider.user);
-    for (const path of paths) {
-      expect((await projectAccessApi()(path)).status).toBe(404);
     }
   });
 

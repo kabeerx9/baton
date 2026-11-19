@@ -254,6 +254,29 @@ it("still rejects access to a foreign project with a valid Origin", async () => 
   expect((await connect("missing-project", headers)).status).toBe(404);
 });
 
+it("rejects an instance administrator who is not a member", async () => {
+  await db
+    .update(schema.userTable)
+    .set({ role: "admin" })
+    .where(eq(schema.userTable.id, userId));
+  const foreign = await createWorkspaceMember();
+  const { project } = await createProjectFixture({
+    workspaceId: foreign.workspace.id,
+  });
+  const headers = {
+    cookie: "fake_session=valid-test-session",
+    origin: "http://localhost:5173",
+  };
+  expect((await connect(project.id, headers)).status).toBe(404);
+  const { socket, status } = await connect("user", headers);
+  expect(status).toBe(101);
+  const [sync] = await once(socket, "message");
+  expect(JSON.parse(sync.toString())).toEqual({
+    type: "WORKSPACE_ACCESS_SYNC",
+    workspaceIds: [workspaceId],
+  });
+});
+
 async function createScopedKey(permissions: Record<string, string[]>) {
   const key = `scoped-ws-${userId}`;
   const [row] = await db

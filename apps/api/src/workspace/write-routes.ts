@@ -26,7 +26,7 @@ const json = <T>(schema: T) => ({
 });
 
 const WHO =
-  " Requires a membership row; an instance administrator who is not a member gets 403 MEMBERSHIP_REQUIRED and uses /api/admin. Agent (MCP) tokens get 403 MCP_TOKEN_NOT_ALLOWED. The permission is checked again under the workspace lock.";
+  " Requires a membership row: a non-member gets 404, instance administrators included (they use /api/admin). Agent (MCP) tokens get 403 MCP_TOKEN_NOT_ALLOWED. The permission is checked again under the workspace lock.";
 
 export const createWorkspaceRoute = createRoute({
   method: "post",

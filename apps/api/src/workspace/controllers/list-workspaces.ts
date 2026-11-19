@@ -1,10 +1,6 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import db from "../../database";
-import {
-  userTable,
-  workspaceTable,
-  workspaceUserTable,
-} from "../../database/schema";
+import { workspaceTable, workspaceUserTable } from "../../database/schema";
 import { workspaceAccessColumns } from "../can-read-workspace";
 import { filterReadableWorkspaces } from "../filter-readable-workspaces";
 import {
@@ -28,7 +24,6 @@ async function listWorkspaces(userId: string) {
         eq(workspaceUserTable.userId, userId),
       ),
     )
-    .innerJoin(userTable, eq(userTable.id, workspaceUserTable.userId))
     // Demo workspaces are reached only through the tour, never a list.
     .where(
       and(isNull(workspaceTable.archivedAt), eq(workspaceTable.kind, "team")),

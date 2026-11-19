@@ -46,7 +46,7 @@ describe("API integration: instance admin role in SQL", () => {
     expect(status.hasAdmin).toBe(false);
   });
 
-  it("lets a multi-role admin be assigned tasks outside their workspaces", async () => {
+  it("never makes an instance admin assignable outside their workspaces", async () => {
     const owner = await createWorkspaceMember({ role: "owner" });
     const admin = await createUser("user,admin");
     const outsider = await createUser("user");
@@ -56,6 +56,6 @@ describe("API integration: instance admin role in SQL", () => {
       owner.workspace.id,
     );
 
-    expect([...assignable].sort()).toEqual([admin.id, owner.user.id].sort());
+    expect([...assignable]).toEqual([owner.user.id]);
   });
 });

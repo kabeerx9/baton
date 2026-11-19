@@ -1,12 +1,7 @@
-import { and, eq, isNotNull, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import {
-  userTable,
-  workspaceTable,
-  workspaceUserTable,
-} from "../../database/schema";
-import { instanceAdminRoleSql } from "../../utils/instance-admin-role";
+import { workspaceTable, workspaceUserTable } from "../../database/schema";
 import { workspaceArchivedError } from "../archive/workspace-archived-error";
 import { workspaceAccessColumns } from "../can-read-workspace";
 import { filterReadableWorkspaces } from "../filter-readable-workspaces";
@@ -23,27 +18,15 @@ async function getWorkspace(workspaceId: string, userId: string) {
       archivedAt: workspaceTable.archivedAt,
     })
     .from(workspaceTable)
-    .innerJoin(userTable, eq(userTable.id, userId))
-    .leftJoin(
+    // Members only: an instance administrator who is not one gets 404.
+    .innerJoin(
       workspaceUserTable,
       and(
         eq(workspaceUserTable.workspaceId, workspaceTable.id),
-        eq(workspaceUserTable.userId, userTable.id),
+        eq(workspaceUserTable.userId, userId),
       ),
     )
-    .where(
-      and(
-        eq(workspaceTable.id, workspaceId),
-        or(
-          isNotNull(workspaceUserTable.id),
-          // Administrators may read team workspaces; a demo is members only.
-          and(
-            instanceAdminRoleSql(userTable.role),
-            eq(workspaceTable.kind, "team"),
-          ),
-        ),
-      ),
-    )
+    .where(eq(workspaceTable.id, workspaceId))
     .orderBy(workspaceUserTable.joinedAt, workspaceUserTable.id)
     .limit(1);
 

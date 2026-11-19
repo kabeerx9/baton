@@ -6,7 +6,6 @@ import {
   workspaceUserTable,
 } from "../database/schema";
 import { projectAccessCondition } from "../project-access/project-access-condition";
-import { hasInstanceAdminRole } from "../utils/instance-admin-role";
 import { type PermissionMap, rolesAllow } from "../utils/role-permissions";
 import { splitRoles } from "../utils/split-roles";
 import { notBannedCondition } from "../utils/user-ban";
@@ -96,7 +95,6 @@ export async function canReceiveResourceNotification(
   const rows = await database
     .select({
       id: userTable.id,
-      instanceRole: userTable.role,
       memberRole: workspaceUserTable.role,
       storedRole: workspaceRoleTable.role,
       permission: workspaceRoleTable.permission,
@@ -126,7 +124,6 @@ export async function canReceiveResourceNotification(
     );
   if (!rows.length) return false;
   if (!resourceId && !resourceType) return true;
-  if (hasInstanceAdminRole(rows[0]?.instanceRole)) return true;
   const required: PermissionMap =
     resourceType === "task" ? { task: ["read"] } : { workspace: ["read"] };
   return rolesAllow(

@@ -145,10 +145,13 @@ describe("workspace read permissions", () => {
         authentication,
         permissions,
       );
+      // Membership implies workspace:read for a role; an API key's scope
+      // still narrows it.
+      const granted = (resource: string) =>
+        (authentication === "custom-role" && resource === "workspace") ||
+        Boolean(permissions[resource]?.includes("read"));
       for (const { path, resources, ...options } of reads) {
-        const allowed = resources.every((resource) =>
-          permissions[resource]?.includes("read"),
-        );
+        const allowed = resources.every(granted);
         const response = await app.request(path, { headers });
         expect(response.status, path).toBe(
           allowed ? (options.allowedStatus ?? 200) : 403,

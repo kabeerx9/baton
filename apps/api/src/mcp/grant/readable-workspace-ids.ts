@@ -1,17 +1,13 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import db from "../../database";
-import {
-  userTable,
-  workspaceTable,
-  workspaceUserTable,
-} from "../../database/schema";
+import { workspaceTable, workspaceUserTable } from "../../database/schema";
 import { workspaceAccessColumns } from "../../workspace/can-read-workspace";
 import { filterReadableWorkspaces } from "../../workspace/filter-readable-workspaces";
 
 /**
  * The subset of `workspaceIds` the user can read now, by the same policy as
- * the workspace list: a member, a team workspace, not archived, and `workspace:read` through a
- * built-in or custom role (instance admins pass the role check).
+ * the workspace list: a member, a team workspace, not archived, and `workspace:read`, which
+ * every role a member holds grants. Instance admins get no bypass.
  */
 export async function readableWorkspaceIds(
   userId: string,
@@ -28,7 +24,6 @@ export async function readableWorkspaceIds(
         eq(workspaceUserTable.userId, userId),
       ),
     )
-    .innerJoin(userTable, eq(userTable.id, workspaceUserTable.userId))
     .where(
       and(
         inArray(workspaceTable.id, workspaceIds),

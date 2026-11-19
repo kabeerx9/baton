@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test";
-import { workspaceTable } from "../../../apps/api/src/database/schema";
+import { userTable } from "../../../apps/api/src/database/schema";
 import type { WSContext } from "hono/ws";
 import {
   hasWorkspaceAccess,
@@ -8,27 +8,18 @@ import {
 const m = vi.hoisted(() => ({
   user: vi.fn(),
   memberships: vi.fn(),
-  workspaces: vi.fn(),
 }));
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
-    select: (fields: Record<string, unknown>) => ({
+    select: () => ({
       from: (table: unknown) => ({
-        where: () =>
-          fields.role
-            ? m.user()
-            : table === workspaceTable
-              ? m.workspaces()
-              : m.memberships(),
+        where: () => (table === userTable ? m.user() : m.memberships()),
       }),
     }),
   },
 }));
 beforeEach(() => {
-  m.user.mockResolvedValue([{ role: "user" }]);
-  m.workspaces.mockResolvedValue([
-    { workspaceId: "admin-accessible", kind: "team" },
-  ]);
+  m.user.mockResolvedValue([{ id: "user" }]);
   m.memberships.mockResolvedValue([{ workspaceId: "still-authorized" }]);
 });
 it("sends current workspace access when reconnecting after an offline removal", async () => {
@@ -39,14 +30,13 @@ it("sends current workspace access when reconnecting after an offline removal", 
     workspaceIds: ["still-authorized"],
   });
 });
-it("preserves instance-admin access independently of memberships", async () => {
-  m.user.mockResolvedValue([{ role: "user,admin" }]);
+it("gives an instance administrator only their memberships", async () => {
   m.memberships.mockResolvedValue([]);
   const ws = { send: vi.fn(), close: vi.fn() };
-  await syncWorkspaceAccess("user", ws as unknown as WSContext);
+  await syncWorkspaceAccess("admin", ws as unknown as WSContext);
   expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
     type: "WORKSPACE_ACCESS_SYNC",
-    workspaceIds: ["admin-accessible"],
+    workspaceIds: [],
   });
 });
 it("requires a reconnect if access synchronization fails", async () => {
@@ -60,22 +50,10 @@ it("requires a reconnect if access synchronization fails", async () => {
   );
 });
 
-it("recognizes restored membership and administrator access for delayed revocations", async () => {
+it("recognizes restored membership for delayed revocations", async () => {
   expect(await hasWorkspaceAccess("user", "still-authorized")).toBe(true);
   m.memberships.mockResolvedValue([]);
   expect(await hasWorkspaceAccess("user", "removed")).toBe(false);
-  m.user.mockResolvedValue([{ role: "user,admin" }]);
-  expect(await hasWorkspaceAccess("user", "removed")).toBe(true);
-  m.user.mockResolvedValue([]);
-  expect(await hasWorkspaceAccess("user", "removed")).toBe(false);
-});
-
-it("gives administrators no access to another user's demo workspace", async () => {
-  m.memberships.mockResolvedValue([]);
-  m.user.mockResolvedValue([{ role: "user,admin" }]);
-  m.workspaces.mockResolvedValue([{ kind: "demo" }]);
-  expect(await hasWorkspaceAccess("admin", "someone-elses-demo")).toBe(false);
-  // Their own demo comes through membership.
-  m.memberships.mockResolvedValue([{ userId: "admin" }]);
-  expect(await hasWorkspaceAccess("admin", "own-demo")).toBe(true);
+  m.memberships.mockResolvedValue([{ userId: "user" }]);
+  expect(await hasWorkspaceAccess("user", "restored")).toBe(true);
 });

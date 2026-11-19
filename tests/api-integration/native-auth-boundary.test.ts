@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
@@ -227,6 +227,8 @@ describe("native auth credential boundary", () => {
 
   it("checks the named workspace and the key owner's current role", async () => {
     const { app, owner, viewer, workspace, viewerToken } = await fixture();
+    // Membership implies workspace:read; only an unknown role grants nothing.
+    await setRole(workspace.id, viewer.userId, "gone");
     const [readable] = await db
       .insert(schema.workspaceTable)
       .values({
@@ -241,7 +243,7 @@ describe("native auth credential boundary", () => {
       role: "owner",
       joinedAt: new Date(),
     });
-    // A readable workspace elsewhere does not open the limited one.
+    // A readable workspace elsewhere does not open the unreadable one.
     const bearer = { authorization: `Bearer ${viewerToken}` };
     expect(
       (await app.request(`/api/workspace/${workspace.id}`, { headers: bearer }))
@@ -400,28 +402,28 @@ describe("workspace scope and current workspace grants", () => {
         .map((row) => row.id)
         .sort();
     };
-    // An instance admin lists every membership (the list route says so),
-    // and never a workspace without one.
-    expect(await list()).toEqual(
-      [fallback.id, multi.id, demoted.id, workspace.id].sort(),
-    );
-    // A plain user lists only memberships whose current roles grant read.
+    // Membership implies workspace:read, so every membership is listed,
+    // even under a role defined as {}, and never a workspace without one.
+    const memberships = [fallback.id, multi.id, demoted.id, workspace.id];
+    expect(await list()).toEqual([...memberships].sort());
+    // A plain user lists the same: the instance role adds nothing.
     await db
       .update(schema.userTable)
       .set({ role: "user" })
       .where(eq(schema.userTable.id, viewer.userId));
-    expect(await list()).toEqual([fallback.id, multi.id].sort());
-    await db
-      .update(schema.workspaceRoleTable)
-      .set({ permission: "{}" })
-      .where(eq(schema.workspaceRoleTable.workspaceId, multi.id));
-    expect(await list()).toEqual([fallback.id]);
+    expect(await list()).toEqual([...memberships].sort());
+    // A role with no definition grants nothing, so that workspace drops out.
+    await setRole(multi.id, viewer.userId, "gone");
+    expect(await list()).toEqual(
+      [fallback.id, demoted.id, workspace.id].sort(),
+    );
   });
 
   it.each([false, true])(
-    "denies limited roles through the workspace routes (bearer=%s)",
+    "denies an unknown role through the workspace routes (bearer=%s)",
     async (bearer) => {
       const { app, viewer, viewerToken, workspace } = await fixture();
+      await setRole(workspace.id, viewer.userId, "gone");
       const headers = bearer
         ? { authorization: `Bearer ${viewerToken}` }
         : { cookie: viewer.cookies };
@@ -446,10 +448,12 @@ describe("workspace scope and current workspace grants", () => {
         );
         expect(discovery.status).toBe(200);
       }
-      await db
-        .update(schema.workspaceRoleTable)
-        .set({ permission: JSON.stringify({ workspace: ["read"] }) })
-        .where(eq(schema.workspaceRoleTable.workspaceId, workspace.id));
+      // Once the role is defined, even as {}, membership grants the read.
+      await db.insert(schema.workspaceRoleTable).values({
+        workspaceId: workspace.id,
+        role: "gone",
+        permission: "{}",
+      });
       const allowed = await app.request(`/api/workspace/${workspace.id}`, {
         headers,
       });
@@ -568,3 +572,15 @@ describe("workspace scope and current workspace grants", () => {
     });
   });
 });
+
+async function setRole(workspaceId: string, userId: string, role: string) {
+  await db
+    .update(schema.workspaceUserTable)
+    .set({ role })
+    .where(
+      and(
+        eq(schema.workspaceUserTable.workspaceId, workspaceId),
+        eq(schema.workspaceUserTable.userId, userId),
+      ),
+    );
+}

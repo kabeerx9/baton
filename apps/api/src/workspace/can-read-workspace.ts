@@ -1,6 +1,4 @@
-import { sql } from "drizzle-orm";
-import { userTable, workspaceUserTable } from "../database/schema";
-import { instanceAdminRoleSql } from "../utils/instance-admin-role";
+import { workspaceUserTable } from "../database/schema";
 import {
   rolesAllow,
   type StoredRolePermission,
@@ -9,19 +7,21 @@ import { splitRoles } from "../utils/split-roles";
 
 export const workspaceAccessColumns = {
   role: workspaceUserTable.role,
-  instanceAdmin: sql<boolean>`coalesce(${instanceAdminRoleSql(userTable.role)}, false)`,
 };
 
 export type WorkspaceAccess = {
   role: string | null;
-  instanceAdmin: boolean;
 };
 
+/**
+ * A member reads their workspace: every role they hold grants
+ * workspace:read (`withWorkspaceRead`). A non-member reads nothing, and an
+ * instance administrator is an ordinary user here; they use /api/admin.
+ */
 export function canReadWorkspace(
   access: WorkspaceAccess,
   storedRoles: readonly StoredRolePermission[],
 ) {
-  if (access.instanceAdmin) return true;
   return rolesAllow(splitRoles(access.role), storedRoles, {
     workspace: ["read"],
   });

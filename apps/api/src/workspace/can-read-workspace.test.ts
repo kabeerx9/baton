@@ -7,61 +7,38 @@ const read = JSON.stringify({ workspace: ["read"] });
 describe("canReadWorkspace", () => {
   it("allows built-in roles", () => {
     for (const role of ["viewer", "member", "admin", "owner"]) {
-      expect(canReadWorkspace({ role, instanceAdmin: false }, [])).toBe(true);
+      expect(canReadWorkspace({ role }, [])).toBe(true);
     }
   });
 
   it("allows a member whose custom role leaves out workspace:read", () => {
     expect(
-      canReadWorkspace({ role: "custom", instanceAdmin: false }, [
+      canReadWorkspace({ role: "custom" }, [
         { role: "custom", permission: noRead },
       ]),
     ).toBe(true);
   });
 
   it("denies a member whose only role is unknown", () => {
-    expect(canReadWorkspace({ role: "gone", instanceAdmin: false }, [])).toBe(
-      false,
-    );
+    expect(canReadWorkspace({ role: "gone" }, [])).toBe(false);
   });
 
-  it("allows a member when any of their roles grants workspace:read", () => {
+  it("allows a member with several roles, whatever each one grants", () => {
     expect(
-      canReadWorkspace({ role: "limited,reader", instanceAdmin: false }, [
+      canReadWorkspace({ role: "limited,reader" }, [
         { role: "limited", permission: noRead },
         { role: "reader", permission: read },
       ]),
     ).toBe(true);
     expect(
-      canReadWorkspace({ role: "limited,viewer", instanceAdmin: false }, [
-        { role: "limited", permission: noRead },
-      ]),
-    ).toBe(true);
-  });
-
-  it("allows a member whose roles all leave out workspace:read", () => {
-    expect(
-      canReadWorkspace({ role: "limited,other", instanceAdmin: false }, [
+      canReadWorkspace({ role: "limited,other" }, [
         { role: "limited", permission: noRead },
         { role: "other", permission: noRead },
       ]),
     ).toBe(true);
   });
 
-  it("denies a non-member who is not an instance admin", () => {
-    expect(canReadWorkspace({ role: null, instanceAdmin: false }, [])).toBe(
-      false,
-    );
-  });
-
-  it("lets instance admins read regardless of their role", () => {
-    expect(
-      canReadWorkspace({ role: "custom", instanceAdmin: true }, [
-        { role: "custom", permission: noRead },
-      ]),
-    ).toBe(true);
-    expect(canReadWorkspace({ role: null, instanceAdmin: true }, [])).toBe(
-      true,
-    );
+  it("denies a non-member, instance administrators included", () => {
+    expect(canReadWorkspace({ role: null }, [])).toBe(false);
   });
 });

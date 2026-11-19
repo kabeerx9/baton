@@ -323,8 +323,14 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
   (`lockWorkspace`), then reads authorization again inside the transaction
   (`authorizeWorkspaceWrite`): membership, archived state, ban, API key and
   stored role. The route middleware is only a fast reject.
-- Instance admins get no bypass on these routes (403 `MEMBERSHIP_REQUIRED`);
-  they use `/api/admin/*`, which writes the audit log. MCP tokens get 403
+- Instance admins are ordinary users on every workspace route: tenant data
+  (workspace, members, roles, board, tasks, comments, labels, assets, change
+  requests, search, notifications, WebSockets and MCP) needs a membership
+  row, and a non-member gets the same 404 `Workspace not found` as anyone
+  else. A member instance admin acts by their workspace role. Instance
+  administration lives only under `/api/admin/*`, which writes the audit log
+  and never shows tenant content. Project access is the workspace's own
+  business: the admin panel does not change it. MCP tokens get 403
   `MCP_TOKEN_NOT_ALLOWED` on every write.
 - `owner` is given only by `PUT /owner`, in one transaction that clears the
   new owner's project limits. The only owner can't leave, be removed or be

@@ -2,24 +2,20 @@ import { CrownIcon, ShieldIcon, UserMinusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DirectoryAvatar } from "@/components/admin/directory/directory-avatar";
 import { RowActionsMenu } from "@/components/settings/row-actions-menu";
-import type { ProjectAccessValue } from "@/components/team/project-access/project-access-value";
 import { Badge } from "@/components/ui/badge";
 import type { AdminWorkspaceMember } from "@/fetchers/admin/workspace-types";
 import { getWorkspaceRoleLabel } from "./get-workspace-role-label";
 import { isWorkspaceOwnerRole } from "./is-workspace-owner-role";
-import { MemberAccessButton } from "./member-access-button";
 import WorkspaceRoleSelect from "./workspace-role-select";
 
 type Props = {
   member: AdminWorkspaceMember;
   roleOptions: readonly string[];
-  access: ProjectAccessValue | undefined;
   isOnlyOwner: boolean;
   /** Without `workspaces:manage` the row is read-only. */
   canManage: boolean;
   isUpdatingRole: boolean;
   onRoleChange: (role: string) => void;
-  onEditAccess: () => void;
   onMakeOwner: () => void;
   onRemove: () => void;
 };
@@ -27,12 +23,10 @@ type Props = {
 function WorkspaceMemberRow({
   member,
   roleOptions,
-  access,
   isOnlyOwner,
   canManage,
   isUpdatingRole,
   onRoleChange,
-  onEditAccess,
   onMakeOwner,
   onRemove,
 }: Props) {
@@ -78,14 +72,6 @@ function WorkspaceMemberRow({
               }}
             />
           )}
-        </div>
-        <div className="shrink-0 sm:w-28">
-          <MemberAccessButton
-            name={name}
-            isOwner={isOwner}
-            access={access}
-            onEditAccess={onEditAccess}
-          />
         </div>
         <div className="flex w-7 shrink-0 justify-end">
           {isOnlyOwner || !canManage ? null : (

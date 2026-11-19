@@ -55,9 +55,14 @@ async function fixture(
       .where(inArray(schema.workspaceRoleTable.id, [reader.role.id]));
   }
   const currentPermissions: PermissionMap = demote ? {} : permissions;
+  // Membership implies workspace:read even under a role set to {}; only an
+  // API key's scope narrows it.
+  const workspaceRead =
+    authentication === "custom-role" ||
+    (permissions.workspace?.includes("read") ?? false);
   const allowed = [
     currentPermissions.task?.includes("read") ?? false,
-    currentPermissions.workspace?.includes("read") ?? false,
+    workspaceRead,
     true,
     false,
     false,

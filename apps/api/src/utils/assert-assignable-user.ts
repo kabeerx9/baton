@@ -2,7 +2,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db, { schema } from "../database";
 import { findInaccessibleProjectIds } from "../project-access/find-inaccessible-project-ids";
-import { instanceAdminRoleSql } from "./instance-admin-role";
 
 export const NOT_ASSIGNABLE = "Assignee is not a member of this workspace";
 export const NO_PROJECT_ACCESS =
@@ -27,28 +26,8 @@ export async function filterAssignableUsers(
       ),
     );
 
-  const assignable = new Set(memberships.map((row) => row.userId));
-  const remaining = userIds.filter((id) => !assignable.has(id));
-
-  if (remaining.length === 0) {
-    return assignable;
-  }
-
-  const admins = await database
-    .select({ id: schema.userTable.id })
-    .from(schema.userTable)
-    .where(
-      and(
-        inArray(schema.userTable.id, remaining),
-        instanceAdminRoleSql(schema.userTable.role),
-      ),
-    );
-
-  for (const admin of admins) {
-    assignable.add(admin.id);
-  }
-
-  return assignable;
+  // Members only: an instance administrator who is not one is not assignable.
+  return new Set(memberships.map((row) => row.userId));
 }
 
 export async function assertAssignableUser(

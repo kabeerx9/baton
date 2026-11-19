@@ -170,6 +170,13 @@ describe("ticket lookup", () => {
       .insert(schema.taskTable)
       .values({ projectId: project.id, title: "Team T-1", number: 1 })
       .returning();
+    // Membership, not the instance role, gives the team match.
+    await db.insert(schema.workspaceUserTable).values({
+      workspaceId: workspace.id,
+      userId: admin.id,
+      role: "member",
+      joinedAt: new Date(),
+    });
 
     mockAuthenticatedSession(admin);
     const response = await call("/task/by-ticket-id/T-1");
