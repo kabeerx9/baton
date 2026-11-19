@@ -26,4 +26,8 @@ if (options) {
       Sentry.honoIntegration({ shouldHandleError: () => false }),
     ],
   });
+  // Setup check without a public error route: set SENTRY_BOOT_CHECK=true
+  // for one deploy and look for this message in Sentry, then remove it.
+  if (process.env.SENTRY_BOOT_CHECK === "true")
+    Sentry.captureMessage("Baton API Sentry boot check", "info");
 }
