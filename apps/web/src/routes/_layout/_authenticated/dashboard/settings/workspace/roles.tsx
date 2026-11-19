@@ -183,8 +183,8 @@ const PERMISSION_LABELS: Record<
   },
 };
 
-// Default roles are seeded per workspace by the API (see
-// `seedDefaultWorkspaceRoles` and the afterCreateOrganization hook). They show
+// The API seeds the default roles when it creates a workspace
+// (`workspace/controllers/create-workspace.ts`). They show
 // up in `customRoles` like any other dynamic role but get a "Default" badge,
 // can't be deleted, and reserve their names against new custom roles. Owner
 // stays a static role on the auth side and is hidden from this UI, but its
