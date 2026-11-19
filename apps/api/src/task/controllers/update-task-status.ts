@@ -50,6 +50,13 @@ async function updateTaskStatus({
     id,
     actor.kind === "person" ? actor.userId : null,
     async (tx, existingTask): Promise<TaskStatusResult> => {
+      if (actor.kind === "person" && status === existingTask.status) {
+        // A same-status call still writes (updated_at, column) and returns
+        // the task: it needs the right to work on it, like any edit.
+        const facts = await loadConsentFacts(tx, existingTask, actor);
+        const consent = decideConsent("edit", facts);
+        if (consent.kind === "deny") throw consentError(consent);
+      }
       if (actor.kind === "person" && status !== existingTask.status) {
         const facts = await loadConsentFacts(tx, existingTask, actor);
         const consent = decideConsent("status", facts, {

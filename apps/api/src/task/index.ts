@@ -88,7 +88,10 @@ import {
   statusGenerationSchema,
 } from "./response";
 import { readStatusChange } from "./read-status-change";
-import { assertMayEdit } from "../task-change-request/assert-may-edit";
+import {
+  assertMayEdit,
+  lockEditableTask,
+} from "../task-change-request/assert-may-edit";
 import {
   assignedTasksQuery,
   bulkUpdateBody,
@@ -1334,6 +1337,20 @@ const task = apiRouter<BaseVariables & { workspaceId: string }>()
         }
       },
       async (db, uploaded) => {
+        // Verification runs without a lock; the task may have been
+        // reassigned or moved meanwhile. Judge it again before the write.
+        const current = await lockEditableTask(
+          db,
+          taskContext.taskId,
+          actorFromContext(c),
+        );
+        if (
+          current.projectId !== taskContext.projectId ||
+          current.workspaceId !== taskContext.workspaceId
+        )
+          throw new HTTPException(409, {
+            message: "Task changed projects; retry the upload",
+          });
         const [existingAsset] = await db
           .select({ id: assetTable.id })
           .from(assetTable)

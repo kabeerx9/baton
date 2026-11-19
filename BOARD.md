@@ -71,8 +71,13 @@ its creator is not enough. `task:update` implies `task:update_assigned`
 (`permits` in `packages/permissions/src/permits.ts`). The routes let
 `task:update_assigned` through; the controller decides on the locked task row
 with `decideConsent` (`apps/api/src/task-change-request/consent.ts`), and
-comments and labels hold the task row `FOR SHARE`
-(`apps/api/src/task-change-request/assert-may-edit.ts`). Labels need
+comments, labels and upload finalize hold the task row `FOR SHARE`
+(`lockEditableTask` in `apps/api/src/task-change-request/assert-may-edit.ts`),
+after the workspace (`FOR SHARE`) and the project (`KEY SHARE`), the repo
+lock order. Upload finalize checks again inside its write transaction,
+after storage verification. A call that changes nothing (the current status,
+the same title, a label already attached) is judged the same way: on another
+person's task it is `403`, never a silent `200`. Labels need
 `label:update`, or `task:update_assigned` on the caller's own task; a viewer
 cannot move a label row off another task. A viewer never creates tasks or
 subtasks, links "waits on", moves a task to another repo or imports. A refusal

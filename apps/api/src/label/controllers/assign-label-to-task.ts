@@ -68,7 +68,9 @@ async function assignLabelToTask(
 
   await assertProjectAccess(userId, task.projectId);
 
-  if (label.taskId === taskId) {
+  // Without label:update the caller is judged under the task lock first,
+  // even when the label is already there.
+  if (!ownTaskOnly && label.taskId === taskId) {
     return label;
   }
 

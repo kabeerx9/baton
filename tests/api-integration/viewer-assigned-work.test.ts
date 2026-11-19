@@ -8,7 +8,6 @@ import {
   vi,
 } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
-import { ensureBoardProject } from "../../apps/api/src/board/controllers/ensure-board-project";
 import {
   answer,
   as,
@@ -18,8 +17,8 @@ import {
   withKey,
 } from "./helpers/change-requests";
 import { resetTestDatabase } from "./helpers/database";
-import { createWorkspaceMember } from "./helpers/fixtures";
 import { addWorkspaceMember } from "./helpers/project-access/add-workspace-member";
+import { seedViewerBoard as seed } from "./helpers/viewer-board";
 
 // The viewer reads everything and works only on tasks assigned to them
 // (task:update_assigned). Anything else is 403, never a change request.
@@ -43,39 +42,6 @@ const json = (method: string, body: unknown): RequestInit => ({
   method,
   body: JSON.stringify(body),
 });
-
-/**
- * A board with `own` (assigned to the viewer) and `other` (assigned to a
- * member). The creator of both is `creator`; `member` is an outsider.
- */
-async function seed(role = "viewer") {
-  const { user: creator, workspace } = await createWorkspaceMember();
-  const viewer = await addWorkspaceMember(workspace.id, role);
-  const member = await addWorkspaceMember(workspace.id);
-  const board = await ensureBoardProject(workspace.id);
-  const insert = async (number: number, userId: string) => {
-    const [task] = await db
-      .insert(schema.taskTable)
-      .values({
-        projectId: board.id,
-        number,
-        position: number,
-        title: `Task ${number}`,
-        status: "to-do",
-        createdBy: creator.id,
-        userId,
-      })
-      .returning();
-    return task;
-  };
-  const own = await insert(1, viewer.id);
-  const other = await insert(2, member.id);
-  const [label] = await db
-    .insert(schema.labelTable)
-    .values({ name: "bug", color: "red", workspaceId: workspace.id })
-    .returning();
-  return { workspace, board, creator, viewer, member, own, other, label };
-}
 
 async function requestCount() {
   return (await db.select().from(schema.taskChangeRequestTable)).length;
@@ -587,5 +553,106 @@ describe("what the viewer is told it can do", () => {
           .move,
       ).toBe(expected);
     }
+  });
+});
+
+describe("a call that changes nothing is still authorized first", () => {
+  async function unchanged(taskId: string, before: unknown) {
+    expect(await readTask(taskId)).toEqual(before);
+  }
+
+  it("refuses the current status on someone else's task and writes nothing", async () => {
+    const f = await seed();
+    const before = await readTask(f.other.id);
+    // A key without task:read must not get the task back either.
+    const { key } = await createKey(f.viewer.id, {
+      task: ["update_assigned"],
+      workspace: ["read"],
+    });
+    for (const send of [withKey(key), as(f.viewer)]) {
+      const response = await send(
+        `/api/task/status/${f.other.id}`,
+        json("PUT", { status: "to-do" }),
+      );
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({ code: "NOT_ASSIGNED" });
+    }
+    const board = await as(f.viewer)(
+      `/api/board/workspace/${f.workspace.id}/item/${f.other.id}`,
+      json("PATCH", { status: "to-do" }),
+    );
+    expect(board.status).toBe(403);
+    await unchanged(f.other.id, before);
+    // The viewer's own task still accepts the same no-op.
+    expect(
+      (
+        await as(f.viewer)(
+          `/api/task/status/${f.own.id}`,
+          json("PUT", { status: "to-do" }),
+        )
+      ).status,
+    ).toBe(200);
+  });
+
+  it("refuses the current title, priority and due date on someone else's task", async () => {
+    const f = await seed();
+    const before = await readTask(f.other.id);
+    const send = as(f.viewer);
+    for (const [path, body] of [
+      [`/api/task/title/${f.other.id}`, { title: "Task 2" }],
+      [`/api/task/priority/${f.other.id}`, { priority: before!.priority }],
+      [`/api/task/description/${f.other.id}`, { description: "" }],
+    ] as const) {
+      const response = await send(path, json("PUT", body));
+      expect(response.status, path).toBe(403);
+    }
+    await unchanged(f.other.id, before);
+  });
+
+  it("bulk refuses a task already at the destination that the viewer may not work on", async () => {
+    const f = await seed();
+    const before = await readTask(f.other.id);
+    const response = await as(f.viewer)(
+      "/api/task/bulk",
+      json("PATCH", {
+        taskIds: [f.own.id, f.other.id],
+        operation: "updateStatus",
+        value: "to-do",
+      }),
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      results: { taskId: string; outcome: string }[];
+    };
+    expect(body.results).toEqual(
+      expect.arrayContaining([
+        { taskId: f.own.id, outcome: "applied" },
+        expect.objectContaining({ taskId: f.other.id, outcome: "refused" }),
+      ]),
+    );
+    await unchanged(f.other.id, before);
+  });
+
+  it("a member's same-status call on someone else's task still applies", async () => {
+    const f = await seed("member");
+    const response = await as(f.viewer)(
+      `/api/task/status/${f.other.id}`,
+      json("PUT", { status: "to-do" }),
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("refuses a label already on someone else's task", async () => {
+    const f = await seed();
+    await db
+      .update(schema.labelTable)
+      .set({ taskId: f.other.id })
+      .where(eq(schema.labelTable.id, f.label.id));
+    const response = await as(f.viewer)(
+      `/api/label/${f.label.id}/task`,
+      json("PUT", { taskId: f.other.id }),
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: "NOT_ASSIGNED" });
   });
 });

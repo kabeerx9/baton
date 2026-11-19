@@ -220,6 +220,16 @@ async function bulkUpdateTasks({
           "status",
           value,
         );
+        // A task already at the destination is still written (updated_at,
+        // column): it needs the same right to work on it.
+        for (const [id, reason] of await refusalsFor(
+          tx,
+          actor,
+          workspaceId,
+          before.filter((task) => task.status === value),
+          "edit",
+        ))
+          refusals.set(id, reason);
         // "Cannot finish while blocked" holds on bulk paths too.
         for (const task of changing) {
           if (refusals.has(task.id)) continue;
