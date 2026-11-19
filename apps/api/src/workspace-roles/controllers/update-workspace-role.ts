@@ -23,7 +23,7 @@ async function updateWorkspaceRole(input: {
   const { workspaceId, roleId, actor, patch } = input;
   const result = await db.transaction(async (tx) => {
     const { locked, member } = await lockForRoleWrite(tx, workspaceId, actor, {
-      ac: ["update"],
+      role: ["update"],
     });
     const role = await findLockedRole(tx, workspaceId, roleId);
     const renamed =

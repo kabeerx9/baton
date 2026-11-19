@@ -16,7 +16,7 @@ async function deleteWorkspaceRole(input: {
   const { workspaceId, roleId, actor } = input;
   const result = await db.transaction(async (tx) => {
     const { locked } = await lockForRoleWrite(tx, workspaceId, actor, {
-      ac: ["delete"],
+      role: ["delete"],
     });
     const role = await findLockedRole(tx, workspaceId, roleId);
     if (isDefaultRoleName(role.role)) throw defaultRoleError();

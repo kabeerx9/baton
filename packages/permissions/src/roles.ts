@@ -1,44 +1,39 @@
 import type { PermissionStatements } from "./statements.js";
 
-// Built-in workspace roles as plain data. Key order matches the statements
-// Better Auth compiled before. The viewer works on tasks assigned to them
-// (`task:update_assigned`); migration 0006 rewrote stored viewer rows to it.
+// Built-in workspace roles as plain data. The viewer works on tasks assigned
+// to them (`task:update_assigned`).
 export const BUILT_IN_ROLE_STATEMENTS = {
   viewer: {
-    organization: [],
     member: [],
-    invitation: [],
-    ac: ["read"],
+    join_link: [],
+    role: ["read"],
     project: ["read"],
     task: ["read", "update_assigned"],
     label: ["read"],
     workspace: ["read"],
   },
   member: {
-    organization: [],
     member: [],
-    invitation: [],
-    ac: ["read"],
+    join_link: [],
+    role: ["read"],
     project: ["create", "read"],
     task: ["create", "read", "update"],
     label: ["create", "read", "update", "delete"],
     workspace: ["read"],
   },
   admin: {
-    organization: ["update"],
-    invitation: ["create", "cancel"],
-    member: ["create", "update", "delete"],
-    ac: ["create", "read", "update", "delete"],
+    member: ["update", "delete"],
+    join_link: ["create"],
+    role: ["create", "read", "update", "delete"],
     project: ["create", "read", "update", "delete", "share"],
     task: ["create", "read", "update", "delete", "assign"],
     label: ["create", "read", "update", "delete"],
     workspace: ["read", "update", "manage_settings"],
   },
   owner: {
-    organization: ["update", "delete"],
-    member: ["create", "update", "delete"],
-    invitation: ["create", "cancel"],
-    ac: ["create", "read", "update", "delete"],
+    member: ["update", "delete"],
+    join_link: ["create"],
+    role: ["create", "read", "update", "delete"],
     project: ["create", "read", "update", "delete", "share"],
     task: ["create", "read", "update", "delete", "assign"],
     label: ["create", "read", "update", "delete"],
@@ -58,9 +53,8 @@ export function builtInRoleStatements(
 
 // Default-role names that the API seeds per workspace. These ARE editable in
 // the UI (their permissions live as rows in `workspace_role`), but their names
-// are reserved and the rows are auto-created on workspace creation /
-// backfilled at boot. `owner` is intentionally NOT in this list because it
-// stays a static role.
+// are reserved and the rows are created with the workspace. `owner` is
+// intentionally NOT in this list because it stays a static role.
 export const DEFAULT_ROLE_NAMES = ["viewer", "member", "admin"] as const;
 export type DefaultRoleName = (typeof DEFAULT_ROLE_NAMES)[number];
 

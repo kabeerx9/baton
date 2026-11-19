@@ -59,13 +59,12 @@ export const Route = createFileRoute(
   component: RouteComponent,
 });
 
-// Every permission that can be saved must also be visible and removable.
-// Include provider-owned resources and persisted unknown entries in the editor.
+// Every permission that can be saved must also be visible and removable,
+// including persisted unknown entries.
 const RESOURCE_LABELS: Record<string, string> = {
-  organization: "Workspace administration",
   member: "Members",
-  invitation: "Invitations",
-  ac: "Roles and permissions",
+  join_link: "Join links",
+  role: "Roles and permissions",
   project: "Projects",
   task: "Tasks",
   label: "Labels",
@@ -76,19 +75,6 @@ const PERMISSION_LABELS: Record<
   string,
   { label: string; description: string }
 > = {
-  "organization:update": {
-    label: "Edit workspace administration",
-    description: "Change workspace settings through the account service.",
-  },
-  "organization:delete": {
-    label: "Delete workspace",
-    description:
-      "Permanently delete the workspace through the account service.",
-  },
-  "member:create": {
-    label: "Add members",
-    description: "Add users to this workspace.",
-  },
   "member:update": {
     label: "Change member roles",
     description: "Change the roles assigned to workspace members.",
@@ -97,27 +83,23 @@ const PERMISSION_LABELS: Record<
     label: "Remove members",
     description: "Remove users from this workspace.",
   },
-  "invitation:create": {
+  "join_link:create": {
     label: "Manage join links",
     description: "Create, replace and revoke the workspace join link.",
   },
-  "invitation:cancel": {
-    label: "Cancel invitations",
-    description: "Not used: email invitations were replaced by join links.",
-  },
-  "ac:create": {
+  "role:create": {
     label: "Create roles",
     description: "Create workspace roles and assign their permissions.",
   },
-  "ac:read": {
+  "role:read": {
     label: "View roles",
     description: "Read the workspace roles and their permissions.",
   },
-  "ac:update": {
+  "role:update": {
     label: "Change role permissions",
     description: "Change role permissions, including administrative access.",
   },
-  "ac:delete": {
+  "role:delete": {
     label: "Delete roles",
     description: "Delete custom workspace roles.",
   },

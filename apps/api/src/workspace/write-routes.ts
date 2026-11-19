@@ -56,17 +56,17 @@ export const updateWorkspaceRoute = createRoute({
   path: "/{workspaceId}",
   tags: ["Workspaces"],
   summary: "Update workspace",
-  description: `Change the workspace name, description or logo. Needs organization:update.${WHO}`,
+  description: `Change the workspace name, description or logo. Needs workspace:update.${WHO}`,
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireMemberPermission({ organization: ["update"] }),
+    requireMemberPermission({ workspace: ["update"] }),
   ] as const,
   request: { params: workspaceIdParam, body: json(updateWorkspaceBody) },
   responses: {
     200: jsonResponse("The updated workspace", workspaceSchema),
     400: errorResponse("Invalid name"),
     403: errorResponse(
-      "Missing organization:update, not a member, archived workspace, or an agent token",
+      "Missing workspace:update, not a member, archived workspace, or an agent token",
     ),
     404: errorResponse("Workspace not found"),
   },
@@ -78,15 +78,15 @@ export const deleteWorkspaceRoute = createRoute({
   path: "/{workspaceId}",
   tags: ["Workspaces"],
   summary: "Delete workspace",
-  description: `Permanently delete the workspace and everything in it. Needs organization:delete. The owner of a tour (demo) workspace may delete it.${WHO}`,
+  description: `Permanently delete the workspace and everything in it. Needs workspace:delete. The owner of a tour (demo) workspace may delete it.${WHO}`,
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireMemberPermission({ organization: ["delete"] }),
+    requireMemberPermission({ workspace: ["delete"] }),
   ] as const,
   request: { params: workspaceIdParam },
   responses: {
     200: jsonResponse("The deleted workspace's id", deletedIdSchema),
-    403: errorResponse("Missing organization:delete, or not a member"),
+    403: errorResponse("Missing workspace:delete, or not a member"),
     404: errorResponse("Workspace not found"),
   },
 });

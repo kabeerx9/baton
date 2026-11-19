@@ -1192,11 +1192,9 @@
 				"task": "Tasks",
 				"label": "Labels",
 				"workspace": "Workspace",
-				"organization": "Workspace administration",
 				"member": "Members",
-				"invitation": "Invitations",
-				"team": "Teams",
-				"ac": "Roles and permissions"
+				"join_link": "Join links",
+				"role": "Roles and permissions"
 			},
 			"permissions": {
 				"project": {
@@ -1272,7 +1270,7 @@
 					},
 					"update": {
 						"label": "Update",
-						"description": "Can update workspace settings"
+						"description": "Can edit the workspace name, description and logo"
 					},
 					"delete": {
 						"label": "Delete",
@@ -1283,21 +1281,7 @@
 						"description": "Can manage workspace settings"
 					}
 				},
-				"organization": {
-					"update": {
-						"label": "Edit workspace administration",
-						"description": "Change workspace settings through the account service."
-					},
-					"delete": {
-						"label": "Delete workspace",
-						"description": "Permanently delete the workspace through the account service."
-					}
-				},
 				"member": {
-					"create": {
-						"label": "Add members",
-						"description": "Add users to this workspace."
-					},
 					"update": {
 						"label": "Change member roles",
 						"description": "Change the roles assigned to workspace members."
@@ -1307,31 +1291,13 @@
 						"description": "Remove users from this workspace."
 					}
 				},
-				"invitation": {
+				"join_link": {
 					"create": {
-						"label": "Invite members",
-						"description": "Send workspace invitations."
-					},
-					"cancel": {
-						"label": "Cancel invitations",
-						"description": "Revoke pending workspace invitations."
+						"label": "Manage join links",
+						"description": "Create, replace and revoke the workspace join link."
 					}
 				},
-				"team": {
-					"create": {
-						"label": "Create teams",
-						"description": "Create teams in this workspace."
-					},
-					"update": {
-						"label": "Edit teams",
-						"description": "Change teams and team membership."
-					},
-					"delete": {
-						"label": "Delete teams",
-						"description": "Delete teams in this workspace."
-					}
-				},
-				"ac": {
+				"role": {
 					"create": {
 						"label": "Create roles",
 						"description": "Create workspace roles and assign their permissions."

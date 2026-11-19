@@ -346,6 +346,10 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
   reads everything and works only on tasks assigned to them
   (`task:update_assigned`). They live in `packages/permissions/src/roles.ts`;
   creating a workspace seeds `viewer`, `member` and `admin` rows from them.
+- Permission resources: `workspace` (`read`, `update`, `delete`,
+  `manage_settings`), `member` (`update`, `delete`), `join_link` (`create`),
+  `role` (`create`, `read`, `update`, `delete`), `project`, `task` and `label`.
+  The list is `packages/permissions/src/statements.ts`.
 - Roles: at most 25 per workspace. `owner`, `admin`, `member` and `viewer` are
   reserved names; the seeded three can't be deleted or renamed (400
   `DEFAULT_ROLE`), and a role members hold can't be deleted or renamed (409
@@ -379,7 +383,7 @@ People join a workspace with a link, not an email invite. Code:
 - The token is stored only as a SHA-256 hash. The ciphertext exists to show
   the link again; without `NOTIFICATION_SECRET_ENCRYPTION_KEY`, only the
   create response has the URL.
-- Owners and admins manage the link (`invitation:create`). The preview is
+- Owners and admins manage the link (`join_link:create`). The preview is
   public and shows the workspace name only while the link is active.
 - Preview and join accept what people paste: the token with spaces around it,
   or a join URL (`/join/<token>` or `?t=<token>`). Anything else is not found.

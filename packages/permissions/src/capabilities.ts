@@ -19,7 +19,7 @@ export const workspaceCapabilities = {
   manageWorkspace: { workspace: ["update", "manage_settings"] },
   manageSettings: { workspace: ["manage_settings"] },
   deleteWorkspace: { workspace: ["delete"] },
-  inviteUsers: { invitation: ["create"] },
+  inviteUsers: { join_link: ["create"] },
   manageTeam: { member: ["update", "delete"] },
   updateMembers: { member: ["update"] },
   removeMembers: { member: ["delete"] },

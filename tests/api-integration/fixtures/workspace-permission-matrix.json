@@ -4,10 +4,9 @@
 	"customRole": {
 		"name": "reviewer",
 		"permission": {
-			"workspace": ["read"],
-			"organization": ["update"],
+			"workspace": ["read", "update"],
 			"member": ["update"],
-			"ac": ["read", "create"]
+			"role": ["read", "create"]
 		}
 	},
 	"roles": {

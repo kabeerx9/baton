@@ -33,17 +33,17 @@ type Member = {
 const MEMBERS: Member[] = [
   {
     actor: "admin",
-    scope: { organization: ["update"] },
+    scope: { workspace: ["update"] },
     action: "workspace.update",
   },
   {
     actor: "owner",
-    scope: { organization: ["delete"] },
+    scope: { workspace: ["delete"] },
     action: "workspace.delete",
   },
   { actor: "admin", scope: { member: ["delete"] }, action: "member.remove" },
   { actor: "admin", scope: { member: ["update"] }, action: "member.role" },
-  { actor: "admin", scope: { ac: ["create"] }, action: "roles.create" },
+  { actor: "admin", scope: { role: ["create"] }, action: "roles.create" },
   {
     actor: "member",
     scope: { workspace: ["manage_settings"] },

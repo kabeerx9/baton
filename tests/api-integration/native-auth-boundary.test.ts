@@ -528,7 +528,7 @@ describe("workspace scope and current workspace grants", () => {
     const { app, owner, viewer, workspace } = await fixture();
     const limited = await keyFor(app, owner.cookies, { label: ["read"] });
     const editor = await keyFor(app, owner.cookies, {
-      organization: ["update"],
+      workspace: ["update"],
     });
     const operations = [
       {

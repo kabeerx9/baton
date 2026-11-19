@@ -21,7 +21,7 @@ async function deleteWorkspace(input: {
     allowDemo: true,
     authorize: async (tx, locked) => {
       await authorizeWorkspaceWrite(tx, locked, actor, {
-        permissions: { organization: ["delete"] },
+        permissions: { workspace: ["delete"] },
       });
       const [user] = await tx
         .select({ role: schema.userTable.role })

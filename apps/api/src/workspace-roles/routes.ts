@@ -29,15 +29,15 @@ export const listWorkspaceRolesRoute = createRoute({
   tags: ["Workspaces"],
   summary: "List workspace roles",
   description:
-    "The workspace's stored roles: the seeded viewer, member and admin and its custom roles, with their permissions. owner is built in and not listed. Needs ac:read.",
+    "The workspace's stored roles: the seeded viewer, member and admin and its custom roles, with their permissions. owner is built in and not listed. Needs role:read.",
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireWorkspacePermission({ ac: ["read"] }),
+    requireWorkspacePermission({ role: ["read"] }),
   ] as const,
   request: { params: workspaceIdParam },
   responses: {
     200: jsonResponse("The workspace's roles", workspaceRoleListSchema),
-    403: errorResponse("Missing ac:read"),
+    403: errorResponse("Missing role:read"),
     404: errorResponse("Workspace not found"),
   },
 });
@@ -48,10 +48,10 @@ export const createWorkspaceRoleRoute = createRoute({
   path: "/{workspaceId}/roles",
   tags: ["Workspaces"],
   summary: "Create workspace role",
-  description: `Add a custom role. Needs ac:create. At most 25 roles per workspace; owner, admin, member and viewer are reserved names.${RULES}`,
+  description: `Add a custom role. Needs role:create. At most 25 roles per workspace; owner, admin, member and viewer are reserved names.${RULES}`,
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireMemberPermission({ ac: ["create"] }),
+    requireMemberPermission({ role: ["create"] }),
   ] as const,
   request: { params: workspaceIdParam, body: json(createWorkspaceRoleBody) },
   responses: {
@@ -60,7 +60,7 @@ export const createWorkspaceRoleRoute = createRoute({
       "Reserved name, invalid name, unknown permission, or the 25-role limit",
     ),
     403: errorResponse(
-      "Missing ac:create, or the role grants more than the caller holds",
+      "Missing role:create, or the role grants more than the caller holds",
     ),
     404: errorResponse("Workspace not found"),
     409: errorResponse("The name is taken (code ROLE_NAME_TAKEN)"),
@@ -73,10 +73,10 @@ export const updateWorkspaceRoleRoute = createRoute({
   path: "/{workspaceId}/roles/{roleId}",
   tags: ["Workspaces"],
   summary: "Update workspace role",
-  description: `Change a role's permissions or name. Needs ac:update. A built-in role can't be renamed (DEFAULT_ROLE); a role members hold can't be renamed (ROLE_IN_USE).${RULES}`,
+  description: `Change a role's permissions or name. Needs role:update. A built-in role can't be renamed (DEFAULT_ROLE); a role members hold can't be renamed (ROLE_IN_USE).${RULES}`,
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireMemberPermission({ ac: ["update"] }),
+    requireMemberPermission({ role: ["update"] }),
   ] as const,
   request: { params: workspaceRoleParam, body: json(updateWorkspaceRoleBody) },
   responses: {
@@ -85,7 +85,7 @@ export const updateWorkspaceRoleRoute = createRoute({
       "Reserved or invalid name, unknown permission, or DEFAULT_ROLE",
     ),
     403: errorResponse(
-      "Missing ac:update, or the role grants more than the caller holds",
+      "Missing role:update, or the role grants more than the caller holds",
     ),
     404: errorResponse("Workspace or role not found"),
     409: errorResponse("The name is taken, or members hold the role"),
@@ -98,16 +98,16 @@ export const deleteWorkspaceRoleRoute = createRoute({
   path: "/{workspaceId}/roles/{roleId}",
   tags: ["Workspaces"],
   summary: "Delete workspace role",
-  description: `Delete a custom role. Needs ac:delete. A built-in role can't be deleted (400 DEFAULT_ROLE); a role members hold can't be deleted (409 ROLE_IN_USE).${RULES}`,
+  description: `Delete a custom role. Needs role:delete. A built-in role can't be deleted (400 DEFAULT_ROLE); a role members hold can't be deleted (409 ROLE_IN_USE).${RULES}`,
   middleware: [
     workspaceAccess.fromParam("workspaceId"),
-    requireMemberPermission({ ac: ["delete"] }),
+    requireMemberPermission({ role: ["delete"] }),
   ] as const,
   request: { params: workspaceRoleParam },
   responses: {
     200: jsonResponse("The deleted role's id", deletedIdSchema),
     400: errorResponse("A built-in role (code DEFAULT_ROLE)"),
-    403: errorResponse("Missing ac:delete"),
+    403: errorResponse("Missing role:delete"),
     404: errorResponse("Workspace or role not found"),
     409: errorResponse("Members hold the role (code ROLE_IN_USE)"),
   },
