@@ -155,6 +155,21 @@ describe("TimeZoneGate", () => {
     expect(await screen.findByText(/prompt\.mismatch\.title/)).toBeTruthy();
   });
 
+  it("unset: picking the zone the card already suggests confirms it", async () => {
+    detect.mockReturnValue("UTC");
+    renderGate();
+    fireEvent.click(await screen.findByText("prompt.change"));
+
+    const search = await screen.findByRole("combobox");
+    fireEvent.change(search, { target: { value: "UTC" } });
+
+    const option = await screen.findByRole("option", { name: /UTC/ });
+    fireEvent.click(option);
+
+    await waitFor(() => expect(setTimeZone.mock.calls[0]?.[0]).toBe("UTC"));
+    await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
+  });
+
   it("a failed save keeps the prompt and shows the error in it", async () => {
     setTimeZone.mockRejectedValue(new Error("boom"));
     renderGate();
