@@ -44,6 +44,7 @@ for a task under a feature, and `board task` for an item on the board.
    See `apps/api/src/board/open-board-task.ts`.
 7. Only involved people, workspace owners and admins change a task's status,
    delete it or reassign it directly. Other members ask: see the table below.
+   A viewer works only on tasks assigned to them and never asks.
    Every check runs on the locked task row in the API
    (`apps/api/src/task-change-request/consent.ts`), not in the UI.
 
@@ -55,20 +56,44 @@ API key narrows each permission to its scope. The check runs on every path
 that changes the owner: the assignee route, a full update, the board item
 update and a move that drops the owner. Then:
 
-| Change | Involved, owner or admin | Other member |
-| --- | --- | --- |
-| Status | Applies | Change request (202) |
-| Delete | Applies (needs `task:delete`) | Change request (202), needs `task:update` |
-| Assign, unassign | Applies | Refused (403). This includes taking the task yourself. |
-| Title, description, priority, due date, labels | Applies | Applies; involved people get a notification |
-| Status of a feature (rule 3) | Applies | Applies, except archive and unarchive: a change request that expires |
+| Change | Involved, owner or admin | Other member | Viewer, own task | Viewer, any other task |
+| --- | --- | --- | --- | --- |
+| Status | Applies | Change request (202) | Applies | Refused (403) |
+| Delete | Applies (needs `task:delete`) | Change request (202), needs `task:update` | Refused (403) | Refused (403) |
+| Assign, unassign | Applies | Refused (403). This includes taking the task yourself. | Refused (403) | Refused (403) |
+| Title, description, priority, due date, labels, comments | Applies | Applies; involved people get a notification | Applies | Refused (403) |
+| Status of a feature (rule 3) | Applies | Applies, except archive and unarchive: a change request that expires | Applies | Refused (403) |
+
+The viewer column is `task:update_assigned` without `task:update`, from the
+built-in `viewer` role, a custom role or an API key scope. "Own task" means
+the caller is the task's assignee, still a member, and can see its repo; being
+its creator is not enough. `task:update` implies `task:update_assigned`
+(`permits` in `packages/permissions/src/permits.ts`). The routes let
+`task:update_assigned` through; the controller decides on the locked task row
+with `decideConsent` (`apps/api/src/task-change-request/consent.ts`), and
+comments, labels and upload finalize hold the task row `FOR SHARE`
+(`lockEditableTask` in `apps/api/src/task-change-request/assert-may-edit.ts`),
+after the workspace (`FOR SHARE`) and the project (`KEY SHARE`), the repo
+lock order. Upload finalize checks again inside its write transaction,
+after storage verification. A call that changes nothing (the current status,
+the same title, a label already attached) is judged the same way: on another
+person's task it is `403`, never a silent `200`. Labels need
+`label:update`, or `task:update_assigned` on the caller's own task; a viewer
+cannot move a label row off another task. A viewer never creates tasks or
+subtasks, links "waits on", moves a task to another repo or imports. A refusal
+is `403` with code `NOT_ASSIGNED`, never a change request.
 
 - Bulk, reorder and project move never create a request. They refuse the
   item instead: bulk returns `results` per task, reorder across columns returns
-  409, a move that changes the status returns 409.
+  409, a move that changes the status returns 409. With `task:update_assigned`
+  only, bulk status, priority and due date refuse each task not assigned to
+  the caller in `results`, and a reorder that sends any such card returns 403.
+  Bulk delete, assign and labels stay refused for the whole request.
 - Answering: an involved person, owner or admin with the action's permission
   (`task:update` for a status request, `task:delete` for a delete request)
-  accepts or rejects. Nobody answers their own request. Only the requester
+  accepts or rejects. A viewer answers a status request on a task assigned to
+  them (`task:update_assigned`), checked under the same lock as the answer;
+  never a delete request. Nobody answers their own request. Only the requester
   cancels (withdraws) it. `canAnswer=me` uses the same rule.
 - A repeat of a recorded decision by the same person returns the recorded
   result. Anyone else, or a different decision, gets 409.
@@ -193,7 +218,8 @@ Board items (tasks and subtasks), `GET /api/task/{id}` and
 `statusChange: { move }`. `move` is the consent rule for an ordinary column
 move by the caller, by the table in "Who can change a task": `apply` (no
 request needed), `request` or `deny` (no `task:update`, including an API key
-scope without it). It predicts consent, not the outcome: an `apply` move can
+scope without it; with `task:update_assigned` only, `apply` on the caller's
+own task and `deny` on any other). It predicts consent, not the outcome: an `apply` move can
 still be refused with 409 (a final column while blocked, rule 5) or 400 (a
 status the repo does not have). Leaving
 `archived` counts as unarchive. Archive itself is not covered. Clients treat
@@ -297,6 +323,11 @@ Baton owns workspaces; the auth provider owns only sign-in. Code:
   capabilities through the authorized GET.
 - A demo (tour) workspace refuses member, owner and role writes (403
   `DEMO_WORKSPACE`); its owner may rename and delete it.
+- Built-in roles: `owner` and `admin` do everything but `admin` cannot delete
+  the workspace; `member` creates and updates tasks and projects; `viewer`
+  reads everything and works only on tasks assigned to them
+  (`task:update_assigned`). They live in `packages/permissions/src/roles.ts`;
+  migration 0006 rewrote every stored `viewer` row to the current payload.
 - Roles: at most 25 per workspace. `owner`, `admin`, `member` and `viewer` are
   reserved names; the seeded three can't be deleted or renamed (400
   `DEFAULT_ROLE`), and a role members hold can't be deleted or renamed (409

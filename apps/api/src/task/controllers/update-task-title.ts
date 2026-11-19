@@ -3,6 +3,8 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { notifyOutsiderEdit } from "../../task-change-request/notify-outsider-edit";
 import { taskTable } from "../../database/schema";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { assertMayEdit } from "../../task-change-request/assert-may-edit";
 import {
   publishTaskMutation,
   recordTaskMutation,
@@ -12,10 +14,12 @@ async function updateTaskTitle({
   id,
   title,
   currentUserId,
+  actor = personActor(currentUserId),
 }: {
   id: string;
   title: string;
   currentUserId: string;
+  actor?: TaskActor;
 }) {
   let existingTask = await db.query.taskTable.findFirst({
     where: eq(taskTable.id, id),
@@ -27,8 +31,6 @@ async function updateTaskTitle({
     });
   }
 
-  if (existingTask.title === title) return existingTask;
-
   // Audit history is not best-effort. Commit the title and its immutable
   // history row atomically; event subscribers remain notifications/integrations
   // only and cannot make the audit trail disappear.
@@ -39,7 +41,10 @@ async function updateTaskTitle({
       .where(eq(taskTable.id, id))
       .for("update");
     if (!locked) throw new HTTPException(404, { message: "Task not found" });
+    await assertMayEdit(tx, locked, actor);
     existingTask = locked;
+    // A no-op still answers only to someone who may edit the task.
+    if (locked.title === title) return null;
 
     const [task] = await tx
       .update(taskTable)
@@ -57,6 +62,7 @@ async function updateTaskTitle({
 
     return task;
   });
+  if (!updatedTask) return existingTask;
 
   await publishTaskMutation(existingTask, updatedTask, currentUserId, {
     fields: ["title"],

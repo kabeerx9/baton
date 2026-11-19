@@ -1179,7 +1179,7 @@
 			"allChangesSaved": "All changes saved",
 			"saveChanges": "Save changes",
 			"defaultRoleDescriptions": {
-				"viewer": "Can view and comment on tasks.",
+				"viewer": "Can view everything and work on tasks assigned to them.",
 				"member": "Can create and manage tasks and projects.",
 				"admin": "Has full access to the workspace."
 			},
@@ -1237,6 +1237,10 @@
 					"assign": {
 						"label": "Assign",
 						"description": "Can assign tasks to members"
+					},
+					"update_assigned": {
+						"label": "Work on own tasks",
+						"description": "Can change status, details and comments on tasks assigned to them"
 					}
 				},
 				"label": {

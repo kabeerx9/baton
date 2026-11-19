@@ -23,8 +23,8 @@ export default function TaskDueDatePopover({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { mutateAsync: updateTaskDueDate } = useUpdateTaskDueDate();
-  const { canUpdateTasks } = useWorkspacePermission();
-  const canEdit = canUpdateTasks();
+  const { canWorkOnTask } = useWorkspacePermission();
+  const canEdit = canWorkOnTask(task.userId);
   const dueDate = useMemo(
     () => (task.dueDate ? new Date(task.dueDate) : null),
     [task.dueDate],

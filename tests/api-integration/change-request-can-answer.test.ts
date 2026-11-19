@@ -18,7 +18,8 @@ import {
 import { resetTestDatabase } from "./helpers/database";
 
 // N2: canAnswer=me lists only requests the caller's role and key could
-// answer: status needs task:update, delete needs task:delete.
+// answer: status needs task:update (or task:update_assigned on the caller's
+// own task), delete needs task:delete.
 
 beforeEach(resetTestDatabase);
 afterEach(() => vi.restoreAllMocks());
@@ -65,13 +66,24 @@ describe("canAnswer=me", () => {
     );
   });
 
-  it("lists nothing for an involved viewer", async () => {
+  it("lists only status requests on their own tasks for a viewer assignee", async () => {
     const f = await twoRequests();
     await db
       .update(schema.workspaceUserTable)
       .set({ role: "viewer" })
       .where(eq(schema.workspaceUserTable.userId, f.assignee.id));
-    expect(await ids(await as(f.assignee)(f.path))).toEqual([]);
+    // task:update_assigned answers status requests on the caller's own task;
+    // a delete request still needs task:delete.
+    expect(await ids(await as(f.assignee)(f.path))).toEqual([f.statusId]);
+  });
+
+  it("lists nothing for a viewer who created the task but is not its assignee", async () => {
+    const f = await twoRequests();
+    await db
+      .update(schema.workspaceUserTable)
+      .set({ role: "viewer" })
+      .where(eq(schema.workspaceUserTable.userId, f.creator.id));
+    expect(await ids(await as(f.creator)(f.path))).toEqual([]);
   });
 
   it("lists nothing for an admin's read-only API key", async () => {

@@ -10,17 +10,26 @@ import {
 import { publishEvent } from "../../events";
 import createNotification from "../../notification/controllers/create-notification";
 import { parseMentionIds } from "../../utils/parse-mentions";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { withEditableTask } from "../../task-change-request/assert-may-edit";
 
-async function createComment(taskId: string, userId: string, content: string) {
-  const [activity] = await db
-    .insert(activityTable)
-    .values({
-      taskId,
-      type: "comment",
-      userId,
-      content,
-    })
-    .returning();
+async function createComment(
+  taskId: string,
+  userId: string,
+  content: string,
+  actor: TaskActor = personActor(userId),
+) {
+  const [activity] = await withEditableTask(taskId, actor, (tx) =>
+    tx
+      .insert(activityTable)
+      .values({
+        taskId,
+        type: "comment",
+        userId,
+        content,
+      })
+      .returning(),
+  );
 
   if (!activity) {
     throw new HTTPException(500, {

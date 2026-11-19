@@ -1,7 +1,11 @@
 import { ApiError } from "../errors/api-error";
 import type { DbOrTx } from "../project-access/db-or-tx";
 import type { PersonActor } from "./actor";
-import { type Consent, OUTSIDER_REASSIGN_MESSAGE } from "./consent";
+import {
+  type Consent,
+  NOT_ASSIGNED_MESSAGE,
+  OUTSIDER_REASSIGN_MESSAGE,
+} from "./consent";
 import type { RequestEffect } from "./effects";
 import { involvedPeople } from "./load-consent-facts";
 import { type LockedTask, openChangeRequest } from "./open-change-request";
@@ -14,6 +18,11 @@ export function consentError(consent: Extract<Consent, { kind: "deny" }>) {
     return new ApiError(403, {
       message: consent.message,
       code: "NOT_INVOLVED",
+    });
+  if (consent.message === NOT_ASSIGNED_MESSAGE)
+    return new ApiError(403, {
+      message: consent.message,
+      code: "NOT_ASSIGNED",
     });
   const missing = consent.message.match(/task:(\w+)/)?.[0];
   return new ApiError(consent.status, {

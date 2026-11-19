@@ -185,12 +185,12 @@ export default function TaskDescription({ taskId }: TaskDescriptionProps) {
   const { t } = useTranslation();
   const { data: task } = useGetTask(taskId);
   const { mutateAsync: updateTaskDescription } = useUpdateTaskDescription();
-  const { canUpdateTasks } = useWorkspacePermission();
+  const { canWorkOnTask } = useWorkspacePermission();
   const ownerId = useContext(AuthContext).user?.id ?? "";
   const savesPaused = useSyncExternalStore(descriptionSaveQueue.subscribe, () =>
     descriptionSaveQueue.isPaused(ownerId),
   );
-  const canEdit = canUpdateTasks() && !savesPaused;
+  const canEdit = canWorkOnTask(task?.userId) && !savesPaused;
   const canEditRef = useRef(canEdit);
   canEditRef.current = canEdit;
 

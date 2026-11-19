@@ -1,3 +1,4 @@
+import { actorFromContext } from "../task-change-request/actor";
 import { activitySchema } from "../activity/response";
 import {
   apiRouter,
@@ -49,7 +50,7 @@ const createTaskCommentRoute = createRoute({
     "Add a comment to a task. Mentions in the content notify the mentioned users, and the assignee is notified too. Returns the stored activity row, which carries no author object -- read the list route for that.",
   middleware: [
     workspaceAccess.fromTaskId(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: taskIdParam,
@@ -62,7 +63,7 @@ const createTaskCommentRoute = createRoute({
     200: jsonResponse("The created comment", activitySchema),
     400: errorResponse("Invalid body"),
     403: errorResponse(
-      "No access to the project, or missing task:update permission",
+      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
     ),
     404: errorResponse("Task not found"),
   },
@@ -77,7 +78,7 @@ const updateTaskCommentRoute = createRoute({
   description: "Edit a comment. Only the comment's author may do this.",
   middleware: [
     workspaceAccess.fromComment(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: {
     params: commentParam,
@@ -89,7 +90,9 @@ const updateTaskCommentRoute = createRoute({
   responses: {
     200: jsonResponse("The updated comment", activitySchema),
     400: errorResponse("Invalid body"),
-    403: errorResponse("Not the author, or missing task:update permission"),
+    403: errorResponse(
+      "Not the author, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
+    ),
     404: errorResponse("Comment not found"),
   },
 });
@@ -103,12 +106,14 @@ const deleteTaskCommentRoute = createRoute({
   description: "Delete a comment. Only the comment's author may do this.",
   middleware: [
     workspaceAccess.fromComment(),
-    requireWorkspacePermission({ task: ["update"] }),
+    requireWorkspacePermission({ task: ["update_assigned"] }),
   ] as const,
   request: { params: commentParam },
   responses: {
     200: jsonResponse("The deleted comment", activitySchema),
-    403: errorResponse("Not the author, or missing task:update permission"),
+    403: errorResponse(
+      "Not the author, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
+    ),
     404: errorResponse("Comment not found"),
   },
 });
@@ -120,15 +125,33 @@ const comment = apiRouter()
   .openapi(createTaskCommentRoute, async (c) => {
     const { taskId } = c.req.valid("param");
     const { content } = c.req.valid("json");
-    return c.json(await createComment(taskId, c.get("userId"), content), 200);
+    return c.json(
+      await createComment(
+        taskId,
+        c.get("userId"),
+        content,
+        actorFromContext(c),
+      ),
+      200,
+    );
   })
   .openapi(updateTaskCommentRoute, async (c) => {
     const { id } = c.req.valid("param");
     const { content } = c.req.valid("json");
-    return c.json(await updateComment(c.get("userId"), id, content), 200);
+    return c.json(
+      await updateComment(c.get("userId"), id, content, actorFromContext(c)),
+      200,
+    );
   })
   .openapi(deleteTaskCommentRoute, async (c) =>
-    c.json(await deleteComment(c.get("userId"), c.req.valid("param").id), 200),
+    c.json(
+      await deleteComment(
+        c.get("userId"),
+        c.req.valid("param").id,
+        actorFromContext(c),
+      ),
+      200,
+    ),
   );
 
 export default comment;

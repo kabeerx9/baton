@@ -136,6 +136,20 @@ export async function isInvolved(
   return canSeeTaskProject(database, userId, task.projectId);
 }
 
+/** Involvement and assignment in one repo-visibility read. */
+async function involvement(
+  database: DbOrTx,
+  task: ConsentTask,
+  userId: string,
+  member: boolean,
+) {
+  const assigned = task.userId === userId;
+  if (!member || (task.createdBy !== userId && !assigned))
+    return { involved: false, assignee: false };
+  const visible = await canSeeTaskProject(database, userId, task.projectId);
+  return { involved: visible, assignee: visible && assigned };
+}
+
 export type PersonGrants = Awaited<ReturnType<typeof loadPersonGrants>>;
 
 /** Facts for one task when the person's grants are already loaded. */
@@ -146,10 +160,11 @@ export async function consentFactsWith(
   grants: PersonGrants,
 ): Promise<ConsentFacts> {
   return {
-    involved: await isInvolved(database, task, userId, grants.member),
+    ...(await involvement(database, task, userId, grants.member)),
     bypass: grants.bypass,
     feature: await isFeature(database, task.id),
     canUpdate: grants.can({ task: ["update"] }),
+    canUpdateAssigned: grants.can({ task: ["update_assigned"] }),
     canDelete: grants.can({ task: ["delete"] }),
     canAssign: grants.can({ task: ["assign"] }),
   };
@@ -165,9 +180,11 @@ export async function loadConsentFacts(
     return {
       workspaceId: "",
       involved: false,
+      assignee: false,
       bypass: false,
       feature: false,
       canUpdate: false,
+      canUpdateAssigned: false,
       canDelete: false,
       canAssign: false,
     };

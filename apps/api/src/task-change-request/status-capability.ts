@@ -52,9 +52,11 @@ export function visibleStatusMove(
       involved:
         grants.member &&
         (task.createdBy === userId || task.assigneeId === userId),
+      assignee: grants.member && task.assigneeId === userId,
       bypass: grants.bypass,
       feature: task.feature,
       canUpdate: grants.can({ task: ["update"] }),
+      canUpdateAssigned: grants.can({ task: ["update_assigned"] }),
       canDelete: grants.can({ task: ["delete"] }),
       canAssign: grants.can({ task: ["assign"] }),
     },

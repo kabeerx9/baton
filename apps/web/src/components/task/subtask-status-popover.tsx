@@ -35,13 +35,13 @@ export default function SubtaskStatusPopover({
   const [open, setOpen] = useState(false);
   const { data: columns = [] } = useGetColumns(projectId);
   const { mutateAsync: updateTaskStatus } = useUpdateTaskStatus();
-  const { canUpdateTasks } = useWorkspacePermission();
+  const { canWorkOnTask } = useWorkspacePermission();
   const entries = useTaskStatusStore((s) => s.entries);
 
   const shown = tasks.map((task) => shownStatus(task, entries[task.id]));
   // Every task keeps its own entry. "Apply" tasks move at once, each in its
   // own chain; "request" tasks wait together in the one request modal.
-  if (!canUpdateTasks()) return <>{children}</>;
+  if (!tasks.some((task) => canWorkOnTask(task.userId))) return <>{children}</>;
   if (
     tasks.every((task) => moveOf(task.statusChange) === "deny") ||
     tasks.some((task) => isStatusLocked(entries[task.id]))

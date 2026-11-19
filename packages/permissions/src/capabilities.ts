@@ -8,6 +8,8 @@ export const workspaceCapabilities = {
   shareProjects: { project: ["share"] },
   deleteProjects: { project: ["delete"] },
   updateTasks: { task: ["update"] },
+  /** Work on tasks assigned to the caller; true whenever updateTasks is. */
+  updateAssignedTasks: { task: ["update_assigned"] },
   createTasks: { task: ["create"] },
   deleteTasks: { task: ["delete"] },
   assignTasks: { task: ["assign"] },

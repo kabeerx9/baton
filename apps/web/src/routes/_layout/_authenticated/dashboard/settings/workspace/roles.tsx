@@ -161,6 +161,11 @@ const PERMISSION_LABELS: Record<
     label: "Assign tasks",
     description: "Assign tasks to other workspace members.",
   },
+  "task:update_assigned": {
+    label: "Work on own tasks",
+    description:
+      "Change status, details and comments on tasks assigned to them. Update covers this for every task.",
+  },
   "label:create": {
     label: "Create labels",
     description: "Add new labels to tasks in this workspace.",

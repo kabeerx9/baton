@@ -23,8 +23,8 @@ export default function TaskStartDatePopover({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { mutateAsync: updateTask } = useUpdateTask();
-  const { canUpdateTasks } = useWorkspacePermission();
-  const canEdit = canUpdateTasks();
+  const { canWorkOnTask } = useWorkspacePermission();
+  const canEdit = canWorkOnTask(task.userId);
 
   const handleDateChange = async (date: Date | null) => {
     try {

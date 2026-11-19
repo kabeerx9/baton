@@ -4,8 +4,14 @@ import db from "../../database";
 import { activityTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
+import { personActor, type TaskActor } from "../../task-change-request/actor";
+import { withEditableTask } from "../../task-change-request/assert-may-edit";
 
-async function deleteComment(userId: string, id: string) {
+async function deleteComment(
+  userId: string,
+  id: string,
+  actor: TaskActor = personActor(userId),
+) {
   const [existing] = await db
     .select({
       id: activityTable.id,
@@ -28,16 +34,21 @@ async function deleteComment(userId: string, id: string) {
     });
   }
 
-  const [deletedComment] = await db
-    .delete(activityTable)
-    .where(
-      and(
-        eq(activityTable.id, id),
-        eq(activityTable.userId, userId),
-        eq(activityTable.type, "comment"),
-      ),
-    )
-    .returning();
+  const [deletedComment] = await withEditableTask(
+    existing.taskId,
+    actor,
+    (tx) =>
+      tx
+        .delete(activityTable)
+        .where(
+          and(
+            eq(activityTable.id, id),
+            eq(activityTable.userId, userId),
+            eq(activityTable.type, "comment"),
+          ),
+        )
+        .returning(),
+  );
 
   if (!deletedComment) {
     throw new HTTPException(404, {

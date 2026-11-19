@@ -48,7 +48,7 @@ export function InboxTask({ taskId, workspaceId }: InboxTaskProps) {
   const statusColumn =
     columns.find((column) => column.id === task?.columnId) ??
     (slugColumns.length === 1 ? slugColumns[0] : undefined);
-  const { canUpdateTasks } = useWorkspacePermission();
+  const { canWorkOnTask } = useWorkspacePermission();
   const navigate = useNavigate();
   const openWorkspaceId = task?.workspaceId || workspaceId;
   useShortcut(
@@ -195,7 +195,7 @@ export function InboxTask({ taskId, workspaceId }: InboxTaskProps) {
             </Timeline>
           )
         )}
-        {canUpdateTasks() && (
+        {canWorkOnTask(task?.userId) && (
           <CommentInput taskId={taskId} projectId={task?.projectId} />
         )}
       </div>

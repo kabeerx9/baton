@@ -1,11 +1,18 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { labelTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
+import type { PersonActor } from "../../task-change-request/actor";
+import { lockEditableTask } from "../../task-change-request/assert-may-edit";
 
-async function unassignLabelFromTask(id: string, userId: string) {
+/** `ownTaskOnly`: see `assignLabelToTask`. */
+async function unassignLabelFromTask(
+  id: string,
+  userId: string,
+  ownTaskOnly: PersonActor | null = null,
+) {
   const label = await db.query.labelTable.findFirst({
     where: (label, { eq }) => eq(label.id, id),
   });
@@ -39,10 +46,21 @@ async function unassignLabelFromTask(id: string, userId: string) {
     });
   }
 
-  const [deletedLabel] = await db
-    .delete(labelTable)
-    .where(eq(labelTable.id, id))
-    .returning();
+  const labelTaskId = label.taskId;
+  const [deletedLabel] = await db.transaction(async (tx) => {
+    if (ownTaskOnly)
+      await lockEditableTask(tx, labelTaskId, ownTaskOnly, {
+        assignedOnly: true,
+      });
+    return tx
+      .delete(labelTable)
+      .where(
+        ownTaskOnly
+          ? and(eq(labelTable.id, id), eq(labelTable.taskId, labelTaskId))
+          : eq(labelTable.id, id),
+      )
+      .returning();
+  });
 
   if (!deletedLabel) {
     throw new HTTPException(500, {

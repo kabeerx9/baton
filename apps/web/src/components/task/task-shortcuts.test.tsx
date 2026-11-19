@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   message: vi.fn(),
   error: vi.fn(),
   canUpdateTasks: vi.fn(),
+  canWorkOnTask: vi.fn(),
   canAssignTasks: vi.fn(),
   canCreateTasks: vi.fn(),
   task: {
@@ -85,6 +86,7 @@ vi.mock("@/hooks/queries/task-relation/use-get-task-relations", () => ({
 vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
     canUpdateTasks: mocks.canUpdateTasks,
+    canWorkOnTask: mocks.canWorkOnTask,
     canAssignTasks: mocks.canAssignTasks,
     canCreateTasks: mocks.canCreateTasks,
   }),
@@ -123,6 +125,7 @@ function press(init: KeyboardEventInit) {
 
 beforeEach(() => {
   mocks.canUpdateTasks.mockReturnValue(true);
+  mocks.canWorkOnTask.mockReturnValue(true);
   mocks.canAssignTasks.mockReturnValue(true);
   mocks.canCreateTasks.mockReturnValue(true);
   mocks.updateAssignee.mockResolvedValue({});
@@ -246,6 +249,7 @@ describe("TaskShortcuts", () => {
 
   it("keeps copy shortcuts but blocks edits without update permission", async () => {
     mocks.canUpdateTasks.mockReturnValue(false);
+    mocks.canWorkOnTask.mockReturnValue(false);
     renderTaskShortcuts();
 
     press({ key: "s", code: "KeyS" });
@@ -257,6 +261,20 @@ describe("TaskShortcuts", () => {
     expect(onStatus).not.toHaveBeenCalled();
     expect(useRelationPickerStore.getState().request).toBeNull();
     expect(mocks.writeText).toHaveBeenCalledWith("KAN-42");
+  });
+
+  it("lets a viewer change status on their own task but not relations", async () => {
+    mocks.canUpdateTasks.mockReturnValue(false);
+    mocks.canWorkOnTask.mockReturnValue(true);
+    mocks.canAssignTasks.mockReturnValue(false);
+    renderTaskShortcuts();
+
+    press({ key: "s", code: "KeyS" });
+    press({ key: "b", code: "KeyB" });
+    await act(async () => {});
+
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(useRelationPickerStore.getState().request).toBeNull();
   });
 
   it("adds a subtask only with create permission, even when edits are allowed", async () => {

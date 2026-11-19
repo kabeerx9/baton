@@ -2,13 +2,16 @@
 // five resources were the Better Auth organization plugin's defaults; they are
 // written out here so Baton owns its vocabulary. Do not rename any string:
 // stored workspace_role rows and API keys reference them.
+//
+// `task:update_assigned` works only on tasks assigned to the caller. Holding
+// `task:update` implies it (`IMPLIED_BY` in permits.ts).
 export const statement = {
   organization: ["update", "delete"],
   member: ["create", "update", "delete"],
   invitation: ["create", "cancel"],
   ac: ["create", "read", "update", "delete"],
   project: ["create", "read", "update", "delete", "share"],
-  task: ["create", "read", "update", "delete", "assign"],
+  task: ["create", "read", "update", "delete", "assign", "update_assigned"],
   label: ["create", "read", "update", "delete"],
   workspace: ["read", "update", "delete", "manage_settings"],
 } as const;

@@ -290,7 +290,7 @@ describe("API integration: workspace RBAC enforcement", () => {
   });
 
   describe("bulk task mutations", () => {
-    it("blocks a viewer from changing task priority in bulk", async () => {
+    it("refuses a viewer's bulk priority change on a task not assigned to them", async () => {
       const viewer = await createWorkspaceMember({ role: "viewer" });
       const { project, columns } = await createProjectFixture({
         workspaceId: viewer.workspace.id,
@@ -309,7 +309,15 @@ describe("API integration: workspace RBAC enforcement", () => {
           value: "high",
         }),
       });
-      expect(response.status).toBe(403);
+      // task:update_assigned passes the route; the task is refused per item.
+      expect(response.status).toBe(200);
+      expect((await response.json()).results).toEqual([
+        {
+          taskId: task.id,
+          outcome: "refused",
+          reason: "You can only change tasks assigned to you.",
+        },
+      ]);
 
       const persisted = await db.query.taskTable.findFirst({
         where: eq(schema.taskTable.id, task.id),

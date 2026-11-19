@@ -24,6 +24,7 @@ import useUpdateComment from "@/hooks/mutations/comment/use-update-comment";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { getInitials } from "@/lib/get-initials";
 import { toast } from "@/lib/toast";
+import useTaskAssignee from "@/hooks/queries/task/use-task-assignee";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 const forges = {
@@ -75,8 +76,11 @@ export default function CommentCard({
     useDeleteComment(taskId);
   const queryClient = useQueryClient();
 
-  // Edit and delete need authorship and task:update (a demoted viewer).
-  const canEdit = currentUser?.id === user?.id && permissions.canUpdateTasks();
+  // Edit and delete need authorship and the right to work on the task: a
+  // viewer keeps them only while the task is assigned to them.
+  const assigneeId = useTaskAssignee(taskId);
+  const canEdit =
+    currentUser?.id === user?.id && permissions.canWorkOnTask(assigneeId);
   const forge = forgeOf(externalSource);
   const sourceName = forge
     ? forge.name

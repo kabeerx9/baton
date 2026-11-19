@@ -6,6 +6,10 @@
  * access to the task's repo) and the bypass roles (workspace owner or admin)
  * only decide between applying and requesting; they never grant a permission
  * the role or API key lacks.
+ *
+ * `task:update_assigned` without `task:update` (the viewer) works only on a
+ * task assigned to the caller: there it applies status and edits directly;
+ * anywhere else it is refused, never turned into a request.
  */
 export type TaskChangeKind =
   /** A status change, including archiving. */
@@ -18,13 +22,43 @@ export type TaskChangeKind =
 
 export type ConsentFacts = {
   involved: boolean;
+  /**
+   * The caller is the task's assignee, a member, and can see its repo. Not
+   * the same as involved: a creator who is not the assignee is involved.
+   */
+  assignee: boolean;
   bypass: boolean;
   /** The task has subtasks; its own status is not used. */
   feature: boolean;
   canUpdate: boolean;
+  /** task:update_assigned; true whenever canUpdate is. */
+  canUpdateAssigned: boolean;
   canDelete: boolean;
   canAssign: boolean;
 };
+
+export const NOT_ASSIGNED_MESSAGE =
+  "You can only change tasks assigned to you.";
+
+type WorkFacts = Pick<
+  ConsentFacts,
+  "assignee" | "canUpdate" | "canUpdateAssigned"
+>;
+
+/** Full task:update, or task:update_assigned on the caller's own task. */
+export function mayWorkOn(facts: WorkFacts) {
+  return facts.canUpdate || (facts.canUpdateAssigned && facts.assignee);
+}
+
+function workDenied(facts: WorkFacts): Extract<Consent, { kind: "deny" }> {
+  return {
+    kind: "deny",
+    status: 403,
+    message: facts.canUpdateAssigned
+      ? NOT_ASSIGNED_MESSAGE
+      : "Missing task:update permission",
+  };
+}
 
 /** The status move a "status" change makes. */
 export type StatusMove = { from: string; to: string };
@@ -58,6 +92,7 @@ export function decideConsent(
   const consents = facts.involved || facts.bypass;
   switch (change) {
     case "edit":
+      if (!mayWorkOn(facts)) return workDenied(facts);
       return { kind: "apply", notifyInvolved: !consents };
     case "assign":
       if (!facts.canAssign)
@@ -70,12 +105,11 @@ export function decideConsent(
         ? { kind: "apply", notifyInvolved: false }
         : { kind: "deny", status: 403, message: OUTSIDER_REASSIGN_MESSAGE };
     case "status":
+      // Only full task:update reaches the request and feature rules below.
       if (!facts.canUpdate)
-        return {
-          kind: "deny",
-          status: 403,
-          message: "Missing task:update permission",
-        };
+        return mayWorkOn(facts)
+          ? { kind: "apply", notifyInvolved: false }
+          : workDenied(facts);
       // A feature's column comes from its tasks; its own status is unused,
       // except archived.
       if (consents || (facts.feature && move && !togglesArchive(move)))
@@ -102,22 +136,25 @@ export function decideConsent(
   }
 }
 
-export type AnswerFacts = {
+export type AnswerFacts = WorkFacts & {
   isRequester: boolean;
   involved: boolean;
   bypass: boolean;
-  canUpdate: boolean;
   canDelete: boolean;
 };
 
-/** Who may accept or reject a pending request. */
+/**
+ * Who may accept or reject a pending request. A status request needs what a
+ * direct status change needs: task:update, or task:update_assigned as the
+ * task's current assignee.
+ */
 export function decideAnswer(
   kind: "status" | "delete",
   facts: AnswerFacts,
 ): { ok: true } | { ok: false; message: string } {
   if (facts.isRequester)
     return { ok: false, message: "You cannot answer your own request." };
-  const permitted = kind === "delete" ? facts.canDelete : facts.canUpdate;
+  const permitted = kind === "delete" ? facts.canDelete : mayWorkOn(facts);
   if (!permitted)
     return {
       ok: false,
