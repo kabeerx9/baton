@@ -424,7 +424,7 @@ export const workspaceJoinLinkTable = pgTable(
 );
 
 // The last time a person was removed from a workspace. A join link created
-// before that time refuses them. A voluntary leave writes nothing.
+// before that time refuses them. A voluntary leave deletes this row.
 export const workspaceMemberRemovalTable = pgTable(
   "workspace_member_removal",
   {
