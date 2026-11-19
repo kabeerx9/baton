@@ -47,7 +47,6 @@ import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import type { ExternalLink } from "@/types/external-link";
 import { DiagramCore } from "./diagram/diagram-core";
 import { FeatureHero } from "./feature-status/feature-hero";
-import { FeatureLanes } from "./feature-status/feature-lanes";
 import { summarizeFeature } from "./feature-status/feature-status";
 import { TaskDiagram } from "./diagram/task-diagram";
 import { deriveHeadline } from "./headline-model";
@@ -286,19 +285,14 @@ export function TaskDetailPage({
           .filter((id) => id !== projectId)}
       />
       {feature && featureSummary ? (
-        <>
-          <FeatureHero
-            feature={feature}
-            summary={featureSummary}
-            keyLabel={keyLabel}
-            repoName={repoName}
-            title={<TaskTitle taskId={taskId} size="md" />}
-            owner={owner}
-          />
-          {featureSummary.connected && (
-            <FeatureLanes feature={feature} summary={featureSummary} />
-          )}
-        </>
+        <FeatureHero
+          feature={feature}
+          summary={featureSummary}
+          keyLabel={keyLabel}
+          repoName={repoName}
+          title={<TaskTitle taskId={taskId} size="md" />}
+          owner={owner}
+        />
       ) : (
         <TaskHero
           tone={tone}
