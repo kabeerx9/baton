@@ -192,6 +192,7 @@ async function fixture(provider: "github") {
       resourceType: "issue",
       externalId: "12",
       url: "https://git.example/team/repo/issues/12",
+      metadata: JSON.stringify({ syncFieldLabels: [] }),
     })
     .returning();
   return {

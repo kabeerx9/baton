@@ -9,7 +9,7 @@ import { updateTaskStatus } from "../github/services/task-service";
 import { withIntegrationLink } from "../github/services/with-integration-link";
 import { parseLinkMetadata } from "../github/utils/parse-link-metadata";
 import { changedLabelFields } from "./changed-label-fields";
-import { isFieldLabel } from "./field-labels";
+import { isFieldLabel, recordedFieldLabels } from "./field-labels";
 import { withSyncLease } from "./lease";
 import { SyncLeaseBusyError } from "./lease-busy-error";
 import { providerIssue } from "./provider-issue";
@@ -31,13 +31,6 @@ type Metadata = {
   syncFieldLabels?: unknown;
   syncLabelFieldsDeferred?: unknown;
 };
-
-/** The field labels Baton accounted for, or null when the record is malformed. */
-const recordedFieldLabels = (metadata: Metadata) =>
-  Array.isArray(metadata.syncFieldLabels) &&
-  metadata.syncFieldLabels.every((name) => typeof name === "string")
-    ? (metadata.syncFieldLabels as string[])
-    : null;
 
 /** The delivery-wide deadline shared by every integration a webhook reaches. */
 export const labelReadDeadline = () => Date.now() + BUDGET_MS;
@@ -137,8 +130,6 @@ async function readAndApply(
         if (!stored) return "done";
         const metadata = metadataOf(stored);
         const deferred = metadata.syncLabelFieldsDeferred;
-        // Every issue link starts with this record. Without it, Baton cannot
-        // tell which labels it already applied, so it changes nothing.
         if (!recordedFieldLabels(metadata)) {
           logger.error("Issue link has no field-label record", {
             integrationId: integration.id,

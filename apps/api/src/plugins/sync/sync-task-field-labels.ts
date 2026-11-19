@@ -7,12 +7,17 @@ import { parseLinkMetadata } from "../github/utils/parse-link-metadata";
 import type { PluginContext } from "../types";
 import { createIssueWrite } from "./dispatch-issue-write";
 import { canSyncTask } from "./eligibility";
-import { isFieldLabel } from "./field-labels";
+import { isFieldLabel, recordedFieldLabels } from "./field-labels";
 import type { IssueWrite } from "./issue-write";
 import { taskIssueLabels } from "./issue-labels";
 import { withSyncLease } from "./lease";
 import { providerIssue } from "./provider-issue";
 import { logger } from "../../observability/logger";
+
+type Metadata = {
+  syncResumeLabelBaseline?: string[];
+  syncFieldLabels?: unknown;
+};
 
 export async function syncTaskFieldLabels(
   taskId: string,
@@ -37,11 +42,32 @@ export async function syncTaskFieldLabels(
       { ...link, taskId, integrationId: context.integrationId },
       config,
     );
+    const storedMetadata = async () => {
+      const stored = await db.query.externalLinkTable.findFirst({
+        where: and(
+          eq(externalLinkTable.id, link.id),
+          eq(externalLinkTable.integrationId, context.integrationId),
+        ),
+      });
+      if (!stored) return undefined;
+      const metadata = parseLinkMetadata<Metadata>(stored.metadata, {
+        externalLinkId: link.id,
+        source: "outbound_field_labels",
+      });
+      const known = recordedFieldLabels(metadata);
+      if (!known)
+        logger.error("Issue link has no field-label record", {
+          integrationId: context.integrationId,
+          linkId: link.id,
+        });
+      return known ? { metadata, known } : undefined;
+    };
     for (;;) {
       if (
         !(await canSyncTask(taskId, context.integrationId, undefined, config))
       )
         return;
+      if (!(await storedMetadata())) return;
       const task = await db.query.taskTable.findFirst({
         where: linkedTaskScope(taskId, context.projectId),
       });
@@ -68,20 +94,9 @@ export async function syncTaskFieldLabels(
         !(await canSyncTask(taskId, context.integrationId, undefined, config))
       )
         return;
-      const stored = await db.query.externalLinkTable.findFirst({
-        where: and(
-          eq(externalLinkTable.id, link.id),
-          eq(externalLinkTable.integrationId, context.integrationId),
-        ),
-      });
+      const stored = await storedMetadata();
       if (!stored) return;
-      const metadata = parseLinkMetadata<{
-        syncResumeLabelBaseline?: string[];
-        syncFieldLabels?: string[];
-      }>(stored.metadata, {
-        externalLinkId: link.id,
-        source: "outbound_field_labels",
-      });
+      const { metadata, known } = stored;
       const replace = (names: string[], added: string[]) => [
         ...new Set([
           ...names.filter(
@@ -95,12 +110,7 @@ export async function syncTaskFieldLabels(
       await updateExternalLink(link.id, {
         metadata: {
           // Inbound label webhooks ignore field labels Baton confirmed here.
-          syncFieldLabels: replace(
-            Array.isArray(metadata.syncFieldLabels)
-              ? metadata.syncFieldLabels
-              : labels.filter(isFieldLabel),
-            add.filter(isFieldLabel),
-          ),
+          syncFieldLabels: replace(known, add.filter(isFieldLabel)),
           ...(Array.isArray(metadata.syncResumeLabelBaseline)
             ? {
                 syncResumeLabelBaseline: replace(
