@@ -136,7 +136,7 @@ export function TaskCard({
                   ))}
                 </span>
               </div>
-              <h3 className="mt-1.5 text-sm font-medium leading-snug">
+              <h3 className="mt-1.5 text-sm font-medium leading-snug wrap-anywhere">
                 {boardTask.title}
               </h3>
               {boardTask.subtasks.length > 0 ? (

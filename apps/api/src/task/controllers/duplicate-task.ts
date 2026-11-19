@@ -256,7 +256,7 @@ async function duplicateTask({
           userId,
           // The person duplicating creates the copy; never the source's creator.
           createdBy: currentUserId || null,
-          title: title?.trim() || sourceTask.title,
+          title: title ?? sourceTask.title,
           status,
           columnId: column?.id ?? null,
           startDate: sourceTask.startDate,

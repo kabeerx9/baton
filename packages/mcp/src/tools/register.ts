@@ -38,6 +38,8 @@ const prioritySchema = z.enum([
 const nonEmptyString = z.string().trim().min(1);
 const optionalNonEmptyString = nonEmptyString.optional();
 const nullableOptionalNonEmptyString = nonEmptyString.nullable().optional();
+// The API's task title rule: trimmed, not blank, at most 500 characters.
+const taskTitle = nonEmptyString.max(500);
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const optionalIsoDateTimeSchema = isoDateTimeSchema.optional();
 const nullableOptionalIsoDateTimeSchema = isoDateTimeSchema
@@ -345,7 +347,7 @@ export function registerTools(
         "Duplicate a task in the same project, copying its fields and labels. Pass title to rename the copy.",
       inputSchema: z.object({
         taskId: nonEmptyString,
-        title: optionalNonEmptyString,
+        title: taskTitle.optional(),
       }),
     },
     async (args) => {
@@ -364,7 +366,7 @@ export function registerTools(
 
   const updateTaskSchema = z.object({
     taskId: nonEmptyString,
-    title: optionalNonEmptyString,
+    title: taskTitle.optional(),
     description: z.string().nullable().optional(),
     status: optionalNonEmptyString,
     priority: prioritySchema.optional(),
@@ -718,7 +720,7 @@ export function registerTools(
   );
 
   const subtaskPlan = z.object({
-    title: nonEmptyString,
+    title: taskTitle,
     description: z.string().optional(),
     repo: z
       .string()
@@ -746,7 +748,7 @@ export function registerTools(
         "Create a task or a feature on the board in ONE call. A TASK is one job: give a title and an owner, and no `subtasks`. A FEATURE is a job with tasks under it: list them in `subtasks`, each with its own owner and repo, and say what waits on what. Use names or ids: owner 'Aakash', repo 'API'. One task has one owner. If a name is wrong nothing is created, and the error lists the valid names.",
       inputSchema: z.object({
         workspaceId: workspaceRef,
-        title: nonEmptyString,
+        title: taskTitle,
         description: z.string().optional(),
         owner: z
           .string()
