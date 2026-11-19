@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import { NotFoundPage } from "@/components/common/not-found-page";
 import { InstanceNameSync } from "@/components/instance-name/instance-name-sync";
 import { ToastProvider } from "@/components/ui/toast";
 import type { User } from "@/types/user";
@@ -9,6 +10,7 @@ export const Route = createRootRouteWithContext<{
   user: User | null | undefined;
 }>()({
   component: RootComponent,
+  notFoundComponent: NotFoundPage,
 });
 
 function RootComponent() {
