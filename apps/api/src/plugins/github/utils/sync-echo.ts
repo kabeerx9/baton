@@ -39,17 +39,6 @@ export function outboundStamp(
   const outbound = (previous?.outbound ?? []).filter(
     (entry) => !intent.intentId || entry.intentId !== intent.intentId,
   );
-  // A Baton stamp with no outbound history still counts its last value as Baton's write.
-  if (
-    previous?.source === "baton" &&
-    !previous.outbound?.length &&
-    previous.value !== undefined &&
-    previous.timestamp
-  )
-    outbound.push({
-      hash: hash(previous.value),
-      timestamp: previous.timestamp,
-    });
   const previousIntent = previous?.outbound?.find(
     (entry) => intent.intentId && entry.intentId === intent.intentId,
   );
@@ -119,23 +108,14 @@ export function isOutboundEcho(
   value: string,
   updatedAt?: string,
 ): boolean {
-  if (!stamp) return false;
-  const entries = stamp.outbound ?? [];
   const valueHash = hash(value);
-  if (
-    entries.some(
-      (entry) =>
-        !entry.cancelled &&
-        entry.hash === valueHash &&
-        (entry.updatedAt && updatedAt
-          ? entry.updatedAt === updatedAt
-          : Date.now() - Date.parse(entry.timestamp) < 300_000),
-    )
-  )
-    return true;
-  // Preserve compatibility with stamps written before outbound history existed.
-  return (
-    entries.length === 0 && stamp.source === "baton" && stamp.value === value
+  return (stamp?.outbound ?? []).some(
+    (entry) =>
+      !entry.cancelled &&
+      entry.hash === valueHash &&
+      (entry.updatedAt && updatedAt
+        ? entry.updatedAt === updatedAt
+        : Date.now() - Date.parse(entry.timestamp) < 300_000),
   );
 }
 
@@ -213,8 +193,7 @@ export function inboundOccurredAfterIntent(
   stamp: SyncStamp | undefined,
   intent: OutboundEntry | undefined,
 ) {
-  if (!stamp?.inboundAt || !intent?.startedAt) return false;
-  // IDs preserve ordering even when two persisted stamps share a millisecond.
-  if (stamp.inboundId) return stamp.inboundId !== intent.priorInboundId;
-  return Date.parse(stamp.inboundAt) > Date.parse(intent.startedAt);
+  if (!stamp?.inboundId || !intent?.startedAt) return false;
+  // IDs keep the order even when two stamps share a millisecond.
+  return stamp.inboundId !== intent.priorInboundId;
 }

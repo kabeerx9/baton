@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { formatIssueBody } from "../../apps/api/src/plugins/github/utils/format";
+import { outboundStamp } from "../../apps/api/src/plugins/github/utils/sync-echo";
 import { handleIssueEdited } from "../../apps/api/src/plugins/github/webhooks/issue-edited";
 import { resetTestDatabase } from "./helpers/database";
 import {
@@ -59,18 +60,22 @@ async function setup() {
     url: "https://github.com/example/repo/issues/1",
     taskId: task.id,
     metadata: JSON.stringify({
-      lastSync: {
-        description: {
-          source: "baton",
-          value: task.description,
-          timestamp: new Date(Date.now() - 60_000).toISOString(),
-        },
-      },
+      lastSync: { description: sentAMinuteAgo(task.description!) },
     }),
   };
   await db.insert(schema.externalLinkTable).values(link);
   m.find.mockResolvedValue(link);
   return task;
+}
+// Baton's own write of this value, past the two-second sync window.
+function sentAMinuteAgo(value: string) {
+  const timestamp = new Date(Date.now() - 60_000).toISOString();
+  const stamp = outboundStamp(undefined, value);
+  return {
+    ...stamp,
+    timestamp,
+    outbound: stamp.outbound!.map((entry) => ({ ...entry, timestamp })),
+  };
 }
 function webhook(body: string) {
   return handleIssueEdited({
