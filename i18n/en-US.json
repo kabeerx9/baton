@@ -2651,7 +2651,6 @@
 				"unknown": "This task has a status Baton does not know. Pick a step to set it.",
 				"loading": "Loading statuses…",
 				"unavailable": "Statuses could not be loaded.",
-				"followsTasks": "Follows its tasks",
 				"circleLabel": "Status: {{status}}",
 				"unknownShort": "Unknown",
 				"requested": "Request pending"
@@ -2682,6 +2681,65 @@
 				"canContinue": "Can continue",
 				"finished": "Finished",
 				"unassigned": "Unassigned"
+			},
+			"feature": {
+				"headline": {
+					"empty": "This feature has no tasks yet.",
+					"done_one": "The task is done.",
+					"done_other": "All {{count}} tasks are done.",
+					"released_one": "{{count}} task can continue.",
+					"released_other": "{{count}} tasks can continue.",
+					"notStarted_one": "Not started. {{count}} task is waiting to begin.",
+					"notStarted_other": "Not started. {{count}} tasks are waiting to begin.",
+					"asking": "Nothing can move until a request is answered.",
+					"stuck": "Nothing can move: every open task waits on another task.",
+					"progress": "{{done}} of {{total}} tasks done.",
+					"blocked": "{{count}} blocked",
+					"asked": "{{count}} waiting for an answer",
+					"inProgress": "{{count}} in progress.",
+					"waitsOnFeature_one": "It cannot finish until {{keys}} is done.",
+					"waitsOnFeature_other": "It cannot finish until {{keys}} are done."
+				},
+				"pulse": {
+					"of": "of {{total}}",
+					"tasksDone": "tasks done",
+					"barLabel_one": "{{count}} task by status",
+					"barLabel_other": "{{count}} tasks by status",
+					"segment": "{{key}}, {{status}}",
+					"segmentBlocked": "{{key}}, {{status}}, blocked",
+					"segmentAsked": "{{key}}, {{status}}, waiting for an answer"
+				},
+				"legend": {
+					"blocked": "blocked",
+					"asked": "waiting for an answer"
+				},
+				"attention": {
+					"title": "Needs attention"
+				},
+				"held": {
+					"waitsOn": "Waits on {{keys}}",
+					"waitsOnElsewhere": "Waits on {{keys}} in another feature",
+					"waitsOnHidden": "Waits on a task you cannot see",
+					"hiddenNote": "Someone else holds it up",
+					"holdsItUp": "{{names}} holds it up",
+					"noBlockerOwner": "Nobody owns the blocker",
+					"answers": "{{name}} answers",
+					"theOwner": "The owner"
+				},
+				"owners": {
+					"label": "Open tasks by owner",
+					"open": "{{count}} open"
+				},
+				"links": {
+					"holdsUp": "Holds up"
+				},
+				"lanes": {
+					"title": "How the tasks connect",
+					"column": "{{status}}: {{count}}",
+					"heldUpBy": "Held up by tasks in other features",
+					"holdsUp": "Holds up tasks in other features",
+					"elsewhere": "{{key}} {{title}}, in another feature"
+				}
 			},
 			"propertiesLabel": "Task details",
 			"owner": {

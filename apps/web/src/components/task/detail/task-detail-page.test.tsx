@@ -348,3 +348,95 @@ describe("task page for work outside the Done window", () => {
     expect(screen.getByText("bar: blocked")).toBeVisible();
   });
 });
+
+describe("feature status area", () => {
+  const open = (id: string, over = {}) => ({
+    ...sub(id, `Task ${id}`),
+    status: "to-do",
+    isCompleted: false,
+    finishedAt: null,
+    ...over,
+  });
+  const live = (subtasks: unknown[]) =>
+    ({
+      ...emptyBoard,
+      tasks: [{ ...oldFeature, column: "todo", finishedAt: null, subtasks }],
+    }) as never as BoardResponse;
+  const pulse = () =>
+    screen.queryByRole("list", { name: "tasks:hero.feature.pulse.barLabel" });
+  const lanes = () =>
+    screen.queryByRole("region", { name: "tasks:hero.feature.lanes.title" });
+
+  it("shows Pulse alone for a feature with no links", () => {
+    m.board = live([open("s1"), open("s2", { status: "in-progress" })]);
+    m.task = task("f", { status: "to-do" });
+    page("f");
+    expect(pulse()).not.toBeNull();
+    expect(lanes()).toBeNull();
+    expect(screen.queryByText(/bar:/)).toBeNull();
+  });
+
+  it("adds Lanes when a task waits on another", () => {
+    m.board = live([
+      open("s1", { status: "in-progress" }),
+      open("s2", {
+        waitsOn: [
+          { id: "s1", key: "S1", title: "Task s1", assigneeName: null },
+        ],
+      }),
+    ]);
+    m.task = task("f", { status: "to-do" });
+    page("f");
+    expect(pulse()).not.toBeNull();
+    expect(lanes()).not.toBeNull();
+  });
+
+  it("adds Lanes when the feature itself waits on another feature", () => {
+    m.board = live([open("s1")]);
+    m.task = task("f", { status: "to-do" });
+    m.relations = [
+      {
+        relationType: "blocks",
+        sourceTaskId: "g",
+        targetTaskId: "f",
+        sourceTask: related("g", { status: "to-do", open: true }),
+        targetTask: related("f"),
+      },
+    ];
+    page("f");
+    expect(lanes()).not.toBeNull();
+  });
+
+  it("keeps a plain task's hero: the status bar and no feature area", () => {
+    m.board = {
+      ...emptyBoard,
+      tasks: [{ ...oldFeature, id: "p", subtasks: [] }],
+    } as never as BoardResponse;
+    m.task = task("p", { status: "to-do" });
+    page("p");
+    expect(screen.getByText("bar: open")).toBeVisible();
+    expect(pulse()).toBeNull();
+    expect(lanes()).toBeNull();
+  });
+
+  it("moves the bar when the board changes, with no reload", () => {
+    m.board = live([open("s1"), open("s2")]);
+    m.task = task("f", { status: "to-do" });
+    const view = page("f");
+    const segments = () =>
+      [
+        ...screen
+          .getByRole("list", { name: "tasks:hero.feature.pulse.barLabel" })
+          .querySelectorAll("li > span.fs-grow"),
+      ].map((el) => el.className.endsWith("bg-emerald-500"));
+    expect(segments()).toEqual([false, false]);
+    m.board = live([
+      open("s1", { status: "done", isCompleted: true }),
+      open("s2"),
+    ]);
+    view.rerender(
+      <TaskDetailPage taskId="f" projectId="board" workspaceId="w" />,
+    );
+    expect(segments()).toEqual([true, false]);
+  });
+});
