@@ -62,6 +62,7 @@ async function deleteTaskRelation(
       ...relation,
       taskId: relation.sourceTaskId,
       projectId: task.projectId,
+      sourceProjectId: task.projectId,
       targetProjectId: target?.projectId,
       userId,
     });

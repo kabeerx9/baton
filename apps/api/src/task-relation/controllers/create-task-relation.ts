@@ -155,6 +155,7 @@ async function createTaskRelation({
     ...relation,
     taskId: sourceTaskId,
     projectId: sourceTask.projectId,
+    sourceProjectId: sourceTask.projectId,
     targetProjectId: targetTask.projectId,
     userId,
   });

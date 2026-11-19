@@ -33,6 +33,7 @@ import type {
 import { InMemoryBroadcastAdapter } from "./in-memory-broadcast-adapter";
 import { RedisBroadcastAdapter } from "./redis-broadcast-adapter";
 import { getProjectReadAccess } from "./project-read-access";
+import { relationBroadcasts } from "./relation-broadcasts";
 import { logger } from "../observability/logger";
 
 const INSTANCE_ID = randomUUID();
@@ -942,7 +943,8 @@ type TaskEvent = {
   taskId: string;
   sourceTaskId: string | undefined;
   targetTaskId: string | undefined;
-  /** Relation events: the target task's project, when it differs. */
+  /** Relation events: each endpoint's project, when the publisher knows it. */
+  sourceProjectId?: string;
   targetProjectId?: string;
 };
 
@@ -1188,35 +1190,30 @@ for (const eventName of taskUpdateEvents) {
       return;
     }
 
-    broadcastToProject(
-      projectId,
-      {
+    if (
+      eventName === "task-relation.created" ||
+      eventName === "task-relation.deleted"
+    ) {
+      for (const sent of relationBroadcasts({
         type,
         projectId,
-        taskId: taskId,
+        sourceProjectId: data.sourceProjectId,
+        targetProjectId: data.targetProjectId,
         sourceTaskId: data.sourceTaskId,
         targetTaskId: data.targetTaskId,
-        ...(eventName === "task.title_changed" || data.titleChanged
-          ? { taskTitleChanged: true }
-          : {}),
-      },
-      initiatorId,
-    );
-    // A relation shows on both tasks' boards; send once per project.
-    if (
-      (eventName === "task-relation.created" ||
-        eventName === "task-relation.deleted") &&
-      data.targetProjectId &&
-      data.targetProjectId !== projectId
-    ) {
+      })) {
+        broadcastToProject(sent.projectId, sent.message, initiatorId);
+      }
+    } else {
       broadcastToProject(
-        data.targetProjectId,
+        projectId,
         {
           type,
-          projectId: data.targetProjectId,
-          taskId,
-          sourceTaskId: data.sourceTaskId,
-          targetTaskId: data.targetTaskId,
+          projectId,
+          taskId: taskId,
+          ...(eventName === "task.title_changed" || data.titleChanged
+            ? { taskTitleChanged: true }
+            : {}),
         },
         initiatorId,
       );
