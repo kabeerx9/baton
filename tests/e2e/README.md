@@ -104,11 +104,11 @@ Cloud runs are serialized to stay within the two-session limit; obsolete PR runs
 Both workflows build the checked-out revision, use a disposable database, upload
 reports for seven days, and tear down the stack even after failure. BrowserStack
 credentials are passed only to its credential check and cloud test step. No
-production instance is contacted. Tests use synthetic accounts; invitation setup
+production instance is contacted. Tests use synthetic accounts; join-link setup
 uses the normal API without sending email because SMTP is not configured.
 
 **Chromium smoke tests** keeps its display name for external check consumers.
-Require `ci-result` for PR gating; the former `browser-result` gate is retired.
+Require `ci-result` for PR gating.
 Workflow edits do not configure GitHub branch rules.
 The cloud check runs after merge and does not currently gate releases.
 

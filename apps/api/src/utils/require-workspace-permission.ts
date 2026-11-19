@@ -122,10 +122,7 @@ async function memberRoles(
 
   // Prefer the DB row when present so admin-edited defaults
   // (viewer/member/admin) take effect immediately. Falls back to the
-  // compiled-in static definitions only when no row exists, which protects
-  // viewer/member/admin users from a 403 if their workspace somehow
-  // missed the seed (e.g., seed failed during workspace creation and
-  // the boot-time backfill hasn't run yet).
+  // compiled-in static definitions only when no row exists.
   const roles = splitRoles(member?.role);
   return {
     roles,
