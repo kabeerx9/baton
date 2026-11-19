@@ -25,8 +25,8 @@ async function deleteTaskRelation(
       ),
     );
 
-  // Check both endpoints in the delete statement itself. Legacy cross-tenant
-  // rows must not bypass the same boundary enforced on creation and reads.
+  // Check both endpoints in the delete statement itself: the caller must reach
+  // both tasks in this workspace, the same boundary creation and reads enforce.
   const [relation] = await db
     .delete(taskRelationTable)
     .where(

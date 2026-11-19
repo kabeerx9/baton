@@ -1300,39 +1300,6 @@ export const externalLinkTable = pgTable(
   ],
 );
 
-export const commentTable = pgTable(
-  "comment",
-  {
-    id: text("id")
-      .$defaultFn(() => createId())
-      .primaryKey(),
-    taskId: text("task_id")
-      .notNull()
-      .references(() => taskTable.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => userTable.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    content: text("content").notNull(),
-    createdAt: timestamp("created_at", { mode: "date" })
-      .default(utcNow)
-      .notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date" })
-      .default(utcNow)
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    index("comment_task_idx").on(table.taskId),
-    index("comment_user_idx").on(table.userId),
-  ],
-);
-
 export const taskRelationTable = pgTable(
   "task_relation",
   {

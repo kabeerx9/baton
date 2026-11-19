@@ -5,7 +5,6 @@ import {
   apikeyTable,
   assetTable,
   columnTable,
-  commentTable,
   externalLinkTable,
   integrationTable,
   labelTable,
@@ -34,7 +33,6 @@ export const userTableRelations = relations(userTable, ({ many, one }) => ({
   workspaceMemberships: many(workspaceUserTable),
   assignedTasks: many(taskTable),
   activities: many(activityTable),
-  comments: many(commentTable),
   assets: many(assetTable),
   notifications: many(notificationTable),
   notificationPreference: one(userNotificationPreferenceTable),
@@ -139,7 +137,6 @@ export const taskTableRelations = relations(taskTable, ({ one, many }) => ({
     references: [columnTable.id],
   }),
   activities: many(activityTable),
-  comments: many(commentTable),
   assets: many(assetTable),
   labels: many(labelTable),
   externalLinks: many(externalLinkTable),
@@ -314,17 +311,6 @@ export const taskReminderSentTableRelations = relations(
     }),
   }),
 );
-
-export const commentTableRelations = relations(commentTable, ({ one }) => ({
-  task: one(taskTable, {
-    fields: [commentTable.taskId],
-    references: [taskTable.id],
-  }),
-  user: one(userTable, {
-    fields: [commentTable.userId],
-    references: [userTable.id],
-  }),
-}));
 
 export const mcpGrantTableRelations = relations(
   mcpGrantTable,

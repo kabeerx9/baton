@@ -76,7 +76,7 @@ export const taskWithAssigneeSchema = taskSchema
     }),
     columnId: z.string().nullable().openapi({
       description:
-        "The referenced workflow column; null for virtual statuses and legacy tasks without a column reference.",
+        "The referenced workflow column; null for virtual statuses and in a project without workflow columns.",
     }),
     isSubtask: z.boolean().optional(),
     subtaskCounts: z

@@ -22,7 +22,7 @@ const text = (value: unknown) =>
 const isoDate = (value: unknown) =>
   value instanceof Date ? value.toISOString() : (value ?? null);
 
-/** One picker per event type: the event data a legacy subscriber read. */
+/** One picker per event type: the event data the activity consumer reads. */
 const PICKERS: Record<
   string,
   (data: Data) => { userId: unknown; eventData: Record<string, unknown> }

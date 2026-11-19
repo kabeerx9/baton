@@ -19,7 +19,7 @@ export async function getSyncIntegrations(
   return rows.flatMap((integration) => {
     try {
       const config = JSON.parse(integration.config) as Record<string, unknown>;
-      // Legacy integrations retain their existing task-created behavior.
+      // Only an integration with sync rules syncs task fields.
       return config.syncRules && readSyncRules(config)
         ? [{ ...integration, parsedConfig: config }]
         : [];

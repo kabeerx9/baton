@@ -933,16 +933,6 @@
 				"status": 403,
 				"code": "DEMO_WORKSPACE"
 			}
-		},
-		"quarantinedOwnerToken": {
-			"member.remove": {
-				"status": 403,
-				"code": "OWNER_ROLE_REVIEW_REQUIRED"
-			},
-			"member.remove-owner": {
-				"status": 403,
-				"code": "OWNER_ROLE_REVIEW_REQUIRED"
-			}
 		}
 	}
 }

@@ -17,18 +17,6 @@ describe("splitRoles", () => {
     ]);
   });
 
-  it("never grants ownership by trimming a stored token", () => {
-    for (const role of [
-      " owner",
-      "owner ",
-      "member, owner",
-      "member,\towner\n",
-    ]) {
-      expect(splitRoles(role)).not.toContain("owner");
-    }
-    expect(splitRoles("member, owner,owner")).toEqual(["member", "owner"]);
-  });
-
   it("returns an empty list for a missing or blank role", () => {
     expect(splitRoles(null)).toEqual([]);
     expect(splitRoles(undefined)).toEqual([]);

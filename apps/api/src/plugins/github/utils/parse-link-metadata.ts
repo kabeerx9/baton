@@ -1,6 +1,6 @@
 import { logger } from "../../../observability/logger";
 // An external link's metadata is a JSON string in the database, so a row
-// written by an older version, or truncated, is not the caller's fault and
+// with an unexpected shape, or truncated, is not the caller's fault and
 // should not take the webhook delivery down with it. Warn and carry on with an
 // empty object, in one place, since the GitHub side needs it in four.
 // The shape is whatever an earlier write left behind, so callers that read

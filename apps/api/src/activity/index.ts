@@ -1,4 +1,3 @@
-import { actorFromContext } from "../task-change-request/actor";
 import { HTTPException } from "hono/http-exception";
 import { isReservedActivityType } from "./reserved-activity-types";
 import {
@@ -10,11 +9,8 @@ import {
 import { requireWorkspacePermission } from "../utils/require-workspace-permission";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
 import createActivity from "./controllers/create-activity";
-import createComment from "./controllers/create-comment";
-import deleteComment from "./controllers/delete-comment";
 import getActivities from "./controllers/get-activities";
 import getWorkspaceActivities from "./controllers/get-workspace-activities";
-import updateComment from "./controllers/update-comment";
 import {
   activityListSchema,
   activitySchema,
@@ -23,10 +19,7 @@ import {
 import {
   activitiesQuery,
   createActivityBody,
-  createCommentBody,
-  deleteCommentBody,
   taskIdParam,
-  updateCommentBody,
   workspaceIdParam,
 } from "./schema";
 
@@ -103,88 +96,6 @@ const createActivityRoute = createRoute({
   },
 });
 
-const createCommentRoute = createRoute({
-  method: "post",
-  operationId: "createComment",
-  path: "/comment",
-  tags: ["Activity"],
-  summary: "Create comment",
-  description:
-    "Add a comment to a task. Equivalent to POST /comment/{taskId}, kept for the activity-feed client.",
-  middleware: [
-    workspaceAccess.fromTaskId(),
-    requireWorkspacePermission({ task: ["update_assigned"] }),
-  ] as const,
-  request: {
-    body: {
-      required: true,
-      content: { "application/json": { schema: createCommentBody } },
-    },
-  },
-  responses: {
-    200: jsonResponse("The created comment", activitySchema),
-    400: errorResponse("Invalid body"),
-    403: errorResponse(
-      "No access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
-    ),
-    404: errorResponse("Task not found"),
-  },
-});
-
-const updateCommentRoute = createRoute({
-  method: "put",
-  operationId: "updateComment",
-  path: "/comment",
-  tags: ["Activity"],
-  summary: "Update comment",
-  description: "Edit a comment. Only the comment's author may do this.",
-  middleware: [
-    workspaceAccess.fromActivity("activityId"),
-    requireWorkspacePermission({ task: ["update_assigned"] }),
-  ] as const,
-  request: {
-    body: {
-      required: true,
-      content: { "application/json": { schema: updateCommentBody } },
-    },
-  },
-  responses: {
-    200: jsonResponse("The updated comment", activitySchema),
-    400: errorResponse("Invalid body"),
-    403: errorResponse(
-      "Not the author, no access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
-    ),
-    404: errorResponse("Activity or comment not found"),
-  },
-});
-
-const deleteCommentRoute = createRoute({
-  method: "delete",
-  operationId: "deleteComment",
-  path: "/comment",
-  tags: ["Activity"],
-  summary: "Delete comment",
-  description: "Delete a comment. Only the comment's author may do this.",
-  middleware: [
-    workspaceAccess.fromActivity("activityId"),
-    requireWorkspacePermission({ task: ["update_assigned"] }),
-  ] as const,
-  request: {
-    body: {
-      required: true,
-      content: { "application/json": { schema: deleteCommentBody } },
-    },
-  },
-  responses: {
-    200: jsonResponse("The deleted comment", activitySchema),
-    400: errorResponse("Invalid body"),
-    403: errorResponse(
-      "Not the author, no access to the project, missing task:update permission, or task:update_assigned only and the task is not assigned to you",
-    ),
-    404: errorResponse("Activity or comment not found"),
-  },
-});
-
 const activity = apiRouter()
   .openapi(getWorkspaceActivitiesRoute, async (c) =>
     c.json(
@@ -221,41 +132,7 @@ const activity = apiRouter()
       await createActivity(taskId, type, c.get("userId"), message, eventData),
       200,
     );
-  })
-  .openapi(createCommentRoute, async (c) => {
-    const { taskId, comment } = c.req.valid("json");
-    return c.json(
-      await createComment(
-        taskId,
-        c.get("userId"),
-        comment,
-        actorFromContext(c),
-      ),
-      200,
-    );
-  })
-  .openapi(updateCommentRoute, async (c) => {
-    const { activityId, comment } = c.req.valid("json");
-    return c.json(
-      await updateComment(
-        c.get("userId"),
-        activityId,
-        comment,
-        actorFromContext(c),
-      ),
-      200,
-    );
-  })
-  .openapi(deleteCommentRoute, async (c) =>
-    c.json(
-      await deleteComment(
-        c.get("userId"),
-        c.req.valid("json").activityId,
-        actorFromContext(c),
-      ),
-      200,
-    ),
-  );
+  });
 
 // Activity rows for task events come from the outbox: see
 // activity/outbox-consumer.ts and events/outbox/routes.ts.

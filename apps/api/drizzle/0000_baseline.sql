@@ -102,15 +102,6 @@ CREATE TABLE "column" (
 	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "comment" (
-	"id" text PRIMARY KEY NOT NULL,
-	"task_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"content" text NOT NULL,
-	"created_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL,
-	"updated_at" timestamp DEFAULT (now() AT TIME ZONE 'utc') NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "external_link" (
 	"id" text PRIMARY KEY NOT NULL,
 	"task_id" text NOT NULL,
@@ -559,8 +550,6 @@ ALTER TABLE "asset" ADD CONSTRAINT "asset_task_id_task_id_fk" FOREIGN KEY ("task
 ALTER TABLE "asset" ADD CONSTRAINT "asset_activity_id_activity_id_fk" FOREIGN KEY ("activity_id") REFERENCES "public"."activity"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "asset" ADD CONSTRAINT "asset_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "column" ADD CONSTRAINT "column_project_id_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "comment" ADD CONSTRAINT "comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "comment" ADD CONSTRAINT "comment_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "external_link" ADD CONSTRAINT "external_link_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "external_link" ADD CONSTRAINT "external_link_integration_id_integration_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integration"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "github_import" ADD CONSTRAINT "github_import_integration_id_integration_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integration"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
@@ -630,8 +619,6 @@ CREATE INDEX "asset_activityId_idx" ON "asset" USING btree ("activity_id");--> s
 CREATE INDEX "asset_createdBy_idx" ON "asset" USING btree ("created_by");--> statement-breakpoint
 CREATE INDEX "asset_draft_expiry_idx" ON "asset" USING btree ("created_at","id") WHERE "asset"."task_id" is null and "asset"."surface" in ('draft', 'draft-pending');--> statement-breakpoint
 CREATE INDEX "column_projectId_idx" ON "column" USING btree ("project_id");--> statement-breakpoint
-CREATE INDEX "comment_task_idx" ON "comment" USING btree ("task_id");--> statement-breakpoint
-CREATE INDEX "comment_user_idx" ON "comment" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "external_link_taskId_idx" ON "external_link" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "external_link_integrationId_idx" ON "external_link" USING btree ("integration_id");--> statement-breakpoint
 CREATE INDEX "external_link_externalId_idx" ON "external_link" USING btree ("external_id");--> statement-breakpoint

@@ -65,10 +65,10 @@ async function updateLabel(id: string, name: string, color: string) {
                 label.taskId
                   ? eq(labelTable.id, id)
                   : and(
-                      eq(labelTable.workspaceId, label.workspaceId ?? ""),
+                      eq(labelTable.workspaceId, label.workspaceId),
                       eq(labelTable.name, name),
                     ),
-                eq(projectTable.workspaceId, label.workspaceId ?? ""),
+                eq(projectTable.workspaceId, label.workspaceId),
               ),
             );
     return { updatedLabel, projects, original: label };

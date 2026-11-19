@@ -68,7 +68,7 @@ vi.mock("../../../apps/api/src/utils/validate-workspace-access", async () => {
 const { workspaceAccess } =
   await import("../../../apps/api/src/utils/workspace-access-middleware");
 
-// Mirrors POST /api/activity/comment: there is no `taskId` path param, the id
+// Mirrors POST /api/activity/create: there is no `taskId` path param, the id
 // travels in the JSON body, and the handler acts on that body value.
 function buildApp() {
   return new Hono()

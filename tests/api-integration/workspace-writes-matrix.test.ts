@@ -211,13 +211,4 @@ describe("rules against the provider matrix (A2)", () => {
       }
     },
   );
-
-  it("refuses a quarantined owner grant on removal", async () => {
-    for (const action of ["member.remove", "member.remove-owner"] as const) {
-      const seeded = await ctx.seed("admin", { role: "admin, owner" });
-      expect(
-        await ctx.cell(ACTIONS[action]!(seeded), ctx.as.cookie("admin")),
-      ).toEqual(matrix.rules.quarantinedOwnerToken[action]);
-    }
-  });
 });

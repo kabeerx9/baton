@@ -270,13 +270,12 @@ describe("GitHub repository step", () => {
 });
 
 describe("connected GitHub repository", () => {
-  it("asks to reconnect legacy integrations and still permits removal after confirmation", async () => {
+  it("asks to reconnect an inactive integration and still permits removal after confirmation", async () => {
     m.appInfo.mockResolvedValue(linkedAccount);
     m.remove.mockResolvedValue(undefined);
     m.integration.current = {
       repositoryOwner: "owner",
       repositoryName: "repo",
-      requiresVerification: true,
       isActive: false,
     };
     show();
@@ -309,7 +308,6 @@ describe("connected GitHub repository", () => {
     m.integration.current = {
       repositoryOwner: "owner",
       repositoryName: "repo",
-      requiresVerification: true,
       isActive: false,
     };
     show();
@@ -332,7 +330,6 @@ describe("connected GitHub repository", () => {
       repositoryOwner: "owner",
       repositoryName: "repo",
       installationId: 1,
-      requiresVerification: false,
       isActive: true,
       importProgress: {
         runId: "saved-run",
@@ -390,7 +387,6 @@ describe("connected GitHub repository", () => {
       repositoryOwner: "owner",
       repositoryName: "repo",
       isActive: true,
-      requiresVerification: false,
     };
     show();
     expect(
@@ -417,7 +413,6 @@ it.each(["create", "update"] as const)(
       repositoryOwner: "owner",
       repositoryName: "repo",
       isActive: true,
-      requiresVerification: false,
     };
     show();
     const button = await screen.findByRole("button", {

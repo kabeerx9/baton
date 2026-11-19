@@ -134,7 +134,7 @@ export async function putState(
     return null;
   });
   // Return denials outside the transaction: expired-row cleanup must commit
-  // even when a legacy over-cap table refuses this insert.
+  // even when the capacity check refuses this insert.
   if (denial === "missing-request")
     throw new HTTPException(404, {
       res: Response.json(

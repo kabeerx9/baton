@@ -39,7 +39,7 @@ export function outboundStamp(
   const outbound = (previous?.outbound ?? []).filter(
     (entry) => !intent.intentId || entry.intentId !== intent.intentId,
   );
-  // Older installations have only the last value, without a provider timestamp.
+  // A Baton stamp with no outbound history still counts its last value as Baton's write.
   if (
     previous?.source === "baton" &&
     !previous.outbound?.length &&

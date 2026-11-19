@@ -81,7 +81,7 @@ export function getDefaultConfig(
   };
 }
 
-/** Legacy integrations require explicit re-verification by a repository administrator. */
+/** A binding syncs only after a repository administrator verified it. */
 export function hasVerifiedGitHubBinding(config: GitHubConfig): boolean {
   return (
     Number.isSafeInteger(config.installationId) &&
