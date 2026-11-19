@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Compass, LogOut, Settings, LogOutIcon } from "lucide-react";
+import { Compass, LogOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShortcut } from "@/lib/shortcuts/use-shortcut";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import useSignOut from "@/hooks/mutations/use-sign-out";
 import { useReplayTour } from "@/hooks/queries/tour/use-replay-tour";
 import { getInitials } from "@/lib/get-initials";
+import { signOutState } from "@/lib/sign-out-state";
 import { toast } from "@/lib/toast";
 import useProjectStore from "@/store/project";
 
@@ -29,12 +30,14 @@ export function UserAvatar() {
 
   const handleSignOut = async () => {
     try {
+      // Sign-out leaves for the sign-in page before it settles, so the page
+      // must know now. The page says it once, in its own status region; a
+      // toast here would announce the same sentence a second time.
+      signOutState.justSignedOut = true;
       await signOut();
       setProject(undefined);
-      toast.success(t("navigation:userMenu.signedOutSuccess"), {
-        icon: LogOutIcon,
-      });
     } catch (error) {
+      signOutState.justSignedOut = false;
       toast.error(
         error instanceof Error
           ? error.message
