@@ -1,9 +1,9 @@
+import { DelayedSpinner } from "@/components/common/pending/delayed-spinner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
-import { Spinner } from "@/components/ui/spinner";
 import {
   DEFAULT_WORKSPACE_USAGE,
   type WorkspaceUsage,
@@ -124,7 +124,7 @@ export function OnboardingFlow() {
   if (step === "start" && !isDecided) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background">
-        <Spinner className="size-6 text-muted-foreground" />
+        <DelayedSpinner pending />
       </div>
     );
   }

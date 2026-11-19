@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { SplashScreen } from "@/components/common/splash/splash-screen";
 import PageTitle from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import getTaskByTicketId from "@/fetchers/task/get-task-by-ticket-id";
@@ -47,7 +48,8 @@ function RouteComponent() {
   const { ticketId } = Route.useParams();
   const result = Route.useLoaderData();
 
-  if (!result) return null;
+  // Unauthorized: the sign-in redirect is on its way.
+  if (!result) return <SplashScreen step="task" />;
 
   const isAmbiguous = result.failure === "ambiguous";
   const title = isAmbiguous

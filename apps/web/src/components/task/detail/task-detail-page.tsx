@@ -1,3 +1,4 @@
+import { TaskDetailsSkeleton } from "@/components/task/task-page-skeleton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExternalLinksAccordion } from "@/components/external-links/external-links-accordion";
@@ -117,7 +118,7 @@ export function TaskDetailPage({
   }, [openAddTask, onAddTaskOpened]);
   void activitiesLoading;
 
-  if (!task) return null;
+  if (!task) return <TaskDetailsSkeleton />;
 
   const slugOf = (id: string) =>
     board?.projects.find((p) => p.id === id)?.slug ?? "?";

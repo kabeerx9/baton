@@ -7,6 +7,7 @@ import {
 import { TaskBoard } from "@/components/board/task-board";
 import { LaneSockets } from "@/components/board/lane-sockets";
 import { buildBoard } from "@/components/board/model";
+import { DelayedSpinner } from "@/components/common/pending/delayed-spinner";
 import useAuth from "@/components/providers/auth-provider/hooks/use-auth";
 import WorkspaceLayout from "@/components/common/workspace-layout";
 import PageTitle from "@/components/page-title";
@@ -48,8 +49,8 @@ function RouteComponent() {
             </Button>
           </div>
         ) : !board || !data ? (
-          <div className="delayed-reveal p-6 text-sm text-muted-foreground">
-            Loading board…
+          <div className="flex h-full items-center justify-center">
+            <DelayedSpinner pending />
           </div>
         ) : (
           <div className="h-full overflow-auto lg:overflow-hidden">

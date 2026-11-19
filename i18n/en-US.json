@@ -21,6 +21,13 @@
 		"empty": {
 			"loading": "Loading..."
 		},
+		"splash": {
+			"session": "Signing you in…",
+			"workspace": "Loading your workspace…",
+			"task": "Finding your task…",
+			"generic": "Loading…",
+			"stillWorking": "Still working on it…"
+		},
 		"breadcrumb": {
 			"label": "Breadcrumb"
 		},

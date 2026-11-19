@@ -2,7 +2,7 @@ import "./instrument";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import queryClient from "@/query-client";
@@ -11,11 +11,12 @@ import "@/index.css";
 import { useAuth } from "@/components/providers/auth-provider/hooks/use-auth";
 import { SequenceHint } from "./components/shortcuts/sequence-hint";
 import { ShortcutsPanel } from "./components/shortcuts/shortcuts-panel";
-import { BootFrame } from "./components/common/boot-frame";
+import { PendingSplash } from "./components/common/splash/pending-splash";
 import AuthProvider from "./components/providers/auth-provider";
 import { ThemeProvider } from "./components/providers/theme-provider";
 import { ErrorBoundary } from "./components/ui/error-boundary";
 import { ShortcutListener } from "./lib/shortcuts/shortcut-listener";
+import { takeBootSplashShown } from "./lib/boot-splash";
 import { preloadRouteComponents } from "./lib/preload-route-components";
 import { i18n } from "./lib/i18n";
 import { routeTree } from "./routeTree.gen";
@@ -44,11 +45,16 @@ console.log(`
 // One listener for the app: a read of a task ends its "uncertain" status write.
 watchTaskReads(queryClient);
 
+const PENDING_MS = 300;
+
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
-  defaultPendingComponent: BootFrame,
+  // Show the splash after 300ms of waiting, and keep it at least 500ms.
+  defaultPendingComponent: PendingSplash,
+  defaultPendingMs: PENDING_MS,
+  defaultPendingMinMs: 500,
   context: {
     user: null,
     queryClient,
@@ -59,6 +65,15 @@ preloadRouteComponents(router, window.location.pathname);
 
 function App() {
   const { user } = useAuth();
+  // Runs once, before the router mounts and starts its first load.
+  useState(() => {
+    if (!takeBootSplashShown()) return;
+    router.update({ ...router.options, defaultPendingMs: 0 });
+    const stop = router.subscribe("onResolved", () => {
+      router.update({ ...router.options, defaultPendingMs: PENDING_MS });
+      stop();
+    });
+  });
 
   return <RouterProvider router={router} context={{ user }} />;
 }
