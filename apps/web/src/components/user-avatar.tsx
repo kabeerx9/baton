@@ -54,6 +54,11 @@ export function UserAvatar() {
   };
 
   const initials = getInitials(user.name || user.email, "UN");
+  // No source, no <img>: an empty src is invalid and makes some browsers
+  // request the page again. The fallback initials stand in on their own.
+  const avatarImage = user.image ? (
+    <AvatarImage src={user.image} alt={user.name || ""} />
+  ) : null;
 
   return (
     <DropdownMenu>
@@ -64,7 +69,7 @@ export function UserAvatar() {
           className="h-8 w-8 rounded-full p-0 hover:bg-sidebar-accent/70"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image ?? ""} alt={user.name || ""} />
+            {avatarImage}
             <AvatarFallback className="text-xs font-medium border border-border/30">
               {initials}
             </AvatarFallback>
@@ -75,7 +80,7 @@ export function UserAvatar() {
         <div className="px-2.5 py-2">
           <div className="flex items-center gap-2 text-left text-sm">
             <Avatar className="h-7 w-7 rounded-full">
-              <AvatarImage src={user.image ?? ""} alt={user.name || ""} />
+              {avatarImage}
               <AvatarFallback className="rounded-full border border-border/30">
                 {initials}
               </AvatarFallback>
