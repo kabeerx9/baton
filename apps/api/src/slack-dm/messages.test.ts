@@ -4,6 +4,7 @@ import {
   unblockedMessage,
   waitingOnYouMessage,
   welcomeMessage,
+  workspaceWelcomeMessage,
 } from "./messages";
 
 const api = { key: "API-3", title: "Return points", url: "https://t/api-3" };
@@ -86,6 +87,30 @@ describe("slack messages", () => {
         boardUrl: "https://t/b",
       }),
     ).toContain("&lt;!channel&gt; &amp; co shared this workspace with you.");
+  });
+
+  it("welcomes the owner of a new workspace by name", () => {
+    expect(
+      workspaceWelcomeMessage({
+        name: "Kabeer",
+        workspaceName: "R&D <Team>",
+        boardUrl: "https://t/dashboard/workspace/ws-1/board",
+      }),
+    ).toBe(
+      "*Welcome to Baton, Kabeer!*\n*R&amp;D &lt;Team&gt;* is ready. Open your board: <https://t/dashboard/workspace/ws-1/board>",
+    );
+  });
+
+  it("welcomes without a name when the owner has none", () => {
+    expect(
+      workspaceWelcomeMessage({
+        name: null,
+        workspaceName: "Team",
+        boardUrl: "https://t/b",
+      }),
+    ).toBe(
+      "*Welcome to Baton!*\n*Team* is ready. Open your board: <https://t/b>",
+    );
   });
 
   it.each([null, "  "])(

@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import db from "../database";
+import { userTable } from "../database/schema";
 import { subscribeToEvent } from "../events";
 import { slackConfig } from "./config";
 import { loadJoinFacts } from "./join-facts";
@@ -5,6 +8,7 @@ import {
   unblockedMessage,
   waitingOnYouMessage,
   welcomeMessage,
+  workspaceWelcomeMessage,
 } from "./messages";
 import { sendDm } from "./send-dm";
 import { blockedBy, loadTasks, openBlockersOf } from "./task-facts";
@@ -135,3 +139,32 @@ subscribeToEvent<{ workspaceId: string; userId: string; linkId: string }>(
     );
   },
 );
+
+/**
+ * "Welcome to Baton": someone created a workspace. This is the sign-up
+ * welcome. A person who arrives through a join link gets the message above
+ * instead, so nobody is welcomed twice. Live like the other messages: a
+ * restart in between drops it.
+ */
+subscribeToEvent<{
+  workspaceId: string;
+  workspaceName: string;
+  ownerId?: string;
+}>("workspace.created", async (event) => {
+  const config = slackConfig();
+  if (!config || !event.workspaceId || !event.ownerId) return;
+  const [owner] = await db
+    .select({ name: userTable.name })
+    .from(userTable)
+    .where(eq(userTable.id, event.ownerId))
+    .limit(1);
+  await sendDm(
+    event.ownerId,
+    workspaceWelcomeMessage({
+      name: owner?.name ?? null,
+      workspaceName: event.workspaceName,
+      boardUrl: `${config.clientUrl}/dashboard/workspace/${event.workspaceId}/board`,
+    }),
+    { workspaceId: event.workspaceId },
+  );
+});

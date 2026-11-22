@@ -77,6 +77,27 @@ export function welcomeMessage({
   return sentences.join(" ");
 }
 
+/**
+ * Someone created a workspace: the first thing they hear from Baton.
+ * Sent once per workspace, to its owner. A person who arrives through a join
+ * link is welcomed by `workspace.member_joined` instead, so nobody hears it
+ * twice.
+ */
+export function workspaceWelcomeMessage({
+  name,
+  workspaceName,
+  boardUrl,
+}: {
+  name: string | null;
+  workspaceName: string;
+  boardUrl: string;
+}) {
+  const hello = name?.trim()
+    ? `Welcome to Baton, ${escape(name.trim())}!`
+    : "Welcome to Baton!";
+  return `*${hello}*\n*${escape(workspaceName)}* is ready. Open your board: <${boardUrl}>`;
+}
+
 export function testMessage() {
   return "*The tracker can reach you here.*\nYou will get a message when someone waits on your task, and when a task that blocks yours is done.";
 }
