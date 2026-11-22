@@ -7,6 +7,7 @@ import {
 } from "@xyflow/react";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   type BoardTask,
@@ -199,22 +200,32 @@ export function TaskStream({
             {done} of {tasks.length} done
           </span>
         )}
-        {onAdd && (
-          <button
+        {onAdd && tasks.length > 0 && (
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onAdd}
-            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-xs outline-none transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="ml-auto"
           >
             <Plus className="size-3.5" />
             Add task
-          </button>
+          </Button>
         )}
       </div>
       {tasks.length === 0 ? (
-        <p className="text-muted-foreground text-xs">
-          None. This is a single task. Add a task under it when a piece belongs
-          to another person or repo; it then becomes a feature.
-        </p>
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-muted-foreground text-xs">
+            None. This is a single task. Add a task under it when a piece
+            belongs to another person or repo; it then becomes a feature.
+          </p>
+          {onAdd && (
+            <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+              <Plus className="size-3.5" />
+              Add task
+            </Button>
+          )}
+        </div>
       ) : narrow ? (
         <TaskList tasks={tasks} lanes={lanes} workspaceId={workspaceId} />
       ) : (
