@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SectionAddButton } from "@/components/task/sections/section-add-button";
 import { useLinkWaitsOn } from "@/hooks/mutations/board/use-link-waits-on";
 import useDeleteTaskRelation from "@/hooks/mutations/task-relation/use-delete-task-relation";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
@@ -85,16 +85,12 @@ export function WaitsOnSection({
         )}
         <span className="flex-1" />
         {canEdit && canAdd && (
-          <button
-            type="button"
+          <SectionAddButton
             onClick={() => setPicking(true)}
             disabled={link.isPending}
             aria-label={t("workspace:board.waitsOn.add")}
             title={t("workspace:board.waitsOn.add")}
-            className="flex size-6.5 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          >
-            <Plus className="size-3.5" />
-          </button>
+          />
         )}
       </div>
       {waitsOn.length === 0 ? (

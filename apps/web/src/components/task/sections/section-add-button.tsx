@@ -1,21 +1,26 @@
 import { Plus } from "lucide-react";
 import type { ComponentProps } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
+/**
+ * The add control at the head of a task section (relations, links, waits on).
+ * Outlined, so it reads as an action instead of a caption: the sections it
+ * sits in are quiet, and a bare muted icon disappears next to their headings.
+ */
 export function SectionAddButton({
   className,
   ...props
 }: ComponentProps<"button">) {
   return (
-    <button
+    <Button
       type="button"
-      className={cn(
-        "flex size-6.5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-50 data-open:bg-accent",
-        className,
-      )}
+      variant="outline"
+      size="icon-xs"
+      className={cn("shrink-0", className)}
       {...props}
     >
       <Plus className="size-3.5" />
-    </button>
+    </Button>
   );
 }
